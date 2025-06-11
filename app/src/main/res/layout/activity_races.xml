@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Текст за заглавие, позициониран горе в центъра -->
+
+    <!-- Списък за състезания -->
+    <TextView
+        android:id="@+id/tvTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="26dp"
+        android:layout_marginBottom="80dp"
+        android:text="Маршрути"
+        android:textSize="32sp"
+        android:textStyle="bold" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvRaces"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="80dp"
+        android:padding="16dp"/>
+
+    <!-- Празен изглед, когато списъкът е празен -->
+    <TextView
+        android:id="@+id/tvEmptyView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:visibility="gone"
+        android:text="@string/empty_races_message"/>
+
+    <!-- Бутон за нов маршрут, който е позициониран на 80dp над долния ръб на навигацията -->
+    <Button
+        android:id="@+id/btnNewRoute"
+        android:layout_width="116dp"
+        android:layout_height="65dp"
+        android:layout_gravity="end|bottom"
+        android:layout_marginBottom="80dp"
+        android:layout_marginEnd="16dp"
+        android:text="Нов маршрут" />
+</FrameLayout>

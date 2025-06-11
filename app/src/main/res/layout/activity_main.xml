@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white"
+    tools:context=".MainActivity">
+
+    <!-- GaugeView -->
+
+    <!-- Current Angle Text -->
+
+    <!-- Max Left Text -->
+
+    <com.example.clinometer.GaugeView
+        android:id="@+id/gaugeView"
+        android:layout_width="358dp"
+        android:layout_height="347dp"
+        android:layout_marginTop="220dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.487"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/currentAngleText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0°"
+        android:textAlignment="center"
+        android:textSize="28sp"
+        app:layout_constraintBottom_toBottomOf="@+id/gaugeView"
+        app:layout_constraintEnd_toEndOf="@+id/gaugeView"
+        app:layout_constraintHorizontal_bias="0.516"
+        app:layout_constraintStart_toStartOf="@+id/gaugeView"
+        app:layout_constraintTop_toTopOf="@+id/gaugeView"
+        app:layout_constraintVertical_bias="0.396" />
+
+    <Chronometer
+        android:id="@+id/chronometer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:textSize="20sp"
+        app:layout_constraintBottom_toBottomOf="@+id/gaugeView"
+        app:layout_constraintEnd_toEndOf="@+id/gaugeView"
+        app:layout_constraintStart_toStartOf="@+id/gaugeView"
+        app:layout_constraintTop_toBottomOf="@+id/currentAngleText" />
+
+    <TextView
+        android:id="@+id/maxLeftText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Макс. ляво: 0°"
+        android:textSize="16sp"
+        app:layout_constraintBottom_toBottomOf="@+id/gaugeView"
+        app:layout_constraintEnd_toStartOf="@+id/maxRightText"
+        app:layout_constraintHorizontal_bias="0.064"
+        app:layout_constraintStart_toStartOf="@+id/gaugeView"
+        app:layout_constraintTop_toBottomOf="@+id/currentAngleText"
+        app:layout_constraintVertical_bias="1.0" />
+
+    <TextView
+        android:id="@+id/maxRightText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Макс. дясно: 0°"
+        android:textSize="16sp"
+        app:layout_constraintBottom_toBottomOf="@+id/gaugeView"
+        app:layout_constraintEnd_toEndOf="@+id/gaugeView"
+        app:layout_constraintHorizontal_bias="1.0"
+        app:layout_constraintStart_toEndOf="@+id/gaugeView"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/currentAngleText"
+        app:layout_constraintVertical_bias="1.0" />
+
+    <TextView
+        android:id="@+id/speedText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0"
+        android:textSize="46sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.501"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.136" />
+
+    <TextView
+        android:id="@+id/maxSpeedText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="120dp"
+        android:layout_marginTop="436dp"
+        android:text="Макс. скорост: 0 км/ч"
+        android:textSize="16sp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/speedText" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="44dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@id/maxSpeedText"
+        tools:layout_editor_absoluteX="0dp">
+
+        <Button
+            android:id="@+id/btnReset"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:text="Нулирай" />
+
+        <Button
+            android:id="@+id/btnStop"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Стоп" />
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

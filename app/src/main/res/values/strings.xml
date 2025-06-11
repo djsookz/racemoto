@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Clinometer</string>
+
+    <!-- Ъгли -->
+    <string name="current_angle">%1$d°</string>
+    <string name="max_left_angle">Макс ляв ъгъл: %1$d°</string>
+    <string name="max_right_angle">Макс десен ъгъл: %1$d°</string>
+
+    <!-- GPS скорости (km/h) -->
+    <string name="current_speed">%1$d</string>
+    <string name="max_speed">Макс Скорост: %1$d km/h</string>
+
+    <string name="calibrate">Нулирай</string>
+    <string name="race_item_desc">Елемент от състезание</string>
+    <string name="date_desc">Дата на състезанието</string>
+    <string name="duration_desc">Продължителност на състезанието</string>
+    <string name="points_desc">Брой точки в маршрута</string>
+    <string name="empty_races_message">Няма записи...</string>
+    <string name="racemoto">RaceMoto</string>
+
+</resources>
