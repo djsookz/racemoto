@@ -73,23 +73,34 @@ class RacesActivity : AppCompatActivity() {
                 startActivity(intent)
             },
             onDeleteClick = { race ->
-                // Премахваме от репозитория
-                RaceRepository.deleteRace(race)
-                // Премахваме от локалната колекция и анимираме
-                val pos = racesList.indexOfFirst { it.id == race.id }
-                if (pos >= 0) {
-                    racesList.removeAt(pos)
-                    adapter.notifyItemRemoved(pos)
-                }
-                // --- Премахване и от persistent storage ---
-                val saved = RouteStorage.loadRoutes(this).toMutableList()
-                if (pos in saved.indices) {
-                    saved.removeAt(pos)
-                    RouteStorage.saveRoutes(this, saved)
+                // 1) Прочитаме всички маршрути
+                val all = RouteStorage.loadRaces(this).toMutableList()
+                // 2) Намираме индекса и го махаме
+                val idx = all.indexOfFirst { it.id == race.id }
+                if (idx >= 0) {
+                    all.removeAt(idx)
+                    // 3) Записваме обратно
+                    RouteStorage.saveRaces(this, all)
+                    // 4) Обновяваме локалния списък и UI
+                    val posInList = racesList.indexOfFirst { it.id == race.id }
+                    if (posInList >= 0) {
+                        racesList.removeAt(posInList)
+                        adapter.notifyItemRemoved(posInList)
+                    }
                 }
 
                 checkEmptyList()
+            },
+            onRename = { race, newName ->
+                // Записваме новото име в хранилището:
+                val all = RouteStorage.loadRaces(this).toMutableList()
+                val idx = all.indexOfFirst { it.id == race.id }
+                if (idx >= 0) {
+                    all[idx].name = newName
+                    RouteStorage.saveRaces(this, all)
+                }
             }
+
         )
 
         recyclerView.layoutManager = LinearLayoutManager(this)
@@ -103,20 +114,8 @@ class RacesActivity : AppCompatActivity() {
         // При връщане, презареждаме списъка и обновяваме адаптера
         racesList.clear()
         val loadedPoints: List<List<RoutePoint>> = RouteStorage.loadRoutes(this)
-        val loadedRaces: List<Race> = loadedPoints.map { pts ->
-            // timestamp на началото на маршрута
-            val startTs = pts.firstOrNull()?.timestamp ?: 0L
-            // duration = крайно време минус начално (или последната стойност)
-            val endTs   = pts.lastOrNull()?.timestamp  ?: 0L
-            val duration = endTs - startTs
-
-            Race(
-                id = startTs,            // използваме началното време като уникален ID
-                routePoints = pts,
-                timestamp    = startTs,  // записваме кога е започнал
-                duration     = duration  // обща продължителност
-            )
-        }
+        val loadedRaces: List<Race> = RouteStorage.loadRaces(this)
+        racesList.clear()
         racesList.addAll(loadedRaces)
 
 

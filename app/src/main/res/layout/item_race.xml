@@ -8,14 +8,15 @@
     android:layout_marginTop="10dp"
     android:paddingBottom="12dp"
     android:clipToPadding="false">
-     <!-- Добавен долен падинг за линията -->
 
+    <!-- Информация за маршрута -->
     <LinearLayout
         android:id="@+id/layoutInfo"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_toStartOf="@id/btnDelete">
+        android:layout_toStartOf="@id/btnOptions"
+        android:layout_alignParentStart="true">
 
         <TextView
             android:id="@+id/tvDate"
@@ -35,9 +36,20 @@
             android:id="@+id/tvNumber"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="1"
             android:textSize="16sp"/>
     </LinearLayout>
+
+    <!-- Три точки меню с достатъчен touch target -->
+    <ImageButton
+        android:id="@+id/btnOptions"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_more_vert"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/options"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:padding="12dp"/>
 
     <!-- Разделителна линия -->
     <View
@@ -47,14 +59,5 @@
         android:layout_alignParentBottom="true"
         android:layout_marginStart="-16dp"
         android:layout_marginEnd="-16dp"/>
-
-    <Button
-        android:id="@+id/btnDelete"
-        style="@style/DeleteButtonStyle"
-        android:layout_width="107dp"
-        android:layout_height="76dp"
-        android:layout_alignParentEnd="true"
-        android:layout_marginEnd="6dp"
-        android:text="Изтрий" />
 
 </RelativeLayout>

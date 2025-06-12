@@ -8,13 +8,15 @@ data class Race(
     val id: Long,
     val routePoints: List<RoutePoint>,
     val timestamp: Long,
-    val duration: Long
+    val duration: Long,
+    var name: String? = null
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
         parcel.readLong(),
         parcel.createTypedArrayList(RoutePoint.CREATOR)!!,
         parcel.readLong(),
-        parcel.readLong()
+        parcel.readLong(),
+        parcel.readString()
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
@@ -22,6 +24,7 @@ data class Race(
         parcel.writeTypedList(routePoints)
         parcel.writeLong(timestamp)
         parcel.writeLong(duration)
+        parcel.writeString(name)
     }
 
     override fun describeContents(): Int = 0
