@@ -46,24 +46,46 @@ class RaceAdapter(
         val race = races[position]
 
 
-         fun formatRelativeDate(timestamp: Long): String {
-            val now = System.currentTimeMillis()
-            val diff = now - timestamp
+        fun formatRelativeDate(timestamp: Long): String {
+            val now = java.util.Calendar.getInstance()
+            val then = java.util.Calendar.getInstance().apply {
+                timeInMillis = timestamp
+            }
 
-            val days = diff / (1000 * 60 * 60 * 24)
+            val nowYear = now.get(java.util.Calendar.YEAR)
+            val nowDayOfYear = now.get(java.util.Calendar.DAY_OF_YEAR)
+            val thenYear = then.get(java.util.Calendar.YEAR)
+            val thenDayOfYear = then.get(java.util.Calendar.DAY_OF_YEAR)
+
+            // Проверка дали е днес
+            if (nowYear == thenYear && nowDayOfYear == thenDayOfYear) {
+                return "Днес"
+            }
+
+            // Проверка дали е вчера
+            if (nowYear == thenYear && nowDayOfYear - 1 == thenDayOfYear) {
+                return "Вчера"
+            }
+
+            // Разлика в дни
+            val diffInMillis = now.timeInMillis - then.timeInMillis
+            val days = (diffInMillis / (1000 * 60 * 60 * 24)).toInt()
+
+            // Разлика в месеци и години
+            val months = (days / 30)
+            val years = (days / 365)
 
             return when {
-                days < 1 -> "Днес"
-                days < 2 -> "Вчера"
-                days < 30 -> "Преди ${days.toInt()} дни"
-                days < 60 -> "Месец"
-                days < 365 -> {
-                    val months = days / 30
-                    " ${months.toInt()} месеца"
+                years >= 1 -> {
+                    if (years == 1) "1 година" else "$years години"
                 }
-                else -> "Година"
+                months >= 1 -> {
+                    if (months == 1) "1 месец" else "$months месеца"
+                }
+                else -> "$days дни"
             }
         }
+
 
         // Заглавие: името на маршрута, по default "Маршрут X"
         holder.tvTitle.text = race.name ?: "Сесия ${position + 1}"
