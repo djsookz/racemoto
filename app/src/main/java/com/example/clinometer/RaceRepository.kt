@@ -5,13 +5,25 @@ object RaceRepository {
     private var nextId = 1L
 
 
-    fun addRace(routePoints: List<RoutePoint>, duration: Long) {
+    fun addRace(
+        routePoints: List<RoutePoint>,
+        duration: Long,
+        maxLeftAngle: Float,
+        maxRightAngle: Float,
+        maxSpeed: Float
+    ) {
+        val now = System.currentTimeMillis()
         races.add(
             Race(
                 id = nextId++,
                 routePoints = routePoints.toList(),
                 timestamp = System.currentTimeMillis(),
-                duration = duration
+                duration = duration,
+                absoluteTimestamp = now,
+                maxLeftAngle = maxLeftAngle,
+                maxRightAngle = maxRightAngle,
+                maxSpeed = maxSpeed
+
             )
         )
     }

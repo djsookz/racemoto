@@ -43,18 +43,18 @@ object RouteStorage {
 
         // 2) Преобразуваме всяка листа от точки обратно в Race, но
         //    запазваме name от стария запис (ако има такъв)
-        val races = routes.map { routePoints ->
+        val races: List<Race> = routes.map { routePoints: List<RoutePoint> ->
             val startTs = routePoints.firstOrNull()?.timestamp ?: 0L
             val endTs   = routePoints.lastOrNull()?.timestamp  ?: 0L
             val duration = endTs - startTs
-
-            // намери стария Race с този ID, за да вземеш името
+            val absoluteTs = routePoints.firstOrNull()?.absoluteTime ?: System.currentTimeMillis()
             val oldName = oldRaces.find { it.id == startTs }?.name
 
             Race(
                 id = startTs,
                 name = oldName,           // <—— прехвърляме старото име тук
                 timestamp = startTs,
+                absoluteTimestamp = absoluteTs,
                 duration = duration,
                 routePoints = routePoints
             )

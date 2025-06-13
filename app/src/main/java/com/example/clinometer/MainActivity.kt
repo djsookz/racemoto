@@ -52,6 +52,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private lateinit var chronometer: Chronometer
     private var startTime: Long = 0
 
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -108,7 +110,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         speedText.text = getString(R.string.current_speed, 0)
         maxSpeedText.text = getString(R.string.max_speed, 0)
 
+        val gaugeView = findViewById<GaugeView>(R.id.gaugeView)
+
+
         resetButton.setOnClickListener {
+
             startTime = SystemClock.elapsedRealtime()
             offsetAngle = filteredAngle
             routePoints.clear()
@@ -121,18 +127,36 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             chronometer.stop()
             chronometer.base = startTime
             chronometer.start()
+            gaugeView.resetMaxima()
         }
 
         stopButton.setOnClickListener {
             val realDuration = routePoints.maxOfOrNull { it.timestamp } ?: 0L
-            RaceRepository.addRace(routePoints, realDuration)
+            RaceRepository.addRace(routePoints, realDuration, maxLeftAngle, maxRightAngle, maxSpeed)
+            val all = RouteStorage.loadRaces(this).toMutableList()
+            all.add(Race(
+                 id = System.currentTimeMillis(),
+                 routePoints = routePoints.toList(),
+                timestamp = System.currentTimeMillis(),
+                duration = realDuration,
+                absoluteTimestamp = System.currentTimeMillis(),
+                maxLeftAngle = maxLeftAngle,
+                maxRightAngle = maxRightAngle,
+                maxSpeed = maxSpeed,
+                name = null
+                            ))
+               RouteStorage.saveRaces(this, all)
 
-            val previousRoutes = RouteStorage.loadRoutes(this).toMutableList()
-            previousRoutes.add(routePoints)
-            RouteStorage.saveRoutes(this, previousRoutes)
-
-            startActivity(Intent(this, RacesActivity::class.java))
-            finish()
+                // 2) Предаваме ги към MapActivity
+                val intent = Intent(this, MapActivity::class.java).apply {
+                        putParcelableArrayListExtra("ROUTE", ArrayList(routePoints))
+                        putExtra("TOTAL_TIME", realDuration)
+                        putExtra("EXTRA_MAX_LEFT",  maxLeftAngle)
+                        putExtra("EXTRA_MAX_RIGHT", maxRightAngle)
+                        putExtra("EXTRA_MAX_SPEED", maxSpeed)
+                    }
+               startActivity(intent)
+                finish()
         }
     }
 
@@ -163,9 +187,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             // Има активна сесия – показваме предупреждение
             AlertDialog.Builder(this)
                 .setTitle("Изход от сесия?")
-                .setMessage("Сигурни ли сте, че искате да излезете? Данните може да бъдат изгубени.")
+                .setMessage("Сигурни ли сте, че искате да излезете? Данните ще бъдат изгубени.")
                 .setPositiveButton("Да") { _, _ ->
-                    super.onBackPressed()
+
+                    val intent = Intent(this, RacesActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    startActivity(intent)
+                    finish() // Затваряме текущия Activity
                 }
                 .setNegativeButton("Не") { dialog, _ ->
                     dialog.dismiss()
@@ -173,7 +201,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                 .show()
         } else {
             // Няма активна сесия – излизаме нормално
-            super.onBackPressed()
+
+                val intent = Intent(this, RacesActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                startActivity(intent)
+                finish()
+
         }
     }
 
@@ -203,7 +236,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             val delta = kotlin.math.abs(raw - filteredAngle)
             val adaptiveAlpha = (0.001f + (delta / 90f)).coerceIn(0.004f, 0.04f)
             filteredAngle += adaptiveAlpha * (raw - filteredAngle)
-            val calibrated = offsetAngle - filteredAngle
+            val calibrated = (offsetAngle - filteredAngle).coerceIn(-70f, 70f)
             currentCalibratedAngle = calibrated
             gaugeView.angle = calibrated
             gaugeView.invalidate()
@@ -228,8 +261,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             geoPoint = GeoPoint(loc.latitude, loc.longitude),
             speed = speedKmhF,
             angle = currentCalibratedAngle,
-            timestamp = SystemClock.elapsedRealtime() - startTime
+            timestamp = SystemClock.elapsedRealtime() - startTime,
+            absoluteTime = loc.time
         )
+
         routePoints.add(pt)
         val speedKmh = speedKmhF.toInt()
         speedText.text = getString(R.string.current_speed, speedKmh)
@@ -238,4 +273,5 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             maxSpeedText.text = getString(R.string.max_speed, speedKmh)
         }
     }
+
 }

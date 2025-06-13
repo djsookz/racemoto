@@ -8,12 +8,14 @@ data class RoutePoint(
     val geoPoint: GeoPoint,
     val speed: Float,
     val angle: Float,
-    val timestamp: Long
+    val timestamp: Long,
+    val absoluteTime: Long
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
         parcel.readParcelable(GeoPoint::class.java.classLoader)!!,
         parcel.readFloat(),
         parcel.readFloat(),
+        parcel.readLong(),
         parcel.readLong()
     )
 
@@ -22,6 +24,7 @@ data class RoutePoint(
         parcel.writeFloat(speed)
         parcel.writeFloat(angle)
         parcel.writeLong(timestamp)
+        parcel.writeLong(absoluteTime)
     }
 
     override fun describeContents(): Int = 0

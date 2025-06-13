@@ -45,8 +45,19 @@ class MapActivity : AppCompatActivity() {
         )
         setContentView(R.layout.activity_map)
 
+
+        // 2) Извади предадените стойности от intent-а
+        val maxLeft  = intent.getFloatExtra("EXTRA_MAX_LEFT",  0f).toInt()
+        val maxRight = intent.getFloatExtra("EXTRA_MAX_RIGHT", 0f).toInt()
+        val maxSpeed = intent.getFloatExtra("EXTRA_MAX_SPEED", 0f).toInt()
+        // 3) Сложи ги в текстовите полета
+        findViewById<TextView>(R.id.tvMaxLeftInfo ).text = getString(R.string.max_left_angle,  maxLeft)
+        findViewById<TextView>(R.id.tvMaxRightInfo).text = getString(R.string.max_right_angle, maxRight)
+        findViewById<TextView>(R.id.tvMaxSpeedInfo).text = getString(R.string.max_speed,       maxSpeed)
+
+
         val btnNewRoute = findViewById<Button>(R.id.btnStart)
-        btnNewRoute.text = "НОВ МАРШРУТ"
+        btnNewRoute.text = "НОВА СЕСИЯ"
         btnNewRoute.setOnClickListener {
             startActivity(Intent(this, CountdownActivity::class.java))
         }
@@ -77,7 +88,7 @@ class MapActivity : AppCompatActivity() {
         map.overlays.add(marker)
 
         // Пресмятаме точните секунди (закръгляме нагоре ако има мсек)
-        findViewById<TextView>(R.id.tvTotalTime).text = formatTime(totalTime)
+        findViewById<TextView>(R.id.tvTotalTime).text = "Времетраене: ${formatTime(totalTime)}"
 
 
 
@@ -201,8 +212,8 @@ class MapActivity : AppCompatActivity() {
                 yAxis.setDrawZeroLine(false)
             }
             Mode.ANGLE -> {
-                yAxis.axisMinimum = -90f
-                yAxis.axisMaximum = 90f
+                yAxis.axisMinimum = -70f
+                yAxis.axisMaximum = 70f
                 yAxis.setDrawZeroLine(true)
                 yAxis.zeroLineColor = Color.GRAY
                 yAxis.zeroLineWidth = 1f
@@ -229,7 +240,7 @@ class MapActivity : AppCompatActivity() {
     private fun updateInfoDisplay(point: RoutePoint) {
         val timeInSeconds = point.timestamp / 1000
         val formattedTime = formatTime(timeInSeconds * 1000)
-        findViewById<TextView>(R.id.tvTotalTime).text = ""
+
         findViewById<TextView>(R.id.tvInfo).text = """
             Скорост: ${"%.0f".format(point.speed)} км/ч
             Ъгъл: ${"%.1f".format(point.angle)}°
@@ -242,5 +253,12 @@ class MapActivity : AppCompatActivity() {
         val minutes = (millis / (1000 * 60)) % 60
         val hours = millis / (1000 * 60 * 60)
         return String.format("%02d:%02d:%02d", hours, minutes, seconds)
+    }
+
+    override fun onBackPressed() {
+        val intent = Intent(this, RacesActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        startActivity(intent)
+        finish()
     }
 }

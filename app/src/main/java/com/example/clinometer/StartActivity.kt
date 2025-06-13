@@ -19,4 +19,7 @@ class StartActivity : AppCompatActivity() {
         }
 
     }
+    override fun onBackPressed() {
+        super.onBackPressed()
+    }
 }

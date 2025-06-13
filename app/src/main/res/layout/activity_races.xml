@@ -4,26 +4,25 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Текст за заглавие, позициониран горе в центъра -->
-
     <!-- Списък за състезания -->
+
     <TextView
         android:id="@+id/tvTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="26dp"
+        android:layout_marginTop="32dp"
         android:layout_marginBottom="80dp"
-        android:text="Маршрути"
+        android:text="Сесии"
         android:textSize="32sp"
         android:textStyle="bold" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvRaces"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="626dp"
         android:layout_marginTop="80dp"
-        android:padding="16dp"/>
+        android:padding="16dp" />
 
     <!-- Празен изглед, когато списъкът е празен -->
     <TextView
@@ -40,7 +39,7 @@
         android:layout_width="116dp"
         android:layout_height="65dp"
         android:layout_gravity="end|bottom"
-        android:layout_marginBottom="80dp"
+        android:layout_marginBottom="60dp"
         android:layout_marginEnd="16dp"
-        android:text="Нов маршрут" />
+        android:text="НОВА СЕСИЯ" />
 </FrameLayout>

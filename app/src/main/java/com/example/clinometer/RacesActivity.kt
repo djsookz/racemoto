@@ -28,11 +28,8 @@ class RacesActivity : AppCompatActivity() {
         setContentView(R.layout.activity_races)
 
         recyclerView = findViewById(R.id.rvRaces)
-        emptyView   = findViewById(R.id.tvEmptyView)
+        emptyView = findViewById(R.id.tvEmptyView)
         val btnNewRoute = findViewById<Button>(R.id.btnNewRoute)
-
-
-        // Зареждаме списъка още в onCreate
 
         // Зареждаме списъка още в onCreate
         racesList.clear()
@@ -40,21 +37,19 @@ class RacesActivity : AppCompatActivity() {
         val loadedRaces: List<Race> = loadedPoints.map { pts ->
             // timestamp на началото на маршрута
             val startTs = pts.firstOrNull()?.timestamp ?: 0L
-            // duration = крайно време минус начално (или последната стойност)
-            val endTs   = pts.lastOrNull()?.timestamp  ?: 0L
+            val absoluteTs = pts.firstOrNull()?.absoluteTime ?: System.currentTimeMillis()
+            val endTs = pts.lastOrNull()?.timestamp ?: 0L
             val duration = endTs - startTs
 
             Race(
                 id = startTs,            // използваме началното време като уникален ID
                 routePoints = pts,
-                timestamp    = startTs,  // записваме кога е започнал
-                duration     = duration  // обща продължителност
+                timestamp = startTs,
+                absoluteTimestamp = absoluteTs,// записваме кога е започнал
+                duration = duration  // обща продължителност
             )
         }
         racesList.addAll(loadedRaces)
-
-
-
 
 
         // Слушател за бутона "Нов маршрут"
@@ -69,6 +64,9 @@ class RacesActivity : AppCompatActivity() {
                 val intent = Intent(this@RacesActivity, MapActivity::class.java).apply {
                     putParcelableArrayListExtra("ROUTE", ArrayList(race.routePoints))
                     putExtra("TOTAL_TIME", realDuration)
+                    putExtra("EXTRA_MAX_LEFT",  race.maxLeftAngle)
+                    putExtra("EXTRA_MAX_RIGHT", race.maxRightAngle)
+                    putExtra("EXTRA_MAX_SPEED", race.maxSpeed)
                 }
                 startActivity(intent)
             },
@@ -133,5 +131,6 @@ class RacesActivity : AppCompatActivity() {
             emptyView.visibility = View.GONE
         }
     }
+
 
 }

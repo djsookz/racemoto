@@ -11,6 +11,9 @@ import android.widget.ImageButton
 import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class RaceAdapter(
     private val races: MutableList<Race>,
@@ -21,7 +24,7 @@ class RaceAdapter(
 
     inner class RaceViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val tvTitle: TextView     = itemView.findViewById(R.id.tvDate)
-        val tvDate: TextView      = itemView.findViewById(R.id.tvDuration)
+        val dateTextView: TextView  = itemView.findViewById(R.id.dateTextView)
         val tvDuration: TextView  = itemView.findViewById(R.id.tvNumber)
         val btnOptions: ImageButton = itemView.findViewById(R.id.btnOptions)
     }
@@ -37,16 +40,38 @@ class RaceAdapter(
         return RaceViewHolder(view)
     }
 
+
+
     override fun onBindViewHolder(holder: RaceViewHolder, position: Int) {
         val race = races[position]
 
-        // Заглавие: името на маршрута, по default "Маршрут X"
-        holder.tvTitle.text = race.name ?: "Маршрут ${position + 1}"
 
-        // Премахнат клик върху заглавието (tvTitle)
+         fun formatRelativeDate(timestamp: Long): String {
+            val now = System.currentTimeMillis()
+            val diff = now - timestamp
+
+            val days = diff / (1000 * 60 * 60 * 24)
+
+            return when {
+                days < 1 -> "Днес"
+                days < 2 -> "Вчера"
+                days < 30 -> "Преди ${days.toInt()} дни"
+                days < 60 -> "Месец"
+                days < 365 -> {
+                    val months = days / 30
+                    " ${months.toInt()} месеца"
+                }
+                else -> "Година"
+            }
+        }
+
+        // Заглавие: името на маршрута, по default "Маршрут X"
+        holder.tvTitle.text = race.name ?: "Сесия ${position + 1}"
 
         // Дата на създаване
-        holder.tvDate.text = DateFormat.format("dd.MM.yyyy HH:mm", race.timestamp)
+        holder.dateTextView.text = formatRelativeDate(race.absoluteTimestamp)
+
+
 
         // Продължителност
         holder.tvDuration.text = formatTime(race.duration)
@@ -95,11 +120,11 @@ class RaceAdapter(
     private fun showRenameDialog(holder: RaceViewHolder, race: Race) {
         val input = EditText(holder.itemView.context).apply {
             inputType = InputType.TYPE_CLASS_TEXT
-            setText(race.name ?: "Маршрут ${holder.bindingAdapterPosition + 1}")
+            setText(race.name ?: "")
             setSelection(text.length)
         }
         AlertDialog.Builder(holder.itemView.context)
-            .setTitle("Преименуване на маршрут")
+            .setTitle("Преименуване на сесията")
             .setView(input)
             .setPositiveButton("OK") { _, _ ->
                 val newName = input.text.toString().trim()

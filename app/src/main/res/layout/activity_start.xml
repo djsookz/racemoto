@@ -22,7 +22,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_centerInParent="true"
-            android:text="Започни своето пътуване сега."
+            android:text="Започни своята сесия сега."
             android:textAlignment="center"
             android:textColor="#FFFFFF"
             android:textSize="28sp"
@@ -45,7 +45,7 @@
             android:layout_below="@id/tvWelcome"
             android:layout_centerHorizontal="true"
             android:layout_marginTop="120dp"
-            android:text="Маршрути"
+            android:text="СЕСИИ"
             android:textSize="20sp"/>
     </RelativeLayout>
 </FrameLayout>

@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:paddingBottom="100dp"> <!-- важно: за да не се покрива от бутона -->
+        android:paddingBottom="50dp"> <!-- важно: за да не се покрива от бутона -->
 
         <!-- Map -->
         <org.osmdroid.views.MapView
@@ -41,25 +41,54 @@
             android:text="Информация"
             android:textSize="16sp"
             android:textStyle="bold" />
+        <TextView
+         android:id="@+id/tvMaxLeftInfo"
+         android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="4dp"
+        android:text="Макс. ляво: 0°"
+         android:textSize="14sp"
+         android:layout_marginLeft="4dp"
+            />
+
+        <TextView
+          android:id="@+id/tvMaxRightInfo"
+          android:layout_width="match_parent"
+         android:layout_height="wrap_content"
+        android:padding="4dp"
+         android:text="Макс. дясно: 0°"
+         android:textSize="14sp"
+            android:layout_marginLeft="4dp"/>
+
+        <TextView
+        android:id="@+id/tvMaxSpeedInfo"
+       android:layout_width="match_parent"
+       android:layout_height="wrap_content"
+       android:padding="4dp"
+        android:text="Макс. скорост: 0 км/ч"
+       android:textSize="14sp"
+            android:layout_marginLeft="4dp"/>
 
         <TextView
             android:id="@+id/tvTotalTime"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="8dp"
+            android:padding="4dp"
             android:text="Общо време: 00:00:00"
-            android:textSize="16sp" />
+            android:textSize="14sp"
+            android:layout_marginLeft="4dp"/>
 
         <Button
             android:id="@+id/btnStart"
             android:layout_width="239dp"
             android:layout_height="wrap_content"
             android:layout_gravity="bottom|center_horizontal"
-            android:layout_marginTop="25dp"
+            android:layout_marginTop="8dp"
             android:backgroundTint="@android:color/holo_blue_dark"
             android:padding="16dp"
-            android:text="Нов маршрут"
-            android:textColor="@android:color/white" />
+            android:text="НОВА СЕСИЯ"
+            android:textColor="@android:color/white"
+            />
 
 
     </LinearLayout>
