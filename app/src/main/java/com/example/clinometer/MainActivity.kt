@@ -318,12 +318,11 @@ class MainActivity : AppCompatActivity() {
 
     // В MainActivity
     private fun updateAccelerationDisplay(accelData: ForegroundService.AccelerationData) {
-        fun formatTime(timeMs: Long): String {
-            return if (timeMs > 0) "%.1f".format(timeMs / 1000.0) else "--"
+        fun formatTime(timeNanos: Long): String {
+            return if (timeNanos > 0) "%.2f".format(timeNanos / 1_000_000_000.0) else "--"  // ПРОМЯНА: Деление на наносекунди
         }
 
         fun getDisplayText(prefix: String, bestTime: Long, isTracking: Boolean): SpannableString {
-            // Промяна тук: Винаги показваме часовник ако има активно измерване
             val fullText = when {
                 isTracking -> "$prefix: ⏱️"
                 bestTime > 0 -> "$prefix: ${formatTime(bestTime)}s"
@@ -332,7 +331,6 @@ class MainActivity : AppCompatActivity() {
 
             val spannable = SpannableString(fullText)
 
-            // Оцветяваме само ако имаме валидно време и няма активно измерване
             if (!isTracking && bestTime > 0) {
                 val timeStr = formatTime(bestTime)
                 val startIndex = prefix.length + 2

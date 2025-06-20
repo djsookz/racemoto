@@ -128,12 +128,8 @@ class MapActivity : AppCompatActivity() {
         updateChartData(currentMode)
     }
 
-    private fun formatAccelerationTime(timeMs: Long): String {
-        return if (timeMs > 0) {
-            "%.1f".format(timeMs / 1000.0) + "s" // Форматиране до 1 цифра след десетичната запетая
-        } else {
-            "--"
-        }
+    private fun formatAccelerationTime(timeNanos: Long): String {
+        return if (timeNanos > 0) "%.2f".format(timeNanos / 1_000_000_000.0) + "s" else "--"
     }
 
     private fun setupChart() {
