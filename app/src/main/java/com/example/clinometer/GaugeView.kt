@@ -14,15 +14,20 @@ class GaugeView @JvmOverloads constructor(
     var angle: Float = 0f
         set(value) {
             field = value
-            // Обновяваме максимумите
-            if (value < maxLeftAngle)  maxLeftAngle = value
-            if (value > maxRightAngle) maxRightAngle = value
             invalidate()
         }
 
-    // Запазваме пиковете
-    private var maxLeftAngle = 0f
-    private var maxRightAngle = 0f
+    var maxLeftAngle: Float = 0f
+        set(value) {
+            field = value
+            invalidate()
+        }
+
+    var maxRightAngle: Float = 0f
+        set(value) {
+            field = value
+            invalidate()
+        }
 
     private val arcRect = RectF()
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -57,21 +62,31 @@ class GaugeView @JvmOverloads constructor(
         invalidate()
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        val centerX = w / 2f
+        val centerY = h / 2f
+        val radius = min(w, h) / 2 * 0.8f
+        arcRect.set(centerX - radius, centerY - radius, centerX + radius, centerY + radius)
+    }
+
     override fun onDraw(canvas: Canvas) {
         val w = width.toFloat()
         val h = height.toFloat()
-        // Радиус за стрелките и цифрите
+        val centerX = w / 2f
+        val centerY = h / 2f
         val radius = min(w, h) / 2 * 0.8f
-        val cx = w / 2
-        val cy = h / 2
-        arcRect.set(cx - radius, cy - radius, cx + radius, cy + radius)
+
+        if (arcRect.isEmpty) {
+            arcRect.set(centerX - radius, centerY - radius, centerX + radius, centerY + radius)
+        }
 
         // Нарисуваме фон-дуга
         canvas.drawArc(arcRect, 180f + (180f - 140f) / 2, 140f, false, bgPaint)
 
         // Нарисуваме активната дъга
-        val sweep = (angle.coerceIn(-70f, 70f) / 70f) * 70f
-        val fraction = abs(angle.coerceIn(-70f, 70f)) / 70f
+        val sweep = angle.coerceIn(-70f, 70f)
+        val fraction = abs(sweep) / 70f
         val red = (255 * fraction).toInt().coerceIn(0, 255)
         val green = (255 * (1 - fraction)).toInt().coerceIn(0, 255)
         fgPaint.color = Color.rgb(red, green, 0)
@@ -82,17 +97,16 @@ class GaugeView @JvmOverloads constructor(
             val angleDeg = 180f + (tick + 90f)
             val rad = Math.toRadians(angleDeg.toDouble())
             // къси маркировки
-            val xStart = (cx + cos(rad) * radius).toFloat()
-            val yStart = (cy + sin(rad) * radius).toFloat()
-            val xEnd   = (cx + cos(rad) * (radius - 20)).toFloat()
-            val yEnd   = (cy + sin(rad) * (radius - 20)).toFloat()
+            val xStart = (centerX + cos(rad) * radius).toFloat()
+            val yStart = (centerY + sin(rad) * radius).toFloat()
+            val xEnd   = (centerX + cos(rad) * (radius - 20)).toFloat()
+            val yEnd   = (centerY + sin(rad) * (radius - 20)).toFloat()
             canvas.drawLine(xStart, yStart, xEnd, yEnd, tickPaint)
 
             // цифрите малко по-навън
-            val xText = (cx + cos(rad) * (radius - 50)).toFloat()
-            val yText = (cy + sin(rad) * (radius - 50) + textPaint.textSize / 3).toFloat()
+            val xText = (centerX + cos(rad) * (radius - 50)).toFloat()
+            val yText = (centerY + sin(rad) * (radius - 50) + textPaint.textSize / 3).toFloat()
             canvas.drawText("${tick}", xText, yText, textPaint)
-
         }
 
         // Нарисуваме маркери за историческите максимуми
@@ -100,20 +114,20 @@ class GaugeView @JvmOverloads constructor(
         if (maxLeftAngle < 0f) {
             val deg = 180f + (maxLeftAngle.coerceIn(-70f, 0f) + 90f)
             val r = Math.toRadians(deg.toDouble())
-            val x1 = (cx + cos(r) * radius).toFloat()
-            val y1 = (cy + sin(r) * radius).toFloat()
-            val x2 = (cx + cos(r) * (radius - 30)).toFloat()
-            val y2 = (cy + sin(r) * (radius - 30)).toFloat()
+            val x1 = (centerX + cos(r) * radius).toFloat()
+            val y1 = (centerY + sin(r) * radius).toFloat()
+            val x2 = (centerX + cos(r) * (radius - 30)).toFloat()
+            val y2 = (centerY + sin(r) * (radius - 30)).toFloat()
             canvas.drawLine(x1, y1, x2, y2, markerPaint)
         }
         // Десен максимум
         if (maxRightAngle > 0f) {
             val deg = 180f + (maxRightAngle.coerceIn(0f, 70f) + 90f)
             val r = Math.toRadians(deg.toDouble())
-            val x1 = (cx + cos(r) * radius).toFloat()
-            val y1 = (cy + sin(r) * radius).toFloat()
-            val x2 = (cx + cos(r) * (radius - 30)).toFloat()
-            val y2 = (cy + sin(r) * (radius - 30)).toFloat()
+            val x1 = (centerX + cos(r) * radius).toFloat()
+            val y1 = (centerY + sin(r) * radius).toFloat()
+            val x2 = (centerX + cos(r) * (radius - 30)).toFloat()
+            val y2 = (centerY + sin(r) * (radius - 30)).toFloat()
             canvas.drawLine(x1, y1, x2, y2, markerPaint)
         }
     }

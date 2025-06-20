@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.view.MotionEvent
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.PreferenceManager
 import com.github.mikephil.charting.charts.LineChart
@@ -24,6 +25,9 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class MapActivity : AppCompatActivity() {
     private lateinit var routePoints: List<RoutePoint>
@@ -45,16 +49,33 @@ class MapActivity : AppCompatActivity() {
         )
         setContentView(R.layout.activity_map)
 
+        // Взимаме целия Race обект от интента
+        val race = intent.getParcelableExtra<Race>("RACE")
+        if (race == null) {
+            Toast.makeText(this, "Грешка: липсват данни за сесията", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
 
-        // 2) Извади предадените стойности от intent-а
-        val maxLeft  = intent.getFloatExtra("EXTRA_MAX_LEFT",  0f).toInt()
-        val maxRight = intent.getFloatExtra("EXTRA_MAX_RIGHT", 0f).toInt()
-        val maxSpeed = intent.getFloatExtra("EXTRA_MAX_SPEED", 0f).toInt()
-        // 3) Сложи ги в текстовите полета
-        findViewById<TextView>(R.id.tvMaxLeftInfo ).text = getString(R.string.max_left_angle,  maxLeft)
+        // Използваме данните от race обекта
+        routePoints = race.routePoints
+        val maxLeft = race.maxLeftAngle.toInt()
+        val maxRight = race.maxRightAngle.toInt()
+        val maxSpeed = race.maxSpeed.toInt()
+        val time0to100 = race.time0to100
+        val time0to200 = race.time0to200
+        val time100to200 = race.time100to200
+        val totalTime = race.duration
+
+        // Сложи ги в текстовите полета
+        findViewById<TextView>(R.id.tvMaxLeftInfo).text = getString(R.string.max_left_angle, maxLeft)
         findViewById<TextView>(R.id.tvMaxRightInfo).text = getString(R.string.max_right_angle, maxRight)
-        findViewById<TextView>(R.id.tvMaxSpeedInfo).text = getString(R.string.max_speed,       maxSpeed)
+        findViewById<TextView>(R.id.tvMaxSpeedInfo).text = getString(R.string.max_speed, maxSpeed)
 
+        // Покажете ускоренията
+        findViewById<TextView>(R.id.tvZeroTo100).text = "0-100 км/ч: ${formatAccelerationTime(time0to100)}"
+        findViewById<TextView>(R.id.tvZeroTo200).text = "0-200 км/ч: ${formatAccelerationTime(time0to200)}"
+        findViewById<TextView>(R.id.tvHundredTo200).text = "100-200 км/ч: ${formatAccelerationTime(time100to200)}"
 
         val btnNewRoute = findViewById<Button>(R.id.btnStart)
         btnNewRoute.text = "НОВА СЕСИЯ"
@@ -62,8 +83,20 @@ class MapActivity : AppCompatActivity() {
             startActivity(Intent(this, CountdownActivity::class.java))
         }
 
-        routePoints = intent.getParcelableArrayListExtra("ROUTE") ?: emptyList()
-        val totalTime = intent.getLongExtra("TOTAL_TIME", 0)
+        // Проверка дали има данни за маршрут
+        if (routePoints.isEmpty()) {
+            Toast.makeText(this, "Няма данни за маршрут", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        val sessionTimestamp = routePoints.firstOrNull()?.absoluteTime ?: System.currentTimeMillis()
+        val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+        val formattedDate = dateFormat.format(Date(sessionTimestamp))
+
+        // Покажете датата
+        val sessionDateTime = findViewById<TextView>(R.id.sessionDateTime)
+        sessionDateTime.text = "Създаден: $formattedDate"
 
         map = findViewById(R.id.mapRoute)
         chart = findViewById(R.id.chart)
@@ -87,14 +120,20 @@ class MapActivity : AppCompatActivity() {
         }
         map.overlays.add(marker)
 
-        // Пресмятаме точните секунди (закръгляме нагоре ако има мсек)
-        findViewById<TextView>(R.id.tvTotalTime).text = "Времетраене: ${formatTime(totalTime)}"
-
-
+        // Пресмятаме точните секунди
+        findViewById<TextView>(R.id.tvTotalTime).text = "Време: ${formatTime(totalTime)}"
 
         setupChart()
         setupTabs()
         updateChartData(currentMode)
+    }
+
+    private fun formatAccelerationTime(timeMs: Long): String {
+        return if (timeMs > 0) {
+            "%.1f".format(timeMs / 1000.0) + "s" // Форматиране до 1 цифра след десетичната запетая
+        } else {
+            "--"
+        }
     }
 
     private fun setupChart() {
@@ -135,7 +174,7 @@ class MapActivity : AppCompatActivity() {
                 if (index in routePoints.indices) {
                     val point = routePoints[index]
                     marker.position = point.geoPoint
-                    map.controller.animateTo(point.geoPoint)
+                    map.controller.setCenter(point.geoPoint)
                     updateInfoDisplay(point)
                     map.invalidate()
                 }
@@ -149,7 +188,7 @@ class MapActivity : AppCompatActivity() {
                     if (index in routePoints.indices) {
                         val point = routePoints[index]
                         marker.position = point.geoPoint
-                        map.controller.animateTo(point.geoPoint)
+                        map.controller.setCenter(point.geoPoint)
                         updateInfoDisplay(point)
                         map.invalidate()
                     }
@@ -175,11 +214,9 @@ class MapActivity : AppCompatActivity() {
     }
 
     private fun updateChartData(mode: Mode) {
-        // Създаване на двата dataset-а
         val speedEntries = routePoints.map { Entry(it.timestamp / 1000f, it.speed) }
         val angleEntries = routePoints.map { Entry(it.timestamp / 1000f, it.angle) }
 
-        // Конфигуриране на стиловете
         val activeColor = if (mode == Mode.SPEED) Color.RED else Color.BLUE
         val fadedColor = if (mode == Mode.SPEED) Color.argb(105, 0, 0, 255) else Color.argb(105, 255, 0, 0)
 
@@ -188,7 +225,7 @@ class MapActivity : AppCompatActivity() {
             lineWidth = if (mode == Mode.SPEED) 2f else 1f
             setDrawValues(false)
             setDrawCircles(false)
-            if(mode != Mode.SPEED) enableDashedLine(10f, 5f, 0f) // Пунктирана за неактивен
+            if (mode != Mode.SPEED) enableDashedLine(10f, 5f, 0f)
         }
 
         val angleDataSet = LineDataSet(angleEntries, "Ъгъл (°)").apply {
@@ -196,20 +233,20 @@ class MapActivity : AppCompatActivity() {
             lineWidth = if (mode == Mode.ANGLE) 2f else 1f
             setDrawValues(false)
             setDrawCircles(false)
-            if(mode != Mode.ANGLE) enableDashedLine(10f, 5f, 0f)
+            if (mode != Mode.ANGLE) enableDashedLine(10f, 5f, 0f)
         }
 
-        // Добавяне на двата dataset-а
         chart.data = LineData(speedDataSet, angleDataSet)
 
-        // Конфигуриране на Y оста според активния мод
         val yAxis = chart.axisLeft
         when (mode) {
             Mode.SPEED -> {
                 val maxSpeed = routePoints.maxOfOrNull { it.speed } ?: 200f
-                yAxis.axisMinimum = -90f
+                yAxis.axisMinimum = 0f
                 yAxis.axisMaximum = if (maxSpeed > 200) maxSpeed * 1.1f else 200f
-                yAxis.setDrawZeroLine(false)
+                yAxis.setDrawZeroLine(true)
+                yAxis.zeroLineColor = Color.GRAY
+                yAxis.zeroLineWidth = 1f
             }
             Mode.ANGLE -> {
                 yAxis.axisMinimum = -70f
@@ -240,12 +277,14 @@ class MapActivity : AppCompatActivity() {
     private fun updateInfoDisplay(point: RoutePoint) {
         val timeInSeconds = point.timestamp / 1000
         val formattedTime = formatTime(timeInSeconds * 1000)
+        val tv = findViewById<TextView>(R.id.tvInfo)
 
         findViewById<TextView>(R.id.tvInfo).text = """
             Скорост: ${"%.0f".format(point.speed)} км/ч
             Ъгъл: ${"%.1f".format(point.angle)}°
             Време: $formattedTime
         """.trimIndent()
+        tv.textSize = 14f
     }
 
     private fun formatTime(millis: Long): String {

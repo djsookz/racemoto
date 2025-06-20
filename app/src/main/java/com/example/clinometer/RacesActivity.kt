@@ -3,12 +3,11 @@ package com.example.clinometer
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import android.widget.Button
-
 
 class RacesActivity : AppCompatActivity() {
 
@@ -16,12 +15,6 @@ class RacesActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var emptyView: TextView
     private val racesList = mutableListOf<Race>()  // Инициализираме веднага
-
-    private fun computeDuration(pts: List<RoutePoint>): Long {
-        if (pts.isEmpty()) return 0L
-        val times = pts.map { it.timestamp }
-        return (times.maxOrNull() ?: 0L) - (times.minOrNull() ?: 0L)
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,26 +24,8 @@ class RacesActivity : AppCompatActivity() {
         emptyView = findViewById(R.id.tvEmptyView)
         val btnNewRoute = findViewById<Button>(R.id.btnNewRoute)
 
-        // Зареждаме списъка още в onCreate
-        racesList.clear()
-        val loadedPoints: List<List<RoutePoint>> = RouteStorage.loadRoutes(this)
-        val loadedRaces: List<Race> = loadedPoints.map { pts ->
-            // timestamp на началото на маршрута
-            val startTs = pts.firstOrNull()?.timestamp ?: 0L
-            val absoluteTs = pts.firstOrNull()?.absoluteTime ?: System.currentTimeMillis()
-            val endTs = pts.lastOrNull()?.timestamp ?: 0L
-            val duration = endTs - startTs
-
-            Race(
-                id = startTs,            // използваме началното време като уникален ID
-                routePoints = pts,
-                timestamp = startTs,
-                absoluteTimestamp = absoluteTs,// записваме кога е започнал
-                duration = duration  // обща продължителност
-            )
-        }
-        racesList.addAll(loadedRaces)
-
+        // Зареждаме списъка с сесии
+        loadRaces()
 
         // Слушател за бутона "Нов маршрут"
         btnNewRoute.setOnClickListener {
@@ -60,13 +35,9 @@ class RacesActivity : AppCompatActivity() {
         adapter = RaceAdapter(
             races = racesList,
             onItemClick = { race ->
-                val realDuration = race.routePoints.maxOfOrNull { it.timestamp } ?: 0L
+                // Предаваме целия Race обект на MapActivity
                 val intent = Intent(this@RacesActivity, MapActivity::class.java).apply {
-                    putParcelableArrayListExtra("ROUTE", ArrayList(race.routePoints))
-                    putExtra("TOTAL_TIME", realDuration)
-                    putExtra("EXTRA_MAX_LEFT",  race.maxLeftAngle)
-                    putExtra("EXTRA_MAX_RIGHT", race.maxRightAngle)
-                    putExtra("EXTRA_MAX_SPEED", race.maxSpeed)
+                    putExtra("RACE", race)
                 }
                 startActivity(intent)
             },
@@ -98,26 +69,23 @@ class RacesActivity : AppCompatActivity() {
                     RouteStorage.saveRaces(this, all)
                 }
             }
-
         )
 
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
         checkEmptyList()
+    }
 
+    private fun loadRaces() {
+        racesList.clear()
+        val loadedRaces = RouteStorage.loadRaces(this)
+        racesList.addAll(loadedRaces)
     }
 
     override fun onResume() {
         super.onResume()
         // При връщане, презареждаме списъка и обновяваме адаптера
-        racesList.clear()
-        val loadedPoints: List<List<RoutePoint>> = RouteStorage.loadRoutes(this)
-        val loadedRaces: List<Race> = RouteStorage.loadRaces(this)
-        racesList.clear()
-        racesList.addAll(loadedRaces)
-
-
-
+        loadRaces()
         adapter.notifyDataSetChanged()
         checkEmptyList()
     }
@@ -131,6 +99,4 @@ class RacesActivity : AppCompatActivity() {
             emptyView.visibility = View.GONE
         }
     }
-
-
 }

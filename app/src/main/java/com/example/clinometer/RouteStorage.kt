@@ -6,7 +6,7 @@ import com.google.gson.reflect.TypeToken
 import java.io.File
 
 object RouteStorage {
-    private const val FILE_NAME = "routes.json"
+    private const val FILE_NAME = "races.json"
 
     // Записваме списък от Race (включително name)
     fun saveRaces(context: Context, races: List<Race>) {
@@ -25,7 +25,7 @@ object RouteStorage {
 
             val json = file.readText()
             val type = object : TypeToken<List<Race>>() {}.type
-            Gson().fromJson(json, type)
+            Gson().fromJson(json, type) ?: emptyList()
         } catch (e: Exception) {
             emptyList()
         }

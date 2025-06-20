@@ -13,7 +13,10 @@ data class Race(
     val maxLeftAngle: Float = 0f,
     val maxRightAngle: Float = 0f,
     val maxSpeed: Float = 0f,
-    var name: String? = null
+    var name: String? = null,
+    val time0to100: Long = -1L,
+    val time0to200: Long = -1L,
+    val time100to200: Long = -1L
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
         parcel.readLong(),
@@ -24,7 +27,10 @@ data class Race(
         parcel.readFloat(),
         parcel.readFloat(),
         parcel.readFloat(),
-        parcel.readString()
+        parcel.readString(),
+        parcel.readLong(),
+        parcel.readLong(),
+        parcel.readLong()
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
@@ -37,6 +43,9 @@ data class Race(
         parcel.writeFloat(maxRightAngle)
         parcel.writeFloat(maxSpeed)
         parcel.writeString(name)
+        parcel.writeLong(time0to100)
+        parcel.writeLong(time0to200)
+        parcel.writeLong(time100to200)
     }
 
     override fun describeContents(): Int = 0
