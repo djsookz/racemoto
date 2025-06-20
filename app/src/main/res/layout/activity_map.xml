@@ -100,7 +100,8 @@
                         <TextView
                             android:id="@+id/tvInfo"
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
+                            android:layout_height="60dp"
+                            android:gravity="left|center_vertical"
                             android:layout_weight="1"
                             android:text="Информация"
                             android:textSize="18sp"
@@ -108,7 +109,8 @@
                             android:textColor="#212121"
                             android:fontFamily="sans-serif-medium"
                             android:paddingLeft="10dp"
-                            android:paddingRight="10dp"/>
+                            android:paddingRight="10dp"
+                            />
 
                         <TextView
                             android:id="@+id/sessionDateTime"
