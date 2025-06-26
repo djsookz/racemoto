@@ -5,186 +5,224 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@android:color/white"
+    android:background="#0D1117"
     tools:context=".MainActivity">
 
+    <!-- Top: Map Section -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1.2">
 
         <org.osmdroid.views.MapView
             android:id="@+id/mapView"
-            android:layout_width="428dp"
-            android:layout_height="421dp" />
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
     </FrameLayout>
 
+    <!-- Bottom: Dashboard -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="8dp">
+        android:background="#161B22"
+        android:padding="5dp">
 
-        <com.example.clinometer.GaugeView
-            android:id="@+id/gaugeView"
-            android:layout_width="563dp"
-            android:layout_height="483dp"
-            android:layout_marginTop="48dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.495"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <TextView
-            android:id="@+id/currentAngleText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="0°"
-            android:textAlignment="center"
-            android:textColor="#6e6e6e"
-            android:textSize="24sp"
-            app:layout_constraintBottom_toBottomOf="@+id/gaugeView"
-            app:layout_constraintEnd_toEndOf="@+id/gaugeView"
-            app:layout_constraintHorizontal_bias="0.495"
-            app:layout_constraintStart_toStartOf="@+id/gaugeView"
-            app:layout_constraintTop_toTopOf="@+id/gaugeView"
-            app:layout_constraintVertical_bias="0.265" />
-
-        <Chronometer
-            android:id="@+id/chronometer"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentTop="true"
-            android:layout_centerHorizontal="true"
-            android:textColor="#6e6e6e"
-            android:textSize="40sp"
-            app:layout_constraintBottom_toBottomOf="@+id/gaugeView"
-            app:layout_constraintEnd_toEndOf="@+id/gaugeView"
-            app:layout_constraintHorizontal_bias="0.495"
-            app:layout_constraintStart_toStartOf="@+id/gaugeView"
-            app:layout_constraintTop_toBottomOf="@+id/currentAngleText"
-            app:layout_constraintVertical_bias="0.0" />
-
-        <TextView
-            android:id="@+id/maxLeftText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Макс. ляво: 0°"
-            android:textSize="16sp"
-            android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="@+id/gaugeView"
-            app:layout_constraintEnd_toStartOf="@+id/maxRightText"
-            app:layout_constraintHorizontal_bias="0.064"
-            app:layout_constraintStart_toStartOf="@+id/gaugeView"
-            app:layout_constraintTop_toBottomOf="@+id/currentAngleText"
-            app:layout_constraintVertical_bias="1.0" />
-
-        <TextView
-            android:id="@+id/maxRightText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Макс. дясно: 0°"
-            android:textAlignment="center"
-            android:textSize="16sp"
-            android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="@+id/gaugeView"
-            app:layout_constraintEnd_toEndOf="@+id/gaugeView"
-            app:layout_constraintHorizontal_bias="1.0"
-            app:layout_constraintStart_toEndOf="@+id/gaugeView"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/currentAngleText"
-            app:layout_constraintVertical_bias="1.0" />
-
-        <TextView
-            android:id="@+id/speedText"
-            android:layout_width="128dp"
-            android:layout_height="75dp"
-            android:text="0"
-            android:textAlignment="center"
-            android:textColor="#6e6e6e"
-            android:textSize="65sp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
+        <!-- Main Content Area -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/contentArea"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.0" />
+            app:layout_constraintBottom_toTopOf="@+id/accelerationContainer"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
+            <!-- Speedometer Background -->
+            <ImageView
+                android:id="@+id/speedometerBackground"
+                android:layout_width="265dp"
+                android:layout_height="238dp"
+                android:src="@drawable/speedometer_circle"
+                app:tint="#15616d"
+                app:layout_constraintDimensionRatio="1:1"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"/>
+
+            <!-- Gauge View -->
+
+            <!-- Speed Display -->
+
+            <!-- Speed Unit -->
+
+
+            <!-- Angle Display -->
+
+            <com.example.clinometer.GaugeView
+                android:id="@+id/gaugeView"
+                android:layout_width="250dp"
+                android:layout_height="235dp"
+                android:layout_marginRight="5dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintDimensionRatio="1:1"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                />
+
+            <!-- Timer -->
+
+            <TextView
+                android:id="@+id/speedText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-thin"
+                android:shadowColor="#0099CC"
+                android:textAlignment="center"
+                android:shadowRadius="10"
+                android:text="0"
+                android:textColor="#00D4FF"
+                android:textSize="56sp"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toTopOf="@+id/currentAngleText"
+                app:layout_constraintEnd_toEndOf="@id/gaugeView"
+                app:layout_constraintStart_toStartOf="@id/gaugeView"
+                app:layout_constraintTop_toTopOf="@id/gaugeView"
+                app:layout_constraintVertical_bias="0.79"
+                app:layout_constraintVertical_chainStyle="packed" />
+
+            <TextView
+                android:id="@+id/currentAngleText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="68dp"
+
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="4dp"
+                android:text="0°"
+                android:textColor="#58A6FF"
+                android:textSize="24sp"
+                app:layout_constraintBottom_toBottomOf="@id/gaugeView"
+                app:layout_constraintEnd_toEndOf="@id/gaugeView"
+                app:layout_constraintStart_toStartOf="@id/gaugeView" />
+
+            <Chronometer
+                android:id="@+id/chronometer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="44dp"
+                android:textColor="#FFD700"
+                android:textSize="22sp"
+                app:layout_constraintEnd_toEndOf="@id/gaugeView"
+                app:layout_constraintHorizontal_bias="0.502"
+                app:layout_constraintStart_toStartOf="@id/gaugeView"
+                app:layout_constraintTop_toBottomOf="@id/currentAngleText" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Acceleration Metrics -->
+        <LinearLayout
+            android:id="@+id/accelerationContainer"
+            android:layout_width="363dp"
+            android:layout_height="35dp"
+            android:gravity="center"
+            android:orientation="horizontal"
+
+            app:layout_constraintBottom_toTopOf="@id/buttonContainer"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <TextView
+                android:id="@+id/tvZeroTo100"
+                android:layout_width="70dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="0-100: -"
+                android:textColor="#00D4FF"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tvZeroTo200"
+                android:layout_width="70dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="0-200: -"
+                android:textColor="#00D4FF"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tvHundredTo200"
+                android:layout_width="70dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="100-200: -"
+                android:textColor="#00D4FF"
+                android:textSize="16sp"  />
+        </LinearLayout>
+
+        <!-- Button Container -->
+        <LinearLayout
+            android:id="@+id/buttonContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginBottom="45dp">
+
+            <Button
+                android:id="@+id/btnReset"
+                android:layout_width="0dp"
+                android:layout_height="35dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="НУЛИРАЙ"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:backgroundTint="#FF6B35"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.1"
+                android:stateListAnimator="@null"
+                android:background="@drawable/rounded_button"/>
+
+            <Button
+                android:id="@+id/btnStop"
+                android:layout_width="0dp"
+                android:layout_height="35dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="СТОП"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:backgroundTint="#E53E3E"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.1"
+                android:stateListAnimator="@null"
+                android:background="@drawable/rounded_button"/>
+        </LinearLayout>
+
+        <!-- Hidden diagnostic elements -->
         <TextView
             android:id="@+id/maxSpeedText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="120dp"
-            android:layout_marginTop="436dp"
-            android:text="Макс. скорост: 0 км/ч"
-            android:textSize="16sp"
-            android:visibility="gone"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/speedText" />
-
-        <!-- Добавени TextView елементи за ускорението -->
-
-        <LinearLayout
-            android:id="@+id/linearLayout"
-            android:layout_width="match_parent"
+            android:visibility="gone"/>
+        <TextView
+            android:id="@+id/maxLeftText"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="44dp"
-            android:gravity="center"
-            android:orientation="horizontal"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/maxSpeedText"
-            app:layout_constraintVertical_bias="0.575">
+            android:visibility="gone"/>
+        <TextView
+            android:id="@+id/maxRightText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone"/>
 
-            <TextView
-                android:id="@+id/tvZeroTo100"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="4dp"
-                android:text="0-100: -"
-                android:textColor="#6e6e6e"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/tvZeroTo200"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="4dp"
-                android:text="0-200: -"
-                android:textColor="#6e6e6e"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/tvHundredTo200"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginHorizontal="4dp"
-                android:text="100-200: -"
-                android:textColor="#6e6e6e"
-                android:textSize="14sp" />
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/btnReset"
-            android:layout_width="160dp"
-            android:layout_height="50dp"
-            android:layout_marginEnd="20dp"
-            android:layout_marginBottom="40dp"
-            android:backgroundTint="@android:color/holo_orange_dark"
-            android:text="Нулирай"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@+id/btnStop"
-            app:layout_constraintStart_toStartOf="parent" />
-
-        <Button
-            android:id="@+id/btnStop"
-            android:layout_width="160dp"
-            android:layout_height="50dp"
-            android:layout_marginStart="20dp"
-            android:layout_marginBottom="40dp"
-            android:backgroundTint="@android:color/holo_red_light"
-            android:text="Стоп"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toEndOf="@+id/btnReset" />
     </androidx.constraintlayout.widget.ConstraintLayout>
 </LinearLayout>

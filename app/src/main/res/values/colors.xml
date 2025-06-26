@@ -11,4 +11,40 @@
     <color name="primary_text">#212121</color>
     <color name="secondary_text">#757575</color>
     <color name="icon_tint">#9E9E9E</color>
+    <!-- Основни цветове за фона -->
+    <color name="background_primary">#F5F7FA</color>
+    <color name="background_secondary">#FFFFFF</color>
+    <color name="surface_color">#FFFFFF</color>
+
+    <!-- Текстови цветове -->
+    <color name="text_primary">#1A1A1A</color>
+    <color name="text_secondary">#6B7280</color>
+    <color name="text_tertiary">#9CA3AF</color>
+
+    <!-- Акцентен цвят за скоростта -->
+    <color name="accent_color">#3B82F6</color>
+    <color name="accent_light">#60A5FA</color>
+
+    <!-- Бутони -->
+    <color name="reset_button_color">#F59E0B</color>
+    <color name="reset_button_ripple">#FCD34D</color>
+    <color name="stop_button_color">#EF4444</color>
+    <color name="stop_button_ripple">#F87171</color>
+
+    <!-- Разделители и граници -->
+    <color name="divider_color">#E5E7EB</color>
+    <color name="border_color">#D1D5DB</color>
+
+    <!-- Допълнителни цветове за статус -->
+    <color name="success_color">#10B981</color>
+    <color name="warning_color">#F59E0B</color>
+    <color name="error_color">#EF4444</color>
+
+    <!-- Overlay цветове -->
+    <color name="overlay_background">#80000000</color>
+    <color name="overlay_surface">#F3F4F6</color>
+
+    <!-- Градиенти (за бъдещо използване) -->
+    <color name="gradient_start">#667EEA</color>
+    <color name="gradient_end">#764BA2</color>
 </resources>

@@ -18,7 +18,9 @@
         android:icon="@drawable/racemoto_logo"
         android:label="@string/racemoto"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
+        android:largeHeap="true"
+        android:usesCleartextTraffic="true">
 
         <activity
             android:name=".StartActivity"

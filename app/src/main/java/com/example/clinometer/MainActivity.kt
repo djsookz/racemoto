@@ -154,6 +154,7 @@ class MainActivity : AppCompatActivity() {
         tvZeroTo200 = findViewById(R.id.tvZeroTo200)
         tvHundredTo200 = findViewById(R.id.tvHundredTo200)
 
+
         currentAngleText.text = getString(R.string.current_angle, 0)
         maxLeftText.text = getString(R.string.max_left_angle, 0)
         maxRightText.text = getString(R.string.max_right_angle, 0)
@@ -234,37 +235,64 @@ class MainActivity : AppCompatActivity() {
 
         stopButton.setOnClickListener {
             if (serviceBound) {
-                val routePoints = foregroundService?.getRoutePoints() ?: emptyList()
-                val maxLeftAngle = foregroundService?.getMaxLeftAngle() ?: 0f
-                val maxRightAngle = foregroundService?.getMaxRightAngle() ?: 0f
-                val maxSpeed = foregroundService?.getMaxSpeed() ?: 0f
-                val accelData = foregroundService?.getAccelerationData() ?: ForegroundService.AccelerationData()
-                val realDuration = routePoints.maxOfOrNull { it.timestamp } ?: 0L
+                try {
 
-                // Създаваме Race обект с всички данни
-                val race = Race(
-                    id = System.currentTimeMillis(),
-                    routePoints = routePoints,
-                    timestamp = System.currentTimeMillis(),
-                    duration = realDuration,
-                    absoluteTimestamp = System.currentTimeMillis(),
-                    maxLeftAngle = maxLeftAngle,
-                    maxRightAngle = maxRightAngle,
-                    maxSpeed = maxSpeed,
-                    name = null,
-                    time0to100 = accelData.best0to100(),
-                    time0to200 = accelData.best0to200(),
-                    time100to200 = accelData.best100to200()
-                )
+                    val accelData = foregroundService?.getAccelerationData()
+                        ?: ForegroundService.AccelerationData()
+                    val realDuration = foregroundService?.getServiceDuration() ?: 0
+                    val time0to100 = accelData.best0to100()
+                    val time0to200 = accelData.best0to200()
+                    val time100to200 =
+                        if (time0to100 > 0 && time0to200 > 0 && time0to200 > time0to100) {
+                            time0to200 - time0to100
+                        } else -1
 
-                // Запазваме race
-                RaceRepository.addRace(race)
-                val allRaces = RouteStorage.loadRaces(this).toMutableList()
-                allRaces.add(race)
-                RouteStorage.saveRaces(this, allRaces)
+                    // Създаваме Race обект с всички данни
+                    val race = Race(
+                        id = System.currentTimeMillis(),
+                        routePoints = emptyList(), // Не изпращаме точките през Intent
+                        timestamp = System.currentTimeMillis(),
+                        duration = realDuration,
+                        absoluteTimestamp = System.currentTimeMillis(),
+                        maxLeftAngle = foregroundService?.getMaxLeftAngle() ?: 0f,
+                        maxRightAngle = foregroundService?.getMaxRightAngle() ?: 0f,
+                        maxSpeed = foregroundService?.getMaxSpeed() ?: 0f,
+                        name = null,
+                        time0to100 = accelData.best0to100(),
+                        time0to200 = accelData.best0to200(),
+                        time100to200 = time100to200
+                    )
 
-                val intent = Intent(this, MapActivity::class.java).apply {
-                    putExtra("RACE", race)
+                    // Запазваме race
+                    val points = foregroundService?.getRoutePoints() ?: emptyList()
+                    RouteStorage.saveRoutePoints(this, race.id, points)
+
+                    // Запазване на метаданните
+                    val allRaces = RouteStorage.loadRaces(this).toMutableList()
+                    allRaces.add(race)
+                    RouteStorage.saveRaces(this, allRaces)
+
+                    // Предаване само на ID
+                    val intent = Intent(this, MapActivity::class.java).apply {
+                        putExtra("RACE_ID", race.id)
+                    }
+                    startActivity(intent)
+
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error saving race", e)
+                    AlertDialog.Builder(this)
+                        .setTitle("Грешка")
+                        .setMessage("Грешка при запазване: ${e.message}")
+                        .setPositiveButton("OK", null)
+                        .show()
+                } finally {
+                    // СПИРАНЕ НА СЕРВИЗА ВЪВ ВСЯКЪВ СЛУЧАЙ
+                    if (serviceBound) {
+                        unbindService(serviceConnection)
+                        stopService(Intent(this, ForegroundService::class.java))
+                        serviceBound = false
+                    }
+                    finish()  // ЗАТВАРЯНЕ НА ТЕКУЩАТА АКТИВНОСТ
                 }
 
                 unbindService(serviceConnection)
@@ -275,7 +303,9 @@ class MainActivity : AppCompatActivity() {
                 finish()
             }
         }
+
     }
+
 
     override fun onResume() {
         super.onResume()
@@ -313,39 +343,51 @@ class MainActivity : AppCompatActivity() {
         chronometer.start()
     }
 
+
     // НОВА ИМПЛЕМЕНТАЦИЯ: Показване на ускорението със зелени резултати
     // В MainActivity.kt - само функцията updateAccelerationDisplay трябва да се замени:
 
     // В MainActivity
     private fun updateAccelerationDisplay(accelData: ForegroundService.AccelerationData) {
         fun formatTime(timeNanos: Long): String {
-            return if (timeNanos > 0) "%.2f".format(timeNanos / 1_000_000_000.0) else "--"  // ПРОМЯНА: Деление на наносекунди
+            return if (timeNanos > 0) "%.3f".format(timeNanos / 1_000_000_000.0) else "--"
         }
 
         fun getDisplayText(prefix: String, bestTime: Long, isTracking: Boolean): SpannableString {
+            val timeStr = formatTime(bestTime)
+            val hasValidTime = bestTime > 0
+
             val fullText = when {
-                isTracking -> "$prefix: ⏱️"
-                bestTime > 0 -> "$prefix: ${formatTime(bestTime)}s"
-                else -> "$prefix: -"
+                isTracking && hasValidTime -> "$prefix: $timeStr⏱️" // Показва време + икона при активно проследяване
+                isTracking -> "$prefix: ⏱️"                         // Само икона при активно проследяване без време
+                hasValidTime -> "$prefix: $timeStr"                 // Само време при завършено ускорение
+                else -> "$prefix: -"                                // Няма резултат
             }
 
             val spannable = SpannableString(fullText)
 
-            if (!isTracking && bestTime > 0) {
-                val timeStr = formatTime(bestTime)
-                val startIndex = prefix.length + 2
-                val endIndex = startIndex + timeStr.length
-
-                spannable.setSpan(
-                    ForegroundColorSpan(Color.GREEN),
-                    startIndex,
-                    endIndex,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
+            if (hasValidTime) {
+                // Намираме позицията на времето в текста
+                val startIndex = fullText.indexOf(timeStr)
+                if (startIndex != -1) {
+                    val endIndex = startIndex + timeStr.length
+                    spannable.setSpan(
+                        ForegroundColorSpan(Color.GREEN),
+                        startIndex,
+                        endIndex,
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    )
+                }
             }
             return spannable
         }
+        val time100to200 = if (accelData.best0to200() > 0 && accelData.best0to100() > 0) {
+            val total = accelData.best0to200()
+            val firstPart = accelData.best0to100()
+            if (total > firstPart) total - firstPart else -1
+        } else -1
 
+        // ВИНАГИ показваме най-добрите резултати, дори по време на активно проследяване
         tvZeroTo100.text = getDisplayText(
             "0-100",
             accelData.best0to100(),
@@ -360,9 +402,11 @@ class MainActivity : AppCompatActivity() {
 
         tvHundredTo200.text = getDisplayText(
             "100-200",
-            accelData.best100to200(),
-            accelData.isTracking100to200
+            time100to200,
+            // Show timer only when 0-200 is being tracked
+            isTracking = accelData.isTracking0to200
         )
+
     }
 
     private fun updateUIFromService() {
@@ -397,42 +441,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateMapWithLocation(geoPoint: GeoPoint, bearing: Float, currentSpeed: Float) {
-        if (!isFirstLocationSet) {
-            userPosition = calculateUserPosition(geoPoint)
-            mapView.controller.setCenter(userPosition)
-            isFirstLocationSet = true
-        }
+        // ВИНАГИ центрираме картата върху текущата позиция
+        mapView.controller.setCenter(geoPoint)
 
+        // Добавяме точка към маршрута само ако е на достатъчно голямо разстояние
         if (routeOverlay.points.isEmpty() ||
             geoPoint.distanceToAsDouble(routeOverlay.points.last()) > 2) {
             routeOverlay.points.add(geoPoint)
         }
 
+        // Обновяваме ориентацията само ако се движим с достатъчно голяма скорост
         if (currentSpeed > 2) {
             val smoothedBearing = smoothBearing(bearing, lastBearing, 0.2f)
             targetMapOrientation = -smoothedBearing
             lastBearing = smoothedBearing
         }
 
-        userPosition = calculateUserPosition(geoPoint)
-        mapView.controller.setCenter(userPosition)
-
         mapView.invalidate()
     }
 
-    private fun calculateUserPosition(actualLocation: GeoPoint): GeoPoint {
-        if (!::mapView.isInitialized || mapView.width == 0 || mapView.height == 0) {
-            return actualLocation
-        }
 
-        val projection = mapView.projection
-        val screenPoint = projection.toPixels(actualLocation, null)
-
-        val offsetY = (mapView.height * 0.35).toInt()
-        val adjustedPoint = Point(screenPoint.x, screenPoint.y - offsetY)
-
-        return projection.fromPixels(adjustedPoint.x, adjustedPoint.y) as GeoPoint
-    }
 
     private fun smoothBearing(newBearing: Float, oldBearing: Float, factor: Float): Float {
         var diff = newBearing - oldBearing
@@ -516,6 +544,7 @@ class MainActivity : AppCompatActivity() {
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
         super.onRestoreInstanceState(savedInstanceState)
         currentMapOrientation = savedInstanceState.getFloat("currentMapOrientation", 0f)
-        isFirstLocationSet = savedInstanceState.getBoolean("isFirstLocationSet", false)
+
+
     }
 }

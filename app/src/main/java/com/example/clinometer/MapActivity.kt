@@ -49,16 +49,27 @@ class MapActivity : AppCompatActivity() {
         )
         setContentView(R.layout.activity_map)
 
-        // Взимаме целия Race обект от интента
-        val race = intent.getParcelableExtra<Race>("RACE")
-        if (race == null) {
-            Toast.makeText(this, "Грешка: липсват данни за сесията", Toast.LENGTH_SHORT).show()
+        // Взимаме ID на сесията
+        val raceId = intent.getLongExtra("RACE_ID", -1)
+        if (raceId == -1L) {
+            Toast.makeText(this, "Грешка: липсва ID на сесията", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
 
+        // Зареждаме метаданните
+        val races = RouteStorage.loadRaces(this)
+        val race = races.find { it.id == raceId }
+        if (race == null) {
+            Toast.makeText(this, "Сесията не е намерена", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
+        // Зареждаме точките от хранилището
+        routePoints = RouteStorage.loadRoutePoints(this, raceId)
+
         // Използваме данните от race обекта
-        routePoints = race.routePoints
         val maxLeft = race.maxLeftAngle.toInt()
         val maxRight = race.maxRightAngle.toInt()
         val maxSpeed = race.maxSpeed.toInt()
@@ -81,6 +92,7 @@ class MapActivity : AppCompatActivity() {
         btnNewRoute.text = "НОВА СЕСИЯ"
         btnNewRoute.setOnClickListener {
             startActivity(Intent(this, CountdownActivity::class.java))
+            finish() // Добавено за коректно затваряне
         }
 
         // Проверка дали има данни за маршрут
@@ -245,8 +257,8 @@ class MapActivity : AppCompatActivity() {
                 yAxis.zeroLineWidth = 1f
             }
             Mode.ANGLE -> {
-                yAxis.axisMinimum = -70f
-                yAxis.axisMaximum = 70f
+                yAxis.axisMinimum = -90f
+                yAxis.axisMaximum = 90f
                 yAxis.setDrawZeroLine(true)
                 yAxis.zeroLineColor = Color.GRAY
                 yAxis.zeroLineWidth = 1f

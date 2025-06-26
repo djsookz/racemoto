@@ -1,68 +1,85 @@
 package com.example.clinometer
 
 import android.content.Context
+import android.util.Log
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import java.io.File
+import java.io.FileOutputStream
+
 
 object RouteStorage {
-    private const val FILE_NAME = "races.json"
+    private const val RACES_FILE = "races.json"
+    private const val POINTS_DIR = "route_points"
 
-    // Записваме списък от Race (включително name)
+    // Запазване на метаданни за сесиите
     fun saveRaces(context: Context, races: List<Race>) {
-        val gson = Gson()
-        val json = gson.toJson(races)
-        context.openFileOutput(FILE_NAME, Context.MODE_PRIVATE).use {
-            it.write(json.toByteArray())
+        synchronized(this) {
+            try {
+                val gson = GsonBuilder().create()
+                val json = gson.toJson(races)
+                context.openFileOutput(RACES_FILE, Context.MODE_PRIVATE).use {
+                    it.write(json.toByteArray())
+                }
+            } catch (e: Exception) {
+                Log.e("RouteStorage", "Error saving races", e)
+            }
         }
     }
 
-    // Зареждаме списък от Race
+    // Запазване на точките за конкретна сесия
+    fun saveRoutePoints(context: Context, raceId: Long, points: List<RoutePoint>) {
+        synchronized(this) {
+            try {
+                // Създаваме директория ако не съществува
+                val dir = File(context.filesDir, POINTS_DIR)
+                if (!dir.exists()) dir.mkdirs()
+
+                // Записваме точките във файл
+                val file = File(dir, "points_$raceId.json")
+                val gson = GsonBuilder().create()
+                val json = gson.toJson(points)
+                FileOutputStream(file).use {
+                    it.write(json.toByteArray())
+                }
+            } catch (e: Exception) {
+                Log.e("RouteStorage", "Error saving points", e)
+            }
+        }
+    }
+
+    // Зареждане на метаданни
     fun loadRaces(context: Context): List<Race> {
-        return try {
-            val file = File(context.filesDir, FILE_NAME)
-            if (!file.exists()) return emptyList()
+        synchronized(this) {
+            return try {
+                val file = File(context.filesDir, RACES_FILE)
+                if (!file.exists()) return emptyList()
 
-            val json = file.readText()
-            val type = object : TypeToken<List<Race>>() {}.type
-            Gson().fromJson(json, type) ?: emptyList()
-        } catch (e: Exception) {
-            emptyList()
+                val json = file.readText()
+                val type = object : TypeToken<List<Race>>() {}.type
+                Gson().fromJson(json, type) ?: emptyList()
+            } catch (e: Exception) {
+                Log.e("RouteStorage", "Error loading races", e)
+                emptyList()
+            }
         }
     }
 
-    fun loadRoutes(context: Context): List<List<RoutePoint>> {
-        // TODO: ако имаш стар формат – тук може да се адаптира
-        val races = loadRaces(context)
-        return races.map { it.routePoints }
-    }
+    // Зареждане на точки за конкретна сесия
+    fun loadRoutePoints(context: Context, raceId: Long): List<RoutePoint> {
+        synchronized(this) {
+            return try {
+                val file = File(File(context.filesDir, POINTS_DIR), "points_$raceId.json")
+                if (!file.exists()) return emptyList()
 
-    fun saveRoutes(context: Context, routes: List<List<RoutePoint>>) {
-        // 1) Зареждаме всички вече записани Race (с техните имена)
-        val oldRaces = loadRaces(context)
-
-        // 2) Преобразуваме всяка листа от точки обратно в Race, но
-        //    запазваме name от стария запис (ако има такъв)
-        val races: List<Race> = routes.map { routePoints: List<RoutePoint> ->
-            val startTs = routePoints.firstOrNull()?.timestamp ?: 0L
-            val endTs   = routePoints.lastOrNull()?.timestamp  ?: 0L
-            val duration = endTs - startTs
-            val absoluteTs = routePoints.firstOrNull()?.absoluteTime ?: System.currentTimeMillis()
-            val oldName = oldRaces.find { it.id == startTs }?.name
-
-            Race(
-                id = startTs,
-                name = oldName,           // <—— прехвърляме старото име тук
-                timestamp = startTs,
-                absoluteTimestamp = absoluteTs,
-                duration = duration,
-                routePoints = routePoints
-            )
+                val json = file.readText()
+                val type = object : TypeToken<List<RoutePoint>>() {}.type
+                Gson().fromJson(json, type) ?: emptyList()
+            } catch (e: Exception) {
+                Log.e("RouteStorage", "Error loading points", e)
+                emptyList()
+            }
         }
-
-        // 3) Записваме вече с коректно name
-        saveRaces(context, races)
     }
-
-
 }

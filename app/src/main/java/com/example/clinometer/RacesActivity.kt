@@ -35,9 +35,9 @@ class RacesActivity : AppCompatActivity() {
         adapter = RaceAdapter(
             races = racesList,
             onItemClick = { race ->
-                // Предаваме целия Race обект на MapActivity
+                // ПРОМЕНЕНО: Предаваме само ID на сесията
                 val intent = Intent(this@RacesActivity, MapActivity::class.java).apply {
-                    putExtra("RACE", race)
+                    putExtra("RACE_ID", race.id)
                 }
                 startActivity(intent)
             },

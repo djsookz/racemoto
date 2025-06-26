@@ -35,6 +35,12 @@ import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.sqrt
 
+enum class AccelerationState {
+    IDLE,           // Не измерваме нищо
+    ACCELERATING,   // Ускоряваме от спирка
+    COMPLETED       // Завършили сме всички измервания
+}
+
 class ForegroundService : Service(), SensorEventListener {
 
     private val routePoints = mutableListOf<RoutePoint>()
@@ -47,6 +53,7 @@ class ForegroundService : Service(), SensorEventListener {
     private var currentSpeed = 0f
     private var startTime: Long = 0
     private var lastLocation: Location? = null
+    private var serviceStartTime: Long = 0
 
     private lateinit var wakeLock: PowerManager.WakeLock
     private lateinit var fusedClient: FusedLocationProviderClient
@@ -70,7 +77,32 @@ class ForegroundService : Service(), SensorEventListener {
         return binder
     }
 
+    data class AccelerationRange(
+        val name: String,
+        val startSpeed: Float,
+        val endSpeed: Float,
+        val timeout: Long,
+        val requiresFullStop: Boolean = false,
+        var startTime: Long = 0L,
+        var isActive: Boolean = false,
+        val results: MutableList<Long> = mutableListOf()
+    )
+
+    data class SpeedPoint(
+        val speed: Float,
+        val timestamp: Long  // Тук ще използваме nanoTime
+    )
+
+    data class GPSSpeedPoint(
+        val speed: Float,
+        val timestamp: Long,
+        val latitude: Double,
+        val longitude: Double,
+        val accuracy: Float
+    )
+
     data class AccelerationData(
+        // Запазваме старите променливи за съвместимост
         var isTracking0to100: Boolean = false,
         var isTracking0to200: Boolean = false,
         var isTracking100to200: Boolean = false,
@@ -79,8 +111,6 @@ class ForegroundService : Service(), SensorEventListener {
         var lastBest100to200: Long = -1L,
         var hasFullyStopped: Boolean = false,
 
-
-        // ПРОМЯНА: Използваме nanoTime за началните времена
         var startTime0to100: Long = 0L,
         var startTime0to200: Long = 0L,
         var startTime100to200: Long = 0L,
@@ -93,20 +123,44 @@ class ForegroundService : Service(), SensorEventListener {
         var hasReached200: Boolean = false,
 
         var speedHistory: MutableList<SpeedPoint> = mutableListOf(),
-        var accelerationStartSpeed: Float = 0f
-    )
-    {
-        // Добавяме функции за връщане на най-доброто време
+        var accelerationStartSpeed: Float = 0f,
+
+        // Нови State Machine променливи
+        var state: AccelerationState = AccelerationState.IDLE,
+        var ranges: MutableList<AccelerationRange> = mutableListOf(
+            AccelerationRange("0-100", 3f, 100f, 20_000_000_000L, requiresFullStop = true),
+            AccelerationRange("0-200", 3f, 200f, 60_000_000_000L, requiresFullStop = true)
+        ),
+        var lastSpeed: Float = 0f
+    ) {
+        // Запазваме старите функции за съвместимост
         fun best0to100() = times0to100.minOrNull() ?: lastBest0to100
         fun best0to200() = times0to200.minOrNull() ?: lastBest0to200
         fun best100to200() = times100to200.minOrNull() ?: lastBest100to200
-    }
 
-    // 2. Промени SpeedPoint класа:
-    data class SpeedPoint(
-        val speed: Float,
-        val timestamp: Long  // Тук ще използваме nanoTime
-    )
+        // Нови функции за синхронизация със старите променливи
+        fun syncFromRanges() {
+            val range030 = ranges.find { it.name == "0-100" }
+            val range060 = ranges.find { it.name == "0-200" }
+
+            isTracking0to100 = range030?.isActive == true
+            isTracking0to200 = range060?.isActive == true
+            isTracking100to200 = false // Махаме 30-60
+
+            startTime0to100 = range030?.startTime ?: 0L
+            startTime0to200 = range060?.startTime ?: 0L
+            startTime100to200 = 0L
+
+            if (range030?.results?.isNotEmpty() == true) {
+                times0to100.addAll(range030.results)
+                range030.results.clear()
+            }
+            if (range060?.results?.isNotEmpty() == true) {
+                times0to200.addAll(range060.results)
+                range060.results.clear()
+            }
+        }
+    }
 
     fun getRoutePoints(): List<RoutePoint> = routePoints
     fun getMaxLeftAngle(): Float = maxLeftAngle
@@ -139,6 +193,7 @@ class ForegroundService : Service(), SensorEventListener {
     override fun onCreate() {
         super.onCreate()
 
+        serviceStartTime = SystemClock.elapsedRealtime()
         sessionStartTime = System.currentTimeMillis()
 
         if (!hasRequiredPermissions()) {
@@ -160,6 +215,9 @@ class ForegroundService : Service(), SensorEventListener {
 
         setupLocationUpdates()
         registerSensors()
+    }
+    fun getServiceDuration(): Long {
+        return SystemClock.elapsedRealtime() - serviceStartTime
     }
 
     private fun hasRequiredPermissions(): Boolean {
@@ -190,7 +248,7 @@ class ForegroundService : Service(), SensorEventListener {
             val delta = abs(raw - filteredAngle)
             val adaptiveAlpha = (0.01f + (delta / 45f)).coerceIn(0.05f, 0.3f)
             filteredAngle += adaptiveAlpha * (raw - filteredAngle)
-            val calibrated = (offsetAngle - filteredAngle).coerceIn(-70f, 70f)
+            val calibrated = (offsetAngle - filteredAngle).coerceIn(-90f, 900f)
             currentCalibratedAngle = calibrated
 
             if (calibrated < maxLeftAngle) maxLeftAngle = calibrated
@@ -218,15 +276,26 @@ class ForegroundService : Service(), SensorEventListener {
         }
     }
 
+    private fun optimizeRoutePoints() {
+        if (routePoints.size > 5000) {
+            val compressed = routePoints.filterIndexed { index, _ ->
+                index % 2 == 0 || routePoints[index].speed > 5f
+            }
+            routePoints.clear()
+            routePoints.addAll(compressed)
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         return START_STICKY
     }
 
     private fun setupLocationUpdates() {
-        locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 500)
-            .setMinUpdateIntervalMillis(250)
+        locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 150)
+            .setMinUpdateIntervalMillis(50)
             .setWaitForAccurateLocation(false)
-            .setMinUpdateDistanceMeters(0.5f)
+            .setMinUpdateDistanceMeters(0.2f)
+            .setMaxUpdateDelayMillis(200)
             .build()
 
         locCallback = object : LocationCallback() {
@@ -300,12 +369,13 @@ class ForegroundService : Service(), SensorEventListener {
         val newSpeed = loc.speed * 3.6f
         val oldSpeed = currentSpeed // Запазваме старата скорост
 
+        trackAcceleration(oldSpeed, newSpeed)
         currentSpeed = newSpeed
 
-        // ПОПРАВКА: Правилен ред на параметрите
-        trackAcceleration(oldSpeed, newSpeed)
-
         if (currentSpeed > maxSpeed) maxSpeed = currentSpeed
+        if (SystemClock.elapsedRealtime() % 30_000 == 0L) {
+            optimizeRoutePoints()
+        }
 
         val pt = RoutePoint(
             geoPoint = GeoPoint(loc.latitude, loc.longitude),
@@ -317,160 +387,124 @@ class ForegroundService : Service(), SensorEventListener {
         routePoints.add(pt)
     }
 
-    // Подобрена имплементация на проследяването на ускорението
-    // Заменете trackAcceleration функцията във ForegroundService с тази:
-
-    // Заменете trackAcceleration функцията с тази МНОГО по-проста версия:
+    // Премахваме функцията hasStableSpeedAround30() защото вече не я използваме
 
     private fun trackAcceleration(oldSpeed: Float, newSpeed: Float) {
-        val currentTime = System.nanoTime()  // ПРОМЯНА: Използваме nanoTime
+        val currentTime = System.nanoTime()
 
+        // Запазваме историята (като преди)
         accelerationTracking.speedHistory.add(SpeedPoint(newSpeed, currentTime))
+        val cutoff = currentTime - 10_000_000_000L
+        accelerationTracking.speedHistory.removeAll { point -> point.timestamp < cutoff }
 
-        // Поддържаме история от последните 10 секунди (10 * 10^9 наносекунди)
-        val cutoff = currentTime - 10_000_000_000L  // ПРОМЯНА: 10 секунди в наносекунди
-        accelerationTracking.speedHistory.removeAll { it.timestamp < cutoff }
-
-        // Проверка за ускорение/забавяне
+        // State Machine логика
         val isAccelerating = newSpeed > oldSpeed + 1.2f
         val isDecelerating = newSpeed < oldSpeed - 1.0f
+        accelerationTracking.lastSpeed = oldSpeed
 
-        // =================== СЛЕДЕНЕ НА ПЪЛНА СПИРКА ===================
-        // Ново: Следим кога точно спираме (под 1 км/ч)
-        if (newSpeed <= 1f) {
+        // Детектираме пълна спирка
+        if (newSpeed < 4f) {
             accelerationTracking.hasFullyStopped = true
+            accelerationTracking.state = AccelerationState.IDLE
+            resetAllActiveRanges("Full stop detected")
         }
 
-        // =================== СПИРАНЕ НА АКТИВНИТЕ ИЗМЕРВАНИЯ ПРИ ЗАБАВЯНЕ ===================
-        if (isDecelerating) {
-            if (accelerationTracking.isTracking0to100) {
-                Log.d("AccelTrack", "Canceled 0-100: deceleration detected")
-                accelerationTracking.isTracking0to100 = false
-                accelerationTracking.hasReached100 = false
+        when (accelerationTracking.state) {
+            AccelerationState.IDLE -> {
+                if (accelerationTracking.hasFullyStopped && newSpeed > 3f && isAccelerating) {
+                    accelerationTracking.state = AccelerationState.ACCELERATING
+                    startMeasurements(currentTime, newSpeed)
+                    accelerationTracking.hasFullyStopped = false
+                }
             }
 
-            if (accelerationTracking.isTracking0to200) {
-                Log.d("AccelTrack", "Canceled 0-200: deceleration detected")
-                accelerationTracking.isTracking0to200 = false
-                accelerationTracking.hasReached200 = false
+            AccelerationState.ACCELERATING -> {
+                if (isDecelerating) {
+                    cancelActiveRanges("Deceleration detected")
+                    accelerationTracking.state = AccelerationState.IDLE
+                    // Reset logic за compatibility
+                    if (newSpeed < 5f) {
+                        accelerationTracking.hasReached100 = false
+                        accelerationTracking.hasReached200 = false
+                    }
+                } else {
+                    updateMeasurements(newSpeed, currentTime)
+                    checkTimeouts(currentTime)
+                }
             }
 
-            if (accelerationTracking.isTracking100to200) {
-                Log.d("AccelTrack", "Canceled 100-200: deceleration detected")
-                accelerationTracking.isTracking100to200 = false
-            }
-        }
-
-        // =================== РЕСЕТ НА ДОСТИГНАТИ ЦЕЛИ ПРИ ЗАБАВЯНЕ ===================
-        // ПРОМЯНА: Преместих това ПРЕДИ проверките за начални условия
-        if (newSpeed < 5f) {
-            if (accelerationTracking.hasReached100) {
-                Log.d("AccelTrack", "Reset 0-100 achievement - ready for new measurement")
-                accelerationTracking.hasReached100 = false
-            }
-            if (accelerationTracking.hasReached200) {
-                Log.d("AccelTrack", "Reset 0-200 achievement - ready for new measurement")
-                accelerationTracking.hasReached200 = false
+            AccelerationState.COMPLETED -> {
+                // Оставаме в този стат докато не спрем напълно
             }
         }
 
-        // =================== ВИНАГИ СЛЕДИМ ЗА НАЧАЛНИ УСЛОВИЯ ===================
-        // 0-100 км/ч - стартира САМО след пълна спирка И когато почнем да ускоряваме
-        if (!accelerationTracking.isTracking0to100 &&
-            !accelerationTracking.hasReached100 &&
-            accelerationTracking.hasFullyStopped &&  // Трябва да сме спрели напълно
-            newSpeed > 2f &&  // Трябва да сме започнали да се движим
-            newSpeed > oldSpeed) {  // Трябва да ускоряваме
+        // Синхронизираме със старите променливи за съвместимост
+        accelerationTracking.syncFromRanges()
+    }
 
-            accelerationTracking.isTracking0to100 = true
-            accelerationTracking.startTime0to100 = currentTime
-            Log.d("AccelTrack", "Started 0-100 tracking at ${newSpeed}km/h after full stop")
+    private fun startMeasurements(currentTime: Long, currentSpeed: Float) {
+        accelerationTracking.ranges.forEach { range ->
+            if (range.requiresFullStop ) {
+                range.isActive = true
+                range.startTime = currentTime
+                Log.d("AccelTrack", "Started ${range.name} tracking at ${currentSpeed}km/h after full stop")
+            }
         }
+    }
 
-        // 0-200 км/ч - стартира САМО след пълна спирка И когато почнем да ускоряваме
-        if (!accelerationTracking.isTracking0to200 &&
-            !accelerationTracking.hasReached200 &&
-            accelerationTracking.hasFullyStopped &&  // Трябва да сме спрели напълно
-            newSpeed > 2f &&  // Трябва да сме започнали да се движим
-            newSpeed > oldSpeed) {  // Трябва да ускоряваме
+    private fun updateMeasurements(newSpeed: Float, currentTime: Long) {
+        val completedMeasurements = mutableListOf<AccelerationRange>()
 
-            accelerationTracking.isTracking0to200 = true
-            accelerationTracking.startTime0to200 = currentTime
-            Log.d("AccelTrack", "Started 0-200 tracking at ${newSpeed}km/h after full stop")
-        }
+        accelerationTracking.ranges.forEach { range ->
+            when {
+                // Завършваме активните ranges
+                range.isActive && newSpeed >= range.endSpeed -> {
+                    val duration = currentTime - range.startTime
+                    range.results.add(duration)
+                    range.isActive = false
+                    completedMeasurements.add(range)
+                    Log.d("AccelTrack", "${range.name}: ${"%.2f".format(duration / 1_000_000_000.0)}s")
 
-        // Ресетваме флага СЛЕД като са стартирали измерванията
-        if ((accelerationTracking.isTracking0to100 || accelerationTracking.isTracking0to200) &&
-            accelerationTracking.hasFullyStopped) {
-            accelerationTracking.hasFullyStopped = false
-        }
-
-        // 100-200 км/ч - стартира когато мине 100 км/ч докато ускорява
-        if (!accelerationTracking.isTracking100to200) {
-            // Ако ускоряваме и минем 100 км/ч, директно стартираме
-            if (newSpeed > 100f && newSpeed > oldSpeed) {
-                accelerationTracking.startTime100to200 = currentTime
-                accelerationTracking.isTracking100to200 = true
-                Log.d("AccelTrack", "Started 100-200 tracking at ${newSpeed}km/h")
+                    // Compatibility logic
+                    when (range.name) {
+                        "0-100" -> accelerationTracking.hasReached100 = true
+                        "0-200" -> accelerationTracking.hasReached200 = true
+                    }
+                }
             }
         }
 
-        // =================== ОБРАБОТКА НА АКТИВНИТЕ ИЗМЕСТВАНИЯ ===================
-        // Обработка на 0-100
-        if (accelerationTracking.isTracking0to100) {
-            if (newSpeed >= 100f) {
-                val timeNanos = currentTime - accelerationTracking.startTime0to100
-                accelerationTracking.times0to100.add(timeNanos)
-                Log.d("AccelTrack", "0-100: ${"%.2f".format(timeNanos / 1_000_000_000.0)}s") // ПРОМЯНА: Форматиране с 2 десетични
-                accelerationTracking.isTracking0to100 = false
-                accelerationTracking.hasReached100 = true
+        // Проверяваме дали всички ranges са завършени
+        if (accelerationTracking.ranges.none { it.isActive }) {
+            val hasCompletedAny = accelerationTracking.ranges.any { it.results.isNotEmpty() }
+            if (hasCompletedAny) {
+                accelerationTracking.state = AccelerationState.COMPLETED
+                Log.d("AccelTrack", "All measurements completed!")
             }
         }
+    }
 
-        // Обработка на 0-200
-        if (accelerationTracking.isTracking0to200) {
-            if (newSpeed >= 200f) {
-                val timeNanos = currentTime - accelerationTracking.startTime0to200
-                accelerationTracking.times0to200.add(timeNanos)
-                Log.d("AccelTrack", "0-200: ${"%.2f".format(timeNanos / 1_000_000_000.0)}s")
-                accelerationTracking.isTracking0to200 = false
-                accelerationTracking.hasReached200 = true
+    private fun resetAllActiveRanges(reason: String) {
+        val activeRanges = accelerationTracking.ranges.filter { it.isActive }
+        if (activeRanges.isNotEmpty()) {
+            Log.d("AccelTrack", "Reset all active ranges: $reason")
+            activeRanges.forEach { it.isActive = false }
+        }
+    }
+
+    private fun cancelActiveRanges(reason: String) {
+        accelerationTracking.ranges.filter { it.isActive }.forEach { range ->
+            range.isActive = false
+            Log.d("AccelTrack", "Canceled ${range.name}: $reason")
+        }
+    }
+
+    private fun checkTimeouts(currentTime: Long) {
+        accelerationTracking.ranges.filter { it.isActive }.forEach { range ->
+            if (currentTime - range.startTime > range.timeout) {
+                range.isActive = false
+                Log.d("AccelTrack", "Stopped ${range.name} tracking - timeout")
             }
-        }
-
-        // Обработка на 100-200
-        if (accelerationTracking.isTracking100to200) {
-            if (newSpeed >= 200f) {
-                val timeNanos = currentTime - accelerationTracking.startTime100to200
-                accelerationTracking.times100to200.add(timeNanos)
-                Log.d("AccelTrack", "100-200: ${"%.2f".format(timeNanos / 1_000_000_000.0)}s")
-                accelerationTracking.isTracking100to200 = false
-            }
-            else if (newSpeed < 90f) {
-                Log.d("AccelTrack", "Reset 100-200: speed dropped below 90km/h")
-                accelerationTracking.isTracking100to200 = false
-            }
-        }
-
-        // =================== TIMEOUT ПРОВЕРКИ ===================
-        val now = System.nanoTime()  // ПРОМЯНА: nanoTime
-
-        if (accelerationTracking.isTracking0to100 &&
-            now - accelerationTracking.startTime0to100 > 20_000_000_000L) {  // ПРОМЯНА: 15 сек в наносекунди
-            Log.d("AccelTrack", "Stopped 0-100 tracking - timeout")
-            accelerationTracking.isTracking0to100 = false
-        }
-
-        if (accelerationTracking.isTracking0to200 &&
-            now - accelerationTracking.startTime0to200 > 60_000_000_000L) {  // ПРОМЯНА: 60 сек в наносекунди
-            Log.d("AccelTrack", "Stopped 0-200 tracking - timeout")
-            accelerationTracking.isTracking0to200 = false
-        }
-
-        if (accelerationTracking.isTracking100to200 &&
-            now - accelerationTracking.startTime100to200 > 30_000_000_000L) {  // ПРОМЯНА: 30 сек в наносекунди
-            Log.d("AccelTrack", "Stopped 100-200 tracking - timeout")
-            accelerationTracking.isTracking100to200 = false
         }
     }
 
