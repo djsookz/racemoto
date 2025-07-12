@@ -13,7 +13,7 @@
         android:layout_gravity="top|center_horizontal"
         android:layout_marginTop="32dp"
         android:layout_marginBottom="80dp"
-        android:text="Сесии"
+        android:text="@string/session_header"
         android:textSize="32sp"
         android:textStyle="bold" />
 
@@ -41,5 +41,5 @@
         android:layout_gravity="end|bottom"
         android:layout_marginBottom="60dp"
         android:layout_marginEnd="16dp"
-        android:text="НОВА СЕСИЯ" />
+        android:text="@string/session_new_button" />
 </FrameLayout>

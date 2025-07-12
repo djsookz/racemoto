@@ -1,16 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootFrame"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/main_background">
+    android:background="@drawable/main_background"
+    android:fitsSystemWindows="true">
 
     <!-- Основно съдържание -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
-        android:scrollbars="none">
+        android:scrollbars="none"
+        android:overScrollMode="never"
+        android:clipToPadding="false">
 
         <LinearLayout
             android:id="@+id/mainContent"
@@ -22,12 +26,13 @@
             <!-- Map Card -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="200dp"
+                android:layout_marginBottom="@dimen/card_margin">
 
                 <org.osmdroid.views.MapView
                     android:id="@+id/mapRoute"
                     android:layout_width="match_parent"
-                    android:layout_height="270dp" />
+                    android:layout_height="match_parent" />
 
             </androidx.cardview.widget.CardView>
 
@@ -35,17 +40,18 @@
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                >
+                android:layout_marginBottom="@dimen/card_margin">
 
                 <com.google.android.material.tabs.TabLayout
                     android:id="@+id/tabs"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="?attr/actionBarSize"
                     android:background="@android:color/white"
                     app:tabIndicatorColor="#6C63FF"
                     app:tabSelectedTextColor="#6C63FF"
                     app:tabTextColor="#757575"
-                    app:tabMode="fixed" />
+                    app:tabMode="fixed"
+                    app:tabGravity="fill" />
 
             </androidx.cardview.widget.CardView>
 
@@ -53,7 +59,7 @@
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                >
+                android:layout_marginBottom="@dimen/card_margin">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -64,7 +70,8 @@
                     <com.github.mikephil.charting.charts.LineChart
                         android:id="@+id/chart"
                         android:layout_width="match_parent"
-                        android:layout_height="229dp" />
+                        android:layout_height="@dimen/chart_height"
+                        android:minHeight="180dp" />
 
                 </LinearLayout>
 
@@ -74,23 +81,24 @@
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                >
+                android:layout_marginBottom="@dimen/card_margin">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:background="@drawable/info_card_background"
-                    android:paddingTop="20dp"
+                    android:paddingHorizontal="5dp"
                     >
 
                     <!-- Header with icon -->
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="50dp"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        >
+                        android:paddingTop="@dimen/header_padding"
+                        android:paddingBottom="@dimen/header_padding">
 
                         <View
                             android:layout_width="4dp"
@@ -100,26 +108,25 @@
                         <TextView
                             android:id="@+id/tvInfo"
                             android:layout_width="0dp"
-                            android:layout_height="60dp"
-                            android:gravity="left|center_vertical"
+                            android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Информация"
-                            android:textSize="18sp"
+                            android:gravity="center_vertical"
+                            android:text="@string/map_information"
+                            android:textSize="@dimen/header_text_size"
                             android:textStyle="bold"
                             android:textColor="#212121"
                             android:fontFamily="sans-serif-medium"
-                            android:paddingLeft="10dp"
-                            android:paddingRight="10dp"
-                            />
+                            android:paddingStart="@dimen/text_padding"
+                            android:paddingEnd="@dimen/text_padding" />
 
                         <TextView
                             android:id="@+id/sessionDateTime"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textSize="12sp"
+                            android:textSize="@dimen/small_text_size"
                             android:textColor="#9E9E9E"
                             android:fontFamily="sans-serif"
-                            android:layout_marginRight="10dp"/>
+                            android:layout_marginEnd="@dimen/text_padding" />
 
                     </LinearLayout>
 
@@ -129,14 +136,16 @@
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:background="@drawable/stats_background"
-                        android:padding="10dp">
+                        android:padding="5dp"
+                        android:layout_marginBottom="5dp"
+                        >
 
                         <!-- Два колони: лява за основни статистики, дясна за ускорения -->
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
-                            android:weightSum="2">
+                            android:baselineAligned="false">
 
                             <!-- Лява колона (основни статистики) -->
                             <LinearLayout
@@ -149,92 +158,143 @@
                                 <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:orientation="horizontal">
+                                    android:orientation="horizontal"
+                                    android:id="@+id/maxLeftLayout"
+                                    android:paddingTop="@dimen/stat_item_padding"
+                                    android:paddingBottom="@dimen/stat_item_padding">
 
                                     <View
                                         android:layout_width="8dp"
                                         android:layout_height="8dp"
                                         android:background="@drawable/stat_dot_left"
                                         android:layout_gravity="center_vertical"
-                                        android:layout_marginRight="10dp"/>
+                                        android:layout_marginEnd="5dp" />
 
                                     <TextView
                                         android:id="@+id/tvMaxLeftInfo"
-                                        android:layout_width="match_parent"
+                                        android:layout_width="0dp"
                                         android:layout_height="wrap_content"
-                                        android:text="Макс. ляво: 0°"
-                                        android:textSize="14sp"
+                                        android:layout_weight="1"
+                                        android:text="@string/max_left_angle"
+                                        android:textSize="12dp"
                                         android:textColor="#424242"
-                                        android:fontFamily="sans-serif-medium"/>
+                                        android:fontFamily="sans-serif-medium"
+                                        android:singleLine="true"
+                                        android:ellipsize="end" />
                                 </LinearLayout>
 
                                 <!-- Макс. дясно -->
                                 <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:orientation="horizontal">
+                                    android:orientation="horizontal"
+                                    android:id="@+id/maxRightLayout"
+                                    android:paddingTop="@dimen/stat_item_padding"
+                                    android:paddingBottom="@dimen/stat_item_padding">
 
                                     <View
                                         android:layout_width="8dp"
                                         android:layout_height="8dp"
                                         android:background="@drawable/stat_dot_right"
                                         android:layout_gravity="center_vertical"
-                                        android:layout_marginRight="10dp"/>
+                                        android:layout_marginEnd="5dp" />
 
                                     <TextView
                                         android:id="@+id/tvMaxRightInfo"
-                                        android:layout_width="match_parent"
+                                        android:layout_width="0dp"
                                         android:layout_height="wrap_content"
-                                        android:text="Макс. дясно: 0°"
-                                        android:textSize="14sp"
+                                        android:layout_weight="1"
+                                        android:text="@string/max_right_angle"
+                                        android:textSize="12dp"
                                         android:textColor="#424242"
-                                        android:fontFamily="sans-serif-medium"/>
+                                        android:fontFamily="sans-serif-medium"
+                                        android:singleLine="true"
+                                        android:ellipsize="end" />
                                 </LinearLayout>
 
                                 <!-- Макс. скорост -->
                                 <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:orientation="horizontal">
+                                    android:orientation="horizontal"
+                                    android:paddingTop="@dimen/stat_item_padding"
+                                    android:paddingBottom="@dimen/stat_item_padding">
 
                                     <View
                                         android:layout_width="8dp"
                                         android:layout_height="8dp"
                                         android:background="@drawable/stat_dot_speed"
                                         android:layout_gravity="center_vertical"
-                                        android:layout_marginRight="10dp"/>
+                                        android:layout_marginEnd="5dp" />
 
                                     <TextView
                                         android:id="@+id/tvMaxSpeedInfo"
-                                        android:layout_width="match_parent"
+                                        android:layout_width="0dp"
                                         android:layout_height="wrap_content"
-                                        android:text="Макс. скорост: 0 км/ч"
-                                        android:textSize="14sp"
+                                        android:layout_weight="1"
+                                        android:text="@string/max_speed"
+                                        android:textSize="12dp"
                                         android:textColor="#424242"
-                                        android:fontFamily="sans-serif-medium"/>
+                                        android:fontFamily="sans-serif-medium"
+                                        android:singleLine="true"
+                                        android:ellipsize="end" />
                                 </LinearLayout>
 
                                 <!-- Общо време -->
                                 <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
-                                    android:orientation="horizontal">
+                                    android:orientation="horizontal"
+                                    android:paddingTop="@dimen/stat_item_padding"
+                                    android:paddingBottom="@dimen/stat_item_padding">
 
                                     <View
                                         android:layout_width="8dp"
                                         android:layout_height="8dp"
                                         android:background="@drawable/stat_dot_time"
                                         android:layout_gravity="center_vertical"
-                                        android:layout_marginRight="10dp"/>
+                                        android:layout_marginEnd="5dp" />
 
                                     <TextView
                                         android:id="@+id/tvTotalTime"
-                                        android:layout_width="match_parent"
+                                        android:layout_width="0dp"
                                         android:layout_height="wrap_content"
-                                        android:text="Време: 00:00:00"
-                                        android:textSize="14sp"
+                                        android:layout_weight="1"
+                                        android:text="@string/map_duration"
+                                        android:textSize="12dp"
                                         android:textColor="#424242"
-                                        android:fontFamily="sans-serif-medium"/>
+                                        android:fontFamily="sans-serif-medium"
+                                        android:singleLine="true"
+                                        android:ellipsize="end" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:id="@+id/distanceCarContainer"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:paddingTop="@dimen/stat_item_padding"
+                                    android:paddingBottom="@dimen/stat_item_padding"
+                                    android:visibility="gone">
+
+                                    <View
+                                        android:layout_width="8dp"
+                                        android:layout_height="8dp"
+                                        android:background="@drawable/stat_dot_left"
+                                        android:layout_gravity="center_vertical"
+                                        android:layout_marginEnd="5dp" />
+
+                                    <TextView
+                                        android:id="@+id/tvDistanceCar"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:text="@string/map_distance"
+                                        android:textSize="12dp"
+                                        android:textColor="#424242"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:singleLine="true"
+                                        android:ellipsize="end" />
                                 </LinearLayout>
                             </LinearLayout>
 
@@ -243,30 +303,35 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:orientation="vertical">
+                                android:orientation="vertical"
+                                android:paddingStart="@dimen/column_separator_padding">
 
                                 <!-- 0-100 км/ч -->
                                 <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:orientation="horizontal"
-                                    android:layout_marginLeft="30dp">
+                                    android:paddingTop="@dimen/stat_item_padding"
+                                    android:paddingBottom="@dimen/stat_item_padding">
 
                                     <View
                                         android:layout_width="8dp"
                                         android:layout_height="8dp"
                                         android:background="@drawable/stat_dot_accel1"
                                         android:layout_gravity="center_vertical"
-                                        android:layout_marginRight="10dp"/>
+                                        android:layout_marginEnd="5dp" />
 
                                     <TextView
                                         android:id="@+id/tvZeroTo100"
-                                        android:layout_width="match_parent"
+                                        android:layout_width="0dp"
                                         android:layout_height="wrap_content"
-                                        android:text="0-100 км/ч: -"
-                                        android:textSize="14sp"
+                                        android:layout_weight="1"
+                                        android:text="0-100 km/h: -"
+                                        android:textSize="12dp"
                                         android:textColor="#424242"
-                                        android:fontFamily="sans-serif-medium"/>
+                                        android:fontFamily="sans-serif-medium"
+                                        android:singleLine="true"
+                                        android:ellipsize="end" />
                                 </LinearLayout>
 
                                 <!-- 0-200 км/ч -->
@@ -274,23 +339,27 @@
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:orientation="horizontal"
-                                    android:layout_marginLeft="30dp">
+                                    android:paddingTop="@dimen/stat_item_padding"
+                                    android:paddingBottom="@dimen/stat_item_padding">
 
                                     <View
                                         android:layout_width="8dp"
                                         android:layout_height="8dp"
                                         android:background="@drawable/stat_dot_accel2"
                                         android:layout_gravity="center_vertical"
-                                        android:layout_marginRight="10dp"/>
+                                        android:layout_marginEnd="5dp" />
 
                                     <TextView
                                         android:id="@+id/tvZeroTo200"
-                                        android:layout_width="match_parent"
+                                        android:layout_width="0dp"
                                         android:layout_height="wrap_content"
-                                        android:text="0-200 км/ч: -"
-                                        android:textSize="14sp"
+                                        android:layout_weight="1"
+                                        android:text="0-200 km/h: -"
+                                        android:textSize="12dp"
                                         android:textColor="#424242"
-                                        android:fontFamily="sans-serif-medium"/>
+                                        android:fontFamily="sans-serif-medium"
+                                        android:singleLine="true"
+                                        android:ellipsize="end" />
                                 </LinearLayout>
 
                                 <!-- 100-200 км/ч -->
@@ -298,23 +367,55 @@
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:orientation="horizontal"
-                                    android:layout_marginLeft="30dp">
+                                    android:paddingTop="@dimen/stat_item_padding"
+                                    android:paddingBottom="@dimen/stat_item_padding">
 
                                     <View
                                         android:layout_width="8dp"
                                         android:layout_height="8dp"
                                         android:background="@drawable/stat_dot_accel3"
                                         android:layout_gravity="center_vertical"
-                                        android:layout_marginRight="10dp"/>
+                                        android:layout_marginEnd="5dp" />
 
                                     <TextView
                                         android:id="@+id/tvHundredTo200"
-                                        android:layout_width="match_parent"
+                                        android:layout_width="0dp"
                                         android:layout_height="wrap_content"
-                                        android:text="100-200 км/ч: -"
-                                        android:textSize="14sp"
+                                        android:layout_weight="1"
+                                        android:text="100-200 km/h: -"
+                                        android:textSize="12dp"
                                         android:textColor="#424242"
-                                        android:fontFamily="sans-serif-medium"/>
+                                        android:fontFamily="sans-serif-medium"
+                                        android:singleLine="true"
+                                        android:ellipsize="end" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:id="@+id/distanceMotoContainer"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="horizontal"
+                                    android:paddingTop="@dimen/stat_item_padding"
+                                    android:paddingBottom="@dimen/stat_item_padding">
+
+                                    <View
+                                        android:layout_width="8dp"
+                                        android:layout_height="8dp"
+                                        android:background="@drawable/stat_dot_right"
+                                        android:layout_gravity="center_vertical"
+                                        android:layout_marginEnd="5dp" />
+
+                                    <TextView
+                                        android:id="@+id/tvDistanceMoto"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:text="@string/map_distance"
+                                        android:textSize="12dp"
+                                        android:textColor="#424242"
+                                        android:fontFamily="sans-serif-medium"
+                                        android:singleLine="true"
+                                        android:ellipsize="end" />
                                 </LinearLayout>
                             </LinearLayout>
                         </LinearLayout>
@@ -324,21 +425,23 @@
 
             </androidx.cardview.widget.CardView>
 
-            <!-- Modern Action Button -->
-            <Button
-                android:id="@+id/btnStart"
-                android:layout_width="match_parent"
-                android:layout_height="64dp"
-                android:background="@drawable/modern_button_background"
-                android:text="НОВА СЕСИЯ"
-                android:textColor="@android:color/white"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:fontFamily="sans-serif-medium"
-                />
-
         </LinearLayout>
 
     </ScrollView>
+
+    <!-- Fixed Bottom Button -->
+    <Button
+        android:id="@+id/btnStart"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:minHeight="56dp"
+        android:background="@drawable/modern_button_background"
+        android:text="НОВА СЕСИЯ"
+        android:textColor="@android:color/white"
+        android:textSize="@dimen/button_text_size"
+        android:textStyle="bold"
+        android:fontFamily="sans-serif-medium"
+        />
 
 </FrameLayout>

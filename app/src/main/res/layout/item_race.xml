@@ -1,93 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
+<androidx.cardview.widget.CardView
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingLeft="5dp"
-    android:paddingRight="5dp"
-    android:layout_marginTop="8dp"
-    android:paddingTop="16dp"
-    android:paddingBottom="16dp"
-    android:clipToPadding="false"
-    android:background="@drawable/card_background"
-
     android:layout_marginStart="4dp"
     android:layout_marginEnd="4dp"
-    android:layout_marginBottom="8dp">
+    android:layout_marginTop="8dp"
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="0dp"
+    app:cardPreventCornerOverlap="true">
 
-    <!-- Цветна акцентна лента отляво -->
-    <View
-        android:layout_width="4dp"
-        android:layout_height="match_parent"
-        android:background="@drawable/accent_gradient"
-        android:layout_alignParentStart="true"
-        android:layout_marginStart="-20dp"
-        android:layout_marginTop="-16dp"
-        android:layout_marginBottom="-16dp"/>
-
-    <!-- Информация за маршрута -->
-    <LinearLayout
-        android:id="@+id/layoutInfo"
+    <!-- Оригиналният RelativeLayout с всичко останало -->
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_toStartOf="@id/btnOptions"
-        android:layout_alignParentStart="true"
-        android:layout_marginStart="8dp">
+        android:paddingLeft="5dp"
+        android:paddingRight="5dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:clipToPadding="false"
+        android:background="@drawable/card_background">
 
-        <TextView
-            android:id="@+id/tvDate"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@color/primary_text"
-            android:layout_marginBottom="6dp"
-            android:fontFamily="sans-serif-medium"/>
+        <!-- Цветна акцентна лента отляво -->
+        <View
+            android:layout_width="4dp"
+            android:layout_height="match_parent"
+            android:background="@drawable/accent_gradient"
+            android:layout_alignParentStart="true"
+            android:layout_marginStart="-20dp"
+            android:layout_marginTop="-16dp"
+            android:layout_marginBottom="-16dp"/>
 
-        <TextView
-            android:id="@+id/dateTextView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:textSize="14sp"
-            android:textColor="@color/secondary_text"
-            android:alpha="0.8"
-            android:fontFamily="sans-serif"/>
-
+        <!-- Информация за маршрута -->
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:id="@+id/layoutInfo"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <View
-                android:layout_width="8dp"
-                android:layout_height="8dp"
-                android:background="@drawable/status_indicator"
-                android:layout_marginEnd="8dp"/>
+            android:orientation="vertical"
+            android:layout_toStartOf="@id/btnOptions"
+            android:layout_alignParentStart="true"
+            android:layout_marginStart="8dp">
 
             <TextView
-                android:id="@+id/tvNumber"
+                android:id="@+id/tvDate"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="16sp"
-                android:textColor="@color/primary_text"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/white"
+                android:layout_marginBottom="6dp"
                 android:fontFamily="sans-serif-medium"/>
+
+            <TextView
+                android:id="@+id/dateTextView"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:textSize="14sp"
+                android:textColor="@color/white"
+                android:alpha="0.8"
+                android:fontFamily="sans-serif"/>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <View
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:background="@drawable/status_indicator"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:id="@+id/tvNumber"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="16sp"
+                    android:textColor="@color/white"
+                    android:fontFamily="sans-serif-medium"/>
+            </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
 
-    <!-- Модерно меню бутон -->
-    <ImageButton
-        android:id="@+id/btnOptions"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
-        android:src="@drawable/ic_more_vert"
-        android:background="@drawable/ripple_circle"
-        android:contentDescription="@string/options"
-        android:layout_alignParentEnd="true"
-        android:layout_centerVertical="true"
-        android:scaleType="center"
-        android:padding="16dp"/>
-
-</RelativeLayout>
+        <!-- Модерно меню бутон -->
+        <ImageButton
+            android:id="@+id/btnOptions"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:src="@drawable/ic_more_vert"
+            app:tint="@color/white"
+            android:background="@drawable/ripple_circle"
+            android:contentDescription="@string/options"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:scaleType="center"
+            android:padding="16dp"/>
+    </RelativeLayout>
+</androidx.cardview.widget.CardView>

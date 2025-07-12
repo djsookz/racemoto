@@ -1,10 +1,13 @@
 package com.example.clinometer
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.MotionEvent
+import android.view.View
 import android.widget.Button
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -28,6 +31,9 @@ import org.osmdroid.views.overlay.Polyline
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import android.view.ScaleGestureDetector
+import com.github.mikephil.charting.components.YAxis
+import kotlin.math.abs
 
 class MapActivity : AppCompatActivity() {
     private lateinit var routePoints: List<RoutePoint>
@@ -36,6 +42,7 @@ class MapActivity : AppCompatActivity() {
     private lateinit var chart: LineChart
     private lateinit var tabLayout: TabLayout
     private var currentMode: Mode = Mode.SPEED
+    private lateinit var scaleGestureDetector: ScaleGestureDetector
 
     private enum class Mode {
         SPEED, ANGLE
@@ -49,10 +56,16 @@ class MapActivity : AppCompatActivity() {
         )
         setContentView(R.layout.activity_map)
 
+        // Зареждане на профила
+        val currentProfileId = ProfileStorage.getSelectedProfileId(this)
+        val profiles = ProfileStorage.loadProfiles(this)
+        val profile = profiles.find { it.id == currentProfileId }
+        val isMotorcycle = profile?.vehicleType == Profile.VehicleType.MOTORCYCLE
+
         // Взимаме ID на сесията
         val raceId = intent.getLongExtra("RACE_ID", -1)
         if (raceId == -1L) {
-            Toast.makeText(this, "Грешка: липсва ID на сесията", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.error_missing_session_id, Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -61,7 +74,7 @@ class MapActivity : AppCompatActivity() {
         val races = RouteStorage.loadRaces(this)
         val race = races.find { it.id == raceId }
         if (race == null) {
-            Toast.makeText(this, "Сесията не е намерена", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.error_session_not_found, Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -69,35 +82,53 @@ class MapActivity : AppCompatActivity() {
         // Зареждаме точките от хранилището
         routePoints = RouteStorage.loadRoutePoints(this, raceId)
 
-        // Използваме данните от race обекта
-        val maxLeft = race.maxLeftAngle.toInt()
-        val maxRight = race.maxRightAngle.toInt()
-        val maxSpeed = race.maxSpeed.toInt()
-        val time0to100 = race.time0to100
-        val time0to200 = race.time0to200
-        val time100to200 = race.time100to200
-        val totalTime = race.duration
+        // Показване/скриване на елементите за ъгли според типа превозно средство
+        val maxLeftLayout = findViewById<LinearLayout>(R.id.maxLeftLayout)
+        val maxRightLayout = findViewById<LinearLayout>(R.id.maxRightLayout)
+        val distanceKm = race.distance / 1000.0
+        // Коригирано за разстояние
+        val distanceText = "%.2f".format(distanceKm) + " " + getString(R.string.km_unit)
 
-        // Сложи ги в текстовите полета
-        findViewById<TextView>(R.id.tvMaxLeftInfo).text = getString(R.string.max_left_angle, maxLeft)
-        findViewById<TextView>(R.id.tvMaxRightInfo).text = getString(R.string.max_right_angle, maxRight)
-        findViewById<TextView>(R.id.tvMaxSpeedInfo).text = getString(R.string.max_speed, maxSpeed)
+        if (isMotorcycle) {
+            // Показваме данни за ъгли
+            findViewById<TextView>(R.id.tvMaxLeftInfo).text = getString(R.string.max_left_angle) + " " + "%.1f°".format(race.maxLeftAngle)
+            findViewById<TextView>(R.id.tvMaxRightInfo).text = getString(R.string.max_right_angle) + " " + "%.1f°".format(race.maxRightAngle)
+            findViewById<TextView>(R.id.tvDistanceMoto).text = getString(R.string.distance_format) + " " + "%.2f".format(race.distance) + " " + getString(R.string.km_unit)
+            findViewById<LinearLayout>(R.id.distanceCarContainer).visibility = View.GONE
+        } else {
+            // Скриваме целите редове за ъгли (включително точките)
+            maxLeftLayout.visibility = View.GONE
+            maxRightLayout.visibility = View.GONE
+            // Коригиран код за автомобили
+            findViewById<TextView>(R.id.tvDistanceCar).text = getString(R.string.distance_format) + " " + distanceText
+            findViewById<LinearLayout>(R.id.distanceCarContainer).visibility = View.VISIBLE
+            findViewById<LinearLayout>(R.id.distanceMotoContainer).visibility = View.GONE
+        }
+
+        // Винаги показваме скоростта
+        findViewById<TextView>(R.id.tvMaxSpeedInfo).text = getString(R.string.max_speed) + " " + "%.0f".format(race.maxSpeed) + " " + getString(R.string.speed_unit)
 
         // Покажете ускоренията
-        findViewById<TextView>(R.id.tvZeroTo100).text = "0-100 км/ч: ${formatAccelerationTime(time0to100)}"
-        findViewById<TextView>(R.id.tvZeroTo200).text = "0-200 км/ч: ${formatAccelerationTime(time0to200)}"
-        findViewById<TextView>(R.id.tvHundredTo200).text = "100-200 км/ч: ${formatAccelerationTime(time100to200)}"
+        val zeroTo100Text = if (race.time0to100 > 0) "%.3fs".format(race.time0to100 / 1_000_000_000.0) else getString(R.string.accel_not_available)
+        findViewById<TextView>(R.id.tvZeroTo100).text = getString(R.string.accel_0_100) + ": " + zeroTo100Text
+
+        val zeroTo200Text = if (race.time0to200 > 0) "%.3fs".format(race.time0to200 / 1_000_000_000.0) else getString(R.string.accel_not_available)
+        findViewById<TextView>(R.id.tvZeroTo200).text = getString(R.string.accel_0_200) + ": " + zeroTo200Text
+
+        val hundredTo200Text = if (race.time100to200 > 0) "%.3fs".format(race.time100to200 / 1_000_000_000.0) else getString(R.string.accel_not_available)
+        findViewById<TextView>(R.id.tvHundredTo200).text = getString(R.string.accel_100_200) + ": " + hundredTo200Text
+
 
         val btnNewRoute = findViewById<Button>(R.id.btnStart)
-        btnNewRoute.text = "НОВА СЕСИЯ"
+        btnNewRoute.setText(R.string.new_session_button)
         btnNewRoute.setOnClickListener {
-            startActivity(Intent(this, CountdownActivity::class.java))
-            finish() // Добавено за коректно затваряне
+            startActivity(Intent(this, StartActivity::class.java))
+            finish()
         }
 
         // Проверка дали има данни за маршрут
         if (routePoints.isEmpty()) {
-            Toast.makeText(this, "Няма данни за маршрут", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, R.string.error_no_route_data, Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -108,7 +139,7 @@ class MapActivity : AppCompatActivity() {
 
         // Покажете датата
         val sessionDateTime = findViewById<TextView>(R.id.sessionDateTime)
-        sessionDateTime.text = "Създаден: $formattedDate"
+        sessionDateTime.text = getString(R.string.created_date_format, formattedDate)
 
         map = findViewById(R.id.mapRoute)
         chart = findViewById(R.id.chart)
@@ -121,6 +152,7 @@ class MapActivity : AppCompatActivity() {
 
         val polyline = Polyline().apply {
             setPoints(routePoints.map { it.geoPoint })
+            color = Color.rgb(0, 25, 255)
             outlinePaint.strokeWidth = 8f
         }
         map.overlays.add(polyline)
@@ -128,27 +160,27 @@ class MapActivity : AppCompatActivity() {
         marker = Marker(map).apply {
             position = routePoints.first().geoPoint
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-            title = "Точно местоположение"
+            title = getString(R.string.location_title)
         }
         map.overlays.add(marker)
 
         // Пресмятаме точните секунди
-        findViewById<TextView>(R.id.tvTotalTime).text = "Време: ${formatTime(totalTime)}"
+        findViewById<TextView>(R.id.tvTotalTime).text = getString(R.string.time_format, formatTime(race.duration))
 
-        setupChart()
-        setupTabs()
-        updateChartData(currentMode)
+        setupChart(isMotorcycle)
+        setupTabs(isMotorcycle)
+        updateChartData(currentMode, isMotorcycle)
     }
 
     private fun formatAccelerationTime(timeNanos: Long): String {
-        return if (timeNanos > 0) "%.2f".format(timeNanos / 1_000_000_000.0) + "s" else "--"
+        return if (timeNanos > 0) "%.3f".format(timeNanos / 1_000_000_000.0) + "s" else "--"
     }
 
-    private fun setupChart() {
+    private fun setupChart(isMotorcycle: Boolean) {
         chart.setTouchEnabled(true)
         chart.isDragEnabled = true
         chart.setScaleEnabled(true)
-        chart.setPinchZoom(true)
+        chart.setPinchZoom(false) // Деактивираме вграденото pinch zoom
         chart.axisRight.isEnabled = false
         chart.description.isEnabled = false
         chart.xAxis.axisMinimum = 0f
@@ -165,6 +197,49 @@ class MapActivity : AppCompatActivity() {
                     return String.format("%02d:%02d", min, sec)
                 }
             }
+        }
+
+        // Инициализираме ScaleGestureDetector с персонализирана логика
+        scaleGestureDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                val scaleFactorX: Float
+                val scaleFactorY: Float
+
+                // Определяме посоката на жеста
+                val deltaX = abs(detector.currentSpanX - detector.previousSpanX)
+                val deltaY = abs(detector.currentSpanY - detector.previousSpanY)
+                val isHorizontal = deltaX > deltaY * 2
+                val isVertical = deltaY > deltaX * 2
+
+                when {
+                    isHorizontal -> {
+                        // Зум само по X ос
+                        scaleFactorX = detector.scaleFactor
+                        scaleFactorY = 1f
+                    }
+                    isVertical -> {
+                        // Зум само по Y ос
+                        scaleFactorX = 1f
+                        scaleFactorY = detector.scaleFactor
+                    }
+                    else -> {
+                        // Диагонален жест - прилагаме зум по двете оси
+                        scaleFactorX = detector.scaleFactor
+                        scaleFactorY = detector.scaleFactor
+                    }
+                }
+
+                // Прилагаме зума
+                chart.zoom(scaleFactorX, scaleFactorY, detector.focusX, detector.focusY, YAxis.AxisDependency.LEFT)
+                return true
+            }
+        })
+
+        // Задаваме слушател за докосвания
+        chart.setOnTouchListener { _, event ->
+            scaleGestureDetector.onTouchEvent(event)
+            chart.onTouchEvent(event) // Позволяваме нормалното докосване
+            true
         }
 
         chart.setOnChartGestureListener(object : OnChartGestureListener {
@@ -207,13 +282,18 @@ class MapActivity : AppCompatActivity() {
         })
     }
 
-    private fun setupTabs() {
-        tabLayout.addTab(tabLayout.newTab().setText("Скорост"))
-        tabLayout.addTab(tabLayout.newTab().setText("Ъгъл"))
+    private fun setupTabs(isMotorcycle: Boolean) {
+        tabLayout.addTab(tabLayout.newTab().setText(R.string.tab_speed))
+
+        // Добавяме таб за ъгъл само за мотоциклети
+        if (isMotorcycle) {
+            tabLayout.addTab(tabLayout.newTab().setText(R.string.tab_angle))
+        }
+
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 currentMode = if (tab?.position == 0) Mode.SPEED else Mode.ANGLE
-                updateChartData(currentMode)
+                updateChartData(currentMode, isMotorcycle)
             }
 
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
@@ -221,14 +301,18 @@ class MapActivity : AppCompatActivity() {
         })
     }
 
-    private fun updateChartData(mode: Mode) {
+    private fun updateChartData(mode: Mode, isMotorcycle: Boolean) {
         val speedEntries = routePoints.map { Entry(it.timestamp / 1000f, it.speed) }
-        val angleEntries = routePoints.map { Entry(it.timestamp / 1000f, it.angle) }
+        val angleEntries = if (isMotorcycle) {
+            routePoints.map { Entry(it.timestamp / 1000f, it.angle) }
+        } else {
+            emptyList()
+        }
 
         val activeColor = if (mode == Mode.SPEED) Color.RED else Color.BLUE
         val fadedColor = if (mode == Mode.SPEED) Color.argb(105, 0, 0, 255) else Color.argb(105, 255, 0, 0)
 
-        val speedDataSet = LineDataSet(speedEntries, "Скорост (km/h)").apply {
+        val speedDataSet = LineDataSet(speedEntries, getString(R.string.chart_speed_legend)).apply {
             color = if (mode == Mode.SPEED) activeColor else fadedColor
             lineWidth = if (mode == Mode.SPEED) 2f else 1f
             setDrawValues(false)
@@ -236,15 +320,20 @@ class MapActivity : AppCompatActivity() {
             if (mode != Mode.SPEED) enableDashedLine(10f, 5f, 0f)
         }
 
-        val angleDataSet = LineDataSet(angleEntries, "Ъгъл (°)").apply {
-            color = if (mode == Mode.ANGLE) activeColor else fadedColor
-            lineWidth = if (mode == Mode.ANGLE) 2f else 1f
-            setDrawValues(false)
-            setDrawCircles(false)
-            if (mode != Mode.ANGLE) enableDashedLine(10f, 5f, 0f)
+        val lineData = if (isMotorcycle) {
+            val angleDataSet = LineDataSet(angleEntries, getString(R.string.chart_angle_legend)).apply {
+                color = if (mode == Mode.ANGLE) activeColor else fadedColor
+                lineWidth = if (mode == Mode.ANGLE) 2f else 1f
+                setDrawValues(false)
+                setDrawCircles(false)
+                if (mode != Mode.ANGLE) enableDashedLine(10f, 5f, 0f)
+            }
+            LineData(speedDataSet, angleDataSet)
+        } else {
+            LineData(speedDataSet)
         }
 
-        chart.data = LineData(speedDataSet, angleDataSet)
+        chart.data = lineData
 
         val yAxis = chart.axisLeft
         when (mode) {
@@ -283,15 +372,27 @@ class MapActivity : AppCompatActivity() {
     }
 
     private fun updateInfoDisplay(point: RoutePoint) {
-        val timeInSeconds = point.timestamp / 1000
-        val formattedTime = formatTime(timeInSeconds * 1000)
+        val formattedTime = formatTime(point.timestamp)
         val tv = findViewById<TextView>(R.id.tvInfo)
 
-        findViewById<TextView>(R.id.tvInfo).text = """
-            Скорост: ${"%.0f".format(point.speed)} км/ч
-            Ъгъл: ${"%.1f".format(point.angle)}°
-            Време: $formattedTime
-        """.trimIndent()
+        val currentProfileId = ProfileStorage.getSelectedProfileId(this)
+        val profiles = ProfileStorage.loadProfiles(this)
+        val profile = profiles.find { it.id == currentProfileId }
+
+        val infoText = if (profile?.vehicleType == Profile.VehicleType.MOTORCYCLE) {
+            """
+            ${getString(R.string.speed_label)} ${"%.0f".format(point.speed)} ${getString(R.string.speed_unit)}
+            ${getString(R.string.angle_label)} ${"%.1f".format(point.angle)}${getString(R.string.angle_unit)}
+            ${getString(R.string.time_label)} $formattedTime
+            """.trimIndent()
+        } else {
+            """
+            ${getString(R.string.speed_label)} ${"%.0f".format(point.speed)} ${getString(R.string.speed_unit)}
+            ${getString(R.string.time_label)} $formattedTime
+            """.trimIndent()
+        }
+
+        tv.text = infoText
         tv.textSize = 14f
     }
 

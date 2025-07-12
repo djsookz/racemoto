@@ -1,51 +1,165 @@
-<FrameLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- 1) Background image, fills parent and crops/zooms to cover -->
+    <!-- Background image -->
     <ImageView
+        android:id="@+id/backgroundImageView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:src="@drawable/start_background"
         android:scaleType="centerCrop"
         android:contentDescription="@null" />
 
-    <!-- 2) Your existing UI -->
-    <RelativeLayout
+    <!-- Dark overlay -->
+    <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="#80000000" />
+
+    <!-- Main Content -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
         android:padding="16dp">
 
-        <TextView
-            android:id="@+id/tvWelcome"
+        <!-- Top Bar - Profile and Settings -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_centerInParent="true"
-            android:text="Започни своята сесия сега."
-            android:textAlignment="center"
+            android:orientation="horizontal"
+            android:layout_marginTop="24dp">
+
+            <!-- Profile Dropdown -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/profileDropdownLayout"
+                style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox.ExposedDropdownMenu"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                app:boxBackgroundColor="@color/background_secondary"
+                app:boxStrokeColor="@color/background_primary"
+                app:boxStrokeWidth="1dp"
+                app:boxStrokeWidthFocused="1dp"
+                app:hintTextColor="@color/text_primary"
+                app:endIconTint="@color/text_primary"
+                app:startIconTint="@color/text_primary"
+                android:minHeight="60dp">
+
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/spinnerProfiles"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:inputType="none"
+                    android:textColor="@color/text_primary"
+                    android:background="@null"
+                    android:gravity="center_vertical|start"
+                    android:paddingStart="16dp"
+                    android:paddingTop="16dp"
+                    android:paddingBottom="16dp"
+                    android:singleLine="true"
+                    android:ellipsize="end"/>
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Settings Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSettings"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_marginStart="8dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:padding="12dp"
+                app:icon="@drawable/ic_settings"
+                app:iconTint="@color/white"
+                app:iconGravity="textStart"
+                app:iconSize="24dp"/>
+        </LinearLayout>
+
+        <!-- Center Content -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/tvWelcome"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:text="@string/start_session"
+                android:textAlignment="center"
+                android:textColor="#FFFFFF"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"/>
+
+            <!-- Start Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnStart"
+                android:layout_width="200dp"
+                android:layout_height="60dp"
+                android:layout_below="@id/tvWelcome"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="32dp"
+                android:text="@string/start_button"
+                android:textSize="18sp"
+                app:cornerRadius="30dp"
+                app:backgroundTint="#4CAF50"
+                android:textColor="#FFFFFF"
+                android:fontFamily="sans-serif-medium"/>
+        </RelativeLayout>
+    </LinearLayout>
+
+    <!-- Bottom Navigation Bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginBottom="50dp"
+        android:orientation="horizontal"
+        android:background="@drawable/bottom_nav_background"
+        android:paddingHorizontal="10dp">
+
+        <!-- Sessions Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnProfiles"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="@string/profile_button"
+            android:textSize="16sp"
+            app:cornerRadius="0dp"
+            app:strokeColor="#FFFFFF"
+            app:strokeWidth="1dp"
             android:textColor="#FFFFFF"
-            android:textSize="28sp"
-            android:textStyle="bold" />
+            android:fontFamily="sans-serif-medium"/>
 
-        <Button
-            android:id="@+id/btnStart"
-            android:layout_width="200dp"
-            android:layout_height="70dp"
-            android:layout_below="@id/tvWelcome"
-            android:layout_centerHorizontal="true"
-            android:layout_marginTop="32dp"
-            android:text="Старт"
-            android:textSize="20sp" />
+        <!-- Divider -->
+        <View
+            android:layout_width="1dp"
+            android:layout_height="match_parent"
+            android:background="#60FFFFFF"/>
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnRaces"
-            android:layout_width="200dp"
-            android:layout_height="70dp"
-            android:layout_below="@id/tvWelcome"
-            android:layout_centerHorizontal="true"
-            android:layout_marginTop="120dp"
-            android:text="СЕСИИ"
-            android:textSize="20sp"/>
-    </RelativeLayout>
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="@string/session_button"
+            android:textSize="16sp"
+            app:cornerRadius="0dp"
+            app:strokeColor="#FFFFFF"
+            app:strokeWidth="1dp"
+            android:textColor="#FFFFFF"
+            android:fontFamily="sans-serif-medium"/>
+    </LinearLayout>
 </FrameLayout>

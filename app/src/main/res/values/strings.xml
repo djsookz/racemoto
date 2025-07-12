@@ -1,24 +1,136 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Clinometer</string>
+    <string name="app_name">DragMe</string>
 
     <!-- Ъгли -->
     <string name="current_angle">%1$d°</string>
-    <string name="max_left_angle">Макс ляв ъгъл: %1$d°</string>
-    <string name="max_right_angle">Макс десен ъгъл: %1$d°</string>
 
     <!-- GPS скорости (km/h) -->
     <string name="current_speed">%1$d</string>
-    <string name="max_speed">Макс Скорост: %1$d km/h</string>
 
-    <string name="calibrate">Нулирай</string>
+
+    <string name="calibrate">Reset</string>
     <string name="race_item_desc">Елемент от състезание</string>
-    <string name="date_desc">Дата на състезанието</string>
-    <string name="duration_desc">Продължителност на състезанието</string>
-    <string name="points_desc">Брой точки в маршрута</string>
-    <string name="empty_races_message">Няма записи...</string>
-    <string name="racemoto">RaceMotoPro</string>
-    <string name="options">Опции</string>
+    <string name="date_desc">Date of Session</string>
+    <string name="duration_desc">Duration of Session</string>
+    <string name="points_desc">Points</string>
+    <string name="empty_races_message">No records...</string>
+    <string name="dragme">DragMe</string>
+    <string name="options">Options</string>
+
+
+
+    <string name="welcome">Welcome!</string>
+    <string name="create_profile">Create your first vehicle profile to continue.</string>
+    <string name="vehicle_brand">Vehicle brand</string>
+    <string name="vehicle_type">Vehicle type</string>
+    <string name="create_profile_button">Create profile</string>
+    <string name="vehicle_type_car">Car</string>
+    <string name="vehicle_type_motorcycle">Motorcycle</string>
+    <string name="error_empty_name">Please enter a vehicle brand.</string>
+    <string name="reset_button">RESET</string>
+    <string name="stop_button">END</string>
+    <string name="start_session">Start your session now.</string>
+    <string name="start_button">START</string>
+    <string name="profile_button">PROFILES</string>
+    <string name="session_button">SESSIONS</string>
+    <string name="dialog_name_profile">Profiles name</string>
+    <string name="dialog_input_name_profile">Name</string>
+    <string name="dialog_vehicle_type">Type</string>
+    <string name="dialog_create_profile">Create new profile</string>
+    <string name="dialog_save_button">Create</string>
+    <string name="dialog_cancel_button">Cancel</string>
+    <string name="profile_edit_text">Edit profile</string>
+    <string name="profile_edit_button">Edit</string>
+    <string name="profile_save_button">Save</string>
+    <string name="profile_delete_button">Delete</string>
+    <string name="profile_header">Profiles</string>
+    <string name="profile_add_button">Add new profile</string>
+    <string name="session_header">Sessions</string>
+    <string name="session_today">Today</string>
+    <string name="session_yesterday">Yesterday</string>
+    <plurals name="session_years">
+        <item quantity="one">1 Year</item>
+        <item quantity="other">%d Years</item>
+    </plurals>
+
+    <plurals name="session_months">
+        <item quantity="one">1 Month</item>
+        <item quantity="other">%d Months</item>
+    </plurals>
+
+    <plurals name="session_days">
+
+        <item quantity="other">%d Days</item>
+    </plurals>
+    <string name="session_title">Session %1$d</string>
+    <string name="session_options_rename">Rename</string>
+    <string name="session_options_rename_popup_header">Rename session</string>
+    <string name="session_options_rename_popup_ok">OK</string>
+    <string name="session_new_button">New Session</string>
+
+    <string name="map_information">Information</string>
+    <string name="max_left_angle">Max left angle:</string>
+    <string name="max_right_angle">Max right angle:</string>
+    <string name="max_speed">Max speed:</string>
+    <string name="map_duration">Duration: 00:00:00</string>
+    <string name="map_distance">Distance</string>
+
+    <!-- Грешки и съобщения -->
+    <string name="error_missing_session_id">Error: missing session ID</string>
+    <string name="error_session_not_found">No session available</string>
+    <string name="error_no_route_data">No data for session</string>
+    <string name="location_title">Location</string>
+    <string name="new_session_button">NEW SESSION</string>
+
+    <!-- Форматирани стрингове -->
+    <string name="distance_format">Distance:</string>
+    <string name="created_date_format">Created on: %s</string>
+    <string name="time_format">Duration: %s</string>
+    <string name="acceleration_format">%s: %s</string>
+
+    <!-- Текстове за информация -->
+    <string name="speed_label">Speed:</string>
+    <string name="angle_label">Angle:</string>
+    <string name="time_label">Duration:</string>
+
+
+    <!-- Легенди на графиката -->
+    <string name="chart_speed_legend">Speed (km/h)</string>
+    <string name="chart_angle_legend">Angle (°)</string>
+
+    <!-- Табове -->
+    <string name="tab_speed">Speed</string>
+    <string name="tab_angle">Angle</string>
+
+    <!-- Ускорения -->
+    <string name="accel_0_100">0-100 km/h</string>
+    <string name="accel_0_200">0-200 km/h</string>
+    <string name="accel_100_200">100-200 km/h</string>
+
+
+    <string name="speed_unit">Km/h</string>
+    <string name="km_unit">Km</string>
+    <string name="angle_unit">°</string>
+    <string name="accel_not_available">--</string>
+
+    <string name="exit_race_header">Exit from session?</string>
+    <string name="exit_race">Are you sure you want to exit? The data will be lost!</string>
+    <string name="exit_race_yes">Yes</string>
+    <string name="exit_race_no">No</string>
+
+    <string name="always_on_display">Always On Display</string>
+    <string name="settings_title">Settings</string>
+
+
+
+
+
+
+
+
+
+
 
 
 </resources>

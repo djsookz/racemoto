@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Clinometer" parent="Theme.AppCompat.Light.NoActionBar">
-        <!-- можеш да добавиш свои атрибути, или да оставиш празно -->
+    <style name="Theme.DragMe" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">#4CAF50</item>
+        <item name="colorPrimaryVariant">#388E3C</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">#03DAC5</item>
+        <item name="colorSecondaryVariant">#018786</item>
+        <item name="colorOnSecondary">@android:color/black</item>
+
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+
+        <!-- Добавете това за да синхронизирате текста в статус бара -->
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

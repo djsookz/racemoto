@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="session_years">
+        <item quantity="one">1 Χρόνος</item>
+        <item quantity="few">%d Χρόνια</item>
+        <item quantity="other">%d Χρόνια</item>
+    </plurals>
+
+    <plurals name="session_months">
+        <item quantity="one">1 Μήνας</item>
+        <item quantity="few">%d Μήνες</item>
+        <item quantity="other">%d Μήνες</item>
+    </plurals>
+
+    <plurals name="session_days">
+        <item quantity="one">%d Μέρα</item>
+        <item quantity="few">%d Ημέρες</item>
+        <item quantity="other">%d Ημέρες</item>
+    </plurals>
+</resources>

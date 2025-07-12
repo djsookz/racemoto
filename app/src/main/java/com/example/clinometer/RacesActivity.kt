@@ -29,28 +29,24 @@ class RacesActivity : AppCompatActivity() {
 
         // Слушател за бутона "Нов маршрут"
         btnNewRoute.setOnClickListener {
-            startActivity(Intent(this, CountdownActivity::class.java))
+            // Променено: Стартиране през StartActivity вместо CountdownActivity
+            startActivity(Intent(this, StartActivity::class.java))
         }
 
         adapter = RaceAdapter(
             races = racesList,
             onItemClick = { race ->
-                // ПРОМЕНЕНО: Предаваме само ID на сесията
                 val intent = Intent(this@RacesActivity, MapActivity::class.java).apply {
                     putExtra("RACE_ID", race.id)
                 }
                 startActivity(intent)
             },
             onDeleteClick = { race ->
-                // 1) Прочитаме всички маршрути
                 val all = RouteStorage.loadRaces(this).toMutableList()
-                // 2) Намираме индекса и го махаме
                 val idx = all.indexOfFirst { it.id == race.id }
                 if (idx >= 0) {
                     all.removeAt(idx)
-                    // 3) Записваме обратно
                     RouteStorage.saveRaces(this, all)
-                    // 4) Обновяваме локалния списък и UI
                     val posInList = racesList.indexOfFirst { it.id == race.id }
                     if (posInList >= 0) {
                         racesList.removeAt(posInList)
@@ -61,7 +57,6 @@ class RacesActivity : AppCompatActivity() {
                 checkEmptyList()
             },
             onRename = { race, newName ->
-                // Записваме новото име в хранилището:
                 val all = RouteStorage.loadRaces(this).toMutableList()
                 val idx = all.indexOfFirst { it.id == race.id }
                 if (idx >= 0) {
@@ -78,13 +73,17 @@ class RacesActivity : AppCompatActivity() {
 
     private fun loadRaces() {
         racesList.clear()
-        val loadedRaces = RouteStorage.loadRaces(this)
-        racesList.addAll(loadedRaces)
+        val allRaces = RouteStorage.loadRaces(this)
+
+        // Филтриране по текущ профил
+        val currentProfileId = ProfileStorage.getSelectedProfileId(this)
+        val filteredRaces = allRaces.filter { it.profileId == currentProfileId }
+
+        racesList.addAll(filteredRaces)
     }
 
     override fun onResume() {
         super.onResume()
-        // При връщане, презареждаме списъка и обновяваме адаптера
         loadRaces()
         adapter.notifyDataSetChanged()
         checkEmptyList()
@@ -98,5 +97,13 @@ class RacesActivity : AppCompatActivity() {
             recyclerView.visibility = View.VISIBLE
             emptyView.visibility = View.GONE
         }
+    }
+
+    override fun onBackPressed() {
+        // Променено: Директно преминаване към StartActivity
+        val intent = Intent(this, StartActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        startActivity(intent)
+        finish()
     }
 }

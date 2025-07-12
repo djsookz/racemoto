@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="session_years">
+        <item quantity="one">1 година</item>
+        <item quantity="few">%d години</item>
+        <item quantity="other">%d години</item>
+    </plurals>
+
+    <plurals name="session_months">
+        <item quantity="one">1 месец</item>
+        <item quantity="few">%d месеца</item>
+        <item quantity="other">%d месеца</item>
+    </plurals>
+
+    <plurals name="session_days">
+        <item quantity="one">%d ден</item>
+        <item quantity="few">%d дни</item>
+        <item quantity="other">%d дни</item>
+    </plurals>
+</resources>

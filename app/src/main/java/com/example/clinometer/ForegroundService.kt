@@ -54,6 +54,9 @@ class ForegroundService : Service(), SensorEventListener {
     private var startTime: Long = 0
     private var lastLocation: Location? = null
     private var serviceStartTime: Long = 0
+    private var totalDistance = 0.0
+    private var lastLocationForDistance: Location? = null
+    private var resetTime = 0L
 
     private lateinit var wakeLock: PowerManager.WakeLock
     private lateinit var fusedClient: FusedLocationProviderClient
@@ -90,7 +93,7 @@ class ForegroundService : Service(), SensorEventListener {
 
     data class SpeedPoint(
         val speed: Float,
-        val timestamp: Long  // Тук ще използваме nanoTime
+        val timestamp: Long
     )
 
     data class GPSSpeedPoint(
@@ -102,7 +105,7 @@ class ForegroundService : Service(), SensorEventListener {
     )
 
     data class AccelerationData(
-        // Запазваме старите променливи за съвместимост
+
         var isTracking0to100: Boolean = false,
         var isTracking0to200: Boolean = false,
         var isTracking100to200: Boolean = false,
@@ -125,7 +128,7 @@ class ForegroundService : Service(), SensorEventListener {
         var speedHistory: MutableList<SpeedPoint> = mutableListOf(),
         var accelerationStartSpeed: Float = 0f,
 
-        // Нови State Machine променливи
+
         var state: AccelerationState = AccelerationState.IDLE,
         var ranges: MutableList<AccelerationRange> = mutableListOf(
             AccelerationRange("0-100", 3f, 100f, 20_000_000_000L, requiresFullStop = true),
@@ -133,12 +136,12 @@ class ForegroundService : Service(), SensorEventListener {
         ),
         var lastSpeed: Float = 0f
     ) {
-        // Запазваме старите функции за съвместимост
+
         fun best0to100() = times0to100.minOrNull() ?: lastBest0to100
         fun best0to200() = times0to200.minOrNull() ?: lastBest0to200
         fun best100to200() = times100to200.minOrNull() ?: lastBest100to200
 
-        // Нови функции за синхронизация със старите променливи
+
         fun syncFromRanges() {
             val range030 = ranges.find { it.name == "0-100" }
             val range060 = ranges.find { it.name == "0-200" }
@@ -166,7 +169,6 @@ class ForegroundService : Service(), SensorEventListener {
     fun getMaxLeftAngle(): Float = maxLeftAngle
     fun getMaxRightAngle(): Float = maxRightAngle
     fun getMaxSpeed(): Float = maxSpeed
-    fun getStartTime(): Long = startTime
     fun getCurrentAngle(): Float = currentCalibratedAngle
     fun getCurrentSpeed(): Float = currentSpeed
     fun getLastLocation(): Location? = lastLocation
@@ -188,10 +190,18 @@ class ForegroundService : Service(), SensorEventListener {
         startTime = SystemClock.elapsedRealtime()
         lastDataSaveTime = 0L
         resetAccelerationData()
+        totalDistance = 0.0
+        lastLocationForDistance = null
+        resetTime = SystemClock.elapsedRealtime()
+    }
+
+    fun getStartTime(): Long {
+        return resetTime
     }
 
     override fun onCreate() {
         super.onCreate()
+        resetData()
 
         serviceStartTime = SystemClock.elapsedRealtime()
         sessionStartTime = System.currentTimeMillis()
@@ -217,7 +227,7 @@ class ForegroundService : Service(), SensorEventListener {
         registerSensors()
     }
     fun getServiceDuration(): Long {
-        return SystemClock.elapsedRealtime() - serviceStartTime
+        return SystemClock.elapsedRealtime() - resetTime
     }
 
     private fun hasRequiredPermissions(): Boolean {
@@ -367,15 +377,17 @@ class ForegroundService : Service(), SensorEventListener {
     private fun onNewLocation(loc: Location) {
         lastLocation = loc
         val newSpeed = loc.speed * 3.6f
-        val oldSpeed = currentSpeed // Запазваме старата скорост
+        val oldSpeed = currentSpeed
 
         trackAcceleration(oldSpeed, newSpeed)
         currentSpeed = newSpeed
 
         if (currentSpeed > maxSpeed) maxSpeed = currentSpeed
+        updateTotalDistance(loc)
         if (SystemClock.elapsedRealtime() % 30_000 == 0L) {
             optimizeRoutePoints()
         }
+        saveRoutePoint(loc)
 
         val pt = RoutePoint(
             geoPoint = GeoPoint(loc.latitude, loc.longitude),
@@ -387,7 +399,80 @@ class ForegroundService : Service(), SensorEventListener {
         routePoints.add(pt)
     }
 
-    // Премахваме функцията hasStableSpeedAround30() защото вече не я използваме
+    private fun updateTotalDistance(newLocation: Location) {
+        lastLocationForDistance?.let { lastLoc ->
+
+            val minAccuracy = 15f
+            if (newLocation.accuracy > minAccuracy || lastLoc.accuracy > minAccuracy) {
+                return
+            }
+
+            // Изчисляване на разстояние
+            val distanceInMeters = lastLoc.distanceTo(newLocation)
+            val timeDiff = (newLocation.time - lastLoc.time) / 1000.0
+
+            // Валидация на разстоянието
+            if (isValidDistanceMeasurement(distanceInMeters, timeDiff, newLocation.speed)) {
+                totalDistance += distanceInMeters
+            }
+        }
+
+        // Обновяваме референтната точка само при валидно измерване
+        if (newLocation.accuracy <= 15f) {
+            lastLocationForDistance = newLocation
+        }
+    }
+    private fun isValidDistanceMeasurement(
+        distance: Float,
+        timeDiff: Double,
+        currentSpeed: Float
+    ): Boolean {
+        // Прескачаме твърде малки разстояния (GPS шум)
+        if (distance < 0.5f) return false
+
+        // Прескачаме твърде големи разстояния (GPS скокове)
+        if (distance > 100f) return false
+
+        // Прескачаме при твърде кратко време между измерванията
+        if (timeDiff < 0.1) return false
+
+        // Проверяваме дали скоростта е реалистична
+        val calculatedSpeed = distance / timeDiff // m/s
+        val currentSpeedMS = currentSpeed / 3.6f // km/h -> m/s
+
+        // Позволяваме отклонение до 50% от текущата скорост
+        val speedTolerance = if (currentSpeedMS > 2f) currentSpeedMS * 0.5f else 2f
+
+        return kotlin.math.abs(calculatedSpeed - currentSpeedMS) <= speedTolerance
+    }
+
+    private fun saveRoutePoint(loc: Location) {
+        val shouldSave = when {
+            routePoints.isEmpty() -> true
+            loc.speed > 0.5f -> true
+            routePoints.last().speed > 0.5f && loc.speed <= 0.5f -> true
+            else -> false
+        }
+
+        if (shouldSave) {
+            val pt = RoutePoint(
+                geoPoint = GeoPoint(loc.latitude, loc.longitude),
+                speed = currentSpeed,
+                angle = currentCalibratedAngle,
+                timestamp = SystemClock.elapsedRealtime() - startTime,
+                absoluteTime = loc.time
+            )
+            routePoints.add(pt)
+        }
+    }
+
+
+
+// Допълнителни функции за по-добра точност:
+
+    fun getTotalDistanceKm(): Double {
+        return totalDistance / 1000.0
+    }
 
     private fun trackAcceleration(oldSpeed: Float, newSpeed: Float) {
         val currentTime = System.nanoTime()

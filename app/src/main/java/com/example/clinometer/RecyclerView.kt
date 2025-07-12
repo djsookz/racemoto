@@ -57,38 +57,38 @@ class RaceAdapter(
             val thenYear = then.get(java.util.Calendar.YEAR)
             val thenDayOfYear = then.get(java.util.Calendar.DAY_OF_YEAR)
 
-            // Проверка дали е днес
-            if (nowYear == thenYear && nowDayOfYear == thenDayOfYear) {
-                return "Днес"
-            }
 
-            // Проверка дали е вчера
-            if (nowYear == thenYear && nowDayOfYear - 1 == thenDayOfYear) {
-                return "Вчера"
-            }
 
-            // Разлика в дни
+
+            // Разлика в дни (коригирано изчисление)
             val diffInMillis = now.timeInMillis - then.timeInMillis
             val days = (diffInMillis / (1000 * 60 * 60 * 24)).toInt()
+            val ctx = holder.itemView.context
+
+            if (days == 0) {
+                return ctx.getString(R.string.session_today)
+            }
+
+            if (days == 1) {
+                return ctx.getString(R.string.session_yesterday)
+            }
 
             // Разлика в месеци и години
             val months = (days / 30)
             val years = (days / 365)
 
+            val resources = ctx.resources
+
             return when {
-                years >= 1 -> {
-                    if (years == 1) "1 година" else "$years години"
-                }
-                months >= 1 -> {
-                    if (months == 1) "1 месец" else "$months месеца"
-                }
-                else -> "$days дни"
+                years >= 1 -> resources.getQuantityString(R.plurals.session_years, years, years)
+                months >= 1 -> resources.getQuantityString(R.plurals.session_months, months, months)
+                else -> resources.getQuantityString(R.plurals.session_days, days, days)
             }
         }
 
 
         // Заглавие: името на маршрута, по default "Маршрут X"
-        holder.tvTitle.text = race.name ?: "Сесия ${position + 1}"
+        holder.tvTitle.text = race.name ?: holder.itemView.context.getString(R.string.session_title, position + 1)
 
         // Дата на създаване
         holder.dateTextView.text = formatRelativeDate(race.absoluteTimestamp)
@@ -106,8 +106,8 @@ class RaceAdapter(
         // Меню с 3 точки
         holder.btnOptions.setOnClickListener { view ->
             PopupMenu(view.context, view).apply {
-                menu.add(0, MENU_RENAME, 0, "Преименувай")
-                menu.add(0, MENU_DELETE, 1, "Изтрий")
+                menu.add(0, MENU_RENAME, 0, view.context.getString(R.string.session_options_rename))
+                menu.add(0, MENU_DELETE, 1, view.context.getString(R.string.profile_delete_button))
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
                         MENU_RENAME -> {
@@ -146,9 +146,9 @@ class RaceAdapter(
             setSelection(text.length)
         }
         AlertDialog.Builder(holder.itemView.context)
-            .setTitle("Преименуване на сесията")
+            .setTitle(holder.itemView.context.getString(R.string.session_options_rename_popup_header))
             .setView(input)
-            .setPositiveButton("OK") { _, _ ->
+            .setPositiveButton(holder.itemView.context.getString(R.string.session_options_rename_popup_ok)) { _, _ ->
                 val newName = input.text.toString().trim()
                 if (newName.isNotEmpty()) {
                     race.name = newName
@@ -156,7 +156,7 @@ class RaceAdapter(
                     notifyItemChanged(holder.bindingAdapterPosition)
                 }
             }
-            .setNegativeButton("Отказ") { dialog, _ -> dialog.dismiss() }
+            .setNegativeButton(holder.itemView.context.getString(R.string.dialog_cancel_button)) { dialog, _ -> dialog.dismiss() }
             .show()
     }
 }

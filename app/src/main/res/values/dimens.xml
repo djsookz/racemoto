@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Screen and Layout Dimensions -->
+    <dimen name="screen_padding">16dp</dimen>
+    <dimen name="card_margin">8dp</dimen>
+    <dimen name="card_corner_radius">12dp</dimen>
+    <dimen name="card_elevation">4dp</dimen>
+    <dimen name="card_inner_padding">16dp</dimen>
+
+    <!-- Header Dimensions -->
+    <dimen name="header_padding">8dp</dimen>
+    <dimen name="header_text_size">18sp</dimen>
+
+    <!-- Stats Dimensions -->
+    <dimen name="stats_padding">12dp</dimen>
+    <dimen name="stat_item_padding">4dp</dimen>
+    <dimen name="stat_dot_margin">8dp</dimen>
+    <dimen name="stat_text_size">13sp</dimen>
+    <dimen name="column_separator_padding">8dp</dimen>
+
+    <!-- Text Dimensions -->
+    <dimen name="text_padding">8dp</dimen>
+    <dimen name="small_text_size">12sp</dimen>
+
+    <!-- Chart Dimensions -->
+    <dimen name="chart_height">200dp</dimen>
+
+    <!-- Button Dimensions -->
+    <dimen name="button_margin">16dp</dimen>
+    <dimen name="button_text_size">16sp</dimen>
+    <dimen name="button_elevation">6dp</dimen>
+</resources>

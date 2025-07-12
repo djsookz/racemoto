@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="16dp"
+    android:layout_marginVertical="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:cardBackgroundColor="@color/card_background">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="20dp"
+        android:background="?attr/selectableItemBackground">
+
+        <!-- Profile name with modern typography -->
+        <TextView
+            android:id="@+id/tvProfileName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
+            android:ellipsize="end"
+            android:maxLines="1"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toStartOf="@+id/btnOptions"
+            app:layout_constraintBottom_toTopOf="@id/tvVehicleType"/>
+
+        <!-- Vehicle type with subtle styling -->
+        <TextView
+            android:id="@+id/tvVehicleType"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp"
+            android:textColor="#E6ECE9"
+            android:fontFamily="sans-serif"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tvProfileName"
+            app:layout_constraintEnd_toStartOf="@id/btnOptions"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+        <!-- Options button with modern styling -->
+        <ImageButton
+            android:id="@+id/btnOptions"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:src="@drawable/ic_more_vert"
+            android:background="@drawable/ripple_circle"
+            app:tint="#ffffff"
+            android:contentDescription="Опции"
+            android:scaleType="center"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.cardview.widget.CardView>
