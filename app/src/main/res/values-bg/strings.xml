@@ -81,4 +81,9 @@
     <string name="exit_race_no">Не</string>
     <string name="always_on_display">"Always On "</string>
     <string name="settings_title">Настройки</string>
+    <string name="profile_details_stats">Статистика</string>
+    <string name="mid_range">Средно</string>
+    <string name="profile_details_top_speed">Рекорд</string>
+    <string name="sprint">Спринт</string>
+    <string name="full_sprint">Фул Спринт</string>
 </resources>

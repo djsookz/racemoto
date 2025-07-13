@@ -1,6 +1,7 @@
 package com.example.clinometer
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -36,12 +37,19 @@ class ProfileActivity : AppCompatActivity() {
         recyclerView.layoutManager = LinearLayoutManager(this)
         adapter = ProfileAdapter(
             profiles,
+            onProfileClick = { profile ->
+                // Стартиране на детайлната активност при клик
+                val intent = Intent(this, ProfileDetailActivity::class.java).apply {
+                    putExtra("profile_id", profile.id)
+                }
+                startActivity(intent)
+            },
             onEditClick = { profile -> showEditProfileDialog(profile) },
             onDeleteClick = { profile ->
                 profiles.remove(profile)
                 ProfileStorage.saveProfiles(this, profiles)
                 adapter.notifyDataSetChanged()
-                updateAddButtonState() // Обновяваме състоянието на бутона след изтриване
+                updateAddButtonState()
 
                 if (profiles.isEmpty()) {
                     finish()
@@ -55,7 +63,7 @@ class ProfileActivity : AppCompatActivity() {
         }
 
         loadProfiles()
-        updateAddButtonState() // Инициализираме състоянието на бутона
+        updateAddButtonState()
     }
 
     private fun loadProfiles() {
@@ -64,18 +72,16 @@ class ProfileActivity : AppCompatActivity() {
         adapter.notifyDataSetChanged()
     }
 
-    // Функция за актуализиране на състоянието на бутона
     private fun updateAddButtonState() {
         btnAddProfile.isEnabled = profiles.size < 5
         if (!btnAddProfile.isEnabled) {
-            btnAddProfile.alpha = 0.5f // Намаляване на прозрачността за визуален индикатор
+            btnAddProfile.alpha = 0.5f
         } else {
             btnAddProfile.alpha = 1f
         }
     }
 
     private fun showCreateProfileDialog() {
-        // Проверка дали сме достигнали лимита
         if (profiles.size >= 5) {
             Toast.makeText(this, "Достигнат е максималният брой профили (5)", Toast.LENGTH_SHORT).show()
             return
@@ -107,7 +113,7 @@ class ProfileActivity : AppCompatActivity() {
                     profiles.add(newProfile)
                     ProfileStorage.saveProfiles(this, profiles)
                     adapter.notifyDataSetChanged()
-                    updateAddButtonState() // Обновяваме състоянието на бутона след създаване
+                    updateAddButtonState()
                 }
             }
             .setNegativeButton(getString(R.string.dialog_cancel_button), null)
@@ -153,14 +159,24 @@ class ProfileActivity : AppCompatActivity() {
 
 class ProfileAdapter(
     private val profiles: List<Profile>,
+    private val onProfileClick: (Profile) -> Unit, // Нов callback за клик по профил
     private val onEditClick: (Profile) -> Unit,
     private val onDeleteClick: (Profile) -> Unit
 ) : RecyclerView.Adapter<ProfileAdapter.ProfileViewHolder>() {
 
-    class ProfileViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    inner class ProfileViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val tvName: TextView = itemView.findViewById(R.id.tvProfileName)
         val tvType: TextView = itemView.findViewById(R.id.tvVehicleType)
         val btnOptions: ImageButton = itemView.findViewById(R.id.btnOptions)
+
+        init {
+            // Клик върху целия елемент (освен бутона)
+            itemView.setOnClickListener {
+                if (adapterPosition != RecyclerView.NO_POSITION) {
+                    onProfileClick(profiles[adapterPosition])
+                }
+            }
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProfileViewHolder {

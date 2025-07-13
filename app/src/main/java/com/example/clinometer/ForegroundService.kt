@@ -400,50 +400,57 @@ class ForegroundService : Service(), SensorEventListener {
     }
 
     private fun updateTotalDistance(newLocation: Location) {
-        lastLocationForDistance?.let { lastLoc ->
-
-            val minAccuracy = 15f
-            if (newLocation.accuracy > minAccuracy || lastLoc.accuracy > minAccuracy) {
-                return
+        // Инициализиране при първа валидна локация
+        if (lastLocationForDistance == null) {
+            if (newLocation.accuracy <= 25f) {
+                lastLocationForDistance = newLocation
             }
+            return
+        }
 
-            // Изчисляване на разстояние
+        lastLocationForDistance?.let { lastLoc ->
+            // Единствена проверка за точност (25м)
+            if (newLocation.accuracy > 25f || lastLoc.accuracy > 25f) return@let
+
             val distanceInMeters = lastLoc.distanceTo(newLocation)
             val timeDiff = (newLocation.time - lastLoc.time) / 1000.0
 
-            // Валидация на разстоянието
-            if (isValidDistanceMeasurement(distanceInMeters, timeDiff, newLocation.speed)) {
+            if (isValidDistanceMeasurement(distanceInMeters, timeDiff, lastLoc, newLocation)) {
                 totalDistance += distanceInMeters
+                lastLocationForDistance = newLocation // Обновяваме само при валидно измерване
             }
         }
-
-        // Обновяваме референтната точка само при валидно измерване
-        if (newLocation.accuracy <= 15f) {
-            lastLocationForDistance = newLocation
-        }
     }
+
     private fun isValidDistanceMeasurement(
         distance: Float,
         timeDiff: Double,
-        currentSpeed: Float
+        lastLocation: Location,
+        newLocation: Location
     ): Boolean {
-        // Прескачаме твърде малки разстояния (GPS шум)
-        if (distance < 0.5f) return false
+        // Филтрация на шум и скокове
+        if (distance < 0.3f || distance > 150f) return false
+        if (timeDiff < 0.2 || timeDiff > 5.0) return false
 
-        // Прескачаме твърде големи разстояния (GPS скокове)
-        if (distance > 100f) return false
-
-        // Прескачаме при твърде кратко време между измерванията
-        if (timeDiff < 0.1) return false
-
-        // Проверяваме дали скоростта е реалистична
+        // Изчисляване на скоростта между точките (основна мярка)
         val calculatedSpeed = distance / timeDiff // m/s
-        val currentSpeedMS = currentSpeed / 3.6f // km/h -> m/s
 
-        // Позволяваме отклонение до 50% от текущата скорост
-        val speedTolerance = if (currentSpeedMS > 2f) currentSpeedMS * 0.5f else 2f
+        // Проверка за промяна в посоката (ако има данни)
+        val bearingDiff = if (lastLocation.hasBearing() && newLocation.hasBearing()) {
+            kotlin.math.abs(lastLocation.bearing - newLocation.bearing)
+        } else null
 
-        return kotlin.math.abs(calculatedSpeed - currentSpeedMS) <= speedTolerance
+        // Комбинирана валидация
+        return when {
+            // Ниски скорости: игнорираме посоката
+            calculatedSpeed < 2 -> true
+
+            // Средни/високи скорости с промяна в посоката: либерални критерии
+            bearingDiff != null && bearingDiff > 30 -> calculatedSpeed < 35f
+
+            // Стандартна проверка за скорост
+            else -> calculatedSpeed < 35f // 126 km/h (реалистичен лимит)
+        }
     }
 
     private fun saveRoutePoint(loc: Location) {

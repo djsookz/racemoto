@@ -174,7 +174,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        
+
         Configuration.getInstance().load(
             applicationContext,
             PreferenceManager.getDefaultSharedPreferences(applicationContext)
@@ -244,7 +244,7 @@ class MainActivity : AppCompatActivity() {
         mapView.setBuiltInZoomControls(false)
         mapView.zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
 
-        mapView.controller.setZoom(18.0)
+        mapView.controller.setZoom(17.5)
         mapView.isTilesScaledToDpi = true
         mapView.isHorizontalMapRepetitionEnabled = false
         mapView.isVerticalMapRepetitionEnabled = false
@@ -298,7 +298,19 @@ class MainActivity : AppCompatActivity() {
         stopButton.setOnClickListener {
             if (serviceBound) {
                 try {
-                    val distance = foregroundService?.getTotalDistanceKm() ?: 0.0
+                    val routePoints = foregroundService?.getRoutePoints() ?: emptyList()
+                    val distance = if (routePoints.size > 1) {
+                        var totalDistance = 0.0
+                        for (i in 1 until routePoints.size) {
+                            val prevPoint = routePoints[i - 1]
+                            val currentPoint = routePoints[i]
+                            val pointDistance = prevPoint.geoPoint.distanceToAsDouble(currentPoint.geoPoint)
+                            totalDistance += pointDistance
+                        }
+                        totalDistance / 1000.0 // Конвертираме от метри в километри
+                    } else {
+                        0.0
+                    }
                     val accelData = foregroundService?.getAccelerationData()
                         ?: ForegroundService.AccelerationData()
                     val realDuration = foregroundService?.getServiceDuration() ?: 0
@@ -325,8 +337,7 @@ class MainActivity : AppCompatActivity() {
                         time100to200 = time100to200
                     )
 
-                    val points = foregroundService?.getRoutePoints() ?: emptyList()
-                    RouteStorage.saveRoutePoints(this, race.id, points)
+                    RouteStorage.saveRoutePoints(this, race.id, routePoints)
 
                     val allRaces = RouteStorage.loadRaces(this).toMutableList()
                     allRaces.add(race)
@@ -501,9 +512,20 @@ class MainActivity : AppCompatActivity() {
     private fun updateMapWithLocation(geoPoint: GeoPoint, bearing: Float, currentSpeed: Float) {
         mapView.controller.setCenter(geoPoint)
 
-        if (routeOverlay.points.isEmpty() ||
-            geoPoint.distanceToAsDouble(routeOverlay.points.last()) > 2) {
+
+        if (routeOverlay.points.isEmpty()) {
             routeOverlay.points.add(geoPoint)
+        } else {
+            val lastPoint = routeOverlay.points.last()
+            val distance = geoPoint.distanceToAsDouble(lastPoint)
+
+
+            if (currentSpeed > 2.0 && distance > 1.0) {
+                routeOverlay.points.add(geoPoint)
+            }
+            else if (currentSpeed <= 2.0 && distance > 5.0) {
+                routeOverlay.points.add(geoPoint)
+            }
         }
 
         if (currentSpeed > 2) {

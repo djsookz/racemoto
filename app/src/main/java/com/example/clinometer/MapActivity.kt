@@ -85,9 +85,6 @@ class MapActivity : AppCompatActivity() {
         // Показване/скриване на елементите за ъгли според типа превозно средство
         val maxLeftLayout = findViewById<LinearLayout>(R.id.maxLeftLayout)
         val maxRightLayout = findViewById<LinearLayout>(R.id.maxRightLayout)
-        val distanceKm = race.distance / 1000.0
-        // Коригирано за разстояние
-        val distanceText = "%.2f".format(distanceKm) + " " + getString(R.string.km_unit)
 
         if (isMotorcycle) {
             // Показваме данни за ъгли
@@ -99,8 +96,8 @@ class MapActivity : AppCompatActivity() {
             // Скриваме целите редове за ъгли (включително точките)
             maxLeftLayout.visibility = View.GONE
             maxRightLayout.visibility = View.GONE
-            // Коригиран код за автомобили
-            findViewById<TextView>(R.id.tvDistanceCar).text = getString(R.string.distance_format) + " " + distanceText
+            // Коригиран код за автомобили - използваме директно race.distance
+            findViewById<TextView>(R.id.tvDistanceCar).text = getString(R.string.distance_format) + " " + "%.2f".format(race.distance) + " " + getString(R.string.km_unit)
             findViewById<LinearLayout>(R.id.distanceCarContainer).visibility = View.VISIBLE
             findViewById<LinearLayout>(R.id.distanceMotoContainer).visibility = View.GONE
         }

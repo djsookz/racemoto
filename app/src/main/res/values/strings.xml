@@ -122,6 +122,16 @@
     <string name="always_on_display">Always On Display</string>
     <string name="settings_title">Settings</string>
 
+    <string name="max_speed_format">%.1f km/h</string>
+
+    <string name="profile_details_stats">Performance Stats</string>
+    <string name="sprint">Sprint</string>
+    <string name="full_sprint">Full Sprint</string>
+    <string name="mid_range">Mid Range</string>
+    <string name="profile_details_top_speed">Top Speed</string>
+    <string name="desc_upload_photo">Upload profile photo</string>
+
+
 
 
 

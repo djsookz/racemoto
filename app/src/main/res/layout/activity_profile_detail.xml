@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/gradient_background"
+    android:fitsSystemWindows="true">
+
+    <!-- Background ImageView -->
+    <ImageView
+        android:id="@+id/backgroundImageView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.3" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <!-- Top spacer to balance cards -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <!-- Hero Header Card -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="12dp"
+                android:layout_marginBottom="24dp"
+                app:cardBackgroundColor="@color/card_dark">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="28dp"
+                    android:background="@drawable/card_gradient">
+
+
+
+                    <TextView
+                        android:id="@+id/tvProfileNameDetail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="32sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:letterSpacing="0.02"
+                        tools:text="My Car"
+                        android:textAlignment="center"/>
+
+                    <TextView
+                        android:id="@+id/tvVehicleTypeDetail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="18sp"
+                        android:textColor="@color/white"
+                        android:layout_marginTop="8dp"
+                        android:alpha="0.8"
+                        tools:text="Sports Car"
+                        android:textAlignment="center"/>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="4dp"
+                        android:layout_marginTop="16dp"
+                        android:background="#4CAF50"
+                        android:textAlignment="center"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Performance Stats Grid -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="8dp"
+                android:layout_marginBottom="20dp"
+                app:cardBackgroundColor="@color/card_dark">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="24dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="20dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@string/profile_details_stats"
+                            android:textSize="20sp"
+                            android:textStyle="bold"
+                            android:textColor="@color/white"
+                            android:textAlignment="center"/>
+
+                    </LinearLayout>
+
+                    <!-- Stats Grid -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <!-- 0-100 km/h -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:padding="16dp"
+                            android:background="@drawable/stat_item_background"
+                            android:layout_marginBottom="8dp">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0-100 km/h"
+                                    android:textColor="@color/white"
+                                    android:textSize="14sp"
+                                    android:alpha="0.8"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/sprint"
+                                    android:textColor="@color/white"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="2dp"/>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:gravity="end">
+
+                                <TextView
+                                    android:id="@+id/tvBest0to100"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="N/A"
+                                    android:textColor="@color/accent_blue"
+                                    android:textSize="20sp"
+                                    android:textStyle="bold"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="seconds"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="12sp"
+                                    android:alpha="0.6"/>
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- 0-200 km/h -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:padding="16dp"
+                            android:background="@drawable/stat_item_background"
+                            android:layout_marginBottom="8dp">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0-200 km/h"
+                                    android:textColor="@color/white"
+                                    android:textSize="14sp"
+                                    android:alpha="0.8"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/full_sprint"
+                                    android:textColor="@color/white"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="2dp"/>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:gravity="end">
+
+                                <TextView
+                                    android:id="@+id/tvBest0to200"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="N/A"
+                                    android:textColor="@color/accent_purple"
+                                    android:textSize="20sp"
+                                    android:textStyle="bold"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="seconds"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="12sp"
+                                    android:alpha="0.6"/>
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- 100-200 km/h -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:padding="16dp"
+                            android:background="@drawable/stat_item_background"
+                            android:layout_marginBottom="8dp">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="100-200 km/h"
+                                    android:textColor="@color/white"
+                                    android:textSize="14sp"
+                                    android:alpha="0.8"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/mid_range"
+                                    android:textColor="@color/white"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="2dp"/>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:gravity="end">
+
+                                <TextView
+                                    android:id="@+id/tvBest100to200"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="N/A"
+                                    android:textColor="@color/accent_green"
+                                    android:textSize="20sp"
+                                    android:textStyle="bold"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="seconds"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="12sp"
+                                    android:alpha="0.6"/>
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- Max Speed -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:padding="16dp"
+                            android:background="@drawable/stat_item_background_highlight">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/max_speed"
+                                    android:textColor="@color/white"
+                                    android:textSize="14sp"
+                                    android:alpha="0.8"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/profile_details_top_speed"
+                                    android:textColor="@color/white"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="2dp"/>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:gravity="end">
+
+                                <TextView
+                                    android:id="@+id/tvMaxSpeed"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="N/A"
+                                    android:textColor="@color/accent_orange"
+                                    android:textSize="24sp"
+                                    android:textStyle="bold"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="km/h"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="12sp"
+                                    android:alpha="0.6"/>
+                            </LinearLayout>
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Bottom spacer to balance cards -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>

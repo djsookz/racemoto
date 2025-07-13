@@ -54,7 +54,6 @@
             android:src="@drawable/ic_more_vert"
             android:background="@drawable/ripple_circle"
             app:tint="#ffffff"
-            android:contentDescription="Опции"
             android:scaleType="center"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"

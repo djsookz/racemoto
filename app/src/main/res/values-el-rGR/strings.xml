@@ -81,4 +81,9 @@
     <string name="exit_race_no">Οχι</string>
     <string name="always_on_display">"Always On "</string>
     <string name="settings_title">Ρυθμίσεις</string>
+    <string name="profile_details_stats">Στατιστική</string>
+    <string name="mid_range">Μέσος</string>
+    <string name="profile_details_top_speed">Ρεκόρ</string>
+    <string name="sprint">Σπρίντ</string>
+    <string name="full_sprint">Φουλ Σπρίντ</string>
 </resources>

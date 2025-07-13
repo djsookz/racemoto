@@ -2,7 +2,8 @@
 <FrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
 
     <!-- Списък за състезания -->
 
@@ -36,10 +37,8 @@
     <!-- Бутон за нов маршрут, който е позициониран на 80dp над долния ръб на навигацията -->
     <Button
         android:id="@+id/btnNewRoute"
-        android:layout_width="116dp"
-        android:layout_height="65dp"
+        android:layout_width="match_parent"
+        android:layout_height="55dp"
         android:layout_gravity="end|bottom"
-        android:layout_marginBottom="60dp"
-        android:layout_marginEnd="16dp"
         android:text="@string/session_new_button" />
 </FrameLayout>

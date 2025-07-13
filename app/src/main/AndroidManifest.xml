@@ -66,6 +66,13 @@
         <activity
             android:name=".SettingsActivity"
             android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar"/>
+        <activity
+            android:name=".ProfileDetailActivity"
+            android:parentActivityName=".ProfileActivity">
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".ProfileActivity" />
+        </activity>
 
 
 
