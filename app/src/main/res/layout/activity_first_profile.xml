@@ -32,13 +32,23 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Drag Me"
+            android:text="DRAGME PRO"
+            android:textAllCaps="true"
+            android:textSize="28sp"
+            android:letterSpacing="0.1"
+            android:includeFontPadding="false"
+
             android:textColor="#FFFFFF"
-            android:textSize="32sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.05"
-            android:layout_gravity="center_horizontal"
-            android:fontFamily="sans-serif-medium"/>
+            android:background="@drawable/title_border"
+            android:shadowColor="#55000000"
+            android:shadowDx="0"
+            android:shadowDy="2"
+            android:shadowRadius="4"
+            android:layout_gravity="center_horizontal"/>
+
+
+
+
 
         <!-- Welcome Message -->
         <TextView

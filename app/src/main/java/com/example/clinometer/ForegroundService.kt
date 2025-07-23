@@ -173,6 +173,15 @@ class ForegroundService : Service(), SensorEventListener {
     fun getCurrentSpeed(): Float = currentSpeed
     fun getLastLocation(): Location? = lastLocation
     fun getAccelerationData(): AccelerationData = accelerationTracking
+    fun calibrateZero() {
+
+        offsetAngle = filteredAngle
+
+        maxLeftAngle = 0f
+        maxRightAngle = 0f
+
+        currentCalibratedAngle = 0f
+    }
 
     fun resetAccelerationData() {
         accelerationTracking = AccelerationData()
@@ -333,6 +342,20 @@ class ForegroundService : Service(), SensorEventListener {
         }
     }
 
+    fun resetMaxAngles() {
+        filteredAngle = 0f
+        currentCalibratedAngle = 0f
+        maxLeftAngle = 0f
+        maxRightAngle = 0f
+    }
+
+    fun resetAngles() {
+        filteredAngle = 0f
+        currentCalibratedAngle = 0f
+        maxLeftAngle = 0f
+        maxRightAngle = 0f
+    }
+
     private fun createNotification(): Notification {
         val channelId = "tracking_channel"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -480,6 +503,7 @@ class ForegroundService : Service(), SensorEventListener {
     fun getTotalDistanceKm(): Double {
         return totalDistance / 1000.0
     }
+
 
     private fun trackAcceleration(oldSpeed: Float, newSpeed: Float) {
         val currentTime = System.nanoTime()

@@ -61,7 +61,6 @@ class StartActivity : AppCompatActivity() {
 
         // Настройка на бутона за стартиране
         btnStart.setOnClickListener {
-            if (checkPermissions()) {
                 val selectedProfileName = spinnerProfiles.text.toString()
                 val selectedIndex = profiles.indexOfFirst { it.name == selectedProfileName }
 
@@ -74,9 +73,6 @@ class StartActivity : AppCompatActivity() {
                 } else {
                     Toast.makeText(this, "Please, chose a profile", Toast.LENGTH_SHORT).show()
                 }
-            } else {
-                requestPermissions()
-            }
         }
 
         // Настройка на бутона за сесии
@@ -181,55 +177,6 @@ class StartActivity : AppCompatActivity() {
         }
         val crossFade = CrossfadeTransition(backgroundImageView, 500)
         crossFade.start(backgroundRes)
-    }
-
-    private fun checkPermissions(): Boolean {
-        val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.FOREGROUND_SERVICE_LOCATION
-            )
-        } else {
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
-
-        return requiredPermissions.all {
-            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-        }
-    }
-
-    private fun requestPermissions() {
-        val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.FOREGROUND_SERVICE_LOCATION
-            )
-        } else {
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-        }
-
-        ActivityCompat.requestPermissions(
-            this,
-            requiredPermissions,
-            PERMISSION_REQUEST_CODE
-        )
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (!checkPermissions()) {
-                Toast.makeText(
-                    this,
-                    "Разрешенията са задължителни за основната функционалност",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
     }
 
     override fun onBackPressed() {

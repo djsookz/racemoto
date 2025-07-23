@@ -48,6 +48,7 @@ class MainActivity : AppCompatActivity() {
     private var lastBearing = 0f
     private var isFirstLocationSet = false
     private var userPosition: GeoPoint? = null
+    private lateinit var zeroButton: Button
 
     private lateinit var currentProfile: Profile
     private lateinit var mapView: MapView
@@ -147,6 +148,7 @@ class MainActivity : AppCompatActivity() {
         speedText = findViewById(R.id.speedText)
         maxSpeedText = findViewById(R.id.maxSpeedText)
         resetButton = findViewById(R.id.btnReset)
+        zeroButton = findViewById(R.id.btnZero)
         stopButton = findViewById(R.id.btnStop)
         tvZeroTo100 = findViewById(R.id.tvZeroTo100)
         tvZeroTo200 = findViewById(R.id.tvZeroTo200)
@@ -214,6 +216,9 @@ class MainActivity : AppCompatActivity() {
                 view.alpha = 0f
                 view.animate().alpha(1f).setDuration(300).start()
             }
+            zeroButton.visibility = View.VISIBLE
+            zeroButton.alpha = 0f
+            zeroButton.animate().alpha(1f).setDuration(300).start()
         } else {
             // Плавно скриване на ъглови елементи
             angleElements.forEach { view ->
@@ -223,6 +228,11 @@ class MainActivity : AppCompatActivity() {
                     .withEndAction { view.visibility = View.GONE }
                     .start()
             }
+            zeroButton.animate()
+                .alpha(0f)
+                .setDuration(300)
+                .withEndAction { zeroButton.visibility = View.GONE }
+                .start()
         }
 
         // Допълнително: Ако имате други елементи, които зависят от типа превозно средство
@@ -286,12 +296,34 @@ class MainActivity : AppCompatActivity() {
                 filteredTargetAngle = 0f
                 currentAngle = 0f
 
+
                 routeOverlay.points.clear()
                 mapView.invalidate()
                 isFirstLocationSet = false
                 userPosition = null
                 currentMapOrientation = 0f
                 targetMapOrientation = 0f
+            }
+        }
+
+        zeroButton.setOnClickListener {
+            if (currentProfile.vehicleType == Profile.VehicleType.MOTORCYCLE) {
+                foregroundService?.let { service ->
+                    // 1) tell the service to recalibrate zero here:
+                    service.calibrateZero()
+
+                    // 2) reset the UI’s max‑angles & current angle
+                    maxLeftText.text   = getString(R.string.max_left_angle, 0)
+                    maxRightText.text  = getString(R.string.max_right_angle, 0)
+                    currentAngleText.text = getString(R.string.current_angle, 0)
+
+                    // 3) reset the gauge view too
+                    gaugeView.angle = 0f
+                    gaugeView.maxLeftAngle  = 0f
+                    gaugeView.maxRightAngle = 0f
+                    gaugeView.resetMaxima()
+                    gaugeView.invalidate()
+                }
             }
         }
 
@@ -481,30 +513,37 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUIFromService() {
         foregroundService?.let { service ->
-            val newTarget = service.getCurrentAngle()
+            // Директно взимаме калибрирания ъгъл от услугата
+            val calibratedAngle = service.getCurrentAngle()
 
-            filteredTargetAngle += (newTarget - filteredTargetAngle) * 0.3f
+            // Филтрираме целта за плавна анимация
+            filteredTargetAngle += (calibratedAngle - filteredTargetAngle) * 0.3f
             targetAngle = filteredTargetAngle
 
-            if (abs(newTarget - currentAngle) > 0.2f) {
-                currentAngleText.text = getString(R.string.current_angle, newTarget.toInt())
+            // Актуализираме текста само ако промяната е значителна
+            if (abs(calibratedAngle - currentAngle) > 0.2f) {
+                currentAngleText.text = getString(R.string.current_angle, calibratedAngle.toInt())
             }
 
+            // Актуализираме скоростта
             val currentSpeed = service.getCurrentSpeed()
             speedText.text = getString(R.string.current_speed, currentSpeed.toInt())
             maxLeftText.text = getString(R.string.max_left_angle, service.getMaxLeftAngle().toInt())
             maxRightText.text = getString(R.string.max_right_angle, service.getMaxRightAngle().toInt())
             maxSpeedText.text = getString(R.string.max_speed, service.getMaxSpeed().toInt())
 
+            // Актуализираме gaugeView
             gaugeView.maxLeftAngle = service.getMaxLeftAngle()
             gaugeView.maxRightAngle = service.getMaxRightAngle()
 
+            // Актуализираме картата с последната локация
             val lastLocation = service.getLastLocation()
             lastLocation?.let {
                 val geoPoint = GeoPoint(it.latitude, it.longitude)
                 updateMapWithLocation(geoPoint, it.bearing, service.getCurrentSpeed())
             }
 
+            // Актуализираме дисплея за ускорението
             updateAccelerationDisplay(service.getAccelerationData())
         }
     }

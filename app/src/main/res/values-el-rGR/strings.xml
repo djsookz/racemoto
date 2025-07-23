@@ -13,6 +13,7 @@
     <string name="stop_button">ΤΕΛΟΣ</string>
     <string name="start_session">Ξεκίνα το ταξίδι σου τώρα.</string>
     <string name="start_button">ΣΤΑΡΤ</string>
+    <string name="zero_button">ΜΗΔΕΝΙΣΜΟΣ</string>
     <string name="profile_button">ΠΡΟΦΙΛΣ</string>
     <string name="session_button">ΤΑΞΙΔΙΑ</string>
     <string name="dialog_name_profile">Όνομα προφίλ</string>
@@ -79,11 +80,16 @@
     <string name="exit_race">Είστε σίγουρει πως θέλετε να βγείτε? Η πληροφορίες θα χαθούν!</string>
     <string name="exit_race_yes">Ναι</string>
     <string name="exit_race_no">Οχι</string>
-    <string name="always_on_display">"Always On "</string>
+    <string name="always_on_display">Always On Display</string>
     <string name="settings_title">Ρυθμίσεις</string>
     <string name="profile_details_stats">Στατιστική</string>
     <string name="mid_range">Μέσος</string>
     <string name="profile_details_top_speed">Ρεκόρ</string>
     <string name="sprint">Σπρίντ</string>
     <string name="full_sprint">Φουλ Σπρίντ</string>
+    <string name="profile_detail_duration_format">%1$dμ %2$dω</string>
+    <string name="profile_detail_distance_format">%1$.1f Χλμ</string>
+    <string name="profile_detail_session_text">Σύνολο Ταξιδιών</string>
+    <string name="profile_detail_distance_text">Συνολική Απόσταση</string>
+    <string name="profile_detail_duration_text">Συνολική Διάρκεια</string>
 </resources>

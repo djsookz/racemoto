@@ -48,8 +48,6 @@
                     android:padding="28dp"
                     android:background="@drawable/card_gradient">
 
-
-
                     <TextView
                         android:id="@+id/tvProfileNameDetail"
                         android:layout_width="match_parent"
@@ -72,12 +70,128 @@
                         tools:text="Sports Car"
                         android:textAlignment="center"/>
 
+                    <!-- Green divider -->
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="4dp"
                         android:layout_marginTop="16dp"
                         android:background="#4CAF50"
                         android:textAlignment="center"/>
+
+                    <!-- Profile summary stats -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:layout_marginTop="16dp">
+
+                        <!-- Sessions count -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center">
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:src="@drawable/ic_sessions"/>
+
+                            <TextView
+                                android:id="@+id/tvSessionCount"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0"
+                                android:textColor="@color/white"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:layout_marginTop="4dp"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/profile_detail_session_text"
+                                android:textColor="@color/white"
+                                android:textSize="10sp"
+                                android:alpha="0.8"
+                                android:layout_marginTop="5dp"
+                                android:maxLines="1"
+                                android:ellipsize="end"/>
+                        </LinearLayout>
+
+                        <!-- Total distance -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center">
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:src="@drawable/ic_distance"/>
+
+                            <TextView
+                                android:id="@+id/tvTotalDistance"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/profile_detail_distance_format"
+                                android:textColor="@color/white"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:layout_marginTop="4dp"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/profile_detail_distance_text"
+                                android:textColor="@color/white"
+                                android:textSize="10sp"
+                                android:alpha="0.8"
+                                android:layout_marginTop="5dp"
+                                android:maxLines="1"
+                                android:ellipsize="end"/>
+                        </LinearLayout>
+
+                        <!-- Total duration -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center">
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:src="@drawable/ic_timer"/>
+
+                            <TextView
+                                android:id="@+id/tvTotalDuration"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0 д 0 ч"
+                                android:textColor="@color/white"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:layout_marginTop="4dp"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/profile_detail_duration_text"
+                                android:textColor="@color/white"
+                                android:textSize="10sp"
+                                android:alpha="0.8"
+                                android:layout_marginTop="5dp"
+                                android:maxLines="1"
+                                android:ellipsize="end"/>
+                        </LinearLayout>
+                    </LinearLayout>
+
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
@@ -172,7 +286,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="seconds"
-                                    android:textColor="@color/text_secondary"
+                                    android:textColor="@color/white"
                                     android:textSize="12sp"
                                     android:alpha="0.6"/>
                             </LinearLayout>
@@ -230,7 +344,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="seconds"
-                                    android:textColor="@color/text_secondary"
+                                    android:textColor="@color/white"
                                     android:textSize="12sp"
                                     android:alpha="0.6"/>
                             </LinearLayout>
@@ -288,7 +402,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="seconds"
-                                    android:textColor="@color/text_secondary"
+                                    android:textColor="@color/white"
                                     android:textSize="12sp"
                                     android:alpha="0.6"/>
                             </LinearLayout>
@@ -345,7 +459,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="km/h"
-                                    android:textColor="@color/text_secondary"
+                                    android:textColor="@color/white"
                                     android:textSize="12sp"
                                     android:alpha="0.6"/>
                             </LinearLayout>

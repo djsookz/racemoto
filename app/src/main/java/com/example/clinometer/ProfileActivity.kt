@@ -38,7 +38,6 @@ class ProfileActivity : AppCompatActivity() {
         adapter = ProfileAdapter(
             profiles,
             onProfileClick = { profile ->
-                // Стартиране на детайлната активност при клик
                 val intent = Intent(this, ProfileDetailActivity::class.java).apply {
                     putExtra("profile_id", profile.id)
                 }
@@ -50,17 +49,12 @@ class ProfileActivity : AppCompatActivity() {
                 ProfileStorage.saveProfiles(this, profiles)
                 adapter.notifyDataSetChanged()
                 updateAddButtonState()
-
-                if (profiles.isEmpty()) {
-                    finish()
-                }
+                if (profiles.isEmpty()) finish()
             }
         )
         recyclerView.adapter = adapter
 
-        btnAddProfile.setOnClickListener {
-            showCreateProfileDialog()
-        }
+        btnAddProfile.setOnClickListener { showCreateProfileDialog() }
 
         loadProfiles()
         updateAddButtonState()
@@ -74,19 +68,14 @@ class ProfileActivity : AppCompatActivity() {
 
     private fun updateAddButtonState() {
         btnAddProfile.isEnabled = profiles.size < 5
-        if (!btnAddProfile.isEnabled) {
-            btnAddProfile.alpha = 0.5f
-        } else {
-            btnAddProfile.alpha = 1f
-        }
+        btnAddProfile.alpha = if (profiles.size < 5) 1f else 0.5f
     }
 
     private fun showCreateProfileDialog() {
         if (profiles.size >= 5) {
-            Toast.makeText(this, "Достигнат е максималният брой профили (5)", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Максимум 5 профила", Toast.LENGTH_SHORT).show()
             return
         }
-
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_profile, null)
         val etName = dialogView.findViewById<EditText>(R.id.etProfileName)
         val spinnerType = dialogView.findViewById<Spinner>(R.id.spinnerVehicleType)
@@ -100,24 +89,32 @@ class ProfileActivity : AppCompatActivity() {
             spinnerType.adapter = adapter
         }
 
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle(getString(R.string.dialog_create_profile))
             .setView(dialogView)
-            .setPositiveButton(getString(R.string.dialog_save_button)) { _, _ ->
-                val name = etName.text.toString()
+            .setNegativeButton(getString(R.string.dialog_cancel_button), null)
+            .setPositiveButton(getString(R.string.dialog_save_button), null)
+            .create()
+
+        dialog.setOnShowListener {
+            val btnSave = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            btnSave.setOnClickListener {
+                val name = etName.text.toString().trim()
+                if (name.isEmpty()) {
+                    etName.error = getString(R.string.error_empty_name)
+                    return@setOnClickListener
+                }
                 val type = if (spinnerType.selectedItemPosition == 0)
                     Profile.VehicleType.CAR else Profile.VehicleType.MOTORCYCLE
-
-                if (name.isNotBlank()) {
-                    val newProfile = Profile(name = name, vehicleType = type)
-                    profiles.add(newProfile)
-                    ProfileStorage.saveProfiles(this, profiles)
-                    adapter.notifyDataSetChanged()
-                    updateAddButtonState()
-                }
+                val newProfile = Profile(name = name, vehicleType = type)
+                profiles.add(newProfile)
+                ProfileStorage.saveProfiles(this, profiles)
+                adapter.notifyDataSetChanged()
+                updateAddButtonState()
+                dialog.dismiss()
             }
-            .setNegativeButton(getString(R.string.dialog_cancel_button), null)
-            .show()
+        }
+        dialog.show()
     }
 
     private fun showEditProfileDialog(profile: Profile) {
@@ -126,8 +123,6 @@ class ProfileActivity : AppCompatActivity() {
         val spinnerType = dialogView.findViewById<Spinner>(R.id.spinnerVehicleType)
 
         etName.setText(profile.name)
-        spinnerType.setSelection(if (profile.vehicleType == Profile.VehicleType.CAR) 0 else 1)
-
         ArrayAdapter.createFromResource(
             this,
             R.array.vehicle_types,
@@ -136,30 +131,39 @@ class ProfileActivity : AppCompatActivity() {
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             spinnerType.adapter = adapter
         }
+        spinnerType.setSelection(if (profile.vehicleType == Profile.VehicleType.CAR) 0 else 1)
 
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle(getString(R.string.profile_edit_text))
             .setView(dialogView)
-            .setPositiveButton(getString(R.string.profile_save_button)) { _, _ ->
-                val name = etName.text.toString()
+            .setNegativeButton(getString(R.string.dialog_cancel_button), null)
+            .setPositiveButton(getString(R.string.profile_save_button), null)
+            .create()
+
+        dialog.setOnShowListener {
+            val btnSave = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            btnSave.setOnClickListener {
+                val name = etName.text.toString().trim()
+                if (name.isEmpty()) {
+                    etName.error = getString(R.string.error_empty_name)
+                    return@setOnClickListener
+                }
                 val type = if (spinnerType.selectedItemPosition == 0)
                     Profile.VehicleType.CAR else Profile.VehicleType.MOTORCYCLE
-
-                if (name.isNotBlank()) {
-                    profile.name = name
-                    profile.vehicleType = type
-                    ProfileStorage.saveProfiles(this, profiles)
-                    adapter.notifyDataSetChanged()
-                }
+                profile.name = name
+                profile.vehicleType = type
+                ProfileStorage.saveProfiles(this, profiles)
+                adapter.notifyDataSetChanged()
+                dialog.dismiss()
             }
-            .setNegativeButton(getString(R.string.dialog_cancel_button), null)
-            .show()
+        }
+        dialog.show()
     }
 }
 
 class ProfileAdapter(
     private val profiles: List<Profile>,
-    private val onProfileClick: (Profile) -> Unit, // Нов callback за клик по профил
+    private val onProfileClick: (Profile) -> Unit,
     private val onEditClick: (Profile) -> Unit,
     private val onDeleteClick: (Profile) -> Unit
 ) : RecyclerView.Adapter<ProfileAdapter.ProfileViewHolder>() {
@@ -168,12 +172,10 @@ class ProfileAdapter(
         val tvName: TextView = itemView.findViewById(R.id.tvProfileName)
         val tvType: TextView = itemView.findViewById(R.id.tvVehicleType)
         val btnOptions: ImageButton = itemView.findViewById(R.id.btnOptions)
-
         init {
-            // Клик върху целия елемент (освен бутона)
             itemView.setOnClickListener {
-                if (adapterPosition != RecyclerView.NO_POSITION) {
-                    onProfileClick(profiles[adapterPosition])
+                if (bindingAdapterPosition != RecyclerView.NO_POSITION) {
+                    onProfileClick(profiles[bindingAdapterPosition])
                 }
             }
         }
@@ -192,24 +194,18 @@ class ProfileAdapter(
             Profile.VehicleType.CAR -> holder.itemView.context.getString(R.string.vehicle_type_car)
             Profile.VehicleType.MOTORCYCLE -> holder.itemView.context.getString(R.string.vehicle_type_motorcycle)
         }
-
         holder.btnOptions.setOnClickListener { view ->
-            showPopupMenu(view, profile)
-        }
-    }
-
-    private fun showPopupMenu(view: View, profile: Profile) {
-        PopupMenu(view.context, view).apply {
-            menu.add(0, 1, 0, view.context.getString(R.string.profile_edit_button))
-            menu.add(0, 2, 1, view.context.getString(R.string.profile_delete_button))
-            setOnMenuItemClickListener { item ->
-                when (item.itemId) {
-                    1 -> onEditClick(profile)
-                    2 -> onDeleteClick(profile)
+            PopupMenu(view.context, view).apply {
+                menu.add(0, 1, 0, view.context.getString(R.string.profile_edit_button))
+                menu.add(0, 2, 1, view.context.getString(R.string.profile_delete_button))
+                setOnMenuItemClickListener { item ->
+                    when (item.itemId) {
+                        1 -> onEditClick(profile)
+                        2 -> onDeleteClick(profile)
+                    }
+                    true
                 }
-                true
-            }
-            show()
+            }.show()
         }
     }
 
@@ -221,16 +217,12 @@ object ProfileStorage {
     private const val SELECTED_PROFILE_KEY = "selected_profile_id"
 
     fun saveProfiles(context: Context, profiles: List<Profile>) {
-        val gson = Gson()
-        val json = gson.toJson(profiles)
-        context.getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE).edit()
-            .putString(PREFS_KEY, json)
-            .apply()
-
+        val json = Gson().toJson(profiles)
+        context.getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE)
+            .edit().putString(PREFS_KEY, json).apply()
         if (profiles.isEmpty()) {
-            context.getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE).edit()
-                .remove(SELECTED_PROFILE_KEY)
-                .apply()
+            context.getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE)
+                .edit().remove(SELECTED_PROFILE_KEY).apply()
         }
     }
 
@@ -240,25 +232,21 @@ object ProfileStorage {
         return if (json != null) {
             val type = object : TypeToken<MutableList<Profile>>() {}.type
             Gson().fromJson(json, type) ?: mutableListOf()
-        } else {
-            mutableListOf()
-        }
+        } else mutableListOf()
     }
 
     fun saveSelectedProfile(context: Context, profileId: Long) {
-        context.getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE).edit()
-            .putLong(SELECTED_PROFILE_KEY, profileId)
-            .apply()
+        context.getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE)
+            .edit().putLong(SELECTED_PROFILE_KEY, profileId).apply()
     }
 
-    fun getSelectedProfileId(context: Context): Long {
-        return context.getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE)
+    fun getSelectedProfileId(context: Context): Long =
+        context.getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE)
             .getLong(SELECTED_PROFILE_KEY, -1)
-    }
 
     fun saveNewProfile(context: Context, profile: Profile) {
-        val profiles = loadProfiles(context).toMutableList()
-        profiles.add(profile)
-        saveProfiles(context, profiles)
+        val list = loadProfiles(context)
+        list.add(profile)
+        saveProfiles(context, list)
     }
 }

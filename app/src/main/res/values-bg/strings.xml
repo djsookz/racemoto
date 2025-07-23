@@ -9,10 +9,11 @@
     <string name="vehicle_type_car">Кола</string>
     <string name="vehicle_type_motorcycle">Мотоциклет</string>
     <string name="error_empty_name">Моля, въведете марка на превозното средство.</string>
-    <string name="reset_button">НУЛИРАЙ</string>
+    <string name="reset_button">РЕСТАРТ</string>
     <string name="stop_button">КРАЙ</string>
     <string name="start_session">Започни своята сесия сега.</string>
     <string name="start_button">СТАРТ</string>
+    <string name="zero_button">НУЛИРАЙ</string>
     <string name="profile_button">ПРОФИЛИ</string>
     <string name="session_button">СЕСИИ</string>
     <string name="dialog_name_profile">Име на профил</string>
@@ -79,11 +80,16 @@
     <string name="exit_race">Сигурни ли сте, че искате да излезете? Данните ще бъдат изгубени!</string>
     <string name="exit_race_yes">Да</string>
     <string name="exit_race_no">Не</string>
-    <string name="always_on_display">"Always On "</string>
+    <string name="always_on_display">Always On Display</string>
     <string name="settings_title">Настройки</string>
     <string name="profile_details_stats">Статистика</string>
     <string name="mid_range">Средно</string>
     <string name="profile_details_top_speed">Рекорд</string>
     <string name="sprint">Спринт</string>
     <string name="full_sprint">Фул Спринт</string>
+    <string name="profile_detail_duration_format">%1$dд %2$dч</string>
+    <string name="profile_detail_distance_format">%1$.1f Км</string>
+    <string name="profile_detail_session_text">Брой Сесии</string>
+    <string name="profile_detail_distance_text">Общо Разтояние</string>
+    <string name="profile_detail_duration_text">Общо Време</string>
 </resources>

@@ -11,9 +11,8 @@ import android.widget.ImageButton
 import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
-import java.util.Locale
 
 class RaceAdapter(
     private val races: MutableList<Race>,
@@ -22,16 +21,16 @@ class RaceAdapter(
     private val onRename: (Race, String) -> Unit
 ) : RecyclerView.Adapter<RaceAdapter.RaceViewHolder>() {
 
-    inner class RaceViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        val tvTitle: TextView     = itemView.findViewById(R.id.tvDate)
-        val dateTextView: TextView  = itemView.findViewById(R.id.dateTextView)
-        val tvDuration: TextView  = itemView.findViewById(R.id.tvNumber)
-        val btnOptions: ImageButton = itemView.findViewById(R.id.btnOptions)
-    }
-
     companion object {
         private const val MENU_RENAME = 1
         private const val MENU_DELETE = 2
+    }
+
+    inner class RaceViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val tvTitle: TextView = itemView.findViewById(R.id.tvDate)
+        val dateTextView: TextView = itemView.findViewById(R.id.dateTextView)
+        val tvDuration: TextView = itemView.findViewById(R.id.tvNumber)
+        val btnOptions: ImageButton = itemView.findViewById(R.id.btnOptions)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RaceViewHolder {
@@ -40,70 +39,44 @@ class RaceAdapter(
         return RaceViewHolder(view)
     }
 
-
-
     override fun onBindViewHolder(holder: RaceViewHolder, position: Int) {
         val race = races[position]
 
-
         fun formatRelativeDate(timestamp: Long): String {
-            val now = java.util.Calendar.getInstance()
-            val then = java.util.Calendar.getInstance().apply {
-                timeInMillis = timestamp
-            }
-
-            val nowYear = now.get(java.util.Calendar.YEAR)
-            val nowDayOfYear = now.get(java.util.Calendar.DAY_OF_YEAR)
-            val thenYear = then.get(java.util.Calendar.YEAR)
-            val thenDayOfYear = then.get(java.util.Calendar.DAY_OF_YEAR)
-
-
-
-
-            // Разлика в дни (коригирано изчисление)
-            val diffInMillis = now.timeInMillis - then.timeInMillis
-            val days = (diffInMillis / (1000 * 60 * 60 * 24)).toInt()
             val ctx = holder.itemView.context
 
-            if (days == 0) {
-                return ctx.getString(R.string.session_today)
+            // Calculate midnight boundaries
+            val nowMidnight = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val thenMidnight = Calendar.getInstance().apply {
+                timeInMillis = timestamp
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
             }
 
-            if (days == 1) {
-                return ctx.getString(R.string.session_yesterday)
-            }
-
-            // Разлика в месеци и години
-            val months = (days / 30)
-            val years = (days / 365)
-
-            val resources = ctx.resources
+            val diffMillis = nowMidnight.timeInMillis - thenMidnight.timeInMillis
+            val days = (diffMillis / (1000 * 60 * 60 * 24)).toInt()
 
             return when {
-                years >= 1 -> resources.getQuantityString(R.plurals.session_years, years, years)
-                months >= 1 -> resources.getQuantityString(R.plurals.session_months, months, months)
-                else -> resources.getQuantityString(R.plurals.session_days, days, days)
+                days < 0 -> DateFormat.format("dd.MM.yyyy", Date(timestamp)).toString()
+                days == 0 -> ctx.getString(R.string.session_today)
+                days == 1 -> ctx.getString(R.string.session_yesterday)
+                else -> ctx.resources.getQuantityString(R.plurals.session_days, days, days)
             }
         }
 
-
-        // Заглавие: името на маршрута, по default "Маршрут X"
-        holder.tvTitle.text = race.name ?: holder.itemView.context.getString(R.string.session_title, position + 1)
-
-        // Дата на създаване
+        holder.tvTitle.text = race.name
+            ?: holder.itemView.context.getString(R.string.session_title, position + 1)
         holder.dateTextView.text = formatRelativeDate(race.absoluteTimestamp)
-
-
-
-        // Продължителност
         holder.tvDuration.text = formatTime(race.duration)
 
-        // Цял елемент кликаем за преглед
-        holder.itemView.setOnClickListener {
-            onItemClick(race)
-        }
-
-        // Меню с 3 точки
+        holder.itemView.setOnClickListener { onItemClick(race) }
         holder.btnOptions.setOnClickListener { view ->
             PopupMenu(view.context, view).apply {
                 menu.add(0, MENU_RENAME, 0, view.context.getString(R.string.session_options_rename))
@@ -135,7 +108,7 @@ class RaceAdapter(
     private fun formatTime(millis: Long): String {
         val seconds = (millis / 1000) % 60
         val minutes = (millis / (1000 * 60)) % 60
-        val hours   = millis / (1000 * 60 * 60)
+        val hours = millis / (1000 * 60 * 60)
         return String.format("%02d:%02d:%02d", hours, minutes, seconds)
     }
 

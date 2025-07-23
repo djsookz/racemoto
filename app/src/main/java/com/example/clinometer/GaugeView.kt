@@ -1,9 +1,11 @@
 package com.example.clinometer
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
 import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
 import kotlin.math.*
 
 class GaugeView @JvmOverloads constructor(
@@ -32,26 +34,37 @@ class GaugeView @JvmOverloads constructor(
     private val arcRect = RectF()
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 28f
-        color = Color.parseColor("#b1a7a6")
+        strokeWidth = 65f
+        color = Color.parseColor("#33ADB5BD")
     }
     private val fgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 28f
+        strokeWidth = 50f
     }
 
     private val markerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 6f
+        strokeWidth = 5f
         color = Color.RED
     }
 
     /** Нулира максималните маркери */
     fun resetMaxima() {
-        maxLeftAngle = 0f
-        maxRightAngle = 0f
-        invalidate()
+        val animator = ValueAnimator.ofFloat(1f, 0f).apply {
+            duration = 300
+            interpolator = AccelerateDecelerateInterpolator()
+            addUpdateListener { animation ->
+                val fraction = animation.animatedValue as Float
+                maxLeftAngle = originalMaxLeft * fraction
+                maxRightAngle = originalMaxRight * fraction
+                invalidate()
+            }
+        }
+        animator.start()
     }
+
+    private var originalMaxLeft = 0f
+    private var originalMaxRight = 0f
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
@@ -93,25 +106,28 @@ class GaugeView @JvmOverloads constructor(
         fgPaint.color = Color.rgb(red, green, 0)
         canvas.drawArc(arcRect, 270f, sweep, false, fgPaint)
 
+        val inset = 50f
+
         // Нарисуваме маркери за историческите максимуми
         // Ляв максимум
-        if (maxLeftAngle < 0f) {
+        if (abs(maxLeftAngle) > 0.1f && maxLeftAngle != 0f) {
             val deg = 270f + maxLeftAngle.coerceIn(-90f, 0f)
             val r = Math.toRadians(deg.toDouble())
             val x1 = (centerX + cos(r) * currentRadius).toFloat()
             val y1 = (centerY + sin(r) * currentRadius).toFloat()
-            val x2 = (centerX + cos(r) * (currentRadius - 28)).toFloat()
-            val y2 = (centerY + sin(r) * (currentRadius - 28)).toFloat()
+            val x2 = (centerX + cos(r) * (currentRadius + inset)).toFloat()
+            val y2 = (centerY + sin(r) * (currentRadius + inset)).toFloat()
             canvas.drawLine(x1, y1, x2, y2, markerPaint)
         }
-        // Десен максимум
-        if (maxRightAngle > 0f) {
+
+        // Десен максимум (добавяме проверка за нулиране)
+        if (abs(maxRightAngle) > 0.1f && maxRightAngle != 0f) {
             val deg = 270f + maxRightAngle.coerceIn(0f, 90f)
             val r = Math.toRadians(deg.toDouble())
-            val x1 = (centerX + cos(r) * currentRadius).toFloat()
-            val y1 = (centerY + sin(r) * currentRadius).toFloat()
-            val x2 = (centerX + cos(r) * (currentRadius - 28)).toFloat()
-            val y2 = (centerY + sin(r) * (currentRadius - 28)).toFloat()
+            val x1 = (centerX + cos(r) * currentRadius ).toFloat()
+            val y1 = (centerY + sin(r) * currentRadius ).toFloat()
+            val x2 = (centerX + cos(r) * (currentRadius + inset)).toFloat()
+            val y2 = (centerY + sin(r) * (currentRadius + inset)).toFloat()
             canvas.drawLine(x1, y1, x2, y2, markerPaint)
         }
     }
