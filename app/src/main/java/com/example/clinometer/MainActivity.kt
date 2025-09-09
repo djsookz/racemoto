@@ -337,12 +337,15 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             ?: Profile(name = "My profile", vehicleType = Profile.VehicleType.MOTORCYCLE)
 
         initializeSensors()
-        initializeViews()
         setupScreenKeepOn()
         setupMap()
+        
+        // Initialize views and immediately set correct visibility for profile
+        initializeViews()
+        updateUIForProfile()
+        
         setupButtons()
         setupOrientationToggle()
-        updateUIForProfile()
         needsZeroAfterRotation = true
 
         if (isServiceRunning()) {
@@ -372,6 +375,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         zeroButton = findViewById(R.id.btnZero)
         stopButton = findViewById(R.id.btnStop)
         orientationToggle = findViewById(R.id.btnOrientationToggle)
+
+        // Ensure motorcycle elements start hidden
+        gaugeView.visibility = View.GONE
+        currentAngleText.visibility = View.GONE
+        zeroButton.visibility = View.GONE
 
         currentAngleText.text = getString(R.string.current_angle, 0)
         speedText.text = getString(R.string.current_speed, 0)
@@ -405,14 +413,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         angleViews.forEach { view ->
             if (isMotorcycle) {
                 view.visibility = View.VISIBLE
-                view.alpha = 0f
-                view.animate().alpha(1f).setDuration(300).start()
+                view.alpha = 1f
             } else {
-                view.animate()
-                    .alpha(0f)
-                    .setDuration(300)
-                    .withEndAction { view.visibility = View.GONE }
-                    .start()
+                view.visibility = View.GONE
+                view.alpha = 0f
             }
         }
     }
@@ -519,10 +523,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         zeroButton.setOnClickListener {
             if (currentProfile.vehicleType == Profile.VehicleType.MOTORCYCLE) {
                 foregroundService?.calibrateZero()
-                // Also align UI zero to current physical angle
-                foregroundService?.let { svc ->
-                    angleZeroOffset = svc.getCurrentAngle()
-                }
                 resetAngleDisplay()
             }
         }
@@ -841,21 +841,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun updateUIFromService() {
         foregroundService?.let { service ->
-            val inLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-            val rawAngle = if (inLandscape) latestLeanAngleDeg else service.getCurrentAngle()
+            val angle = service.getCurrentAngle()
+            targetAngle = targetAngle * 0.7f + angle * 0.3f
 
-            // On first update after (re)creation/rotation, take the current angle as zero
-            if (needsZeroAfterRotation) {
-                angleZeroOffset = rawAngle
-                needsZeroAfterRotation = false
-            }
-
-            val adjustedAngle = rawAngle - angleZeroOffset
-            targetAngle = targetAngle * 0.7f + adjustedAngle * 0.3f
-
-            if (abs(adjustedAngle - currentAngle) > 0.2f) {
-                currentAngleText.text = getString(R.string.current_angle, adjustedAngle.toInt())
-            }
+            // Актуализирай текста с ъгъла
+            currentAngleText.text = getString(R.string.current_angle, angle.toInt())
 
             val speed = service.getCurrentSpeed()
             speedText.text = getString(R.string.current_speed, speed.toInt())
@@ -989,7 +979,15 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         when (event.sensor.type) {
             Sensor.TYPE_ROTATION_VECTOR -> {
                 SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                updateBearingAndLean(rotationMatrix)
+                SensorManager.getOrientation(rotationMatrix, orientationAngles)
+                var azimuth = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
+                if (azimuth < 0) azimuth += 360f
+                var bearingDiff = azimuth - sensorBearing
+                while (bearingDiff > 180) bearingDiff -= 360
+                while (bearingDiff < -180) bearingDiff += 360
+                sensorBearing += bearingDiff * 0.2f // Smooth factor
+                while (sensorBearing < 0) sensorBearing += 360
+                while (sensorBearing > 360) sensorBearing -= 360
             }
 
             Sensor.TYPE_ACCELEROMETER -> {
@@ -1001,73 +999,25 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
                 if (gravity != null && geomagnetic != null) {
                     if (SensorManager.getRotationMatrix(rotationMatrix, null, gravity, geomagnetic)) {
-                        updateBearingAndLean(rotationMatrix)
+                        SensorManager.getOrientation(rotationMatrix, orientationAngles)
+
+                        var azimuth = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
+                        if (azimuth < 0) azimuth += 360f
+
+                        var bearingDiff = azimuth - sensorBearing
+                        while (bearingDiff > 180) bearingDiff -= 360
+                        while (bearingDiff < -180) bearingDiff += 360
+                        sensorBearing += bearingDiff * 0.2f
+                        while (sensorBearing < 0) sensorBearing += 360
+                        while (sensorBearing > 360) sensorBearing -= 360
                     }
                 }
             }
         }
     }
 
-    private fun updateBearingAndLean(baseRotationMatrix: FloatArray) {
-        val rotation = getDisplayRotation()
 
-        // Проверяваме дали ориентацията се е променила
-        if (lastOrientation != -1 && lastOrientation != rotation) {
-            // Ориентацията се е променила - автоматично нулиране
-            needsZeroAfterRotation = true
-        }
-        lastOrientation = rotation
 
-        // Map device axes to screen axes
-        when (rotation) {
-            Surface.ROTATION_0 -> SensorManager.remapCoordinateSystem(
-                baseRotationMatrix,
-                SensorManager.AXIS_X,
-                SensorManager.AXIS_Y,
-                remapMatrix
-            )
-            Surface.ROTATION_90 -> SensorManager.remapCoordinateSystem(
-                baseRotationMatrix,
-                SensorManager.AXIS_Y,
-                SensorManager.AXIS_MINUS_X,
-                remapMatrix
-            )
-            Surface.ROTATION_180 -> SensorManager.remapCoordinateSystem(
-                baseRotationMatrix,
-                SensorManager.AXIS_MINUS_X,
-                SensorManager.AXIS_MINUS_Y,
-                remapMatrix
-            )
-            Surface.ROTATION_270 -> SensorManager.remapCoordinateSystem(
-                baseRotationMatrix,
-                SensorManager.AXIS_MINUS_Y,
-                SensorManager.AXIS_X,
-                remapMatrix
-            )
-            else -> System.arraycopy(baseRotationMatrix, 0, remapMatrix, 0, baseRotationMatrix.size)
-        }
-
-        // Compute orientation from screen-aligned matrix
-        SensorManager.getOrientation(remapMatrix, orientationAngles)
-
-        // Azimuth (bearing)
-        var azimuth = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
-        if (azimuth < 0) azimuth += 360f
-        var bearingDiff = azimuth - sensorBearing
-        while (bearingDiff > 180) bearingDiff -= 360
-        while (bearingDiff < -180) bearingDiff += 360
-        sensorBearing += bearingDiff * 0.2f
-        while (sensorBearing < 0) sensorBearing += 360
-        while (sensorBearing > 360) sensorBearing -= 360
-
-        // Roll (lean angle) - винаги roll, без компенсация
-        latestLeanAngleDeg = Math.toDegrees(orientationAngles[2].toDouble()).toFloat()
-    }
-
-    @Suppress("DEPRECATION")
-    private fun getDisplayRotation(): Int {
-        return windowManager.defaultDisplay.rotation
-    }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
     }

@@ -13,6 +13,9 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.view.Surface
+import android.view.WindowManager
+import android.content.res.Configuration
 import android.location.Location
 import android.os.Binder
 import android.os.Build
@@ -34,6 +37,7 @@ import org.osmdroid.util.GeoPoint
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.sqrt
+import java.lang.Math
 
 enum class AccelerationState {
     IDLE,
@@ -67,6 +71,7 @@ class ForegroundService : Service(), SensorEventListener {
     private lateinit var locCallback: LocationCallback
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
+    private val geomagnetic = FloatArray(3)
     var sessionStartTime: Long = 0
     var accelerationTracking = AccelerationData()
 
@@ -197,6 +202,7 @@ class ForegroundService : Service(), SensorEventListener {
     fun getMaxRightAngle(): Float = maxRightAngle
     fun getMaxSpeed(): Float = maxSpeed
     fun getCurrentAngle(): Float = currentCalibratedAngle
+    fun getCurrentRawAngle(): Float = filteredAngle
     fun getCurrentSpeed(): Float = currentSpeed
     fun getLastLocation(): Location? = lastLocation
     fun getAccelerationData(): AccelerationData = accelerationTracking
@@ -231,6 +237,13 @@ class ForegroundService : Service(), SensorEventListener {
         maxRightAngle = 0f
         currentCalibratedAngle = 0f
     }
+    
+    fun calibrateZeroWithAngle(angle: Float) {
+        offsetAngle = angle
+        maxLeftAngle = 0f
+        maxRightAngle = 0f
+        currentCalibratedAngle = 0f
+    }
 
     fun startNewMeasurement() {
         Log.d("ForegroundService", "Starting new measurement")
@@ -258,7 +271,7 @@ class ForegroundService : Service(), SensorEventListener {
             speedTimeStamps.clear()
         }
 
-        Log.d("ForegroundService", "Measurement started at: $gMeasurementStartTime")
+        Log.d("ForegroundService", "Measurement started at: $gMeasurementStartTime, isMeasurementActive=$isMeasurementActive, accelerometer=$accelerometer")
     }
     fun stopMeasurement() {
         isMeasurementActive = false
@@ -267,31 +280,34 @@ class ForegroundService : Service(), SensorEventListener {
 
     fun resetData() {
         if (!isPreWarmingMode) {
+            // Изчисти всички данни за нова сесия
             routePoints.clear()
             filteredAngle = 0f
-            offsetAngle = filteredAngle
+            offsetAngle = 0f
             currentCalibratedAngle = 0f
             maxLeftAngle = 0f
             maxRightAngle = 0f
             maxSpeed = 0f
             currentSpeed = 0f
 
-            // Не задаваме actualStartTime тук — ще го задаваме при активиране на нормален режим.
+            // Нулирай всички времена и задай ново начално време
             startTime = SystemClock.elapsedRealtime()
-
+            actualStartTime = SystemClock.elapsedRealtime()
             lastDataSaveTime = 0L
-            accelerationTracking = AccelerationData()
-            totalDistance = 0.0
-            lastLocationForDistance = null
             resetTime = SystemClock.elapsedRealtime()
             lastAccelerationTime = 0L
 
-            // Нулирай G measurement времето
+            // Нулирай acceleration данните
+            accelerationTracking = AccelerationData()
+            totalDistance = 0.0
+            lastLocationForDistance = null
+
+            // Нулирай G measurement данните
             gMeasurementStartTime = 0L
             lastGSampleTime = 0L
             peakG = 0f
 
-            // Изчисти буферите
+            // Изчисти всички буфери
             synchronized(gSamplesBuffer) {
                 gSamplesBuffer.clear()
                 gTimeStamps.clear()
@@ -308,7 +324,7 @@ class ForegroundService : Service(), SensorEventListener {
             // Ако сме в pre-warming режим, пак искаме да нулираме сесиите, но да НЕ задаваме actualStartTime
             routePoints.clear()
             filteredAngle = 0f
-            offsetAngle = filteredAngle
+            offsetAngle = 0f
             currentCalibratedAngle = 0f
             maxLeftAngle = 0f
             maxRightAngle = 0f
@@ -316,17 +332,22 @@ class ForegroundService : Service(), SensorEventListener {
             currentSpeed = 0f
 
             startTime = SystemClock.elapsedRealtime()
+            actualStartTime = 0L
             lastDataSaveTime = 0L
-            accelerationTracking = AccelerationData()
-            totalDistance = 0.0
-            lastLocationForDistance = null
             resetTime = SystemClock.elapsedRealtime()
             lastAccelerationTime = 0L
 
+            // Нулирай acceleration данните
+            accelerationTracking = AccelerationData()
+            totalDistance = 0.0
+            lastLocationForDistance = null
+
+            // Нулирай G measurement данните
             gMeasurementStartTime = 0L
             lastGSampleTime = 0L
             peakG = 0f
 
+            // Изчисти всички буфери
             synchronized(gSamplesBuffer) {
                 gSamplesBuffer.clear()
                 gTimeStamps.clear()
@@ -379,7 +400,6 @@ class ForegroundService : Service(), SensorEventListener {
 
         fusedClient = LocationServices.getFusedLocationProviderClient(this)
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
-        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
         startTime = SystemClock.elapsedRealtime()
 
@@ -416,86 +436,102 @@ class ForegroundService : Service(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent) {
         if (isPreWarmingMode) return
 
-        if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-            gravity[0] = alpha * gravity[0] + (1 - alpha) * event.values[0]
-            gravity[1] = alpha * gravity[1] + (1 - alpha) * event.values[1]
-            gravity[2] = alpha * gravity[2] + (1 - alpha) * event.values[2]
+        Log.d("ForegroundService", "Sensor changed: ${event.sensor.type}, isMeasurementActive=$isMeasurementActive")
 
-            linearAcceleration[0] = event.values[0] - gravity[0]
-            linearAcceleration[1] = event.values[1] - gravity[1]
-            linearAcceleration[2] = event.values[2] - gravity[2]
+        when (event.sensor.type) {
+            Sensor.TYPE_ACCELEROMETER -> {
+                gravity[0] = alpha * gravity[0] + (1 - alpha) * event.values[0]
+                gravity[1] = alpha * gravity[1] + (1 - alpha) * event.values[1]
+                gravity[2] = alpha * gravity[2] + (1 - alpha) * event.values[2]
 
-            val magnitude = sqrt(
-                linearAcceleration[0] * linearAcceleration[0] +
-                        linearAcceleration[1] * linearAcceleration[1] +
-                        linearAcceleration[2] * linearAcceleration[2]
-            )
+                linearAcceleration[0] = event.values[0] - gravity[0]
+                linearAcceleration[1] = event.values[1] - gravity[1]
+                linearAcceleration[2] = event.values[2] - gravity[2]
 
-            val g = magnitude / 9.81f
-            currentG = g
-            if (g > peakG) peakG = g
+                val magnitude = sqrt(
+                    linearAcceleration[0] * linearAcceleration[0] +
+                            linearAcceleration[1] * linearAcceleration[1] +
+                            linearAcceleration[2] * linearAcceleration[2]
+                )
 
-            // Проверка за реално ускорение
-            if (magnitude > accelerometerThreshold && g > 0.15f) {
-                isRealAcceleration = true
-                lastAccelerationTime = System.nanoTime()
+                val gForce = magnitude / 9.81f
+                currentG = gForce
+                if (gForce > peakG) peakG = gForce
 
-                // Автоматично стартирай измерване ако няма активно
-                if (!isMeasurementActive && gMeasurementStartTime == 0L) {
-                    startNewMeasurement()
-                }
-            }
+                // Проверка за реално ускорение
+                if (magnitude > accelerometerThreshold && gForce > 0.15f) {
+                    isRealAcceleration = true
+                    lastAccelerationTime = System.nanoTime()
 
-            if (System.nanoTime() - lastAccelerationTime > accelerationWindow) {
-                isRealAcceleration = false
-            }
-
-            // Запазвай G samples само когато има активно измерване
-            val currentTime = System.currentTimeMillis()
-
-            // Запазвай данни само ако има активно ускорение или вече сме започнали измерване
-            if (isMeasurementActive && gMeasurementStartTime > 0L) {
-                if (currentTime - lastGSampleTime >= G_SAMPLE_INTERVAL_MS) {
-                    synchronized(gSamplesBuffer) {
-                        if (gSamplesBuffer.size >= SAMPLES_CAPACITY) {
-                            gSamplesBuffer.removeFirst()
-                            gTimeStamps.removeFirst()
-                        }
-                        gSamplesBuffer.addLast(g)
-                        // Времето е относително спрямо началото на измерването
-                        val relativeTime = currentTime - gMeasurementStartTime
-                        gTimeStamps.addLast(relativeTime)
-                        lastGSampleTime = currentTime
-
-                        if (gSamplesBuffer.size % 10 == 0) {
-                            Log.d(
-                                "ForegroundService",
-                                "G samples collected: ${gSamplesBuffer.size}, latest G: $g"
-                            )
-                        }
+                    // Автоматично стартирай измерване ако няма активно
+                    if (!isMeasurementActive && gMeasurementStartTime == 0L) {
+                        startNewMeasurement()
                     }
                 }
 
-                // Обработка на ъглите
-                val x = event.values[0]
-                val y = event.values[1]
-                val z = event.values[2]
-                val yzSq = y * y + z * z
-                val raw = if (yzSq > 0) {
-                    Math.toDegrees(atan2(x.toDouble(), sqrt(yzSq.toDouble()))).toFloat()
+                if (System.nanoTime() - lastAccelerationTime > accelerationWindow) {
+                    isRealAcceleration = false
+                }
+
+                // Запазвай G samples само когато има активно измерване
+                val currentTime = System.currentTimeMillis()
+
+                // Запазвай данни само ако има активно ускорение или вече сме започнали измерване
+                // Обработка на ъглите - винаги работи в реално време
+                val x = event.values[0]  // Наклон наляво/надясно
+                val y = event.values[1]  // Наклон напред/назад  
+                val z = event.values[2]  // Гравитация нагоре/надолу
+                
+                // Проверяваме ориентацията
+                val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                
+                // Изчисляваме общата гравитация
+                val totalGravity = sqrt(x * x + y * y + z * z)
+                val raw = if (totalGravity > 0) {
+                    if (isLandscape) {
+                        // В ландскейп: Y ос за нагоре/надолу, нагоре = -, надолу = +
+                        -Math.toDegrees(Math.asin((y / totalGravity).toDouble().coerceIn(-1.0, 1.0))).toFloat()
+                    } else {
+                        // В портрет: X ос за наляво/надясно
+                        Math.toDegrees(Math.asin((x / totalGravity).toDouble().coerceIn(-1.0, 1.0))).toFloat()
+                    }
                 } else 0f
 
                 val delta = abs(raw - filteredAngle)
                 val adaptiveAlpha = (0.01f + (delta / 45f)).coerceIn(0.05f, 0.3f)
                 filteredAngle += adaptiveAlpha * (raw - filteredAngle)
-                val calibrated = (offsetAngle - filteredAngle).coerceIn(-90f, 900f)
+                val calibrated = (offsetAngle - filteredAngle).coerceIn(-90f, 90f)
                 currentCalibratedAngle = calibrated
 
                 if (calibrated < maxLeftAngle) maxLeftAngle = calibrated
                 if (calibrated > maxRightAngle) maxRightAngle = calibrated
 
-                saveDataPointIfNeeded()
+                if (isMeasurementActive && gMeasurementStartTime > 0L) {
+                    if (currentTime - lastGSampleTime >= G_SAMPLE_INTERVAL_MS) {
+                        synchronized(gSamplesBuffer) {
+                            if (gSamplesBuffer.size >= SAMPLES_CAPACITY) {
+                                gSamplesBuffer.removeFirst()
+                                gTimeStamps.removeFirst()
+                            }
+                            gSamplesBuffer.addLast(gForce)
+                            // Времето е относително спрямо началото на измерването
+                            val relativeTime = currentTime - gMeasurementStartTime
+                            gTimeStamps.addLast(relativeTime)
+                            lastGSampleTime = currentTime
+
+                            if (gSamplesBuffer.size % 10 == 0) {
+                                Log.d(
+                                    "ForegroundService",
+                                    "G samples collected: ${gSamplesBuffer.size}, latest G: $gForce"
+                                )
+                            }
+                        }
+                    }
+
+                    saveDataPointIfNeeded()
+                }
             }
+
         }
     }
 
@@ -591,8 +627,11 @@ class ForegroundService : Service(), SensorEventListener {
     }
 
     private fun registerSensors() {
+        // Използваме само ACCELEROMETER - работи на всички устройства
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         accelerometer?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+            Log.d("ForegroundService", "Registered ACCELEROMETER sensor")
         }
     }
 
@@ -636,6 +675,18 @@ class ForegroundService : Service(), SensorEventListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+
+
+    private fun lowPass(input: FloatArray, output: FloatArray?): FloatArray {
+        if (output == null) return input
+
+        val alpha = 0.8f
+        for (i in input.indices) {
+            output[i] = output[i] + alpha * (input[i] - output[i])
+        }
+        return output
+    }
+
 
     private fun onNewLocation(loc: Location) {
         // Изчисли GPS acceleration

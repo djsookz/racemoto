@@ -297,19 +297,7 @@ class RaceAdapter(
                             true
                         }
                         MENU_DELETE -> {
-                            val targetId = race.id
-                            val indices = races.withIndex()
-                                .filter { it.value.id == targetId }
-                                .map { it.index }
-                            if (indices.isNotEmpty()) {
-                                for (i in indices.sortedDescending()) {
-                                    races.removeAt(i)
-                                }
-                                notifyDataSetChanged()
-                                onDeleteClick(race)
-                            } else {
-                                onDeleteClick(race)
-                            }
+                            onDeleteClick(race)
                             true
                         }
                         else -> false
