@@ -21,7 +21,7 @@ class StartActivity : AppCompatActivity() {
     private val PERMISSION_REQUEST_CODE = 1001
     private lateinit var spinnerProfiles: MaterialAutoCompleteTextView
     private lateinit var profileDropdownLayout: TextInputLayout
-    private lateinit var backgroundImageView: ImageView // Ново: Референция към фоновото изображение
+    private lateinit var backgroundImageView: ImageView
     private lateinit var btnSettings: MaterialButton
     private var profiles = mutableListOf<Profile>()
 
@@ -31,11 +31,8 @@ class StartActivity : AppCompatActivity() {
 
         btnSettings = findViewById(R.id.btnSettings)
 
-
-        // Инициализация на фоновото изображение
         backgroundImageView = findViewById(R.id.backgroundImageView)
 
-        // Инициализация на TextInputLayout за иконките
         profileDropdownLayout = findViewById(R.id.profileDropdownLayout)
 
         if (ProfileStorage.loadProfiles(this).isEmpty()) {
@@ -44,13 +41,11 @@ class StartActivity : AppCompatActivity() {
             return
         }
 
-        // Инициализация на UI елементите
         spinnerProfiles = findViewById(R.id.spinnerProfiles)
         val btnStart = findViewById<Button>(R.id.btnStart)
         val btnRaces = findViewById<Button>(R.id.btnRaces)
         val btnProfiles = findViewById<Button>(R.id.btnProfiles)
 
-        // Зареждане на профили
         loadProfiles()
         if (profiles.isEmpty()) {
             startActivity(Intent(this, FirstProfileActivity::class.java))
@@ -59,30 +54,27 @@ class StartActivity : AppCompatActivity() {
         }
         setupProfileSpinner()
 
-        // Настройка на бутона за стартиране
         btnStart.setOnClickListener {
-                val selectedProfileName = spinnerProfiles.text.toString()
-                val selectedIndex = profiles.indexOfFirst { it.name == selectedProfileName }
+            val selectedProfileName = spinnerProfiles.text.toString()
+            val selectedIndex = profiles.indexOfFirst { it.name == selectedProfileName }
 
-                if (selectedIndex >= 0) {
-                    val selectedProfile = profiles[selectedIndex]
-                    val intent = Intent(this, CountdownActivity::class.java).apply {
-                        putExtra("SELECTED_PROFILE", selectedProfile)
-                    }
-                    startActivity(intent)
-                } else {
-                    Toast.makeText(this, "Please, chose a profile", Toast.LENGTH_SHORT).show()
+            if (selectedIndex >= 0) {
+                val selectedProfile = profiles[selectedIndex]
+                val intent = Intent(this, CountdownActivity::class.java).apply {
+                    putExtra("SELECTED_PROFILE", selectedProfile)
                 }
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "Please, chose a profile", Toast.LENGTH_SHORT).show()
+            }
         }
 
-        // Настройка на бутона за сесии
         btnRaces.setOnClickListener {
             startActivity(Intent(this, RacesActivity::class.java))
         }
 
-        // Настройка на бутона за профили
         btnProfiles.setOnClickListener {
-            startActivity(Intent(this, ProfileActivity::class.java))
+            startActivity(Intent(this, GarageActivity::class.java))
         }
 
         btnSettings.setOnClickListener {
@@ -93,7 +85,6 @@ class StartActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // При връщане към активността, презареждаме профилите
         loadProfiles()
 
         if (profiles.isEmpty()) {
@@ -127,13 +118,13 @@ class StartActivity : AppCompatActivity() {
             selectedProfile?.let {
                 spinnerProfiles.setText(it.name, false)
                 updateProfileIcon(it)
-                updateBackground(it) // Актуализиране на фона
+                updateBackground(it)
             } ?: run {
                 val firstProfile = profiles.first()
                 spinnerProfiles.setText(firstProfile.name, false)
                 ProfileStorage.saveSelectedProfile(this, firstProfile.id)
                 updateProfileIcon(firstProfile)
-                updateBackground(firstProfile) // Актуализиране на фона
+                updateBackground(firstProfile)
             }
         }
 
@@ -141,11 +132,10 @@ class StartActivity : AppCompatActivity() {
             val selectedProfile = profiles[position]
             ProfileStorage.saveSelectedProfile(this, selectedProfile.id)
             updateProfileIcon(selectedProfile)
-            updateBackground(selectedProfile) // Актуализиране на фона
+            updateBackground(selectedProfile)
         }
     }
 
-    // Функция за актуализиране на иконката
     private fun updateProfileIcon(profile: Profile) {
         val iconRes = when (profile.vehicleType) {
             Profile.VehicleType.CAR -> R.drawable.ic_car
@@ -169,7 +159,6 @@ class StartActivity : AppCompatActivity() {
         }
     }
 
-    // Нова функция за актуализиране на фона
     private fun updateBackground(profile: Profile) {
         val backgroundRes = when (profile.vehicleType) {
             Profile.VehicleType.CAR -> R.drawable.car_background

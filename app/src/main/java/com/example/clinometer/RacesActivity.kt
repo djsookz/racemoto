@@ -3,35 +3,28 @@ package com.example.clinometer
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.widget.Button
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
+import android.widget.Toast
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
-class RacesActivity : AppCompatActivity() {
+class RacesActivity : BaseActivity() {
+    override fun getLayoutResourceId(): Int = R.layout.activity_races
+    override fun getNavigationItemId(): Int = R.id.navSession
 
     private lateinit var adapter: RaceAdapter
     private lateinit var recyclerView: RecyclerView
     private lateinit var emptyView: TextView
-    private val racesList = mutableListOf<Race>()  // Инициализираме веднага
+    private val racesList = mutableListOf<Race>()
+    private var backPressedTime: Long = 0
+    private lateinit var backToast: Toast
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_races)
-
         recyclerView = findViewById(R.id.rvRaces)
         emptyView = findViewById(R.id.tvEmptyView)
-        val btnNewRoute = findViewById<Button>(R.id.btnNewRoute)
 
-        // Зареждаме списъка с сесии
         loadRaces()
-
-        // Слушател за бутона "Нов маршрут"
-        btnNewRoute.setOnClickListener {
-            // Променено: Стартиране през StartActivity вместо CountdownActivity
-            startActivity(Intent(this, StartActivity::class.java))
-        }
 
         adapter = RaceAdapter(
             races = racesList,
@@ -68,6 +61,7 @@ class RacesActivity : AppCompatActivity() {
 
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
+
         checkEmptyList()
     }
 
@@ -100,10 +94,15 @@ class RacesActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        // Променено: Директно преминаване към StartActivity
-        val intent = Intent(this, StartActivity::class.java)
-        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        startActivity(intent)
-        finish()
+        if (backPressedTime + 2000 > System.currentTimeMillis()) {
+            backToast.cancel()
+            super.onBackPressed()
+            return
+        } else {
+            backToast = Toast.makeText(baseContext, "Натиснете отново за изход", Toast.LENGTH_SHORT)
+            backToast.show()
+        }
+
+        backPressedTime = System.currentTimeMillis()
     }
 }

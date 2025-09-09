@@ -19,7 +19,6 @@ class FirstProfileActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_first_profile)
 
         if (!checkPermissions()) {
             requestPermissions()
@@ -27,6 +26,10 @@ class FirstProfileActivity : AppCompatActivity() {
             return
         }
 
+        setupUi()
+    }
+
+    private fun setupUi() {
         val nameInput = findViewById<TextInputLayout>(R.id.nameInput)
         val vehicleTypeInput = findViewById<TextInputLayout>(R.id.vehicleTypeInput)
         val vehicleTypeDropdown = findViewById<MaterialAutoCompleteTextView>(R.id.vehicleTypeDropdown)
@@ -59,47 +62,15 @@ class FirstProfileActivity : AppCompatActivity() {
                 ProfileStorage.saveNewProfile(this, newProfile)
                 ProfileStorage.saveSelectedProfile(this, newProfile.id)
 
-                // Стартиране на основната активност и завършване на текущата
-                startActivity(Intent(this, StartActivity::class.java))
-                finish()
-            } else {
-                nameInput.error = getString(R.string.error_empty_name)
-            }
-        }
-        setupUi()
-    }
-    private fun setupUi() {
-        val nameInput = findViewById<TextInputLayout>(R.id.nameInput)
-        val vehicleTypeInput = findViewById<TextInputLayout>(R.id.vehicleTypeInput)
-        val vehicleTypeDropdown = findViewById<MaterialAutoCompleteTextView>(R.id.vehicleTypeDropdown)
-        val btnCreate = findViewById<MaterialButton>(R.id.btnCreateProfile)
-
-        // падащо меню за тип превозно средство
-        val vehicleTypes = resources.getStringArray(R.array.vehicle_types)
-        val adapter = ArrayAdapter(this, R.layout.dropdown_item, vehicleTypes)
-        vehicleTypeDropdown.setAdapter(adapter)
-        vehicleTypeDropdown.setText(vehicleTypes[0], false)
-
-        btnCreate.setOnClickListener {
-            val name = nameInput.editText?.text.toString().trim()
-            val selectedVehicleType = vehicleTypeDropdown.text.toString()
-
-            if (name.isNotEmpty()) {
-                val vehicleType = when (selectedVehicleType) {
-                    getString(R.string.vehicle_type_car) -> Profile.VehicleType.CAR
-                    else -> Profile.VehicleType.MOTORCYCLE
-                }
-                val newProfile = Profile(name = name, vehicleType = vehicleType)
-                ProfileStorage.saveNewProfile(this, newProfile)
-                ProfileStorage.saveSelectedProfile(this, newProfile.id)
-
-                startActivity(Intent(this, StartActivity::class.java))
+                // Стартиране на основната активност (MainMapActivity) и завършване на текущата
+                startActivity(Intent(this, MainMapActivity::class.java))
                 finish()
             } else {
                 nameInput.error = getString(R.string.error_empty_name)
             }
         }
     }
+
     private fun checkPermissions(): Boolean {
         val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,
@@ -111,6 +82,7 @@ class FirstProfileActivity : AppCompatActivity() {
             ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
     }
+
     private fun requestPermissions() {
         val perms = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,
@@ -120,6 +92,7 @@ class FirstProfileActivity : AppCompatActivity() {
         }
         ActivityCompat.requestPermissions(this, perms, PERMISSION_REQUEST_CODE)
     }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,

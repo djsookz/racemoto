@@ -30,10 +30,10 @@
     <string name="error_permissions_required">
 Permissions are required for basic functionality!</string>
     <string name="welcome">Welcome!</string>
-    <string name="create_profile">Create your first vehicle profile to continue.</string>
+    <string name="create_profile">Put your first vehicle into garage to continue.</string>
     <string name="vehicle_brand">Vehicle brand</string>
     <string name="vehicle_type">Vehicle type</string>
-    <string name="create_profile_button">Create profile</string>
+    <string name="create_profile_button">READY</string>
     <string name="vehicle_type_car">Car</string>
     <string name="vehicle_type_motorcycle">Motorcycle</string>
     <string name="error_empty_name">Please enter a vehicle brand.</string>
@@ -54,8 +54,8 @@ Permissions are required for basic functionality!</string>
     <string name="profile_edit_button">Edit</string>
     <string name="profile_save_button">Save</string>
     <string name="profile_delete_button">Delete</string>
-    <string name="profile_header">Profiles</string>
-    <string name="profile_add_button">Add new profile</string>
+    <string name="profile_header">Garage</string>
+    <string name="profile_add_button">Add new vehicle</string>
     <string name="session_header">Sessions</string>
     <string name="session_today">Today</string>
     <string name="session_yesterday">Yesterday</string>
@@ -142,15 +142,102 @@ Permissions are required for basic functionality!</string>
 
 
 
+    <string name="nav_search">Търсене</string>
+    <string name="nav_history">История</string>
+    <string name="nav_map">Карта</string>
+    <string name="nav_garage">Гараж</string>
+    <string name="nav_settings">Настройки</string>
+
+    <!-- Търсене и навигация -->
+    <string name="search_destination_hint">Къде искате да отидете?</string>
+    <string name="quick_suggestion_home">Дом</string>
+    <string name="quick_suggestion_work">Работа</string>
+    <string name="quick_suggestion_favorites">Любими</string>
+
+    <!-- Навигационен панел -->
+    <string name="destination_label">Дестинация</string>
+    <string name="start_navigation">Старт</string>
+    <string name="stop_navigation">Стоп</string>
+
+
+    <!-- Съобщения -->
+    <string name="location_not_found">Локацията не е намерена</string>
+    <string name="search_error">Грешка при търсенето</string>
+    <string name="route_calculation_error">Не може да се изчисли маршрут</string>
+    <string name="navigation_started">Навигацията е стартирана!</string>
+    <string name="location_permission_required">Необходимо е разрешение за локация</string>
+    <string name="coming_soon">Скоро</string>
+
+    <!-- Разрешения -->
+    <string name="location_permission_rationale">Приложението се нуждае от достъп до локацията за навигация</string>
+
+    <!-- Бутони -->
+    <string name="ok">OK</string>
+    <string name="cancel">Отказ</string>
+    <string name="retry">Опитай отново</string>
+
+    <!-- Описания за достъпност -->
+    <string name="my_location_button">Моето местоположение</string>
+    <string name="zoom_in_button">Увеличаване</string>
+    <string name="zoom_out_button">Намаляване</string>
+    <string name="search_button">Търсене</string>
+    <string name="navigation_button">Навигация</string>
+
+    <string name="toggle_navigation">Покажи/скрий навигация</string>
+    <string name="navigation_icon_desc">Икона на маневрата</string>
 
 
 
+    <string name="nav_sessions">Сесии</string>
+    <string name="nav_profiles">Гараж</string>
+    <string name="nav_drag">Драг</string>
 
 
 
+        <string name="measure_idle">Готов</string>
+        <string name="measure_waiting_start_location">Чака се стартова локация...</string>
+        <string name="measure_started">Измерване в ход</string>
+        <string name="measure_finished">Завършено</string>
+        <string name="measure_no_permission">Няма разрешение за локация</string>
 
+        <string name="start">СТАРТ</string>
+        <string name="stop">СТОП</string>
 
+    <!-- Add these to your strings.xml file -->
 
+    <!-- Drag Racing Strings -->
+
+    <string name="no_drag_sessions">No drag sessions yet</string>
+    <string name="start_drag_session">START DRAG SESSION</string>
+    <string name="drag_starting_in">Starting in...</string>
+    <string name="delete_session_title">Delete Session</string>
+    <string name="delete_session_message">Are you sure you want to delete this session?</string>
+    <string name="delete">Delete</string>
+    <string name="drag_attempt_number">Attempt #%d</string>
+    <string name="drag_waiting_for_start">Waiting for GPS signal...</string>
+    <string name="drag_waiting_for_acceleration">Ready - Accelerate to start</string>
+    <string name="drag_measuring">Measuring...</string>
+    <string name="drag_402m_complete">402m complete!</string>
+    <string name="drag_auto_reset">Auto-reset in 1 second...</string>
+    <string name="drag_stop_session_title">Stop Session?</string>
+    <string name="drag_stop_session_message">Stop this drag session and save all attempts?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="best_times_header">Best Times</string>
+    <string name="all_attempts">All Attempts</string>
+    <string name="no_attempts_recorded">No attempts recorded</string>
+    <string name="attempt_number">Attempt #%d</string>
+    <string name="max_speed_kmh">Max Speed: %d km/h</string>
+    <string name="stop_session">STOP SESSION</string>
+    <string name="reset">Reset</string>
+    <string name="avg_speed">Средна скорост</string>
+    <string name="duration_format">Duration: %s</string>
+    <string name="max_speed_format_drag">Max Speed: %.0f km/h</string>
+
+    <plurals name="drag_attempts_count">
+        <item quantity="one">%d attempt</item>
+        <item quantity="other">%d attempts</item>
+    </plurals>
 
 
 </resources>

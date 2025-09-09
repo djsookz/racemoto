@@ -22,6 +22,13 @@ class CountdownActivity : AppCompatActivity() {
 
         val countdownText = findViewById<TextView>(R.id.countdownText)
 
+        // Стартиране на услугата ВЕДНАГА за да започне събирането на GPS данни
+        // но с флаг че е в режим "pre-warming" - само GPS, без хронометър
+        val serviceIntent = Intent(this, ForegroundService::class.java).apply {
+            putExtra("PRE_WARMING_MODE", true)
+        }
+        ContextCompat.startForegroundService(this, serviceIntent)
+
         object : CountDownTimer(5000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
                 val secondsLeft = (millisUntilFinished / 1000) + 1
@@ -31,9 +38,11 @@ class CountdownActivity : AppCompatActivity() {
             override fun onFinish() {
                 isCountingDown = false
 
-                // Стартиране на услугата
-                val serviceIntent = Intent(this@CountdownActivity, ForegroundService::class.java)
-                ContextCompat.startForegroundService(this@CountdownActivity, serviceIntent)
+                // Сигнализираме на услугата че вече може да премине в нормален режим
+                val activateIntent = Intent(this@CountdownActivity, ForegroundService::class.java).apply {
+                    putExtra("ACTIVATE_NORMAL_MODE", true)
+                }
+                startService(activateIntent)
 
                 // Преминаване към MainActivity с избрания профил
                 val mainIntent = Intent(this@CountdownActivity, MainActivity::class.java).apply {

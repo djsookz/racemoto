@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1C1C1E"
+    android:fitsSystemWindows="true">
+
+    <RelativeLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="75dp"
+        android:background="#3A3D40"
+        android:paddingHorizontal="5dp">
+
+        <ImageView
+            android:id="@+id/iconGarage"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_garage"
+            app:tint="@android:color/white"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="16dp" />
+
+        <TextView
+            android:id="@+id/titleGarage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Гараж"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:layout_toEndOf="@id/iconGarage"
+            android:layout_marginStart="8dp"
+            android:layout_centerVertical="true" />
+
+        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+            android:id="@+id/btnAddProfile"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:layout_marginEnd="16dp"
+            android:elevation="6dp"
+            android:text="Добави"
+            android:textColor="@android:color/white"
+            app:backgroundTint="@color/accent_color"
+            app:cornerRadius="20dp"
+            app:icon="@drawable/ic_add"
+            app:iconTint="@android:color/white" />
+
+
+    </RelativeLayout>
+
+
+    <!-- Активен профил на цял ред -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cardActiveProfile"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/topBar"
+        android:layout_margin="16dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="8dp"
+        app:strokeWidth="0dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?android:attr/selectableItemBackground">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:gravity="center"
+            android:background="#3A3D40">
+
+            <FrameLayout
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:background="@drawable/circle_white_background"
+                android:layout_gravity="center">
+
+                <ImageView
+                    android:id="@+id/ivActiveProfileIcon"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_car"
+                    app:tint="@color/primary_color" />
+
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tvActiveProfileName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Моят профил"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white"
+                android:layout_marginTop="12dp" />
+
+            <TextView
+                android:id="@+id/tvActiveProfileType"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🚗 Автомобил"
+                android:textSize="14sp"
+                android:textColor="@android:color/white"
+                android:alpha="0.85"
+                android:layout_marginTop="4dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnChangeProfile"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginTop="12dp"
+                android:text="Смени"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                style="@style/Widget.MaterialComponents.Button"
+                android:textColor="@color/primary_color"
+                app:backgroundTint="@android:color/white"
+                app:cornerRadius="18dp" />
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- Секция "Моята колекция" -->
+    <LinearLayout
+        android:id="@+id/profilesHeaderLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/cardActiveProfile"
+        android:orientation="horizontal"
+        android:layout_marginHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:paddingHorizontal="10dp"
+        android:gravity="center_vertical"
+        android:background="@drawable/rounded_corners">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Моята колекция"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
+
+        <TextView
+            android:id="@+id/tvProfileCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0/5"
+            android:textSize="13sp"
+            android:textColor="@color/text_secondary"
+            android:background="@drawable/profile_count_background"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="4dp" />
+
+    </LinearLayout>
+
+    <!-- Списък с профили -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvProfiles"
+        android:layout_width="362dp"
+        android:layout_height="377dp"
+        android:layout_below="@id/profilesHeaderLayout"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="10dp"
+        android:clipToPadding="false"
+        android:paddingTop="5dp"
+        android:paddingBottom="90dp" />
+
+    <include
+        android:id="@+id/bottomNavigation"
+        layout="@layout/bottom_navigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true" />
+
+</RelativeLayout>
