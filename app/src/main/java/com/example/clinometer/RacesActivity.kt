@@ -1,5 +1,6 @@
 package com.example.clinometer
 
+import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
@@ -35,19 +36,7 @@ class RacesActivity : BaseActivity() {
                 startActivity(intent)
             },
             onDeleteClick = { race ->
-                val all = RouteStorage.loadRaces(this).toMutableList()
-                val idx = all.indexOfFirst { it.id == race.id }
-                if (idx >= 0) {
-                    all.removeAt(idx)
-                    RouteStorage.saveRaces(this, all)
-                    val posInList = racesList.indexOfFirst { it.id == race.id }
-                    if (posInList >= 0) {
-                        racesList.removeAt(posInList)
-                        adapter.notifyItemRemoved(posInList)
-                    }
-                }
-
-                checkEmptyList()
+                showDeleteConfirmation(race)
             },
             onRename = { race, newName ->
                 val all = RouteStorage.loadRaces(this).toMutableList()
@@ -104,5 +93,26 @@ class RacesActivity : BaseActivity() {
         }
 
         backPressedTime = System.currentTimeMillis()
+    }
+
+    private fun showDeleteConfirmation(race: Race) {
+        AlertDialog.Builder(this)
+            .setTitle("Изтриване на сесия")
+            .setMessage("Сигурни ли сте, че искате да изтриете \"${race.name ?: "Session"}\"?")
+            .setPositiveButton("Изтрий") { _, _ ->
+                // Изтриваме от базата данни
+                val all = RouteStorage.loadRaces(this).toMutableList()
+                all.removeAll { it.id == race.id }
+                RouteStorage.saveRaces(this, all)
+                
+                // Презареждаме всичко
+                loadRaces()
+                adapter.updateRaces(racesList)
+                checkEmptyList()
+                
+                Toast.makeText(this, "✅ Сесията е изтрита", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Отказ", null)
+            .show()
     }
 }
