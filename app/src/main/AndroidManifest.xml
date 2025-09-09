@@ -27,7 +27,6 @@
 
         <activity
             android:name=".MainMapActivity"
-            android:screenOrientation="portrait"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -58,18 +57,17 @@
 
         <activity
             android:name=".RacesActivity"
-            android:screenOrientation="portrait"
             android:exported="false"/>
 
         <activity
             android:name=".MapActivity"
             android:exported="false"
-            android:screenOrientation="portrait"/>
+            />
 
         <activity
             android:name=".CountdownActivity"
-            android:screenOrientation="portrait"
-            android:exported="false"/>
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
 
         <activity
             android:name=".SettingsActivity"
@@ -84,17 +82,15 @@
 
         <activity
             android:name=".DragPageActivity"
-            android:screenOrientation="portrait"
             android:exported="true"
-
-            />
+            android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity
             android:name=".drag.DragRunPageActivity"
-            android:screenOrientation="portrait" />
+            android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity
             android:name=".DragSessionDetailsActivity"
-            android:screenOrientation="portrait" />
+           />
 
 
 
