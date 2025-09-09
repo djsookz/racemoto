@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
-import com.example.clinometer.settings.LanguageManager
 import android.graphics.*
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -15,6 +14,9 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.location.Location
 import android.os.*
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.View
 import android.content.pm.ActivityInfo
@@ -23,8 +25,6 @@ import android.view.Surface
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.Chronometer
-import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -111,6 +111,47 @@ class MotionPredictor {
         }
     }
 
+    fun predictPosition(futureMs: Long): GeoPoint? {
+        if (history.size < 2) return null
+
+        val current = history.last()
+        val dt = futureMs / 1000.0
+        var avgVelLat = 0.0
+        var avgVelLon = 0.0
+        var totalWeight = 0.0
+
+        for (i in 1 until history.size) {
+            val weight = i.toDouble() / history.size
+            avgVelLat += history[i].velocity[0] * weight
+            avgVelLon += history[i].velocity[1] * weight
+            totalWeight += weight
+        }
+
+        if (totalWeight > 0) {
+            avgVelLat /= totalWeight
+            avgVelLon /= totalWeight
+        }
+
+        return GeoPoint(
+            current.position.latitude + avgVelLat * dt,
+            current.position.longitude + avgVelLon * dt
+        )
+    }
+
+    fun getPredictedBearing(): Float {
+        if (history.size < 2) return 0f
+
+        var avgBearing = 0.0
+        var totalWeight = 0.0
+
+        for (i in history.indices) {
+            val weight = (i + 1).toDouble() / history.size
+            avgBearing += history[i].bearing * weight
+            totalWeight += weight
+        }
+
+        return (avgBearing / totalWeight).toFloat()
+    }
 }
 
 class UltraSmoothLocationOverlay(
@@ -124,15 +165,6 @@ class UltraSmoothLocationOverlay(
     private var targetBearing = 0f
     private var lastUpdateTime = SystemClock.elapsedRealtime()
     private var isInitialized = false
-    
-    private var velocityLat = 0.0
-    private var velocityLon = 0.0
-    private var lastTargetPos = GeoPoint(0.0, 0.0)
-    private var lastTargetTime = SystemClock.elapsedRealtime()
-    
-    private var smoothedVelocityLat = 0.0
-    private var smoothedVelocityLon = 0.0
-    private val velocitySmoothingFactor = 0.7
 
     private val paint = Paint().apply {
         isAntiAlias = true
@@ -143,70 +175,33 @@ class UltraSmoothLocationOverlay(
     private val interpolator = android.view.animation.AccelerateDecelerateInterpolator()
 
     fun updateTarget(position: GeoPoint, bearing: Float, immediate: Boolean = false) {
-        val currentTime = SystemClock.elapsedRealtime()
-        if (isInitialized && !immediate) {
-            val timeDiff = (currentTime - lastTargetTime) / 1000.0
-            if (timeDiff > 0.01) {
-                val newVelocityLat = (position.latitude - lastTargetPos.latitude) / timeDiff
-                val newVelocityLon = (position.longitude - lastTargetPos.longitude) / timeDiff
-                
-                velocityLat = newVelocityLat
-                velocityLon = newVelocityLon
-                smoothedVelocityLat = smoothedVelocityLat * velocitySmoothingFactor + velocityLat * (1 - velocitySmoothingFactor)
-                smoothedVelocityLon = smoothedVelocityLon * velocitySmoothingFactor + velocityLon * (1 - velocitySmoothingFactor)
-            }
-        }
-        
         targetPos = position
         targetBearing = bearing
-        lastUpdateTime = currentTime
-        lastTargetPos = position
-        lastTargetTime = currentTime
-        
+        lastUpdateTime = SystemClock.elapsedRealtime()
         if (!isInitialized || immediate) {
             currentPos = position
             currentBearing = bearing
-            velocityLat = 0.0
-            velocityLon = 0.0
-            smoothedVelocityLat = 0.0
-            smoothedVelocityLon = 0.0
             isInitialized = true
         }
     }
 
     fun getCurrentPosition(): GeoPoint = currentPos
-    fun getCurrentBearing(): Float = currentBearing
 
     override fun draw(canvas: Canvas, mapView: MapView, shadow: Boolean) {
         if (shadow || !isInitialized) return
-        
         val now = SystemClock.elapsedRealtime()
-        val timeSinceLastUpdate = (now - lastUpdateTime) / 1000.0
-        
-        val predictedLat = lastTargetPos.latitude + smoothedVelocityLat * timeSinceLastUpdate
-        val predictedLon = lastTargetPos.longitude + smoothedVelocityLon * timeSinceLastUpdate
-        
         val elapsed = (now - lastUpdateTime).coerceAtMost(100)
         val progress = interpolator.getInterpolation(elapsed / 100f)
-        
         currentPos = GeoPoint(
-            currentPos.latitude + (predictedLat - currentPos.latitude) * progress * 0.3,
-            currentPos.longitude + (predictedLon - currentPos.longitude) * progress * 0.3
+            currentPos.latitude + (targetPos.latitude - currentPos.latitude) * progress * 0.3,
+            currentPos.longitude + (targetPos.longitude - currentPos.longitude) * progress * 0.3
         )
-        
         var bearingDiff = targetBearing - currentBearing
         while (bearingDiff > 180) bearingDiff -= 360
         while (bearingDiff < -180) bearingDiff += 360
-        val bearingSmoothing = when {
-            abs(bearingDiff) > 90 -> 0.1f
-            abs(bearingDiff) > 45 -> 0.15f
-            else -> 0.25f
-        }
-        
-        currentBearing += bearingDiff * bearingSmoothing
+        currentBearing += bearingDiff * progress * 0.4f
         while (currentBearing < 0) currentBearing += 360
         while (currentBearing > 360) currentBearing -= 360
-        
         val point = Point()
         mapView.projection.toPixels(currentPos, point)
 
@@ -225,13 +220,10 @@ class UltraSmoothLocationOverlay(
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(LanguageManager.applyLanguage(newBase))
-    }
-
     private var serviceBound = false
     private var foregroundService: ForegroundService? = null
 
+    private val handler = Handler(Looper.getMainLooper())
     private val renderHandler = Handler(Looper.getMainLooper())
 
     private val kalmanFilter = KalmanLocationFilter()
@@ -248,36 +240,31 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var accelerometer: Sensor? = null
     private var magnetometer: Sensor? = null
     private val rotationMatrix = FloatArray(9)
+    private val remapMatrix = FloatArray(9)
     private val orientationAngles = FloatArray(3)
     private var gravity: FloatArray? = null
     private var geomagnetic: FloatArray? = null
     private var sensorBearing = 0f
+    private var latestLeanAngleDeg = 0f
 
+    private var lastOrientation = -1
 
     private var targetAngle = 0f
     private var currentAngle = 0f
+    private var angleZeroOffset = 0f
     private var needsZeroAfterRotation = true
     private var currentMapOrientation = 0f
     private var targetMapOrientation = 0f
-    
-    private var targetZoom = 17.5
-    private var currentZoom = 17.5
 
     private lateinit var currentProfile: Profile
     private lateinit var mapView: MapView
     private lateinit var routeOverlay: Polyline
     private lateinit var smoothLocationOverlay: UltraSmoothLocationOverlay
 
-    private lateinit var speedometerBackground: ImageView
     private lateinit var gaugeView: GaugeView
     private lateinit var currentAngleText: TextView
     private lateinit var speedText: TextView
-    private lateinit var speedTextCar: TextView
-    private lateinit var chronometerCar: Chronometer
     private lateinit var distanceText: TextView
-    private lateinit var distanceTextCar: TextView
-    private lateinit var distanceContainer: LinearLayout
-    private lateinit var carModeContainer: LinearLayout
     private lateinit var resetButton: Button
     private lateinit var stopButton: Button
     private lateinit var chronometer: Chronometer
@@ -296,19 +283,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
             foregroundService?.getLastLocation()?.let { location ->
                 val geoPoint = GeoPoint(location.latitude, location.longitude)
-                
-                val currentZoom = mapView.zoomLevelDouble
-                val metersPerPixel = 156543.03392 * cos(Math.toRadians(location.latitude)) / Math.pow(2.0, currentZoom)
-                val offsetMeters = 30 * resources.displayMetrics.density * metersPerPixel
-                
-                val bearingRad = Math.toRadians(location.bearing.toDouble())
-                val offsetLat = (offsetMeters * cos(bearingRad)) / 111320.0
-                val offsetLon = (offsetMeters * sin(bearingRad)) / (111320.0 * cos(Math.toRadians(location.latitude)))
-                
-                val centerLat = geoPoint.latitude + offsetLat
-                val centerLon = geoPoint.longitude + offsetLon
-                
-                mapView.controller.setCenter(GeoPoint(centerLat, centerLon))
+                mapView.controller.setCenter(geoPoint)
                 smoothLocationOverlay.updateTarget(geoPoint, location.bearing, immediate = true)
                 motionPredictor.addSample(geoPoint, location.bearing, location.speed)
 
@@ -348,6 +323,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
     }
 
+    private val predictionRunnable = object : Runnable {
+        override fun run() {
+            handler.postDelayed(this, 16)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -357,20 +337,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             ?: Profile(name = "My profile", vehicleType = Profile.VehicleType.MOTORCYCLE)
 
         initializeSensors()
+        initializeViews()
         setupScreenKeepOn()
         setupMap()
-        
-        initializeViews()
-        updateUIForProfile()
-        
         setupButtons()
         setupOrientationToggle()
+        updateUIForProfile()
         needsZeroAfterRotation = true
 
         if (isServiceRunning()) {
             bindService(Intent(this, ForegroundService::class.java), serviceConnection, Context.BIND_AUTO_CREATE)
         }
 
+        handler.post(predictionRunnable)
     }
 
     private fun initializeSensors() {
@@ -384,40 +363,24 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun initializeViews() {
-        speedometerBackground = findViewById(R.id.speedometerBackground)
         chronometer = findViewById(R.id.chronometer)
-        chronometerCar = findViewById(R.id.chronometerCar)
         gaugeView = findViewById(R.id.gaugeView)
         currentAngleText = findViewById(R.id.currentAngleText)
         speedText = findViewById(R.id.speedText)
-        speedTextCar = findViewById(R.id.speedTextCar)
         distanceText = findViewById(R.id.distanceText)
-        distanceTextCar = findViewById(R.id.distanceTextCar)
-        distanceContainer = findViewById(R.id.distanceContainer)
-        carModeContainer = findViewById(R.id.carModeContainer)
         resetButton = findViewById(R.id.btnReset)
         zeroButton = findViewById(R.id.btnZero)
         stopButton = findViewById(R.id.btnStop)
         orientationToggle = findViewById(R.id.btnOrientationToggle)
 
-        gaugeView.visibility = View.GONE
-        currentAngleText.visibility = View.GONE
-        zeroButton.visibility = View.GONE
-
         currentAngleText.text = getString(R.string.current_angle, 0)
         speedText.text = getString(R.string.current_speed, 0)
-        if (::speedTextCar.isInitialized) {
-            speedTextCar.text = "0"
-        }
         distanceText.text = "0.00 km"
-        if (::distanceTextCar.isInitialized) {
-            distanceTextCar.text = "0.00 км"
-        }
         updateAccelerationDisplay(ForegroundService.AccelerationData())
     }
 
     private fun setupScreenKeepOn() {
-        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
         updateScreenKeepOn(prefs.getBoolean("always_on_display", false))
 
         prefs.registerOnSharedPreferenceChangeListener { shared, key ->
@@ -437,38 +400,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun updateUIForProfile() {
         val isMotorcycle = currentProfile.vehicleType == Profile.VehicleType.MOTORCYCLE
-        val motorcycleViews = mutableListOf<View>()
-        
-        if (::speedometerBackground.isInitialized) {
-            motorcycleViews.add(speedometerBackground)
-        }
-        motorcycleViews.add(gaugeView)
-        motorcycleViews.add(currentAngleText)
-        motorcycleViews.add(zeroButton)
+        val angleViews = listOf(gaugeView, currentAngleText, zeroButton)
 
-        if (isMotorcycle) {
-            // Show motorcycle UI
-            motorcycleViews.forEach { view ->
+        angleViews.forEach { view ->
+            if (isMotorcycle) {
                 view.visibility = View.VISIBLE
-                view.alpha = 1f
-            }
-            if (::distanceContainer.isInitialized) {
-                distanceContainer.visibility = View.VISIBLE
-            }
-            if (::carModeContainer.isInitialized) {
-                carModeContainer.visibility = View.GONE
-            }
-        } else {
-            // Show car UI
-            motorcycleViews.forEach { view ->
-                view.visibility = View.GONE
                 view.alpha = 0f
-            }
-            if (::distanceContainer.isInitialized) {
-                distanceContainer.visibility = View.GONE
-            }
-            if (::carModeContainer.isInitialized) {
-                carModeContainer.visibility = View.VISIBLE
+                view.animate().alpha(1f).setDuration(300).start()
+            } else {
+                view.animate()
+                    .alpha(0f)
+                    .setDuration(300)
+                    .withEndAction { view.visibility = View.GONE }
+                    .start()
             }
         }
     }
@@ -575,6 +519,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         zeroButton.setOnClickListener {
             if (currentProfile.vehicleType == Profile.VehicleType.MOTORCYCLE) {
                 foregroundService?.calibrateZero()
+                // Also align UI zero to current physical angle
+                foregroundService?.let { svc ->
+                    angleZeroOffset = svc.getCurrentAngle()
+                }
                 resetAngleDisplay()
             }
         }
@@ -587,6 +535,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun setupOrientationToggle() {
+        // initial state: unlocked (sensor based)
         applyOrientationLock(false)
         orientationToggle?.setOnClickListener {
             isOrientationLocked = !isOrientationLocked
@@ -634,13 +583,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         resetAngleDisplay()
         updateAccelerationDisplay(ForegroundService.AccelerationData())
 
-        val startTime = SystemClock.elapsedRealtime()
-        chronometer.base = startTime
+        chronometer.base = SystemClock.elapsedRealtime()
         chronometer.start()
-        if (::chronometerCar.isInitialized) {
-            chronometerCar.base = startTime
-            chronometerCar.start()
-        }
 
         targetAngle = 0f
         currentAngle = 0f
@@ -673,19 +617,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private fun initializeFirstLocation(location: Location) {
         if (isFirstLocation) {
             val geoPoint = GeoPoint(location.latitude, location.longitude)
-            
-            val currentZoom = mapView.zoomLevelDouble
-            val metersPerPixel = 156543.03392 * cos(Math.toRadians(location.latitude)) / Math.pow(2.0, currentZoom)
-            val offsetMeters = 30 * resources.displayMetrics.density * metersPerPixel
-            
-            val bearingRad = Math.toRadians(location.bearing.toDouble())
-            val offsetLat = (offsetMeters * cos(bearingRad)) / 111320.0
-            val offsetLon = (offsetMeters * sin(bearingRad)) / (111320.0 * cos(Math.toRadians(location.latitude)))
-            
-            val centerLat = geoPoint.latitude + offsetLat
-            val centerLon = geoPoint.longitude + offsetLon
-            
-            mapView.controller.setCenter(GeoPoint(centerLat, centerLon))
+            mapView.controller.setCenter(geoPoint)
             smoothLocationOverlay.updateTarget(geoPoint, location.bearing, immediate = true)
             motionPredictor.addSample(geoPoint, location.bearing, location.speed)
 
@@ -723,9 +655,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun updateDistanceDisplay() {
         distanceText.text = "%.2f km".format(totalDistance)
-        if (::distanceTextCar.isInitialized) {
-            distanceTextCar.text = "%.2f км".format(totalDistance)
-        }
     }
 
     private fun saveAndFinishSession() {
@@ -747,6 +676,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun createRaceFromSession(): Race {
         val routePoints = foregroundService?.getRoutePoints() ?: emptyList()
+        val accelData = foregroundService?.getAccelerationData() ?: ForegroundService.AccelerationData()
         val sessionNumber = getNextSessionNumber()
 
         return Race(
@@ -761,12 +691,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             maxSpeed = foregroundService?.getMaxSpeed() ?: 0f,
             name = "Session $sessionNumber",
             distance = totalDistance,
-            time0to100 = 0L,
-            time0to200 = 0L,
-            time100to200 = 0L
+            time0to100 = accelData.best0to100(),
+            time0to200 = accelData.best0to200(),
+            time100to200 = calculateTime100to200(accelData)
         )
     }
 
+    private fun calculateTime100to200(data: ForegroundService.AccelerationData): Long {
+        val time100 = data.best0to100()
+        val time200 = data.best0to200()
+        return if (time100 > 0 && time200 > 0 && time200 > time100) {
+            time200 - time100
+        } else -1L
+    }
 
     private fun getNextSessionNumber(): Int {
         val races = RouteStorage.loadRaces(this)
@@ -828,6 +765,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     override fun onDestroy() {
         super.onDestroy()
         stopRenderLoop()
+        handler.removeCallbacks(predictionRunnable)
         if (serviceBound) {
             unbindService(serviceConnection)
         }
@@ -842,27 +780,59 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun startChronometer() {
-        val startTime = foregroundService?.getStartTime() ?: SystemClock.elapsedRealtime()
-        chronometer.base = startTime
+        chronometer.base = foregroundService?.getStartTime() ?: SystemClock.elapsedRealtime()
         chronometer.start()
-        if (::chronometerCar.isInitialized) {
-            chronometerCar.base = startTime
-            chronometerCar.start()
-        }
     }
 
     private fun updateAccelerationDisplay(accelData: ForegroundService.AccelerationData) {
-        // Performance metrics removed - no longer needed
+        fun formatTime(nanos: Long) = if (nanos > 0) "%.3f".format(nanos / 1_000_000_000.0) else "--"
+
+        fun createSpannable(prefix: String, time: Long, tracking: Boolean): SpannableString {
+            val timeStr = formatTime(time)
+            val hasTime = time > 0
+
+            val text = when {
+                tracking && hasTime -> "$prefix: $timeStr⏱️"
+                tracking -> "$prefix: ⏱️"
+                hasTime -> "$prefix: $timeStr"
+                else -> "$prefix: -"
+            }
+
+            return SpannableString(text).apply {
+                if (hasTime) {
+                    val start = text.indexOf(timeStr)
+                    if (start != -1) {
+                        setSpan(
+                            ForegroundColorSpan(Color.GREEN),
+                            start,
+                            start + timeStr.length,
+                            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+                    }
+                }
+            }
+        }
         updateProfileBestTimes(accelData)
     }
 
     private fun updateProfileBestTimes(accelData: ForegroundService.AccelerationData) {
-        // Only update max speed - performance metrics removed
-        val currentSpeed = foregroundService?.getCurrentSpeed() ?: 0f
-        if (currentSpeed > currentProfile.maxSpeed) {
-            currentProfile.maxSpeed = currentSpeed
+        var updated = false
+
+        if (accelData.best0to100() > 0 && (currentProfile.best0to100 == 0L || accelData.best0to100() < currentProfile.best0to100)) {
+            currentProfile.best0to100 = accelData.best0to100()
+            updated = true
+        }
+
+        if (accelData.best0to200() > 0 && (currentProfile.best0to200 == 0L || accelData.best0to200() < currentProfile.best0to200)) {
+            currentProfile.best0to200 = accelData.best0to200()
+            updated = true
+        }
+
+        if (updated) {
             val profiles = ProfileStorage.loadProfiles(this)
             profiles.find { it.id == currentProfile.id }?.apply {
+                best0to100 = currentProfile.best0to100
+                best0to200 = currentProfile.best0to200
                 maxSpeed = currentProfile.maxSpeed
             }
             ProfileStorage.saveProfiles(this, profiles)
@@ -871,16 +841,24 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun updateUIFromService() {
         foregroundService?.let { service ->
-            val angle = service.getCurrentAngle()
-            targetAngle = targetAngle * 0.7f + angle * 0.3f
+            val inLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            val rawAngle = if (inLandscape) latestLeanAngleDeg else service.getCurrentAngle()
 
-            currentAngleText.text = getString(R.string.current_angle, angle.toInt())
+            // On first update after (re)creation/rotation, take the current angle as zero
+            if (needsZeroAfterRotation) {
+                angleZeroOffset = rawAngle
+                needsZeroAfterRotation = false
+            }
+
+            val adjustedAngle = rawAngle - angleZeroOffset
+            targetAngle = targetAngle * 0.7f + adjustedAngle * 0.3f
+
+            if (abs(adjustedAngle - currentAngle) > 0.2f) {
+                currentAngleText.text = getString(R.string.current_angle, adjustedAngle.toInt())
+            }
 
             val speed = service.getCurrentSpeed()
             speedText.text = getString(R.string.current_speed, speed.toInt())
-            if (::speedTextCar.isInitialized) {
-                speedTextCar.text = speed.toInt().toString()
-            }
 
             gaugeView.maxLeftAngle = service.getMaxLeftAngle()
             gaugeView.maxRightAngle = service.getMaxRightAngle()
@@ -942,8 +920,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         if (speed > 2) {
             targetMapOrientation = -calculatedBearing
         }
-        
-        updateZoomBasedOnSpeed(speed)
     }
 
     private fun updateRoute(geoPoint: GeoPoint, speed: Float) {
@@ -968,39 +944,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun updateMapAnimation() {
         val currentPosition = smoothLocationOverlay.getCurrentPosition()
-        val currentBearing = smoothLocationOverlay.getCurrentBearing()
-        
-        val currentZoom = mapView.zoomLevelDouble
-        val metersPerPixel = 156543.03392 * cos(Math.toRadians(currentPosition.latitude)) / Math.pow(2.0, currentZoom)
-        val offsetMeters = 30 * resources.displayMetrics.density * metersPerPixel
-        
-        val bearingRad = Math.toRadians(currentBearing.toDouble())
-        val offsetLat = (offsetMeters * cos(bearingRad)) / 111320.0
-        val offsetLon = (offsetMeters * sin(bearingRad)) / (111320.0 * cos(Math.toRadians(currentPosition.latitude)))
-        
-        val newLat = currentPosition.latitude + offsetLat
-        val newLon = currentPosition.longitude + offsetLon
-        
-        val currentCenter = mapView.mapCenter
-        val latDiff = newLat - currentCenter.latitude
-        val lonDiff = newLon - currentCenter.longitude
-        
-        val smoothNewLat = currentCenter.latitude + latDiff * 0.05f
-        val smoothNewLon = currentCenter.longitude + lonDiff * 0.05f
-        
-        mapView.controller.setCenter(GeoPoint(smoothNewLat, smoothNewLon))
+        mapView.controller.setCenter(currentPosition)
         updateMapOrientation()
     }
 
-    private fun updateZoomBasedOnSpeed(speed: Float) {
-        targetZoom = when {
-            speed < 20 -> 19.5
-            speed < 50 -> 18.5
-            speed < 90 -> 17.5
-            else -> 15.5
-        }
-    }
-    
     private fun updateMapOrientation() {
         var diff = targetMapOrientation - currentMapOrientation
         while (diff > 180f) diff -= 360f
@@ -1009,29 +956,19 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val speed = foregroundService?.getCurrentSpeed() ?: 0f
 
         val smoothingFactor = when {
-            abs(diff) > 90 -> 0.15f
-            abs(diff) > 45 -> 0.12f
-            abs(diff) > 20 -> 0.08f
-            speed > 50 -> 0.06f
-            speed > 20 -> 0.05f
-            else -> 0.04f
+            abs(diff) > 45 -> 0.5f
+            abs(diff) > 20 -> 0.4f
+            abs(diff) > 10 -> 0.35f
+            speed > 50 -> 0.3f
+            speed > 20 -> 0.25f
+            else -> 0.2f
         }
 
-        if (abs(diff) > 0.5f) {
+        if (abs(diff) > 0.1f) {
             currentMapOrientation += diff * smoothingFactor
             while (currentMapOrientation > 360f) currentMapOrientation -= 360f
             while (currentMapOrientation < 0f) currentMapOrientation += 360f
             mapView.mapOrientation = currentMapOrientation
-        }
-        
-        updateZoomSmoothly()
-    }
-    
-    private fun updateZoomSmoothly() {
-        val zoomDiff = targetZoom - currentZoom
-        if (abs(zoomDiff) > 0.01) {
-            currentZoom += zoomDiff * 0.08f
-            mapView.controller.setZoom(currentZoom)
         }
     }
 
@@ -1052,15 +989,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         when (event.sensor.type) {
             Sensor.TYPE_ROTATION_VECTOR -> {
                 SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                SensorManager.getOrientation(rotationMatrix, orientationAngles)
-                var azimuth = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
-                if (azimuth < 0) azimuth += 360f
-                var bearingDiff = azimuth - sensorBearing
-                while (bearingDiff > 180) bearingDiff -= 360
-                while (bearingDiff < -180) bearingDiff += 360
-                sensorBearing += bearingDiff * 0.2f // Smooth factor
-                while (sensorBearing < 0) sensorBearing += 360
-                while (sensorBearing > 360) sensorBearing -= 360
+                updateBearingAndLean(rotationMatrix)
             }
 
             Sensor.TYPE_ACCELEROMETER -> {
@@ -1072,25 +1001,73 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
                 if (gravity != null && geomagnetic != null) {
                     if (SensorManager.getRotationMatrix(rotationMatrix, null, gravity, geomagnetic)) {
-                        SensorManager.getOrientation(rotationMatrix, orientationAngles)
-
-                        var azimuth = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
-                        if (azimuth < 0) azimuth += 360f
-
-                        var bearingDiff = azimuth - sensorBearing
-                        while (bearingDiff > 180) bearingDiff -= 360
-                        while (bearingDiff < -180) bearingDiff += 360
-                        sensorBearing += bearingDiff * 0.2f
-                        while (sensorBearing < 0) sensorBearing += 360
-                        while (sensorBearing > 360) sensorBearing -= 360
+                        updateBearingAndLean(rotationMatrix)
                     }
                 }
             }
         }
     }
 
+    private fun updateBearingAndLean(baseRotationMatrix: FloatArray) {
+        val rotation = getDisplayRotation()
 
+        // Проверяваме дали ориентацията се е променила
+        if (lastOrientation != -1 && lastOrientation != rotation) {
+            // Ориентацията се е променила - автоматично нулиране
+            needsZeroAfterRotation = true
+        }
+        lastOrientation = rotation
 
+        // Map device axes to screen axes
+        when (rotation) {
+            Surface.ROTATION_0 -> SensorManager.remapCoordinateSystem(
+                baseRotationMatrix,
+                SensorManager.AXIS_X,
+                SensorManager.AXIS_Y,
+                remapMatrix
+            )
+            Surface.ROTATION_90 -> SensorManager.remapCoordinateSystem(
+                baseRotationMatrix,
+                SensorManager.AXIS_Y,
+                SensorManager.AXIS_MINUS_X,
+                remapMatrix
+            )
+            Surface.ROTATION_180 -> SensorManager.remapCoordinateSystem(
+                baseRotationMatrix,
+                SensorManager.AXIS_MINUS_X,
+                SensorManager.AXIS_MINUS_Y,
+                remapMatrix
+            )
+            Surface.ROTATION_270 -> SensorManager.remapCoordinateSystem(
+                baseRotationMatrix,
+                SensorManager.AXIS_MINUS_Y,
+                SensorManager.AXIS_X,
+                remapMatrix
+            )
+            else -> System.arraycopy(baseRotationMatrix, 0, remapMatrix, 0, baseRotationMatrix.size)
+        }
+
+        // Compute orientation from screen-aligned matrix
+        SensorManager.getOrientation(remapMatrix, orientationAngles)
+
+        // Azimuth (bearing)
+        var azimuth = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
+        if (azimuth < 0) azimuth += 360f
+        var bearingDiff = azimuth - sensorBearing
+        while (bearingDiff > 180) bearingDiff -= 360
+        while (bearingDiff < -180) bearingDiff += 360
+        sensorBearing += bearingDiff * 0.2f
+        while (sensorBearing < 0) sensorBearing += 360
+        while (sensorBearing > 360) sensorBearing -= 360
+
+        // Roll (lean angle) - винаги roll, без компенсация
+        latestLeanAngleDeg = Math.toDegrees(orientationAngles[2].toDouble()).toFloat()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun getDisplayRotation(): Int {
+        return windowManager.defaultDisplay.rotation
+    }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
     }
@@ -1147,6 +1124,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         totalDistance = savedInstanceState.getDouble("totalDistance", 0.0)
         targetMapOrientation = currentMapOrientation
         updateDistanceDisplay()
+        // After configuration changes, force angle zeroing on next updates
         needsZeroAfterRotation = true
     }
 }

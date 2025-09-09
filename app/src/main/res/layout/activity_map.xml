@@ -67,6 +67,25 @@
 
         </androidx.cardview.widget.CardView>
 
+        <!-- Tabs Card -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="2dp">
+
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tabs"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:background="#3A3D40"
+                app:tabIndicatorColor="#1976D2"
+                app:tabSelectedTextColor="#1976D2"
+                app:tabTextColor="@color/white"
+                app:tabMode="fixed"
+                app:tabGravity="fill" />
+
+        </androidx.cardview.widget.CardView>
+
         <!-- Reader Values Display -->
         <LinearLayout
             android:layout_width="match_parent"
@@ -121,25 +140,6 @@
                     android:minHeight="180dp" />
 
             </LinearLayout>
-
-        </androidx.cardview.widget.CardView>
-
-        <!-- Tabs Card -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="2dp">
-
-            <com.google.android.material.tabs.TabLayout
-                android:id="@+id/tabs"
-                android:layout_width="match_parent"
-                android:layout_height="30dp"
-                android:background="#3A3D40"
-                app:tabIndicatorColor="#1976D2"
-                app:tabSelectedTextColor="#1976D2"
-                app:tabTextColor="@color/white"
-                app:tabMode="fixed"
-                app:tabGravity="fill" />
 
         </androidx.cardview.widget.CardView>
 
@@ -405,7 +405,7 @@
         android:layout_height="60dp"
         android:layout_gravity="bottom"
         android:backgroundTint="#1976D2"
-        android:text="@string/session_new_button"
+        android:text="НОВА СЕСИЯ"
         android:textColor="@android:color/white"
         android:textSize="@dimen/button_text_size"
         android:textStyle="bold"

@@ -8,15 +8,12 @@ import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
-import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.PreferenceManager
-import com.example.clinometer.settings.LanguageManager
-import com.example.clinometer.settings.UnitsManager
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
@@ -42,11 +39,6 @@ import com.github.mikephil.charting.components.YAxis
 import kotlin.math.abs
 
 class MapActivity : AppCompatActivity() {
-    
-    override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(LanguageManager.applyLanguage(newBase))
-    }
-    
     private lateinit var routePoints: List<RoutePoint>
     private lateinit var map: MapView
     private lateinit var marker: Marker
@@ -54,12 +46,6 @@ class MapActivity : AppCompatActivity() {
     private lateinit var tabLayout: TabLayout
     private var currentMode: Mode = Mode.SPEED
     private lateinit var scaleGestureDetector: ScaleGestureDetector
-    private var routeDrawingTimer: android.os.Handler? = null
-    private var routeDrawingRunnable: Runnable? = null
-    private var isDrawingRoute = false
-    private var currentDrawingIndex = 0
-    private var hasUserInteracted = false
-    private val originalRouteOverlays = mutableListOf<org.osmdroid.views.overlay.Overlay>()
 
     private enum class Mode {
         SPEED, ANGLE
@@ -72,8 +58,6 @@ class MapActivity : AppCompatActivity() {
             PreferenceManager.getDefaultSharedPreferences(applicationContext)
         )
         setContentView(R.layout.activity_map)
-        
-        setupScreenKeepOn()
 
         // Зареждане на профила
         val currentProfileId = ProfileStorage.getSelectedProfileId(this)
@@ -115,8 +99,7 @@ class MapActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.tvMaxRightInfo).text = getString(R.string.max_right_angle) + " " + "%.1f°".format(maxRightAngle)
             findViewById<TextView>(R.id.tvDistanceMoto).apply {
                 visibility = View.VISIBLE
-                val convertedDist = UnitsManager.formatDistance(race.distance, this@MapActivity, 2)
-                text = getString(R.string.distance_format) + " " + convertedDist
+                text = getString(R.string.distance_format) + " " + "%.2f".format(race.distance) + " " + getString(R.string.km_unit)
             }
             findViewById<TextView>(R.id.tvDistanceCar).visibility = View.GONE
             // 👇 ДОБАВЕТЕ този ред за да покажете картата с ъгли
@@ -126,15 +109,13 @@ class MapActivity : AppCompatActivity() {
             maxLeftLayout.visibility = View.GONE
             findViewById<TextView>(R.id.tvDistanceCar).apply {
                 visibility = View.VISIBLE
-                val convertedDist = UnitsManager.formatDistance(race.distance, this@MapActivity, 2)
-                text = getString(R.string.distance_format) + " " + convertedDist
+                text = getString(R.string.distance_format) + " " + "%.2f".format(race.distance) + " " + getString(R.string.km_unit)
             }
             findViewById<TextView>(R.id.tvDistanceMoto).visibility = View.GONE
         }
 
         // Винаги показваме скоростта
-        val convertedMaxSpeed = UnitsManager.formatSpeed(race.maxSpeed, this, 0)
-        findViewById<TextView>(R.id.tvMaxSpeedInfo).text = getString(R.string.max_speed) + " " + convertedMaxSpeed
+        findViewById<TextView>(R.id.tvMaxSpeedInfo).text = getString(R.string.max_speed) + " " + "%.0f".format(race.maxSpeed) + " " + getString(R.string.speed_unit)
 
         val btnNewRoute = findViewById<Button>(R.id.btnStart)
         btnNewRoute.setText(R.string.new_session_button)
@@ -148,8 +129,7 @@ class MapActivity : AppCompatActivity() {
         } else {
             0.0
         }
-        val convertedAvgSpeed = UnitsManager.formatSpeed(avgSpeed.toFloat(), this, 0)
-        findViewById<TextView>(R.id.tvAvgSpeedInfo).text = getString(R.string.avg_speed) + " " + convertedAvgSpeed
+        findViewById<TextView>(R.id.tvAvgSpeedInfo).text = getString(R.string.avg_speed) + " " + "%.0f".format(avgSpeed) + " " + getString(R.string.speed_unit)
 
 
         // Проверка дали има данни за маршрут
@@ -186,26 +166,73 @@ class MapActivity : AppCompatActivity() {
 
         map.setTileSource(TileSourceFactory.MAPNIK)
         map.setMultiTouchControls(true)
-        
-        // Автоматично зумване според дължината на маршрута (като в RecyclerView)
-        setupMapZoom()
+        map.controller.setZoom(15.0)
+        map.controller.setCenter(routePoints.first().geoPoint)
 
-        // Инициализираме маркера първо - синя точка
-        marker = Marker(map).apply {
-            position = routePoints.first().geoPoint
-            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-            title = getString(R.string.location_title)
-            
-            // Създаваме синя точка като икона
-            val blueDot = createBlueDotMarker()
-            setIcon(blueDot)
+        if (routePoints.size > 1) {
+            for (i in 0 until routePoints.size - 1) {
+                val startPoint = routePoints[i]
+                val endPoint = routePoints[i + 1]
+
+                // Изчисляваме ускорението (промяна в скоростта)
+                val acceleration = endPoint.speed - startPoint.speed
+
+                // Определяме максимално ускорение за нормализация (примерно ±30 km/h промяна)
+                val maxAcceleration = 30f
+
+                // Нормализираме от -1 до +1
+                val accelRatio = (acceleration / maxAcceleration).coerceIn(-1f, 1f)
+
+                // Определяме цвета според ускорението
+                val color = when {
+                    startPoint.speed < 2f -> {
+                        // Ако сме почти спрели - тъмно червено
+                        Color.rgb(139, 0, 0)
+                    }
+                    accelRatio > 0.66f -> {
+                        // Силно ускорение - тъмно зелено
+                        Color.rgb(0, 128, 0)
+                    }
+                    accelRatio > 0.33f -> {
+                        // Средно ускорение - зелено
+                        Color.rgb(0, 200, 0)
+                    }
+                    accelRatio > 0 -> {
+                        // Леко ускорение - жълто-зелено
+                        Color.rgb(154, 205, 50)
+                    }
+                    accelRatio == 0f -> {
+                        // Постоянна скорост - жълто
+                        Color.rgb(255, 255, 0)
+                    }
+                    accelRatio > -0.5f -> {
+                        // Леко забавяне - оранжево
+                        Color.rgb(255, 165, 0)
+                    }
+                    else -> {
+                        // Силно забавяне - червено-оранжево
+                        val ratio = (-accelRatio - 0.5f) * 2
+                        val green = (165 * (1 - ratio)).toInt()
+                        Color.rgb(255, green, 0)
+                    }
+                }
+
+                // Създаваме сегмент
+                val segmentPolyline = Polyline().apply {
+                    setPoints(listOf(startPoint.geoPoint, endPoint.geoPoint))
+                    this.color = color
+                    outlinePaint.strokeWidth = 18f
+                }
+                map.overlays.add(segmentPolyline)
+            }
         }
 
-        // Запазваме оригиналните overlays
-        saveOriginalRoute()
-        
-        // Показваме целия маршрут първоначално
-        showFullRoute()
+        marker = Marker(map).apply {
+            position = routePoints.first().geoPoint
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+            title = getString(R.string.location_title)
+        }
+        map.overlays.add(marker)
 
         // Пресмятаме точните секунди
         findViewById<TextView>(R.id.tvTotalTime).text = getString(R.string.time_format, formatTime(race.duration))
@@ -382,11 +409,6 @@ class MapActivity : AppCompatActivity() {
         chart.setOnTouchListener { _, event ->
             scaleGestureDetector.onTouchEvent(event)
 
-            // Маркираме че потребителят е взаимодействал при първо докосване
-            if (event.action == MotionEvent.ACTION_DOWN) {
-                hasUserInteracted = true
-            }
-
             // Позволяваме движение само ако НЕ зумваме
             if (!isZooming) {
                 // Запазваме позицията преди движението
@@ -441,9 +463,6 @@ class MapActivity : AppCompatActivity() {
             override fun onChartScale(me: MotionEvent?, scaleX: Float, scaleY: Float) {}
 
             override fun onChartTranslate(me: MotionEvent?, dX: Float, dY: Float) {
-                // Маркираме че потребителят е взаимодействал при движение
-                hasUserInteracted = true
-                
                 if (!isZooming) {
                     val currentCenterX = (chart.lowestVisibleX + chart.highestVisibleX) / 2f
                     val visibleRange = chart.visibleXRange
@@ -476,189 +495,12 @@ class MapActivity : AppCompatActivity() {
         chart.invalidate()
     }
 
-    private fun setupMapZoom() {
-        if (routePoints.isEmpty()) return
-        
-        val allGeoPoints = routePoints.map { it.geoPoint }
-        
-        if (allGeoPoints.size >= 2) {
-            // Използваме същата логика като в RecyclerView
-            val boundingBox = org.osmdroid.util.BoundingBox.fromGeoPointsSafe(allGeoPoints)
-            
-            val latDiff = boundingBox.latNorth - boundingBox.latSouth
-            val lonDiff = boundingBox.lonEast - boundingBox.lonWest
-            val padding = kotlin.math.max(latDiff, lonDiff) * 0.15
-            
-            val adjustedBox = org.osmdroid.util.BoundingBox(
-                boundingBox.latNorth + padding,
-                boundingBox.lonEast + padding,
-                boundingBox.latSouth - padding,
-                boundingBox.lonWest - padding
-            )
-            
-            map.post {
-                map.zoomToBoundingBox(adjustedBox, false)
-                map.invalidate()
-            }
-        } else {
-            // Ако има само една точка, центрираме върху нея
-            val point = allGeoPoints[0]
-            map.controller.setCenter(point)
-            map.controller.setZoom(15.0)
-        }
-    }
-
-    private fun createBlueDotMarker(): android.graphics.drawable.Drawable {
-        val size = 48 // Още по-голям размер - 2.5x по-голяма от дебелината на маршрута
-        val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(bitmap)
-        
-        // Външен кръг (бял) с по-силна сянка
-        val outerPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.WHITE
-            isAntiAlias = true
-            setShadowLayer(6f, 0f, 3f, android.graphics.Color.argb(150, 0, 0, 0))
-        }
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f - 3, outerPaint)
-        
-        // Вътрешен кръг (син) - като глава на змия
-        val innerPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.parseColor("#1976D2") // По-тъмен син за по-добър контраст
-            isAntiAlias = true
-        }
-        canvas.drawCircle(size / 2f, size / 2f, (size / 2f) - 8, innerPaint)
-        
-        // Добавяме сянка за 3D ефект
-        val shadowPaint = android.graphics.Paint().apply {
-            color = android.graphics.Color.argb(80, 0, 0, 0)
-            isAntiAlias = true
-        }
-        canvas.drawCircle(size / 2f + 2, size / 2f + 2, (size / 2f) - 8, shadowPaint)
-        
-        return android.graphics.drawable.BitmapDrawable(resources, bitmap)
-    }
-
-    private fun saveOriginalRoute() {
-        originalRouteOverlays.clear()
-        if (routePoints.size > 1) {
-            for (i in 0 until routePoints.size - 1) {
-                val startPoint = routePoints[i]
-                val endPoint = routePoints[i + 1]
-
-                // Изчисляваме ускорението (промяна в скоростта)
-                val acceleration = endPoint.speed - startPoint.speed
-
-                // Определяме максимално ускорение за нормализация (примерно ±30 km/h промяна)
-                val maxAcceleration = 30f
-
-                // Нормализираме от -1 до +1
-                val accelRatio = (acceleration / maxAcceleration).coerceIn(-1f, 1f)
-
-                // Определяме цвета според ускорението
-                val color = when {
-                    startPoint.speed < 2f -> {
-                        // Ако сме почти спрели - тъмно червено
-                        Color.rgb(139, 0, 0)
-                    }
-                    accelRatio > 0.66f -> {
-                        // Силно ускорение - тъмно зелено
-                        Color.rgb(0, 128, 0)
-                    }
-                    accelRatio > 0.33f -> {
-                        // Средно ускорение - зелено
-                        Color.rgb(0, 200, 0)
-                    }
-                    accelRatio > 0 -> {
-                        // Леко ускорение - жълто-зелено
-                        Color.rgb(154, 205, 50)
-                    }
-                    accelRatio == 0f -> {
-                        // Постоянна скорост - жълто
-                        Color.rgb(255, 255, 0)
-                    }
-                    accelRatio > -0.5f -> {
-                        // Леко забавяне - оранжево
-                        Color.rgb(255, 165, 0)
-                    }
-                    else -> {
-                        // Силно забавяне - червено-оранжево
-                        val ratio = (-accelRatio - 0.5f) * 2
-                        val green = (165 * (1 - ratio)).toInt()
-                        Color.rgb(255, green, 0)
-                    }
-                }
-
-                // Създаваме сегмент
-                val segmentPolyline = Polyline().apply {
-                    setPoints(listOf(startPoint.geoPoint, endPoint.geoPoint))
-                    this.color = color
-                    outlinePaint.strokeWidth = 18f
-                }
-                originalRouteOverlays.add(segmentPolyline)
-            }
-        }
-    }
-
-    private fun showFullRoute() {
-        // Изчистваме текущите overlays
-        map.overlays.clear()
-        
-        // Добавяме целия маршрут ПЪРВО (под точката)
-        map.overlays.addAll(originalRouteOverlays)
-        
-        // Добавяме маркера НАКРАЯ (върху маршрута)
-        map.overlays.add(marker)
-        
-        map.invalidate()
-    }
-
-    private fun drawRouteUpToIndex(index: Int) {
-        // Изчищаме текущите overlays
-        map.overlays.clear()
-        
-        // Добавяме маршрута до дадения индекс ПЪРВО (под точката)
-        for (i in 0 until minOf(index, originalRouteOverlays.size)) {
-            map.overlays.add(originalRouteOverlays[i])
-        }
-        
-        // Добавяме маркера НАКРАЯ (върху маршрута)
-        map.overlays.add(marker)
-        
-        map.invalidate()
-    }
-
-    private fun startRouteDrawingTimer() {
-        // Отменяме предишния таймер ако има такъв
-        routeDrawingRunnable?.let { routeDrawingTimer?.removeCallbacks(it) }
-        
-        routeDrawingRunnable = Runnable {
-            // След 3 секунди показваме целия маршрут
-            showFullRoute()
-            isDrawingRoute = false
-        }
-        
-        routeDrawingTimer = android.os.Handler(android.os.Looper.getMainLooper())
-        routeDrawingRunnable?.let { routeDrawingTimer?.postDelayed(it, 3000) }
-    }
-
-    private fun stopRouteDrawingTimer() {
-        routeDrawingRunnable?.let { routeDrawingTimer?.removeCallbacks(it) }
-    }
-
     private fun updateReaderPosition(timeInSeconds: Float) {
         val index = findClosestIndexToTime(timeInSeconds)
         if (index in routePoints.indices) {
             val point = routePoints[index]
             marker.position = point.geoPoint
             map.controller.setCenter(point.geoPoint)
-
-            // Рисуваме маршрута до текущия индекс само ако потребителят е взаимодействал
-            if (hasUserInteracted) {
-                drawRouteUpToIndex(index)
-                isDrawingRoute = true
-                // Стартираме таймера за показване на целия маршрут
-                startRouteDrawingTimer()
-            }
 
             val currentProfileId = ProfileStorage.getSelectedProfileId(this)
             val profiles = ProfileStorage.loadProfiles(this)
@@ -799,30 +641,6 @@ class MapActivity : AppCompatActivity() {
         val minutes = (millis / (1000 * 60)) % 60
         val hours = millis / (1000 * 60 * 60)
         return String.format("%02d:%02d:%02d", hours, minutes, seconds)
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        stopRouteDrawingTimer()
-    }
-
-    private fun setupScreenKeepOn() {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
-        updateScreenKeepOn(prefs.getBoolean("always_on_display", false))
-
-        prefs.registerOnSharedPreferenceChangeListener { shared, key ->
-            if (key == "always_on_display") {
-                updateScreenKeepOn(shared.getBoolean(key, false))
-            }
-        }
-    }
-
-    private fun updateScreenKeepOn(keepOn: Boolean) {
-        if (keepOn) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        } else {
-            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
     }
 
     override fun onBackPressed() {

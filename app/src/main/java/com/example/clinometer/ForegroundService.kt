@@ -1,4 +1,4 @@
- package com.example.clinometer
+package com.example.clinometer
 
 import android.Manifest
 import android.app.Notification
@@ -13,9 +13,6 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.view.Surface
-import android.view.WindowManager
-import android.content.res.Configuration
 import android.location.Location
 import android.os.Binder
 import android.os.Build
@@ -37,7 +34,6 @@ import org.osmdroid.util.GeoPoint
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.sqrt
-import java.lang.Math
 
 enum class AccelerationState {
     IDLE,
@@ -71,7 +67,6 @@ class ForegroundService : Service(), SensorEventListener {
     private lateinit var locCallback: LocationCallback
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
-    private val geomagnetic = FloatArray(3)
     var sessionStartTime: Long = 0
     var accelerationTracking = AccelerationData()
 
@@ -88,19 +83,11 @@ class ForegroundService : Service(), SensorEventListener {
 
     @Volatile
     private var peakG = 0f
-
-    @Volatile
-    private var currentGForceX = 0f
-
-    @Volatile
-    private var currentGForceY = 0f
     @Volatile
     private var isMeasurementActive = false
 
     fun getCurrentG(): Float = currentG
     fun getPeakG(): Float = peakG
-    fun getCurrentGForceX(): Float = currentGForceX
-    fun getCurrentGForceY(): Float = currentGForceY
 
     private val SAMPLES_CAPACITY = 1000
 
@@ -110,26 +97,21 @@ class ForegroundService : Service(), SensorEventListener {
     private val gpsAccelTimeStamps = ArrayDeque<Long>(SAMPLES_CAPACITY)
 
     private var gMeasurementStartTime: Long = 0L
-    private var measurementStartTimeNano: Long = 0L // Добавяме nano време за консистентност
-    private val G_SAMPLE_INTERVAL_MS = 100L
+    private val G_SAMPLE_INTERVAL_MS = 500L
     private var lastGSampleTime = 0L
 
     private var measurementStartTimeMs: Long = 0L
     private var lastGPSAccelSampleTime = 0L
-    private val GPS_ACCEL_SAMPLE_INTERVAL = 100L
+    private val GPS_ACCEL_SAMPLE_INTERVAL = 200L
 
     private var lastAccelerationTime = 0L
-    private val accelerometerThreshold = 0.5f
+    private val accelerometerThreshold = 2.0f
     private val accelerationWindow = 500_000_000L
 
     private val speedSamplesBuffer: ArrayDeque<Float> = ArrayDeque(SAMPLES_CAPACITY)
     private val speedTimeStamps = ArrayDeque<Long>(SAMPLES_CAPACITY)
     private var lastSpeedSampleTime = 0L
-    private val SPEED_SAMPLE_INTERVAL_MS = 100L
-
-    // Measured times relative to measurementStartTimeNano (nanoseconds)
-    @Volatile private var time0to100Nanos: Long = 0L
-    @Volatile private var time0to200Nanos: Long = 0L
+    private val SPEED_SAMPLE_INTERVAL_MS = 200L
 
     inner class LocalBinder : Binder() {
         fun getService(): ForegroundService = this@ForegroundService
@@ -215,7 +197,6 @@ class ForegroundService : Service(), SensorEventListener {
     fun getMaxRightAngle(): Float = maxRightAngle
     fun getMaxSpeed(): Float = maxSpeed
     fun getCurrentAngle(): Float = currentCalibratedAngle
-    fun getCurrentRawAngle(): Float = filteredAngle
     fun getCurrentSpeed(): Float = currentSpeed
     fun getLastLocation(): Location? = lastLocation
     fun getAccelerationData(): AccelerationData = accelerationTracking
@@ -243,24 +224,6 @@ class ForegroundService : Service(), SensorEventListener {
     fun getRecentSpeedTimeStamps(): List<Long> {
         synchronized(speedTimeStamps) { return speedTimeStamps.toList() }
     }
-    
-    fun getMeasurementStartTimeNano(): Long = measurementStartTimeNano
-    fun setMeasurementStartTimeNano(timeNanos: Long) {
-        measurementStartTimeNano = timeNanos
-    }
-    fun getTime0to100Nanos(): Long = time0to100Nanos
-    fun getTime0to200Nanos(): Long = time0to200Nanos
-    
-    fun addSpeedSample(speed: Float, relativeTimeNanos: Long) {
-        synchronized(speedSamplesBuffer) {
-            if (speedSamplesBuffer.size >= SAMPLES_CAPACITY) {
-                speedSamplesBuffer.removeFirst()
-                speedTimeStamps.removeFirst()
-            }
-            speedSamplesBuffer.addLast(speed)
-            speedTimeStamps.addLast(relativeTimeNanos)
-        }
-    }
 
     fun calibrateZero() {
         offsetAngle = filteredAngle
@@ -268,27 +231,16 @@ class ForegroundService : Service(), SensorEventListener {
         maxRightAngle = 0f
         currentCalibratedAngle = 0f
     }
-    
-    fun calibrateZeroWithAngle(angle: Float) {
-        offsetAngle = angle
-        maxLeftAngle = 0f
-        maxRightAngle = 0f
-        currentCalibratedAngle = 0f
-    }
 
     fun startNewMeasurement() {
+        Log.d("ForegroundService", "Starting new measurement")
 
         gMeasurementStartTime = System.currentTimeMillis()
-        measurementStartTimeNano = System.nanoTime() // Запазваме и nano времето
         measurementStartTimeMs = gMeasurementStartTime
         lastGSampleTime = 0L
         lastGPSAccelSampleTime = 0L
         lastSpeedSampleTime = 0L
         isMeasurementActive = true
-
-        // Reset measured times
-        time0to100Nanos = 0L
-        time0to200Nanos = 0L
 
         currentG = 0f
         peakG = 0f
@@ -306,41 +258,40 @@ class ForegroundService : Service(), SensorEventListener {
             speedTimeStamps.clear()
         }
 
+        Log.d("ForegroundService", "Measurement started at: $gMeasurementStartTime")
     }
     fun stopMeasurement() {
         isMeasurementActive = false
+        Log.d("ForegroundService", "Measurement stopped. G samples: ${gSamplesBuffer.size}, GPS samples: ${gpsAccelBuffer.size}, Speed samples: ${speedSamplesBuffer.size}")
     }
 
     fun resetData() {
         if (!isPreWarmingMode) {
-            // Изчисти всички данни за нова сесия
             routePoints.clear()
             filteredAngle = 0f
-            offsetAngle = 0f
+            offsetAngle = filteredAngle
             currentCalibratedAngle = 0f
             maxLeftAngle = 0f
             maxRightAngle = 0f
             maxSpeed = 0f
             currentSpeed = 0f
 
-            // Нулирай всички времена и задай ново начално време
+            // Не задаваме actualStartTime тук — ще го задаваме при активиране на нормален режим.
             startTime = SystemClock.elapsedRealtime()
-            actualStartTime = SystemClock.elapsedRealtime()
-            lastDataSaveTime = 0L
-            resetTime = SystemClock.elapsedRealtime()
-            lastAccelerationTime = 0L
 
-            // Нулирай acceleration данните
+            lastDataSaveTime = 0L
             accelerationTracking = AccelerationData()
             totalDistance = 0.0
             lastLocationForDistance = null
+            resetTime = SystemClock.elapsedRealtime()
+            lastAccelerationTime = 0L
 
-            // Нулирай G measurement данните
+            // Нулирай G measurement времето
             gMeasurementStartTime = 0L
             lastGSampleTime = 0L
             peakG = 0f
 
-            // Изчисти всички буфери
+            // Изчисти буферите
             synchronized(gSamplesBuffer) {
                 gSamplesBuffer.clear()
                 gTimeStamps.clear()
@@ -357,7 +308,7 @@ class ForegroundService : Service(), SensorEventListener {
             // Ако сме в pre-warming режим, пак искаме да нулираме сесиите, но да НЕ задаваме actualStartTime
             routePoints.clear()
             filteredAngle = 0f
-            offsetAngle = 0f
+            offsetAngle = filteredAngle
             currentCalibratedAngle = 0f
             maxLeftAngle = 0f
             maxRightAngle = 0f
@@ -365,22 +316,17 @@ class ForegroundService : Service(), SensorEventListener {
             currentSpeed = 0f
 
             startTime = SystemClock.elapsedRealtime()
-            actualStartTime = 0L
             lastDataSaveTime = 0L
-            resetTime = SystemClock.elapsedRealtime()
-            lastAccelerationTime = 0L
-
-            // Нулирай acceleration данните
             accelerationTracking = AccelerationData()
             totalDistance = 0.0
             lastLocationForDistance = null
+            resetTime = SystemClock.elapsedRealtime()
+            lastAccelerationTime = 0L
 
-            // Нулирай G measurement данните
             gMeasurementStartTime = 0L
             lastGSampleTime = 0L
             peakG = 0f
 
-            // Изчисти всички буфери
             synchronized(gSamplesBuffer) {
                 gSamplesBuffer.clear()
                 gTimeStamps.clear()
@@ -433,6 +379,7 @@ class ForegroundService : Service(), SensorEventListener {
 
         fusedClient = LocationServices.getFusedLocationProviderClient(this)
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
         startTime = SystemClock.elapsedRealtime()
 
@@ -469,132 +416,86 @@ class ForegroundService : Service(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent) {
         if (isPreWarmingMode) return
 
+        if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+            gravity[0] = alpha * gravity[0] + (1 - alpha) * event.values[0]
+            gravity[1] = alpha * gravity[1] + (1 - alpha) * event.values[1]
+            gravity[2] = alpha * gravity[2] + (1 - alpha) * event.values[2]
 
-        when (event.sensor.type) {
-            Sensor.TYPE_ACCELEROMETER -> {
-                gravity[0] = alpha * gravity[0] + (1 - alpha) * event.values[0]
-                gravity[1] = alpha * gravity[1] + (1 - alpha) * event.values[1]
-                gravity[2] = alpha * gravity[2] + (1 - alpha) * event.values[2]
+            linearAcceleration[0] = event.values[0] - gravity[0]
+            linearAcceleration[1] = event.values[1] - gravity[1]
+            linearAcceleration[2] = event.values[2] - gravity[2]
 
-                linearAcceleration[0] = event.values[0] - gravity[0]
-                linearAcceleration[1] = event.values[1] - gravity[1]
-                linearAcceleration[2] = event.values[2] - gravity[2]
+            val magnitude = sqrt(
+                linearAcceleration[0] * linearAcceleration[0] +
+                        linearAcceleration[1] * linearAcceleration[1] +
+                        linearAcceleration[2] * linearAcceleration[2]
+            )
 
-                val magnitude = sqrt(
-                    linearAcceleration[0] * linearAcceleration[0] +
-                            linearAcceleration[1] * linearAcceleration[1] +
-                            linearAcceleration[2] * linearAcceleration[2]
-                )
+            val g = magnitude / 9.81f
+            currentG = g
+            if (g > peakG) peakG = g
 
-                val gForce = magnitude / 9.81f
-                currentG = gForce
-                if (gForce > peakG) peakG = gForce
+            // Проверка за реално ускорение
+            if (magnitude > accelerometerThreshold && g > 0.15f) {
+                isRealAcceleration = true
+                lastAccelerationTime = System.nanoTime()
 
-                // Calculate G-force components for visualization
-                currentGForceX = linearAcceleration[0] / 9.81f
-                currentGForceY = linearAcceleration[1] / 9.81f
+                // Автоматично стартирай измерване ако няма активно
+                if (!isMeasurementActive && gMeasurementStartTime == 0L) {
+                    startNewMeasurement()
+                }
+            }
 
-                // Проверка за реално ускорение
-                if (magnitude > accelerometerThreshold && gForce > 0.05f) {
-                    isRealAcceleration = true
-                    lastAccelerationTime = System.nanoTime()
+            if (System.nanoTime() - lastAccelerationTime > accelerationWindow) {
+                isRealAcceleration = false
+            }
 
-                    // Автоматично стартирай измерване ако няма активно
-                    if (!isMeasurementActive && gMeasurementStartTime == 0L) {
-                        startNewMeasurement()
+            // Запазвай G samples само когато има активно измерване
+            val currentTime = System.currentTimeMillis()
+
+            // Запазвай данни само ако има активно ускорение или вече сме започнали измерване
+            if (isMeasurementActive && gMeasurementStartTime > 0L) {
+                if (currentTime - lastGSampleTime >= G_SAMPLE_INTERVAL_MS) {
+                    synchronized(gSamplesBuffer) {
+                        if (gSamplesBuffer.size >= SAMPLES_CAPACITY) {
+                            gSamplesBuffer.removeFirst()
+                            gTimeStamps.removeFirst()
+                        }
+                        gSamplesBuffer.addLast(g)
+                        // Времето е относително спрямо началото на измерването
+                        val relativeTime = currentTime - gMeasurementStartTime
+                        gTimeStamps.addLast(relativeTime)
+                        lastGSampleTime = currentTime
+
+                        if (gSamplesBuffer.size % 10 == 0) {
+                            Log.d(
+                                "ForegroundService",
+                                "G samples collected: ${gSamplesBuffer.size}, latest G: $g"
+                            )
+                        }
                     }
                 }
 
-                if (System.nanoTime() - lastAccelerationTime > accelerationWindow) {
-                    isRealAcceleration = false
-                }
-
-                // Запазвай G samples само когато има активно измерване
-                val currentTime = System.currentTimeMillis()
-
-                // Запазвай данни само ако има активно ускорение или вече сме започнали измерване
-                // Обработка на ъглите - винаги работи в реално време
-                val x = event.values[0]  // Наклон наляво/надясно
-                val y = event.values[1]  // Наклон напред/назад  
-                val z = event.values[2]  // Гравитация нагоре/надолу
-                
-                // Проверяваме ориентацията
-                val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-                
-                // Изчисляваме общата гравитация
-                val totalGravity = sqrt(x * x + y * y + z * z)
-                val raw = if (totalGravity > 0) {
-                    if (isLandscape) {
-                        // В ландскейп: Y ос за нагоре/надолу, нагоре = -, надолу = +
-                        -Math.toDegrees(Math.asin((y / totalGravity).toDouble().coerceIn(-1.0, 1.0))).toFloat()
-                    } else {
-                        // В портрет: X ос за наляво/надясно
-                        Math.toDegrees(Math.asin((x / totalGravity).toDouble().coerceIn(-1.0, 1.0))).toFloat()
-                    }
+                // Обработка на ъглите
+                val x = event.values[0]
+                val y = event.values[1]
+                val z = event.values[2]
+                val yzSq = y * y + z * z
+                val raw = if (yzSq > 0) {
+                    Math.toDegrees(atan2(x.toDouble(), sqrt(yzSq.toDouble()))).toFloat()
                 } else 0f
 
                 val delta = abs(raw - filteredAngle)
                 val adaptiveAlpha = (0.01f + (delta / 45f)).coerceIn(0.05f, 0.3f)
                 filteredAngle += adaptiveAlpha * (raw - filteredAngle)
-                val calibrated = (offsetAngle - filteredAngle).coerceIn(-90f, 90f)
+                val calibrated = (offsetAngle - filteredAngle).coerceIn(-90f, 900f)
                 currentCalibratedAngle = calibrated
 
                 if (calibrated < maxLeftAngle) maxLeftAngle = calibrated
                 if (calibrated > maxRightAngle) maxRightAngle = calibrated
 
-                // Записваме G семпли винаги, когато има активно измерване
-                if (isMeasurementActive && gMeasurementStartTime > 0L) {
-                    // Записваме всички пикове над 1.0g незабавно, независимо от интервала
-                    val shouldRecordPeak = gForce > 1.0f && (gSamplesBuffer.isEmpty() || gForce > (gSamplesBuffer.lastOrNull() ?: 0f))
-                    val shouldRecordRegular = currentTime - lastGSampleTime >= G_SAMPLE_INTERVAL_MS
-                    
-                    if (shouldRecordPeak || shouldRecordRegular) {
-                        synchronized(gSamplesBuffer) {
-                            if (gSamplesBuffer.size >= SAMPLES_CAPACITY) {
-                                gSamplesBuffer.removeFirst()
-                                gTimeStamps.removeFirst()
-                            }
-                            gSamplesBuffer.addLast(gForce)
-                            // Използваме nano време за по-висока точност - записваме в наносекунди за консистентност
-                            val relativeTimeNano = System.nanoTime() - measurementStartTimeNano
-                            gTimeStamps.addLast(relativeTimeNano)
-                            lastGSampleTime = currentTime
-
-                            if (gSamplesBuffer.size % 10 == 0) {
-                            }
-                        }
-                    }
-
-                    saveDataPointIfNeeded()
-                }
-                // Записваме пикове дори извън активния период, за да не пропуснем пикове
-                else if (gForce > 0.05f) {
-                    // За пикове извън активния период - записваме само ако е значителен пик
-                    val shouldRecordPeak = gForce > 1.0f && (gSamplesBuffer.isEmpty() || gForce > (gSamplesBuffer.lastOrNull() ?: 0f))
-                    val shouldRecordRegular = currentTime - lastGSampleTime >= G_SAMPLE_INTERVAL_MS
-                    
-                    if (shouldRecordPeak || shouldRecordRegular) {
-                        // Записваме семпъла с timestamp, използвайки текущото време
-                        synchronized(gSamplesBuffer) {
-                            if (gSamplesBuffer.size >= SAMPLES_CAPACITY) {
-                                gSamplesBuffer.removeFirst()
-                                gTimeStamps.removeFirst()
-                            }
-                            gSamplesBuffer.addLast(gForce)
-                            // Използваме текущото време като база, ако няма активно измерване
-                            val currentTimeNano = System.nanoTime()
-                            val relativeTimeNano = if (measurementStartTimeNano > 0L) {
-                                currentTimeNano - measurementStartTimeNano
-                            } else {
-                                currentTimeNano - (gMeasurementStartTime * 1_000_000L) // Convert ms to ns
-                            }
-                            gTimeStamps.addLast(relativeTimeNano)
-                            lastGSampleTime = currentTime
-                        }
-                    }
-                }
+                saveDataPointIfNeeded()
             }
-
         }
     }
 
@@ -636,6 +537,7 @@ class ForegroundService : Service(), SensorEventListener {
             if (preWarm) {
                 // Влизаме в pre-warming: събираме само GPS буфер (не задаваме actualStartTime)
                 isPreWarmingMode = true
+                Log.d("ForegroundService", "Entered PRE_WARMING mode")
             }
 
             if (activate) {
@@ -653,6 +555,7 @@ class ForegroundService : Service(), SensorEventListener {
                 }
 
                 registerSensors()
+                Log.d("ForegroundService", "Activated NORMAL mode at $actualStartTime")
             }
         }
 
@@ -661,11 +564,11 @@ class ForegroundService : Service(), SensorEventListener {
 
 
     private fun setupLocationUpdates() {
-        locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 100)
-            .setMinUpdateIntervalMillis(100)
+        locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 150)
+            .setMinUpdateIntervalMillis(50)
             .setWaitForAccurateLocation(false)
-            .setMinUpdateDistanceMeters(0.1f)
-            .setMaxUpdateDelayMillis(100)
+            .setMinUpdateDistanceMeters(0.2f)
+            .setMaxUpdateDelayMillis(200)
             .build()
 
         locCallback = object : LocationCallback() {
@@ -688,8 +591,6 @@ class ForegroundService : Service(), SensorEventListener {
     }
 
     private fun registerSensors() {
-        // Използваме само ACCELEROMETER - работи на всички устройства
-        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         accelerometer?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
         }
@@ -736,18 +637,6 @@ class ForegroundService : Service(), SensorEventListener {
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-
-    private fun lowPass(input: FloatArray, output: FloatArray?): FloatArray {
-        if (output == null) return input
-
-        val alpha = 0.8f
-        for (i in input.indices) {
-            output[i] = output[i] + alpha * (input[i] - output[i])
-        }
-        return output
-    }
-
-
     private fun onNewLocation(loc: Location) {
         // Изчисли GPS acceleration
         val gpsAccel = run {
@@ -788,54 +677,31 @@ class ForegroundService : Service(), SensorEventListener {
                         gpsAccelTimeStamps.removeFirst()
                     }
                     gpsAccelBuffer.addLast(gpsAccel)
-                    // Използваме nano време за по-висока точност - записваме в наносекунди за консистентност
-                    val relativeTimeNano = System.nanoTime() - measurementStartTimeNano
-                    gpsAccelTimeStamps.addLast(relativeTimeNano)
+                    val relativeTime = currentTime - gMeasurementStartTime
+                    gpsAccelTimeStamps.addLast(relativeTime)
                     lastGPSAccelSampleTime = currentTime
 
+                    Log.d("ForegroundService", "GPS Accel sample added: $gpsAccel m/s², total: ${gpsAccelBuffer.size}")
                 }
             }
             // Точно преди if (currentTime - lastSpeedSampleTime >= SPEED_SAMPLE_INTERVAL_MS)
+            Log.d("ForegroundService", "DEBUG: Checking speed - active=$isMeasurementActive, startTime=$gMeasurementStartTime, timeDiff=${currentTime - lastSpeedSampleTime}, interval=$SPEED_SAMPLE_INTERVAL_MS, speed=$newSpeed")
 
-            // ДОБАВИ SPEED СЕМПЛИТЕ - при всеки GPS update за синхронизация
-            synchronized(speedSamplesBuffer) {
-                if (speedSamplesBuffer.size >= SAMPLES_CAPACITY) {
-                    speedSamplesBuffer.removeFirst()
-                    speedTimeStamps.removeFirst()
-                }
-                speedSamplesBuffer.addLast(newSpeed)
-                // Използваме nano време за по-висока точност - записваме в наносекунди за консистентност
-                val relativeTimeNano = System.nanoTime() - measurementStartTimeNano
-                speedTimeStamps.addLast(relativeTimeNano)
+            // ДОБАВИ SPEED СЕМПЛИТЕ
+            if (currentTime - lastSpeedSampleTime >= SPEED_SAMPLE_INTERVAL_MS) {
+                synchronized(speedSamplesBuffer) {
+                    if (speedSamplesBuffer.size >= SAMPLES_CAPACITY) {
+                        speedSamplesBuffer.removeFirst()
+                        speedTimeStamps.removeFirst()
+                    }
+                    speedSamplesBuffer.addLast(newSpeed)
+                    val relativeTime = currentTime - gMeasurementStartTime
+                    speedTimeStamps.addLast(relativeTime)
+                    lastSpeedSampleTime = currentTime
 
-                // Засичане на crossing моменти с ИНТЕРПОЛАЦИЯ
-                if (time0to100Nanos == 0L && speedSamplesBuffer.size >= 2) {
-                    val prevSpeed = speedSamplesBuffer.elementAt(speedSamplesBuffer.size - 2)
-                    val prevTime = speedTimeStamps.elementAt(speedTimeStamps.size - 2)
-                    val currSpeed = newSpeed
-                    val currTime = relativeTimeNano
-                    
-                    if (prevSpeed < 100f && currSpeed >= 100f) {
-                        // ЛИНЕЙНА ИНТЕРПОЛАЦИЯ за точното време
-                        val ratio = (100f - prevSpeed) / (currSpeed - prevSpeed)
-                        time0to100Nanos = prevTime + ((currTime - prevTime) * ratio).toLong()
-                    }
-                }
-                
-                if (time0to200Nanos == 0L && speedSamplesBuffer.size >= 2) {
-                    val prevSpeed = speedSamplesBuffer.elementAt(speedSamplesBuffer.size - 2)
-                    val prevTime = speedTimeStamps.elementAt(speedTimeStamps.size - 2)
-                    val currSpeed = newSpeed
-                    val currTime = relativeTimeNano
-                    
-                    if (prevSpeed < 200f && currSpeed >= 200f) {
-                        // ЛИНЕЙНА ИНТЕРПОЛАЦИЯ за точното време
-                        val ratio = (200f - prevSpeed) / (currSpeed - prevSpeed)
-                        time0to200Nanos = prevTime + ((currTime - prevTime) * ratio).toLong()
-                    }
+                    Log.d("ForegroundService", "Speed sample added: $newSpeed km/h, total: ${speedSamplesBuffer.size}")
                 }
             }
-        } else {
         }
 
         trackAcceleration(oldSpeed, newSpeed)
@@ -934,12 +800,14 @@ class ForegroundService : Service(), SensorEventListener {
                     accelerationTracking.state = AccelerationState.ACCELERATING
                     startMeasurements(currentTime, newSpeed)
                     accelerationTracking.hasFullyStopped = false
+                    Log.d("AccelTrack", "Started tracking at ${newSpeed} km/h")
                 }
             }
 
             AccelerationState.ACCELERATING -> {
                 // Спираме ако има рязка деселерация
                 if (isDecelerating) {
+                    Log.d("AccelTrack", "Deceleration detected: ${speedDiff} km/h/s")
                     cancelActiveRanges("Deceleration")
                     accelerationTracking.state = AccelerationState.IDLE
                 } else {
@@ -964,6 +832,7 @@ class ForegroundService : Service(), SensorEventListener {
             if (range.requiresFullStop) {
                 range.isActive = true
                 range.startTime = currentTime
+                Log.d("AccelTrack", "Started ${range.name} tracking at ${currentSpeed}km/h after full stop")
             }
         }
     }
@@ -978,6 +847,7 @@ class ForegroundService : Service(), SensorEventListener {
                     range.results.add(duration)
                     range.isActive = false
                     completedMeasurements.add(range)
+                    Log.d("AccelTrack", "${range.name}: ${"%.2f".format(duration / 1_000_000_000.0)}s")
 
                     when (range.name) {
                         "0-100" -> accelerationTracking.hasReached100 = true
@@ -991,6 +861,7 @@ class ForegroundService : Service(), SensorEventListener {
             val hasCompletedAny = accelerationTracking.ranges.any { it.results.isNotEmpty() }
             if (hasCompletedAny) {
                 accelerationTracking.state = AccelerationState.COMPLETED
+                Log.d("AccelTrack", "All measurements completed!")
             }
         }
     }
@@ -998,6 +869,7 @@ class ForegroundService : Service(), SensorEventListener {
     private fun resetAllActiveRanges(reason: String) {
         val activeRanges = accelerationTracking.ranges.filter { it.isActive }
         if (activeRanges.isNotEmpty()) {
+            Log.d("AccelTrack", "Reset all active ranges: $reason")
             activeRanges.forEach { it.isActive = false }
         }
     }
@@ -1005,6 +877,7 @@ class ForegroundService : Service(), SensorEventListener {
     private fun cancelActiveRanges(reason: String) {
         accelerationTracking.ranges.filter { it.isActive }.forEach { range ->
             range.isActive = false
+            Log.d("AccelTrack", "Canceled ${range.name}: $reason")
         }
     }
 
@@ -1012,6 +885,7 @@ class ForegroundService : Service(), SensorEventListener {
         accelerationTracking.ranges.filter { it.isActive }.forEach { range ->
             if (currentTime - range.startTime > range.timeout) {
                 range.isActive = false
+                Log.d("AccelTrack", "Stopped ${range.name} tracking - timeout")
             }
         }
     }
