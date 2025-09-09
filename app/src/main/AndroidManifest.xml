@@ -6,10 +6,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application
         android:theme="@style/Theme.DragMe"
@@ -24,11 +26,9 @@
         android:usesCleartextTraffic="true">
 
         <activity
-            android:name=".StartActivity"
-            android:launchMode="singleTop"
+            android:name=".MainMapActivity"
             android:screenOrientation="portrait"
-            android:exported="true"
-            >
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -36,16 +36,24 @@
         </activity>
 
         <activity
+            android:name=".StartActivity"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            android:exported="true"
+            >
+
+        </activity>
+
+        <activity
             android:name=".FirstProfileActivity"
             android:exported="true" />
 
         <activity
-            android:name=".ProfileActivity"
+            android:name=".GarageActivity"
             android:exported="false" />
 
         <activity
             android:name=".MainActivity"
-            android:screenOrientation="portrait"
             android:exported="false" />
 
         <activity
@@ -68,11 +76,25 @@
             android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar"/>
         <activity
             android:name=".ProfileDetailActivity"
-            android:parentActivityName=".ProfileActivity">
+            android:parentActivityName=".GarageActivity">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value=".ProfileActivity" />
+                android:value=".GarageActivity" />
         </activity>
+
+        <activity
+            android:name=".DragPageActivity"
+            android:screenOrientation="portrait"
+            android:exported="true"
+
+            />
+        <activity
+            android:name=".drag.DragRunPageActivity"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".DragSessionDetailsActivity"
+            android:screenOrientation="portrait" />
 
 
 

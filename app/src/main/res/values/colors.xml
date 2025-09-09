@@ -9,7 +9,7 @@
     <color name="red">#FF0000</color>
     <color name="white">#FFFFFF</color>
     <color name="primary_text">#212121</color>
-    <color name="secondary_text">#757575</color>
+    <color name="secondary_text">#D3D3D3</color>
 
 
     <!-- Основни цветове за фона -->
@@ -18,8 +18,8 @@
     <color name="surface_color">#FFFFFF</color>
 
     <!-- Текстови цветове -->
-    <color name="text_primary">#1A1A1A</color>
-    <color name="text_secondary">#6B7280</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#D3D3D3</color>
     <color name="text_tertiary">#9CA3AF</color>
 
     <!-- Акцентен цвят за скоростта -->
@@ -41,11 +41,6 @@
     <color name="divider_color">#E5E7EB</color>
     <color name="border_color">#D1D5DB</color>
 
-    <!-- Допълнителни цветове за статус -->
-    <color name="success_color">#10B981</color>
-    <color name="warning_color">#F59E0B</color>
-    <color name="error_color">#EF4444</color>
-
     <!-- Overlay цветове -->
     <color name="overlay_background">#80000000</color>
     <color name="overlay_surface">#F3F4F6</color>
@@ -64,4 +59,71 @@
     <color name="background_dark">#0F0F17</color>
     <color name="stat_bg">#2A2A3A</color>
     <color name="stat_bg_highlight">#2D2D40</color>
+
+    <color name="primary_color">#2196F3</color>
+    <color name="primary_dark">#1976D2</color>
+
+
+
+    <color name="text_hint">#BDBDBD</color>
+
+
+    <!-- Навигационни цветове -->
+    <color name="nav_icon_active">#2196F3</color>
+    <color name="nav_text_active">#2196F3</color>
+
+
+    <!-- Допълнителни цветове -->
+
+    <color name="shadow_color">#1A000000</color>
+
+    <color name="transparent">#00000000</color>
+
+    <color name="car_card_background">#2196F3</color>
+    <color name="motorcycle_card_background">#FF5722</color>
+
+    <!-- Тъмен background -->
+    <color name="dark_background">#0F0F23</color>
+    <color name="dark_surface">#1A1A2E</color>
+
+    <!-- Светли картели -->
+    <color name="card_background_light">#FFFFFF</color>
+    <color name="card_surface_light">#F8F9FA</color>
+
+    <!-- Текст цветове за тъмен background -->
+    <color name="text_primary_light">#FFFFFF</color>
+    <color name="text_secondary_light">#D3D3D3</color>
+
+    <!-- Текст цветове за светли картели -->
+    <color name="text_primary_dark">#1A1A2E</color>
+    <color name="text_secondary_dark">#6C757D</color>
+
+    <!-- Навигация -->
+    <color name="nav_icon_inactive">#FFFFFF</color>
+    <color name="nav_text_inactive">#FFFFFF</color>
+
+    <!-- Stroke и граници -->
+    <color name="stroke_light">#E9ECEF</color>
+    <color name="stroke_dark">#2E2E48</color>
+
+    <!-- Специални -->
+    <color name="map_placeholder_background">#F1F3F4</color>
+
+    <!-- Градиенти -->
+    <color name="header_gradient_start">#6C63FF</color>
+    <color name="header_gradient_end">#9F7AEA</color>
+
+    <!-- Статус цветове -->
+    <color name="success_color">#28A745</color>
+    <color name="warning_color">#FFC107</color>
+    <color name="error_color">#DC3545</color>
+
+
+    <color name="accent_blue_alpha">#302196F3</color>
+    <color name="accent_red">#F44336</color>
+    <color name="accent_red_alpha">#30F44336</color>
+
+    <color name="divider_gray">#33000000</color>
+
+
 </resources>
