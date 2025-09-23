@@ -74,6 +74,9 @@
             android:name=".SettingsActivity"
             android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar"/>
         <activity
+            android:name=".TrackActivity"
+            android:exported="false" />
+        <activity
             android:name=".ProfileDetailActivity"
             android:parentActivityName=".GarageActivity">
             <meta-data
