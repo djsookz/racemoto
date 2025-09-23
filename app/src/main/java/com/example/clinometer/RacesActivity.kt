@@ -6,24 +6,28 @@ import android.os.Bundle
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.button.MaterialButton
 
-class RacesActivity : BaseActivity() {
-    override fun getLayoutResourceId(): Int = R.layout.activity_races
-    override fun getNavigationItemId(): Int = R.id.navSession
+class RacesActivity : AppCompatActivity() {
 
     private lateinit var adapter: RaceAdapter
     private lateinit var recyclerView: RecyclerView
     private lateinit var emptyView: TextView
+    private lateinit var btnBack: MaterialButton
     private val racesList = mutableListOf<Race>()
     private var backPressedTime: Long = 0
     private lateinit var backToast: Toast
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_races)
+        
         recyclerView = findViewById(R.id.rvRaces)
         emptyView = findViewById(R.id.tvEmptyView)
+        btnBack = findViewById(R.id.btnBack)
 
         loadRaces()
 
@@ -50,6 +54,11 @@ class RacesActivity : BaseActivity() {
 
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
+
+        // Настройка на бутона за назад
+        btnBack.setOnClickListener {
+            navigateToMap()
+        }
 
         checkEmptyList()
     }
@@ -83,16 +92,14 @@ class RacesActivity : BaseActivity() {
     }
 
     override fun onBackPressed() {
-        if (backPressedTime + 2000 > System.currentTimeMillis()) {
-            backToast.cancel()
-            super.onBackPressed()
-            return
-        } else {
-            backToast = Toast.makeText(baseContext, "Натиснете отново за изход", Toast.LENGTH_SHORT)
-            backToast.show()
-        }
+        navigateToMap()
+    }
 
-        backPressedTime = System.currentTimeMillis()
+    private fun navigateToMap() {
+        val intent = Intent(this, MainMapActivity::class.java)
+        startActivity(intent)
+        overridePendingTransition(0, 0)
+        finish()
     }
 
     private fun showDeleteConfirmation(race: Race) {
