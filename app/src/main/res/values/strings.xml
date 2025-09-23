@@ -189,6 +189,7 @@ Permissions are required for basic functionality!</string>
 
 
     <string name="nav_sessions">Сесии</string>
+    <string name="nav_track">Писта</string>
     <string name="nav_profiles">Гараж</string>
     <string name="nav_drag">Драг</string>
 
