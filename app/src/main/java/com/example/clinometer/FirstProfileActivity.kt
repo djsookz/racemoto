@@ -1,6 +1,7 @@
 package com.example.clinometer
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -13,12 +14,17 @@ import android.view.LayoutInflater
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.clinometer.settings.LanguageManager
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputLayout
 import com.example.clinometer.data.VehicleData
 
 class FirstProfileActivity : AppCompatActivity() {
+    
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(LanguageManager.applyLanguage(newBase))
+    }
     private val PERMISSION_REQUEST_CODE = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,7 +85,7 @@ class FirstProfileActivity : AppCompatActivity() {
             }
             
             // Пропускаме "Най-популярни" ако е избрано
-            if (brands[position] == "Най-популярни") {
+            if (brands[position] == getString(R.string.popular_brands_header)) {
                 return@setOnItemClickListener
             }
             
@@ -142,7 +148,7 @@ class FirstProfileActivity : AppCompatActivity() {
 
     private fun updateBrandDropdown(dropdown: MaterialAutoCompleteTextView, brands: Array<String>) {
         // Намираме индекса на "Най-популярни" за да знаем къде да сложим разделителя
-        val popularIndex = brands.indexOf("Най-популярни")
+        val popularIndex = brands.indexOf(getString(R.string.popular_brands_header))
         val firstRegularBrandIndex = if (popularIndex >= 0) popularIndex + 8 else 0 // 7 популярни марки + 1 за "Най-популярни"
         
         val adapter = object : ArrayAdapter<String>(this, 0, brands) {
@@ -151,10 +157,10 @@ class FirstProfileActivity : AppCompatActivity() {
                 val view: android.view.View
                 
                 when {
-                    brands[position] == "Най-популярни" -> {
+                    brands[position] == getString(R.string.popular_brands_header) -> {
                         view = layoutInflater.inflate(R.layout.dropdown_item_popular, parent, false)
                         val textView = view.findViewById<android.widget.TextView>(R.id.text1)
-                        textView.text = "Най-популярни"
+                        textView.text = getString(R.string.popular_brands_header)
                     }
                     position == firstRegularBrandIndex && popularIndex >= 0 -> {
                         // Добавяме разделител преди първата обикновена марка
@@ -176,7 +182,7 @@ class FirstProfileActivity : AppCompatActivity() {
             
             override fun getItemViewType(position: Int): Int {
                 return when {
-                    brands[position] == "Най-популярни" -> 0
+                    brands[position] == getString(R.string.popular_brands_header) -> 0
                     position == firstRegularBrandIndex && popularIndex >= 0 -> 1
                     else -> 2
                 }

@@ -77,6 +77,21 @@
             android:name=".TrackActivity"
             android:exported="false" />
         <activity
+            android:name=".TrackSessionDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TrackLapDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TrackMapActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TrackSelectionActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TrackSessionActivity"
+            android:exported="false" />
+        <activity
             android:name=".ProfileDetailActivity"
             android:parentActivityName=".GarageActivity">
             <meta-data
