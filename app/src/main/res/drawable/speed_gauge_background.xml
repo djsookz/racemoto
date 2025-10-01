@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- Outer circle -->
+    <item>
+        <shape android:shape="oval">
+            <stroke
+                android:width="4dp"
+                android:color="#333333" />
+            <solid android:color="#1A1A1A" />
+        </shape>
+    </item>
+    
+    <!-- Speed markings background -->
+    <item android:top="20dp" android:bottom="20dp" android:left="20dp" android:right="20dp">
+        <shape android:shape="oval">
+            <stroke
+                android:width="2dp"
+                android:color="#444444" />
+            <solid android:color="#00000000" />
+        </shape>
+    </item>
+    
+</layer-list>

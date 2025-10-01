@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/bottomNavigationContainer"
+    android:layout_width="match_parent"
+    android:layout_height="80dp"
+    android:elevation="12dp"
+    android:orientation="horizontal"
+    android:background="#1C1C1E"
+    android:paddingVertical="8dp"
+    >
+
+    <!-- Навигационен елемент 1 - Драг -->
+    <LinearLayout
+        android:id="@+id/navDrag"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?android:attr/selectableItemBackground">
+
+        <ImageView
+            android:id="@+id/ivNavDrag"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_drag_icon"
+            app:tint="@color/nav_icon_inactive"/>
+
+        <TextView
+            android:id="@+id/tvNavDrag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/nav_drag_label"
+            android:textColor="@color/nav_text_inactive"
+            android:textSize="12sp"/>
+    </LinearLayout>
+
+    <!-- Навигационен елемент 2 - Писта -->
+    <LinearLayout
+        android:id="@+id/navTrack"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?android:attr/selectableItemBackground">
+
+        <ImageView
+            android:id="@+id/ivNavTrack"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_track"
+            app:tint="@color/nav_icon_inactive"/>
+
+        <TextView
+            android:id="@+id/tvNavTrack"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/nav_track_label"
+            android:textColor="@color/nav_text_inactive"
+            android:textSize="12sp"/>
+    </LinearLayout>
+
+    <!-- Навигационен елемент 3 - Карта -->
+    <LinearLayout
+        android:id="@+id/navMap"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?android:attr/selectableItemBackground">
+
+        <ImageView
+            android:id="@+id/ivNavMap"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_map"
+            app:tint="@color/nav_icon_inactive"/>
+
+        <TextView
+            android:id="@+id/tvNavMap"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/nav_map_label"
+            android:textColor="@color/nav_text_inactive"
+            android:textSize="12sp"/>
+    </LinearLayout>
+
+    <!-- Навигационен елемент 4 - Гараж -->
+    <LinearLayout
+        android:id="@+id/navGarage"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?android:attr/selectableItemBackground">
+
+        <ImageView
+            android:id="@+id/ivNavGarage"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_garage"
+            app:tint="@color/nav_icon_inactive"/>
+
+        <TextView
+            android:id="@+id/tvNavGarage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/nav_garage_label"
+            android:textColor="@color/nav_text_inactive"
+            android:textSize="12sp"/>
+    </LinearLayout>
+
+    <!-- Навигационен елемент 5 - Настройки -->
+    <LinearLayout
+        android:id="@+id/navOptions"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?android:attr/selectableItemBackground">
+
+        <ImageView
+            android:id="@+id/ivNavOptions"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_settings"
+            app:tint="@color/nav_icon_inactive"/>
+
+        <TextView
+            android:id="@+id/tvNavOptions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/nav_options_label"
+            android:textColor="@color/nav_text_inactive"
+            android:textSize="12sp"/>
+    </LinearLayout>
+
+</LinearLayout>

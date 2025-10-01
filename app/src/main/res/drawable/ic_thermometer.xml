@@ -1,0 +1,45 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Outer thermometer tube outline -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M12,4
+            C11.45,4 11,4.45 11,5
+            L11,13.3
+            C9.8,14,9,15, 9,16.5
+            C9,18.43 10.57,20 12.5,20
+            C14.43,20 16,18.43 16,16.5
+            C16,15.2 15.1,13.7 14,13.3
+            L14,5
+            C14,4.45 13.55,4 13,4
+            C12.55,4 12,4.45 12,4z"/>
+
+
+    <!-- Mercury fill inside -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,7
+            L12,14
+            C10.9,14.2 10,15.2 10,16.5
+            C10,17.88 11.12,19 12.5,19
+            C13.88,19 15,17.88 15,16.5
+            C15,15.2 14.1,14.2 13,14
+            L13,7
+            L12,7z"/>
+
+    <!-- Temperature scale marks -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="0.5"
+        android:pathData="
+            M11,6 L13,6
+            M11,8 L13,8
+            M11,10 L13,10
+            M11,12 L13,12"/>
+</vector>

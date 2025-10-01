@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="10dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="6dp"
+    app:cardBackgroundColor="@color/card_background">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <!-- Заглавие (сесия) -->
+        <TextView
+            android:id="@+id/tvSessionName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="@string/session_title"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnSessionOptions" />
+
+        <!-- Бутон за меню (както беше) -->
+        <ImageButton
+            android:id="@+id/btnSessionOptions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_more_vert"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="@color/white"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- Дата -->
+        <TextView
+            android:id="@+id/tvSessionDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="01.01.2024 14:30"
+            android:textSize="13sp"
+            android:textColor="#D3D3D3"
+            app:layout_constraintTop_toBottomOf="@id/tvSessionName"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <!-- Опити -->
+        <TextView
+            android:id="@+id/tvAttemptCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:padding="4dp"
+            android:background="@drawable/bg_label"
+            android:textSize="13sp"
+            android:textColor="@color/white"
+            android:fontFamily="monospace"
+            app:layout_constraintTop_toBottomOf="@id/tvSessionDate"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <!-- Най-добро време -->
+        <TextView
+            android:id="@+id/tvBestTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Best 0-100: 4.532s"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/accent_green"
+            app:layout_constraintTop_toBottomOf="@id/tvAttemptCount"
+            app:layout_constraintStart_toStartOf="parent"
+            android:visibility="gone"/>
+
+        <!-- Околна среда -->
+        <TextView
+            android:id="@+id/tvEnvironment"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="22°C • 450m"
+            android:textSize="12sp"
+            android:textColor="#D3D3D3"
+            app:layout_constraintTop_toBottomOf="@id/tvBestTime"
+            app:layout_constraintStart_toStartOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.cardview.widget.CardView>

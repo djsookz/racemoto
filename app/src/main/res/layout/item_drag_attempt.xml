@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="6dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp"
+    app:cardBackgroundColor="@color/card_background"
+    >
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp"
+        >
+
+        <!-- Заглавие на опита -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="6dp">
+
+            <!-- Attempt number centered at top -->
+            <TextView
+                android:id="@+id/tvAttemptNumber"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textStyle="bold"
+                android:textSize="20sp"
+                android:textColor="@color/text_primary"
+                android:gravity="center"
+                android:layout_marginBottom="2dp" />
+
+            <!-- Bottom row with other info -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginTop="8dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <ImageView
+                        android:layout_width="15dp"
+                        android:layout_height="16dp"
+                        android:src="@drawable/max_speed_icon_drag"
+                        app:tint="@color/white"
+                        android:layout_marginEnd="4dp" />
+                    <TextView
+                        android:id="@+id/tvAttemptMaxSpeed"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:textColor="@color/white" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:src="@drawable/ic_timer"
+                        app:tint="@color/white"
+                        android:layout_marginEnd="4dp" />
+                    <TextView
+                        android:id="@+id/tvDuration"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="12.34s"
+                        android:textSize="12sp"
+                        android:textColor="@color/white" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Хоризонтална разделителна линия -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider_gray"
+            android:layout_marginBottom="8dp"/>
+
+        <!-- Резултати от ускоренията -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <!-- Първи елемент (0-100) -->
+            <TextView
+                android:id="@+id/tvAttempt0to100"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0-100:\n--"
+                android:gravity="center"
+                android:textSize="13sp"
+                android:textColor="@color/accent_green"
+                android:textStyle="bold"
+                android:lineSpacingExtra="2sp"
+                android:layout_marginHorizontal="8dp" />
+
+            <!-- Втори елемент (0-200) -->
+            <TextView
+                android:id="@+id/tvAttempt0to200"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0-200:\n--"
+                android:gravity="center"
+                android:textSize="13sp"
+                android:textColor="@color/accent_blue"
+                android:textStyle="bold"
+                android:lineSpacingExtra="2sp"
+                android:layout_marginHorizontal="8dp" />
+
+            <!-- Трети елемент (100-200) -->
+            <TextView
+                android:id="@+id/tvAttempt100to200"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="100-200:\n--"
+                android:gravity="center"
+                android:textSize="13sp"
+                android:textColor="@color/accent_orange"
+                android:textStyle="bold"
+                android:lineSpacingExtra="2sp"
+                android:layout_marginHorizontal="8dp" />
+
+            <!-- Четвърти елемент (402m) -->
+            <TextView
+                android:id="@+id/tvAttempt0to402"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="402m:\n--"
+                android:gravity="center"
+                android:textSize="13sp"
+                android:textColor="@color/accent_red"
+                android:textStyle="bold"
+                android:lineSpacingExtra="2sp"
+                android:layout_marginHorizontal="8dp" />
+        </LinearLayout>
+
+        <!-- Професионална графика с бутони за превключване -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="12dp"
+            android:padding="6dp"
+            android:background="@drawable/border_bottom">
+
+            <!-- Заглавие и статистики -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+
+                <TextView
+                    android:id="@+id/tvChartTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/drag_speed_chart_title"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/tvChartStats"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Max: 0 km/h"
+                    android:textSize="12sp"
+                    android:textColor="@color/white" />
+            </LinearLayout>
+
+            <!-- Бутони за превключване -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:layout_marginBottom="6dp">
+
+                <Button
+                    android:id="@+id/btnSpeed"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="3dp"
+                    android:text="@string/drag_tab_speed"
+                    android:textSize="11sp"
+                    android:background="@drawable/button_toggle_selected"
+                    android:textColor="@color/white" />
+
+                <Button
+                    android:id="@+id/btnAcceleration"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_weight="1"
+                    android:layout_marginHorizontal="1dp"
+                    android:text="@string/drag_tab_acceleration"
+                    android:textSize="11sp"
+                    android:background="@drawable/button_toggle_unselected"
+                    android:textColor="@color/text_secondary" />
+
+                <Button
+                    android:id="@+id/btnGForce"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="3dp"
+                    android:text="@string/drag_tab_gforce"
+                    android:textSize="11sp"
+                    android:background="@drawable/button_toggle_unselected"
+                    android:textColor="@color/text_secondary" />
+            </LinearLayout>
+
+            <!-- Графика -->
+            <com.github.mikephil.charting.charts.LineChart
+                android:id="@+id/chart"
+                android:layout_width="match_parent"
+                android:layout_height="280dp"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>
