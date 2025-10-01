@@ -22,6 +22,16 @@ import org.osmdroid.views.CustomZoomButtonsController
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import kotlin.jvm.java
+import com.example.clinometer.settings.UnitsManager
+import com.example.clinometer.network.WeatherService
+import com.example.clinometer.network.OpenMeteoService
+import com.example.clinometer.network.ElevationResponse
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.lifecycle.lifecycleScope
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class MainMapActivity : BaseActivity() {
     override fun getLayoutResourceId(): Int = R.layout.activity_main_map
@@ -31,8 +41,13 @@ class MainMapActivity : BaseActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var btnStartSession: MaterialButton
     private lateinit var btnSessions: MaterialButton
+    private lateinit var llEnvironment: LinearLayout
+    private lateinit var tvTemperature: TextView
+    private lateinit var tvAltitude: TextView
 
     private var currentLocation: Location? = null
+    private var currentTemperature: Float? = null
+    private var currentAltitude: Float? = null
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var locationRequest: LocationRequest
     private lateinit var locationCallback: LocationCallback
@@ -64,6 +79,9 @@ class MainMapActivity : BaseActivity() {
         mapView = findViewById(R.id.mapView)
         btnStartSession = findViewById(R.id.btnStartNavigationNoDestination)
         btnSessions = findViewById(R.id.btnSessions)
+        llEnvironment = findViewById(R.id.llEnvironment)
+        tvTemperature = findViewById(R.id.tvTemperature)
+        tvAltitude = findViewById(R.id.tvAltitude)
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
@@ -91,6 +109,8 @@ class MainMapActivity : BaseActivity() {
         btnSessions.setOnClickListener {
             navigateToSessions()
         }
+        
+        updateEnvironmentDisplay() // Показваме placeholder стойности веднага
 
         locationRequest = LocationRequest.create().apply {
             interval = LOCATION_UPDATE_INTERVAL
@@ -104,6 +124,11 @@ class MainMapActivity : BaseActivity() {
                 locationResult.lastLocation?.let { location ->
                     currentLocation = location
                     myLocationOverlay.onLocationChanged(location, null)
+                    
+                    // Fetch weather data when we get location
+                    if (currentTemperature == null && currentAltitude == null) {
+                        fetchWeatherFromAPI(location)
+                    }
                 }
             }
         }
@@ -323,5 +348,87 @@ class MainMapActivity : BaseActivity() {
             backToast.show()
         }
         backPressedTime = System.currentTimeMillis()
+    }
+    
+    private fun fetchWeatherData() {
+        if (currentLocation != null) {
+            fetchWeatherFromAPI(currentLocation!!)
+        }
+    }
+    
+    private fun updateEnvironmentDisplay() {
+        val tempText = if (currentTemperature != null) {
+            UnitsManager.formatTemperature(currentTemperature!!, this)
+        } else {
+            val unit = UnitsManager.getTemperatureUnit(this)
+            "--${unit.symbol}"
+        }
+        
+        val altText = if (currentAltitude != null) {
+            String.format("%.0fm", currentAltitude)
+        } else {
+            "--m"
+        }
+        
+        tvTemperature.text = tempText
+        tvAltitude.text = altText
+        
+        // Show environment info if we have any data
+        if (currentTemperature != null || currentAltitude != null) {
+            llEnvironment.visibility = LinearLayout.VISIBLE
+        }
+    }
+    
+    private fun fetchWeatherFromAPI(location: Location) {
+        android.util.Log.d("MainMapActivity", "Fetching weather for location: ${location.latitude}, ${location.longitude}")
+        lifecycleScope.launch {
+            try {
+                val weatherRetrofit = Retrofit.Builder()
+                    .baseUrl("https://api.openweathermap.org/data/2.5/")
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+                
+                val elevationRetrofit = Retrofit.Builder()
+                    .baseUrl("https://api.open-meteo.com/")
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+                
+                val weatherService = weatherRetrofit.create(WeatherService::class.java)
+                val openMeteoService = elevationRetrofit.create(OpenMeteoService::class.java)
+                
+                // Fetch weather
+                val weatherResponse = weatherService.getCurrentWeather(
+                    location.latitude,
+                    location.longitude,
+                    "metric",
+                    "bg",
+                    "3779e3fdd0b6656b070993ef70b1420f"
+                )
+                android.util.Log.d("MainMapActivity", "Weather response: ${weatherResponse.isSuccessful}")
+                if (weatherResponse.isSuccessful && weatherResponse.body() != null) {
+                    val weather = weatherResponse.body()!!
+                    currentTemperature = weather.main.temp.toFloat()
+                    android.util.Log.d("MainMapActivity", "Temperature: $currentTemperature")
+                }
+                
+                // Fetch elevation
+                val elevationResponse = openMeteoService.getElevation(
+                    location.latitude,
+                    location.longitude
+                )
+                android.util.Log.d("MainMapActivity", "Elevation response: ${elevationResponse.isSuccessful}")
+                if (elevationResponse.isSuccessful && elevationResponse.body() != null) {
+                    val elevation = elevationResponse.body()!!
+                    currentAltitude = elevation.elevation.firstOrNull()?.toFloat() ?: 0f
+                    android.util.Log.d("MainMapActivity", "Altitude: $currentAltitude")
+                }
+                
+                withContext(Dispatchers.Main) {
+                    updateEnvironmentDisplay()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MainMapActivity", "Error fetching weather data", e)
+            }
+        }
     }
 }

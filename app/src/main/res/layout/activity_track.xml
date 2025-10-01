@@ -50,6 +50,69 @@
 
         </LinearLayout>
 
+        <!-- Weather/Environment Info -->
+        <LinearLayout
+            android:id="@+id/llEnvironment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:background="#2A2D30"
+            android:padding="12dp"
+            android:layout_marginBottom="16dp"
+            android:visibility="visible">
+
+            <!-- Temperature -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginEnd="16dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_thermometer"
+                    android:tint="#4CAF50" />
+
+                <TextView
+                    android:id="@+id/tvTemperature"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/drag_temperature_placeholder"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+            </LinearLayout>
+
+            <!-- Altitude -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_altitude"
+                    android:tint="#2196F3" />
+
+                <TextView
+                    android:id="@+id/tvAltitude"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/drag_altitude_placeholder"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
         <!-- Track Sessions List -->
         <LinearLayout
             android:layout_width="match_parent"

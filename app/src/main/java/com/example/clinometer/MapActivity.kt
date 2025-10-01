@@ -64,6 +64,7 @@ class MapActivity : AppCompatActivity() {
     private enum class Mode {
         SPEED, ANGLE
     }
+    
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,6 +75,7 @@ class MapActivity : AppCompatActivity() {
         setContentView(R.layout.activity_map)
         
         setupScreenKeepOn()
+        
 
         // Зареждане на профила
         val currentProfileId = ProfileStorage.getSelectedProfileId(this)
