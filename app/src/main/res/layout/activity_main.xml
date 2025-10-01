@@ -15,235 +15,471 @@
         android:layout_height="0dp"
         android:layout_weight="1.2">
 
-        <org.osmdroid.views.MapView
-            android:id="@+id/mapView"
+    <org.osmdroid.views.MapView
+        android:id="@+id/mapView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Wrapper за навигационния панел + винаги видим бутон -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/navigationPanelWrapper"
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:padding="0dp"
+            >
+
+    <!-- Navigation Info Panel -->
+    <LinearLayout
+        android:id="@+id/navigationInfoContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="16dp"
+    android:background="@drawable/bg_rounded_translucent"
+    android:elevation="8dp"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:visibility="gone">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Navigation Icon -->
+        <ImageView
+            android:id="@+id/ivNavigationIcon"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_navigation"
+            android:tint="#00D4FF"
+            android:layout_marginEnd="12dp"/>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <!-- Main Instruction -->
+            <TextView
+                android:id="@+id/tvNavigationInstruction"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Продължете направо"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:maxLines="2"
+                android:ellipsize="end"/>
+
+            <!-- Distance to next turn -->
+            <TextView
+                android:id="@+id/tvDistanceToTurn"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="След 300 м"
+                android:textColor="#00D4FF"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- Distance and Time to Destination -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="end">
+
+            <TextView
+                android:id="@+id/tvDistanceToDestination"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="2.5 км"
+                android:textColor="#FFD700"
+                android:textSize="16sp"
+                android:textStyle="bold"/>
+
+            <TextView
+                android:id="@+id/tvTimeToDestination"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="5 мин"
+                android:textColor="#B0B0B0"
+                android:textSize="12sp"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Destination Name (optional) -->
+    <TextView
+        android:id="@+id/tvDestinationName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text=""
+        android:textColor="#58A6FF"
+        android:textSize="12sp"
+        android:visibility="gone"/>
+</LinearLayout>
+
+    <!-- Toggle бутон (винаги видим) - малко по-голям и близо до панела -->
+        <ImageButton
+            android:id="@+id/btnToggleNav"
+            android:layout_width="20dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="15dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/toggle_navigation"
+            android:src="@drawable/ic_chevron_right"
+            android:tint="#FFFFFF"
+            android:elevation="10dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/navigationInfoContainer"
+            app:layout_constraintBottom_toBottomOf="@id/navigationInfoContainer"
+            />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Orientation toggle (top-right) -->
+        <ImageButton
+            android:id="@+id/btnOrientationToggle"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="top|end"
+            android:layout_marginEnd="12dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_circle_translucent"
+            android:contentDescription="Orientation toggle"
+            android:src="@drawable/ic_unlock"
+            app:tint="#FFFFFF"
+            android:elevation="10dp"/>
+
     </FrameLayout>
 
     <!-- Bottom: Dashboard -->
-    <androidx.constraintlayout.widget.ConstraintLayout
+<androidx.constraintlayout.widget.ConstraintLayout
+android:layout_width="match_parent"
+android:layout_height="0dp"
+android:layout_weight="1"
+android:background="#161B22"
+android:padding="5dp"
+android:paddingBottom="0dp">
+
+<!-- (тук оставих останалата част от твоето оформление непроменена) -->
+
+<!-- Main Content Area -->
+<androidx.constraintlayout.widget.ConstraintLayout
+    android:id="@+id/contentArea"
+    android:layout_width="360dp"
+    android:layout_height="250dp"
+    app:layout_constraintBottom_toTopOf="@id/distanceContainer"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toTopOf="parent">
+
+    <!-- Speedometer Background -->
+    <ImageView
+        android:id="@+id/speedometerBackground"
+        android:layout_width="236dp"
+        android:layout_height="217dp"
+        android:src="@drawable/speedometer_circle"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintDimensionRatio="1:1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHeight_max="270dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_max="270dp"
+        app:tint="#15616d"
+        />
+
+    <!-- Gauge View -->
+    <com.example.clinometer.GaugeView
+        android:id="@+id/gaugeView"
+        android:layout_width="236dp"
+        android:layout_height="250dp"
+        android:padding="0dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintDimensionRatio="1:1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHeight_max="270dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0"
+        app:layout_constraintWidth_max="270dp" />
+
+    <!-- Speed Display -->
+    <TextView
+        android:id="@+id/speedText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-thin"
+        android:shadowColor="#0099CC"
+        android:shadowRadius="10"
+        android:text="0"
+        android:textAlignment="center"
+        android:textColor="#00D4FF"
+        android:textSize="48sp"
+        android:textStyle="bold"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.35" />
+
+    <!-- Angle Display -->
+    <TextView
+        android:id="@+id/currentAngleText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="4dp"
+        android:text="0°"
+        android:textAlignment="center"
+        android:textColor="#58A6FF"
+        android:textSize="20sp"
+        app:layout_constraintBottom_toBottomOf="@+id/speedometerBackground"
+        app:layout_constraintEnd_toEndOf="@+id/speedometerBackground"
+        app:layout_constraintStart_toStartOf="@+id/speedometerBackground"
+        app:layout_constraintTop_toBottomOf="@+id/speedText"
+        app:layout_constraintVertical_bias="0.05"
+        app:layout_constraintHorizontal_bias="0.500"/>
+
+    <!-- Timer -->
+    <Chronometer
+        android:id="@+id/chronometer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="-35dp"
+        android:textAlignment="center"
+        android:textColor="#FFD700"
+        android:textSize="18sp"
+        app:layout_constraintEnd_toEndOf="@+id/speedometerBackground"
+        app:layout_constraintStart_toStartOf="@+id/speedometerBackground"
+        app:layout_constraintTop_toBottomOf="@+id/speedometerBackground" />
+
+    <!-- Car Mode UI -->
+    <LinearLayout
+        android:id="@+id/carModeContainer"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="#161B22"
-        android:padding="5dp"
-        android:paddingBottom="0dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="24dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Main Content Area -->
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/contentArea"
-            android:layout_width="360dp"
-            android:layout_height="250dp"
-            app:layout_constraintBottom_toTopOf="@+id/accelerationContainer"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+        <!-- Speed Display -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="300dp"
+            android:layout_height="150dp"
+            app:cardBackgroundColor="#1F2937"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="12dp"
+            android:layout_marginBottom="24dp">
 
-            <!-- Speedometer Background -->
-            <ImageView
-                android:id="@+id/speedometerBackground"
-                android:layout_width="236dp"
-                android:layout_height="217dp"
-                android:src="@drawable/speedometer_circle"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintDimensionRatio="1:1"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHeight_max="270dp"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintWidth_max="270dp"
-                app:tint="#15616d" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="24dp">
 
-            <!-- Gauge View -->
+                <TextView
+                    android:id="@+id/speedTextCar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textColor="#00D4FF"
+                    android:textSize="72sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-thin"
+                    android:shadowColor="#00D4FF"
+                    android:shadowRadius="12"/>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
-            <!-- Speed Display -->
-
-            <com.example.clinometer.GaugeView
-                android:id="@+id/gaugeView"
-                android:layout_width="236dp"
-                android:layout_height="250dp"
-                android:padding="0dp"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintDimensionRatio="1:1"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHeight_max="270dp"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintVertical_bias="0.0"
-                app:layout_constraintWidth_max="270dp" />
-
-            <TextView
-                android:id="@+id/speedText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-thin"
-                android:shadowColor="#0099CC"
-                android:shadowRadius="10"
-                android:text="0"
-                android:textAlignment="center"
-                android:textColor="#00D4FF"
-                android:textSize="48sp"
-                android:textStyle="bold"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintVertical_bias="0.35" />
-
-            <!-- Angle Display -->
-
-            <!-- Timer -->
-
-            <TextView
-                android:id="@+id/currentAngleText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="4dp"
-                android:text="0°"
-                android:textAlignment="center"
-                android:textColor="#58A6FF"
-                android:textSize="20sp"
-                app:layout_constraintBottom_toBottomOf="@+id/speedometerBackground"
-                app:layout_constraintEnd_toEndOf="@+id/speedometerBackground"
-                app:layout_constraintStart_toStartOf="@+id/speedometerBackground"
-                app:layout_constraintTop_toBottomOf="@+id/speedText"
-                app:layout_constraintVertical_bias="0.05"
-                app:layout_constraintHorizontal_bias="0.500"/>
-
-            <Chronometer
-                android:id="@+id/chronometer"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="-35dp"
-                android:textAlignment="center"
-                android:textColor="#FFD700"
-                android:textSize="18sp"
-                app:layout_constraintEnd_toEndOf="@+id/speedometerBackground"
-                app:layout_constraintStart_toStartOf="@+id/speedometerBackground"
-                app:layout_constraintTop_toBottomOf="@+id/speedometerBackground" />
-        </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <!-- Acceleration Metrics -->
+        <!-- Bottom Row: Timer and Distance -->
         <LinearLayout
-            android:id="@+id/accelerationContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:paddingVertical="8dp"
-            app:layout_constraintBottom_toTopOf="@id/buttonContainer"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent">
-
-            <TextView
-                android:id="@+id/tvZeroTo100"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="0-100: -"
-                android:textColor="#00D4FF"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/tvZeroTo200"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="0-200: -"
-                android:textColor="#00D4FF"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/tvHundredTo200"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:text="100-200: -"
-                android:textColor="#00D4FF"
-                android:textSize="14sp" />
-        </LinearLayout>
-
-        <!-- Button Container -->
-        <LinearLayout
-            android:id="@+id/buttonContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="8dp">
+            android:gravity="center">
 
-            <Button
-                android:id="@+id/btnReset"
+            <!-- Timer Card -->
+            <androidx.cardview.widget.CardView
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="120dp"
                 android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:text="@string/reset_button"
-                android:textColor="#000"
-                android:textSize="12sp"
-                app:backgroundTint="#FFF"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.1"
-                android:stateListAnimator="@null"
-                android:background="@drawable/rounded_button"/>
+                android:layout_marginEnd="12dp"
+                app:cardBackgroundColor="#1F2937"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="8dp">
 
-            <Button
-                android:id="@+id/btnZero"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:text="@string/zero_button"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                app:backgroundTint="#4CAF50"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.1"
-                android:stateListAnimator="@null"
-                android:background="@drawable/rounded_button"/>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="20dp">
 
-            <Button
-                android:id="@+id/btnStop"
+                    <Chronometer
+                        android:id="@+id/chronometerCar"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="#FFD700"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-thin"
+                        android:gravity="center"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Distance Card -->
+            <androidx.cardview.widget.CardView
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="120dp"
                 android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:text="@string/stop_button"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.1"
-                android:stateListAnimator="@null"
-                android:background="@drawable/rounded_button"
-                app:backgroundTint="#E53E3E"/>
+                android:layout_marginStart="12dp"
+                app:cardBackgroundColor="#1F2937"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:id="@+id/distanceTextCar"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0.00 км"
+                        android:textColor="#10B981"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-thin"
+                        android:shadowColor="#10B981"
+                        android:shadowRadius="8"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
         </LinearLayout>
+    </LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- Hidden diagnostic elements -->
-        <TextView
-            android:id="@+id/maxSpeedText"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:visibility="gone"/>
-        <TextView
-            android:id="@+id/maxLeftText"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:visibility="gone"/>
-        <TextView
-            android:id="@+id/maxRightText"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
-            android:visibility="gone"/>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+<!-- Distance Display (Motorcycle only) -->
+<LinearLayout
+    android:id="@+id/distanceContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:paddingVertical="8dp"
+    app:layout_constraintBottom_toTopOf="@id/buttonContainer"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent">
+
+    <TextView
+        android:id="@+id/distanceText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Distance: 0.00 km"
+        android:textSize="16sp"
+        android:textColor="#00D4FF"/>
 </LinearLayout>
+
+<!-- Button Container -->
+<LinearLayout
+    android:id="@+id/buttonContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="8dp">
+
+    <Button
+        android:id="@+id/btnReset"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="1"
+        android:layout_marginEnd="4dp"
+        android:text="@string/reset_button"
+        android:textColor="#000"
+        android:textSize="12sp"
+        app:backgroundTint="#FFF"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.1"
+        android:stateListAnimator="@null"
+        android:background="@drawable/rounded_button"/>
+
+    <Button
+        android:id="@+id/btnZero"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="1"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
+        android:text="@string/zero_button"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        app:backgroundTint="#4CAF50"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.1"
+        android:stateListAnimator="@null"
+        android:background="@drawable/rounded_button"/>
+
+    <Button
+        android:id="@+id/btnStop"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="1"
+        android:layout_marginStart="4dp"
+        android:text="@string/stop_button"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.1"
+        android:stateListAnimator="@null"
+        android:background="@drawable/rounded_button"
+        app:backgroundTint="#E53E3E"/>
+</LinearLayout>
+
+<!-- Hidden diagnostic elements -->
+<TextView
+    android:id="@+id/maxSpeedText"
+    android:layout_width="0dp"
+    android:layout_height="0dp"
+    android:visibility="gone"/>
+    <TextView
+        android:id="@+id/maxLeftText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0"
+        android:visibility="gone"/>
+
+    <TextView
+        android:id="@+id/maxRightText"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"/>
+
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+    </LinearLayout>

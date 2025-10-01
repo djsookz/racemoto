@@ -1,44 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="#1C1C1E"
     android:fitsSystemWindows="true">
 
-    <!-- Списък за състезания -->
-
-    <TextView
-        android:id="@+id/tvTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|center_horizontal"
-        android:layout_marginTop="32dp"
-        android:layout_marginBottom="80dp"
-        android:text="@string/session_header"
-        android:textSize="32sp"
-        android:textStyle="bold" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvRaces"
+    <!-- Основно съдържание - заема целия екран -->
+    <FrameLayout
+        android:id="@+id/contentContainer"
         android:layout_width="match_parent"
-        android:layout_height="626dp"
-        android:layout_marginTop="80dp"
-        android:padding="16dp" />
+        android:layout_height="match_parent">
 
-    <!-- Празен изглед, когато списъкът е празен -->
-    <TextView
-        android:id="@+id/tvEmptyView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:visibility="gone"
-        android:text="@string/empty_races_message"/>
+        <!-- Header с бутон за назад -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="16dp"
+            android:layout_marginTop="16dp">
 
-    <!-- Бутон за нов маршрут, който е позициониран на 80dp над долния ръб на навигацията -->
-    <Button
-        android:id="@+id/btnNewRoute"
-        android:layout_width="match_parent"
-        android:layout_height="55dp"
-        android:layout_gravity="end|bottom"
-        android:text="@string/session_new_button" />
-</FrameLayout>
+            <!-- Бутон за назад -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnBack"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="16dp"
+                android:backgroundTint="@android:color/transparent"
+                app:icon="@drawable/ic_arrow_back"
+                app:iconTint="#FFFFFF"
+                app:iconSize="24dp"
+                app:cornerRadius="24dp"
+                style="@style/Widget.Material3.Button.IconButton" />
+
+            <!-- Заглавие -->
+            <TextView
+                android:id="@+id/tvTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/session_header"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF" />
+
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvRaces"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="80dp"
+            android:padding="16dp"
+            android:clipToPadding="false" />
+
+        <!-- Празен изглед, когато списъкът е празен -->
+        <TextView
+            android:id="@+id/tvEmptyView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:visibility="gone"
+            android:text="@string/empty_races_message"
+            android:textColor="#FFFFFF"/>
+
+    </FrameLayout>
+
+</RelativeLayout>

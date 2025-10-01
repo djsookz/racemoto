@@ -6,10 +6,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application
         android:theme="@style/Theme.DragMe"
@@ -24,11 +26,8 @@
         android:usesCleartextTraffic="true">
 
         <activity
-            android:name=".StartActivity"
-            android:launchMode="singleTop"
-            android:screenOrientation="portrait"
-            android:exported="true"
-            >
+            android:name=".MainMapActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -36,43 +35,81 @@
         </activity>
 
         <activity
-            android:name=".FirstProfileActivity"
-            android:exported="true" />
+            android:name=".StartActivity"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            android:exported="true"
+            >
+
+        </activity>
 
         <activity
-            android:name=".ProfileActivity"
+            android:name=".FirstProfileActivity"
+            android:exported="true"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".GarageActivity"
             android:exported="false" />
 
         <activity
             android:name=".MainActivity"
-            android:screenOrientation="portrait"
             android:exported="false" />
 
         <activity
             android:name=".RacesActivity"
-            android:screenOrientation="portrait"
             android:exported="false"/>
 
         <activity
             android:name=".MapActivity"
             android:exported="false"
-            android:screenOrientation="portrait"/>
+            />
 
         <activity
             android:name=".CountdownActivity"
-            android:screenOrientation="portrait"
-            android:exported="false"/>
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
 
         <activity
             android:name=".SettingsActivity"
             android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar"/>
         <activity
+            android:name=".TrackActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TrackSessionDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TrackLapDetailActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TrackMapActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TrackSelectionActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TrackSessionActivity"
+            android:exported="false" />
+        <activity
             android:name=".ProfileDetailActivity"
-            android:parentActivityName=".ProfileActivity">
+            android:parentActivityName=".GarageActivity">
             <meta-data
                 android:name="android.support.PARENT_ACTIVITY"
-                android:value=".ProfileActivity" />
+                android:value=".GarageActivity" />
         </activity>
+
+        <activity
+            android:name=".DragPageActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity
+            android:name=".drag.DragRunPageActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <activity
+            android:name=".DragSessionDetailsActivity"
+           />
 
 
 

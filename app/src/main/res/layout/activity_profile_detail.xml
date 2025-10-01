@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/gradient_background"
+    android:background="#1C1C1E"
     android:fitsSystemWindows="true">
 
     <!-- Background ImageView -->
@@ -39,14 +39,14 @@
                 app:cardCornerRadius="24dp"
                 app:cardElevation="12dp"
                 android:layout_marginBottom="24dp"
-                app:cardBackgroundColor="@color/card_dark">
+               app:cardBackgroundColor="#3A3D40">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="28dp"
-                    android:background="@drawable/card_gradient">
+                    android:backgroundTint="#3A3D40">
 
                     <TextView
                         android:id="@+id/tvProfileNameDetail"
@@ -75,7 +75,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="4dp"
                         android:layout_marginTop="16dp"
-                        android:background="#4CAF50"
+                        android:background="#1976d2"
                         android:textAlignment="center"/>
 
                     <!-- Profile summary stats -->
@@ -202,13 +202,15 @@
                 app:cardCornerRadius="20dp"
                 app:cardElevation="8dp"
                 android:layout_marginBottom="20dp"
-                app:cardBackgroundColor="@color/card_dark">
+                android:backgroundTint="#3A3D40"
+                >
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="24dp">
+                    android:padding="24dp"
+                    android:backgroundTint="#1c1c1c">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -271,7 +273,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:orientation="vertical"
-                                android:gravity="end">
+                                android:gravity="end"
+                                android:layout_marginEnd="8dp">
 
                                 <TextView
                                     android:id="@+id/tvBest0to100"
@@ -290,6 +293,18 @@
                                     android:textSize="12sp"
                                     android:alpha="0.6"/>
                             </LinearLayout>
+
+                            <ImageButton
+                                android:id="@+id/btnReset0to100"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_gravity="center_vertical"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:src="@drawable/ic_reset"
+                                android:tint="@color/white"
+                                android:alpha="0.7"
+                                android:scaleType="centerInside"
+                                android:padding="4dp"/>
                         </LinearLayout>
 
                         <!-- 0-200 km/h -->
@@ -329,7 +344,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:orientation="vertical"
-                                android:gravity="end">
+                                android:gravity="end"
+                                android:layout_marginEnd="8dp">
 
                                 <TextView
                                     android:id="@+id/tvBest0to200"
@@ -348,6 +364,18 @@
                                     android:textSize="12sp"
                                     android:alpha="0.6"/>
                             </LinearLayout>
+
+                            <ImageButton
+                                android:id="@+id/btnReset0to200"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_gravity="center_vertical"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:src="@drawable/ic_reset"
+                                android:tint="@color/white"
+                                android:alpha="0.7"
+                                android:scaleType="centerInside"
+                                android:padding="4dp"/>
                         </LinearLayout>
 
                         <!-- 100-200 km/h -->
@@ -387,7 +415,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:orientation="vertical"
-                                android:gravity="end">
+                                android:gravity="end"
+                                android:layout_marginEnd="8dp">
 
                                 <TextView
                                     android:id="@+id/tvBest100to200"
@@ -406,6 +435,89 @@
                                     android:textSize="12sp"
                                     android:alpha="0.6"/>
                             </LinearLayout>
+
+                            <ImageButton
+                                android:id="@+id/btnReset100to200"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_gravity="center_vertical"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:src="@drawable/ic_reset"
+                                android:tint="@color/white"
+                                android:alpha="0.7"
+                                android:scaleType="centerInside"
+                                android:padding="4dp"/>
+                        </LinearLayout>
+
+                        <!-- 0-402m (Quarter Mile) -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:padding="16dp"
+                            android:background="@drawable/stat_item_background"
+                            android:layout_marginBottom="8dp">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0-402m"
+                                    android:textColor="@color/white"
+                                    android:textSize="14sp"
+                                    android:alpha="0.8"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Quarter Mile"
+                                    android:textColor="@color/white"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginTop="2dp"/>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="vertical"
+                                android:gravity="end"
+                                android:layout_marginEnd="8dp">
+
+                                <TextView
+                                    android:id="@+id/tvBest0to402"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="N/A"
+                                    android:textColor="@color/accent_red"
+                                    android:textSize="20sp"
+                                    android:textStyle="bold"/>
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="seconds"
+                                    android:textColor="@color/white"
+                                    android:textSize="12sp"
+                                    android:alpha="0.6"/>
+                            </LinearLayout>
+
+                            <ImageButton
+                                android:id="@+id/btnReset0to402"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_gravity="center_vertical"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:src="@drawable/ic_reset"
+                                android:tint="@color/white"
+                                android:alpha="0.7"
+                                android:scaleType="centerInside"
+                                android:padding="4dp"/>
                         </LinearLayout>
 
                         <!-- Max Speed -->
@@ -444,7 +556,8 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:orientation="vertical"
-                                android:gravity="end">
+                                android:gravity="end"
+                                android:layout_marginEnd="8dp">
 
                                 <TextView
                                     android:id="@+id/tvMaxSpeed"
@@ -463,9 +576,22 @@
                                     android:textSize="12sp"
                                     android:alpha="0.6"/>
                             </LinearLayout>
+
+                            <ImageButton
+                                android:id="@+id/btnResetMaxSpeed"
+                                android:layout_width="32dp"
+                                android:layout_height="32dp"
+                                android:layout_gravity="center_vertical"
+                                android:background="?attr/selectableItemBackgroundBorderless"
+                                android:src="@drawable/ic_reset"
+                                android:tint="@color/white"
+                                android:alpha="0.7"
+                                android:scaleType="centerInside"
+                                android:padding="4dp"/>
                         </LinearLayout>
 
                     </LinearLayout>
+
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 

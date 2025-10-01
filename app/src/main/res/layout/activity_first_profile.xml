@@ -3,134 +3,216 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#121212"
+    android:background="@color/dark_background"
     android:fitsSystemWindows="true">
 
-    <!-- Background -->
+    <!-- Full Screen Background Image -->
     <ImageView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:src="@drawable/start_background"
-        android:scaleType="centerCrop"
-        android:contentDescription="@null" />
+        android:scaleType="centerCrop" />
 
-    <!-- Dark overlay -->
+    <!-- Dark Overlay -->
     <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#80000000" />
 
-    <!-- Content -->
+    <!-- Top Title -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center"
-        android:padding="24dp">
+        android:padding="40dp"
+        android:layout_marginTop="80dp">
 
-        <!-- Logo or App Name -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="DRAGME PRO"
             android:textAllCaps="true"
-            android:textSize="28sp"
-            android:letterSpacing="0.1"
-            android:includeFontPadding="false"
-
-            android:textColor="#FFFFFF"
-            android:background="@drawable/title_border"
-            android:shadowColor="#55000000"
+            android:textSize="36sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.2"
+            android:textColor="@color/white"
+            android:fontFamily="sans-serif-light"
+            android:shadowColor="@color/shadow_color"
             android:shadowDx="0"
-            android:shadowDy="2"
-            android:shadowRadius="4"
-            android:layout_gravity="center_horizontal"/>
+            android:shadowDy="3"
+            android:shadowRadius="6" />
+    </LinearLayout>
 
+    <!-- Bottom Content -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bottom_content_background"
+        android:padding="32dp"
+        android:layout_margin="16dp">
 
-
-
-
-        <!-- Welcome Message -->
-        <TextView
+        <!-- Vehicle Type Selection -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/welcome"
-            android:textColor="#FFFFFF"
-            android:textSize="24sp"
-            android:gravity="center"
-            android:layout_marginTop="32dp"/>
+            android:orientation="vertical"
+            android:layout_marginBottom="24dp">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/create_profile"
-            android:textColor="#CCCCCC"
-            android:textSize="16sp"
-            android:gravity="center"
-            android:layout_marginTop="8dp"/>
-
-        <!-- Марка на превозното средство -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/nameInput"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="48dp"
-            android:hint="@string/vehicle_brand"
-            app:boxStrokeColor="#FFFFFF"
-            app:hintTextColor="#FFFFFF"
-            app:boxStrokeWidthFocused="2dp"
-            app:endIconMode="clear_text"
-            app:endIconTint="#FFFFFF"
-            app:boxBackgroundMode="outline"
-            app:boxBackgroundColor="#33FFFFFF"> <!-- 20% прозрачност на бял фон -->
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#FFFFFF"
-                android:singleLine="true"
-                android:maxLines="1"/>
-        </com.google.android.material.textfield.TextInputLayout>
+                android:text="Vehicle Type"
+                android:textColor="@color/text_primary_light"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp"
+                android:fontFamily="sans-serif-medium" />
 
-        <!-- Тип на превозното средство -->
+            <!-- Car Option -->
+            <LinearLayout
+                android:id="@+id/carCard"
+                android:layout_width="match_parent"
+                android:layout_height="80dp"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/vehicle_option_background"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🚗"
+                    android:textSize="32sp"
+                    android:layout_marginEnd="16dp"
+                    android:gravity="center" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Car"
+                    android:textColor="@color/text_primary_light"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+
+            <!-- Motorcycle Option -->
+            <LinearLayout
+                android:id="@+id/motorcycleCard"
+                android:layout_width="match_parent"
+                android:layout_height="80dp"
+                android:background="@drawable/vehicle_option_background"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🏍️"
+                    android:textSize="32sp"
+                    android:layout_marginEnd="16dp"
+                    android:gravity="center" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Motorcycle"
+                    android:textColor="@color/text_primary_light"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="4dp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Vehicle Brand Selection -->
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/vehicleTypeInput"
+            android:id="@+id/brandInput"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:hint="@string/vehicle_type"
-            app:boxStrokeColor="#FFFFFF"
-            app:hintTextColor="#FFFFFF"
+            android:layout_marginBottom="16dp"
+            android:hint="Select Brand"
+            android:textColorHint="@color/white"
+            app:boxStrokeColor="@color/primary_color"
+            app:boxStrokeWidth="1dp"
             app:boxStrokeWidthFocused="2dp"
-            app:endIconTint="#FFFFFF"
+            app:endIconTint="@color/primary_color"
             app:boxBackgroundMode="outline"
-            app:boxBackgroundColor="#33FFFFFF">
+            app:boxBackgroundColor="@color/dark_surface"
+            app:startIconDrawable="@drawable/ic_car"
+            app:startIconTint="@color/primary_color">
 
             <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/vehicleTypeDropdown"
+                android:id="@+id/brandDropdown"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="none"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/white"
+                android:textSize="16sp"
                 android:background="@null"
-                android:popupBackground="@color/black"
-                android:dropDownSelector="#333333"
-                android:dropDownVerticalOffset="4dp"
-                android:dropDownWidth="match_parent"/>
+                android:popupBackground="@color/white"
+                android:dropDownSelector="@color/primary_color"
+                android:dropDownVerticalOffset="8dp"
+                android:dropDownWidth="match_parent" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Create Button -->
+        <!-- Vehicle Model Selection -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/modelInput"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:hint="Select Model"
+            android:textColorHint="@color/white"
+            app:boxStrokeColor="@color/primary_color"
+            app:boxStrokeWidth="1dp"
+            app:boxStrokeWidthFocused="2dp"
+            app:endIconTint="@color/primary_color"
+            app:boxBackgroundMode="outline"
+            app:boxBackgroundColor="@color/dark_surface"
+            app:startIconDrawable="@drawable/ic_settings"
+            app:startIconTint="@color/primary_color">
+
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                android:id="@+id/modelDropdown"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:background="@null"
+                android:popupBackground="@color/white"
+                android:dropDownSelector="@color/primary_color"
+                android:dropDownVerticalOffset="8dp"
+                android:dropDownWidth="match_parent" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Create Profile Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCreateProfile"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:layout_marginTop="32dp"
             android:text="@string/create_profile_button"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            app:backgroundTint="#4CAF50"
-            app:cornerRadius="28dp" />
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:backgroundTint="@color/primary_color"
+            app:cornerRadius="28dp"
+            app:icon="@drawable/ic_add"
+            app:iconGravity="textStart"
+            app:iconPadding="8dp"
+            app:iconTint="@color/white"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp" />
     </LinearLayout>
 </FrameLayout>

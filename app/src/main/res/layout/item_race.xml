@@ -9,94 +9,133 @@
     android:layout_marginTop="8dp"
     android:layout_marginBottom="8dp"
     app:cardCornerRadius="12dp"
-    app:cardElevation="0dp"
+    app:cardElevation="4dp"
+    app:cardBackgroundColor="#3A3D40"
+    android:forceDarkAllowed="false"
     app:cardPreventCornerOverlap="true">
 
-    <!-- Оригиналният RelativeLayout с всичко останало -->
-    <RelativeLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingLeft="5dp"
-        android:paddingRight="5dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="16dp"
-        android:clipToPadding="false"
-        android:background="@drawable/card_background">
+        android:orientation="vertical"
+        android:forceDarkAllowed="false">
 
-        <!-- Цветна акцентна лента отляво -->
-        <View
-            android:layout_width="4dp"
-            android:layout_height="match_parent"
-            android:background="@drawable/accent_gradient"
-            android:layout_alignParentStart="true"
-            android:layout_marginStart="-20dp"
-            android:layout_marginTop="-16dp"
-            android:layout_marginBottom="-16dp"/>
-
-        <!-- Информация за маршрута -->
-        <LinearLayout
-            android:id="@+id/layoutInfo"
+        <!-- Горна част с информация -->
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_toStartOf="@id/btnOptions"
-            android:layout_alignParentStart="true"
-            android:layout_marginStart="8dp">
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp"
+            android:forceDarkAllowed="false">
 
-            <TextView
-                android:id="@+id/tvDate"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/white"
-                android:layout_marginBottom="6dp"
-                android:fontFamily="sans-serif-medium"/>
-
-            <TextView
-                android:id="@+id/dateTextView"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="8dp"
-                android:textSize="14sp"
-                android:textColor="@color/white"
-                android:alpha="0.8"
-                android:fontFamily="sans-serif"/>
-
+            <!-- Информация за маршрута -->
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:id="@+id/layoutInfo"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <View
-                    android:layout_width="8dp"
-                    android:layout_height="8dp"
-                    android:background="@drawable/status_indicator"
-                    android:layout_marginEnd="8dp"/>
+                android:orientation="vertical"
+                android:layout_toStartOf="@id/btnOptions"
+                android:layout_alignParentStart="true"
+                android:forceDarkAllowed="false">
 
                 <TextView
-                    android:id="@+id/tvNumber"
+                    android:id="@+id/tvName"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textSize="16sp"
-                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:layout_marginBottom="6dp"
                     android:fontFamily="sans-serif-medium"/>
-            </LinearLayout>
-        </LinearLayout>
 
-        <!-- Модерно меню бутон -->
-        <ImageButton
-            android:id="@+id/btnOptions"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:src="@drawable/ic_more_vert"
-            app:tint="@color/white"
-            android:background="@drawable/ripple_circle"
-            android:contentDescription="@string/options"
-            android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true"
-            android:scaleType="center"
-            android:padding="16dp"/>
-    </RelativeLayout>
+                <TextView
+                    android:id="@+id/dateTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:textSize="14sp"
+                    android:textColor="#FFFFFF"
+                    android:fontFamily="sans-serif"/>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:forceDarkAllowed="false">
+
+                    <View
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:background="@drawable/status_indicator"
+                        android:layout_marginEnd="8dp"/>
+
+                    <TextView
+                        android:id="@+id/tvNumber"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="16sp"
+                        android:textColor="#FFFFFF"
+                        android:fontFamily="sans-serif-medium"/>
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Модерно меню бутон -->
+            <ImageButton
+                android:id="@+id/btnOptions"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:src="@drawable/ic_more_vert"
+                app:tint="#FFFFFF"
+                android:background="@drawable/ripple_circle"
+                android:contentDescription="@string/options"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:scaleType="center"
+                android:padding="16dp"
+                android:forceDarkAllowed="false"/>
+        </RelativeLayout>
+
+        <!-- МИНИ КАРТА ОТДОЛУ - заема цялата ширина -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="120dp"
+            android:forceDarkAllowed="false">
+
+            <org.osmdroid.views.MapView
+                android:id="@+id/miniMapView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"/>
+
+            <!-- Overlay за loading/no data -->
+            <LinearLayout
+                android:id="@+id/layoutMapPlaceholder"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#F1F3F4"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:visibility="gone"
+                android:forceDarkAllowed="false">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🗺️"
+                    android:textSize="24sp"
+                    android:layout_marginBottom="4dp"
+                    android:forceDarkAllowed="false"/>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Няма данни за маршрут"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"/>
+            </LinearLayout>
+        </FrameLayout>
+
+    </LinearLayout>
 </androidx.cardview.widget.CardView>
