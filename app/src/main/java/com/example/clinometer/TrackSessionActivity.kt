@@ -16,7 +16,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -30,6 +29,8 @@ import kotlin.math.sin
 import kotlin.math.cos
 import android.content.res.Configuration
 import com.example.clinometer.settings.SoundManager
+import com.example.clinometer.settings.UnitsManager
+import android.widget.LinearLayout
 
 // Data class for storing lap data
 data class LapData(
@@ -241,6 +242,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             Log.w("TrackSession", "Rotation vector not available")
         }
     }
+    
     private fun setupLocation() {
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {

@@ -8,13 +8,35 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
+import com.example.clinometer.settings.UnitsManager
+import com.example.clinometer.network.WeatherService
+import com.example.clinometer.network.OpenMeteoService
+import com.example.clinometer.network.ElevationResponse
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.lifecycle.lifecycleScope
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.app.ActivityCompat
 
-class TrackActivity : BaseActivity() {
+class TrackActivity : BaseActivity(), LocationListener {
     override fun getLayoutResourceId(): Int = R.layout.activity_track
     override fun getNavigationItemId(): Int = R.id.navTrack
 
     private lateinit var btnStartNewSession: MaterialButton
     private lateinit var btnViewTrack: MaterialButton
+    private lateinit var llEnvironment: LinearLayout
+    private lateinit var tvTemperature: TextView
+    private lateinit var tvAltitude: TextView
+    private lateinit var locationManager: LocationManager
+    private var currentTemperature: Float? = null
+    private var currentAltitude: Float? = null
     private lateinit var headerSofiaRing: LinearLayout
     private lateinit var contentSofiaRing: LinearLayout
     private lateinit var arrowSofiaRing: TextView
@@ -43,8 +65,12 @@ class TrackActivity : BaseActivity() {
     private var activeSessionTrackId: String? = null
     private var activeSessionTrackName: String? = null
     
-    // Track management
-    private lateinit var trackManager: TrackManager
+        // Track management
+        private lateinit var trackManager: TrackManager
+        
+        companion object {
+            private const val LOCATION_PERMISSION_REQUEST = 1001
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +78,8 @@ class TrackActivity : BaseActivity() {
         trackManager = TrackManager(this)
         initializeViews()
         setupClickListeners()
+        updateEnvironmentDisplay() // Показваме placeholder стойности веднага
+        setupLocation()
         checkActiveSessions()
         showNoSessionsMessage()
     }
@@ -59,6 +87,9 @@ class TrackActivity : BaseActivity() {
     private fun initializeViews() {
         btnStartNewSession = findViewById(R.id.btnStartNewSession)
         btnViewTrack = findViewById(R.id.btnViewTrack)
+        llEnvironment = findViewById(R.id.llEnvironment)
+        tvTemperature = findViewById(R.id.tvTemperature)
+        tvAltitude = findViewById(R.id.tvAltitude)
         headerSofiaRing = findViewById(R.id.headerSofiaRing)
         contentSofiaRing = findViewById(R.id.contentSofiaRing)
         arrowSofiaRing = findViewById(R.id.arrowSofiaRing)
@@ -714,4 +745,104 @@ class TrackActivity : BaseActivity() {
         }
         backPressedTime = System.currentTimeMillis()
     }
+    
+    private fun setupLocation() {
+        locationManager = getSystemService(android.content.Context.LOCATION_SERVICE) as LocationManager
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0f, this)
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 0, 0f, this)
+        } else {
+            androidx.core.app.ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST)
+        }
+    }
+    
+    private fun fetchWeatherData() {
+        // Weather data will be fetched when location is available
+    }
+    
+    private fun updateEnvironmentDisplay() {
+        val tempText = if (currentTemperature != null) {
+            UnitsManager.formatTemperature(currentTemperature!!, this)
+        } else {
+            val unit = UnitsManager.getTemperatureUnit(this)
+            "--${unit.symbol}"
+        }
+        
+        val altText = if (currentAltitude != null) {
+            String.format("%.0fm", currentAltitude)
+        } else {
+            "--m"
+        }
+        
+        tvTemperature.text = tempText
+        tvAltitude.text = altText
+        
+        // Show environment info if we have any data
+        if (currentTemperature != null || currentAltitude != null) {
+            llEnvironment.visibility = LinearLayout.VISIBLE
+        }
+    }
+    
+    private fun fetchWeatherFromAPI(location: Location) {
+        android.util.Log.d("TrackActivity", "Fetching weather for location: ${location.latitude}, ${location.longitude}")
+        lifecycleScope.launch {
+            try {
+                val weatherRetrofit = Retrofit.Builder()
+                    .baseUrl("https://api.openweathermap.org/data/2.5/")
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+                
+                val elevationRetrofit = Retrofit.Builder()
+                    .baseUrl("https://api.open-meteo.com/")
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+                
+                val weatherService = weatherRetrofit.create(WeatherService::class.java)
+                val openMeteoService = elevationRetrofit.create(OpenMeteoService::class.java)
+                
+                // Fetch weather
+                val weatherResponse = weatherService.getCurrentWeather(
+                    location.latitude,
+                    location.longitude,
+                    "metric",
+                    "bg",
+                    "3779e3fdd0b6656b070993ef70b1420f"
+                )
+                android.util.Log.d("TrackActivity", "Weather response: ${weatherResponse.isSuccessful}")
+                if (weatherResponse.isSuccessful && weatherResponse.body() != null) {
+                    val weather = weatherResponse.body()!!
+                    currentTemperature = weather.main.temp.toFloat()
+                    android.util.Log.d("TrackActivity", "Temperature: $currentTemperature")
+                }
+                
+                // Fetch elevation
+                val elevationResponse = openMeteoService.getElevation(
+                    location.latitude,
+                    location.longitude
+                )
+                android.util.Log.d("TrackActivity", "Elevation response: ${elevationResponse.isSuccessful}")
+                if (elevationResponse.isSuccessful && elevationResponse.body() != null) {
+                    val elevation = elevationResponse.body()!!
+                    currentAltitude = elevation.elevation.firstOrNull()?.toFloat() ?: 0f
+                    android.util.Log.d("TrackActivity", "Altitude: $currentAltitude")
+                }
+                
+                withContext(Dispatchers.Main) {
+                    updateEnvironmentDisplay()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("TrackActivity", "Error fetching weather data", e)
+            }
+        }
+    }
+    
+    override fun onLocationChanged(location: Location) {
+        if (currentTemperature == null && currentAltitude == null) {
+            fetchWeatherFromAPI(location)
+        }
+    }
+    
+    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+    override fun onProviderEnabled(provider: String) {}
+    override fun onProviderDisabled(provider: String) {}
 }

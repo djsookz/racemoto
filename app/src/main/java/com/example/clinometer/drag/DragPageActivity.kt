@@ -41,6 +41,8 @@ import android.content.res.Configuration
 import android.util.Log
 import com.example.clinometer.settings.SoundManager
 import com.example.clinometer.settings.UnitsManager
+import com.example.clinometer.network.WeatherService
+import com.example.clinometer.network.OpenMeteoService
 
 
 class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
@@ -668,37 +670,6 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
     }
 }
 
-// API service interfaces
-interface OpenMeteoService {
-    @GET("v1/elevation")
-    suspend fun getElevation(
-        @Query("latitude") lat: Double,
-        @Query("longitude") lng: Double
-    ): Response<ElevationResponse>
-}
-
-interface WeatherService {
-    @GET("weather")
-    suspend fun getCurrentWeather(
-        @Query("lat") lat: Double,
-        @Query("lon") lon: Double,
-        @Query("units") units: String,
-        @Query("lang") lang: String,
-        @Query("appid") apiKey: String
-    ): Response<WeatherResponse>
-}
-
-data class ElevationResponse(
-    val elevation: List<Double>
-)
-
-data class WeatherResponse(
-    val main: MainData
-)
-
-data class MainData(
-    val temp: Double
-)
 enum class MeasurementMode {
     ALL,
     ZERO_TO_100,
