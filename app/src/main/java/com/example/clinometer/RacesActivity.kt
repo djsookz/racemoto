@@ -1,6 +1,7 @@
 package com.example.clinometer
 
 import android.app.AlertDialog
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
@@ -9,9 +10,14 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.clinometer.settings.LanguageManager
 import com.google.android.material.button.MaterialButton
 
 class RacesActivity : AppCompatActivity() {
+    
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(LanguageManager.applyLanguage(newBase))
+    }
 
     private lateinit var adapter: RaceAdapter
     private lateinit var recyclerView: RecyclerView
@@ -105,8 +111,8 @@ class RacesActivity : AppCompatActivity() {
     private fun showDeleteConfirmation(race: Race) {
         AlertDialog.Builder(this)
             .setTitle("Изтриване на сесия")
-            .setMessage("Сигурни ли сте, че искате да изтриете \"${race.name ?: "Session"}\"?")
-            .setPositiveButton("Изтрий") { _, _ ->
+            .setMessage(getString(R.string.delete_confirmation, race.name ?: "Session"))
+            .setPositiveButton(getString(R.string.delete_button)) { _, _ ->
                 // Изтриваме от базата данни
                 val all = RouteStorage.loadRaces(this).toMutableList()
                 all.removeAll { it.id == race.id }
@@ -119,7 +125,7 @@ class RacesActivity : AppCompatActivity() {
                 
                 Toast.makeText(this, "✅ Сесията е изтрита", Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton("Отказ", null)
+            .setNegativeButton(getString(R.string.cancel_button), null)
             .show()
     }
 }

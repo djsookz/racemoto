@@ -8,12 +8,15 @@ import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.PreferenceManager
+import com.example.clinometer.settings.LanguageManager
+import com.example.clinometer.settings.UnitsManager
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
@@ -39,6 +42,11 @@ import com.github.mikephil.charting.components.YAxis
 import kotlin.math.abs
 
 class MapActivity : AppCompatActivity() {
+    
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(LanguageManager.applyLanguage(newBase))
+    }
+    
     private lateinit var routePoints: List<RoutePoint>
     private lateinit var map: MapView
     private lateinit var marker: Marker
@@ -64,6 +72,8 @@ class MapActivity : AppCompatActivity() {
             PreferenceManager.getDefaultSharedPreferences(applicationContext)
         )
         setContentView(R.layout.activity_map)
+        
+        setupScreenKeepOn()
 
         // Зареждане на профила
         val currentProfileId = ProfileStorage.getSelectedProfileId(this)
@@ -105,7 +115,8 @@ class MapActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.tvMaxRightInfo).text = getString(R.string.max_right_angle) + " " + "%.1f°".format(maxRightAngle)
             findViewById<TextView>(R.id.tvDistanceMoto).apply {
                 visibility = View.VISIBLE
-                text = getString(R.string.distance_format) + " " + "%.2f".format(race.distance) + " " + getString(R.string.km_unit)
+                val convertedDist = UnitsManager.formatDistance(race.distance, this@MapActivity, 2)
+                text = getString(R.string.distance_format) + " " + convertedDist
             }
             findViewById<TextView>(R.id.tvDistanceCar).visibility = View.GONE
             // 👇 ДОБАВЕТЕ този ред за да покажете картата с ъгли
@@ -115,13 +126,15 @@ class MapActivity : AppCompatActivity() {
             maxLeftLayout.visibility = View.GONE
             findViewById<TextView>(R.id.tvDistanceCar).apply {
                 visibility = View.VISIBLE
-                text = getString(R.string.distance_format) + " " + "%.2f".format(race.distance) + " " + getString(R.string.km_unit)
+                val convertedDist = UnitsManager.formatDistance(race.distance, this@MapActivity, 2)
+                text = getString(R.string.distance_format) + " " + convertedDist
             }
             findViewById<TextView>(R.id.tvDistanceMoto).visibility = View.GONE
         }
 
         // Винаги показваме скоростта
-        findViewById<TextView>(R.id.tvMaxSpeedInfo).text = getString(R.string.max_speed) + " " + "%.0f".format(race.maxSpeed) + " " + getString(R.string.speed_unit)
+        val convertedMaxSpeed = UnitsManager.formatSpeed(race.maxSpeed, this, 0)
+        findViewById<TextView>(R.id.tvMaxSpeedInfo).text = getString(R.string.max_speed) + " " + convertedMaxSpeed
 
         val btnNewRoute = findViewById<Button>(R.id.btnStart)
         btnNewRoute.setText(R.string.new_session_button)
@@ -135,7 +148,8 @@ class MapActivity : AppCompatActivity() {
         } else {
             0.0
         }
-        findViewById<TextView>(R.id.tvAvgSpeedInfo).text = getString(R.string.avg_speed) + " " + "%.0f".format(avgSpeed) + " " + getString(R.string.speed_unit)
+        val convertedAvgSpeed = UnitsManager.formatSpeed(avgSpeed.toFloat(), this, 0)
+        findViewById<TextView>(R.id.tvAvgSpeedInfo).text = getString(R.string.avg_speed) + " " + convertedAvgSpeed
 
 
         // Проверка дали има данни за маршрут
@@ -790,6 +804,25 @@ class MapActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         stopRouteDrawingTimer()
+    }
+
+    private fun setupScreenKeepOn() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        updateScreenKeepOn(prefs.getBoolean("always_on_display", false))
+
+        prefs.registerOnSharedPreferenceChangeListener { shared, key ->
+            if (key == "always_on_display") {
+                updateScreenKeepOn(shared.getBoolean(key, false))
+            }
+        }
+    }
+
+    private fun updateScreenKeepOn(keepOn: Boolean) {
+        if (keepOn) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
     }
 
     override fun onBackPressed() {

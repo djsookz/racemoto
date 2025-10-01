@@ -405,7 +405,7 @@
         android:layout_height="60dp"
         android:layout_gravity="bottom"
         android:backgroundTint="#1976D2"
-        android:text="НОВА СЕСИЯ"
+        android:text="@string/session_new_button"
         android:textColor="@android:color/white"
         android:textSize="@dimen/button_text_size"
         android:textStyle="bold"
