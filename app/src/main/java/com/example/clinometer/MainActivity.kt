@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import com.example.clinometer.settings.LanguageManager
 import android.graphics.*
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -224,6 +225,10 @@ class UltraSmoothLocationOverlay(
 
 class MainActivity : AppCompatActivity(), SensorEventListener {
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(LanguageManager.applyLanguage(newBase))
+    }
+
     private var serviceBound = false
     private var foregroundService: ForegroundService? = null
 
@@ -412,7 +417,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private fun setupScreenKeepOn() {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
         updateScreenKeepOn(prefs.getBoolean("always_on_display", false))
 
         prefs.registerOnSharedPreferenceChangeListener { shared, key ->

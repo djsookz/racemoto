@@ -1,6 +1,7 @@
 package com.example.clinometer
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.TransitionDrawable
@@ -13,11 +14,16 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.clinometer.settings.LanguageManager
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputLayout
 
 class StartActivity : AppCompatActivity() {
+    
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(LanguageManager.applyLanguage(newBase))
+    }
     private val PERMISSION_REQUEST_CODE = 1001
     private lateinit var spinnerProfiles: MaterialAutoCompleteTextView
     private lateinit var profileDropdownLayout: TextInputLayout

@@ -91,7 +91,7 @@ Permissions are required for basic functionality!</string>
     <string name="error_session_not_found">No session available</string>
     <string name="error_no_route_data">No data for session</string>
     <string name="location_title">Location</string>
-    <string name="new_session_button">NEW SESSION</string>
+    <string name="new_session_button">NEW ROUTE</string>
 
     <!-- Форматирани стрингове -->
     <string name="distance_format">Distance:</string>
@@ -173,7 +173,7 @@ Permissions are required for basic functionality!</string>
 
     <!-- Бутони -->
     <string name="ok">OK</string>
-    <string name="cancel">Отказ</string>
+    <string name="cancel">CANCEL</string>
     <string name="retry">Опитай отново</string>
 
     <!-- Описания за достъпност -->
@@ -210,6 +210,11 @@ Permissions are required for basic functionality!</string>
 
     <string name="no_drag_sessions">No drag sessions yet</string>
     <string name="start_drag_session">START DRAG SESSION</string>
+    <string name="nav_drag_label">Drag</string>
+    <string name="nav_garage_label">Garage</string>
+    <string name="nav_map_label">Map</string>
+    <string name="nav_track_label">Track</string>
+    <string name="nav_options_label">Settings</string>
     <string name="drag_starting_in">Starting in...</string>
     <string name="delete_session_title">Delete Session</string>
     <string name="delete_session_message">Are you sure you want to delete this session?</string>
@@ -222,16 +227,23 @@ Permissions are required for basic functionality!</string>
     <string name="drag_auto_reset">Auto-reset in 1 second...</string>
     <string name="drag_stop_session_title">Stop Session?</string>
     <string name="drag_stop_session_message">Stop this drag session and save all attempts?</string>
-    <string name="yes">Yes</string>
-    <string name="no">No</string>
-    <string name="best_times_header">Best Times</string>
-    <string name="all_attempts">All Attempts</string>
+    <string name="yes">YES</string>
+    <string name="no">NO</string>
+    <string name="drag_measuring_all">Measuring: Everything</string>
+    <string name="drag_measuring_0to100">Measuring: 0-100 km/h</string>
+    <string name="drag_measuring_0to200">Measuring: 0-200 km/h</string>
+    <string name="drag_measuring_100to200">Measuring: 100-200 km/h\nStart at 95-99 km/h</string>
+    <string name="drag_measuring_402m">Measuring: 0-402m</string>
+    <string name="drag_best_times_header">Best Times</string>
+    <string name="drag_all_attempts">All Attempts</string>
     <string name="no_attempts_recorded">No attempts recorded</string>
     <string name="attempt_number">Attempt #%d</string>
+    <string name="attempt_title">Attempt %d</string>
     <string name="max_speed_kmh">Max Speed: %d km/h</string>
+    <string name="max_speed_format_simple">Max: %.0f km/h</string>
     <string name="stop_session">STOP SESSION</string>
     <string name="reset">Reset</string>
-    <string name="avg_speed">Средна скорост</string>
+    <string name="avg_speed">Average Speed</string>
     <string name="duration_format">Duration: %s</string>
     <string name="max_speed_format_drag">Max Speed: %.0f km/h</string>
 
@@ -239,6 +251,194 @@ Permissions are required for basic functionality!</string>
         <item quantity="one">%d attempt</item>
         <item quantity="other">%d attempts</item>
     </plurals>
+
+    <!-- Drag Run Page Status Messages -->
+    <string name="drag_status_initializing">⏳ Initializing sensors...</string>
+    <string name="drag_status_waiting_gps">📡 Waiting for GPS signal...</string>
+    <string name="drag_status_ready_all">✅ READY - Start accelerating!</string>
+    <string name="drag_status_ready_0to100">✅ READY - Accelerate for 0-100 km/h</string>
+    <string name="drag_status_ready_0to200">✅ READY - Accelerate for 0-200 km/h</string>
+    <string name="drag_status_ready_100to200">✅ READY - Speed up to 95-99 km/h</string>
+    <string name="drag_status_ready_quarter">✅ READY - Accelerate for 1/4 mile</string>
+    <string name="drag_status_measuring">Measuring %s Attempt #%d</string>
+    <string name="drag_status_calibrating">Calibrating...</string>
+    <string name="drag_status_deceleration">Deceleration! Stop completely for new attempt</string>
+    <string name="drag_status_deceleration_100to200">Deceleration! Return to 95-99 km/h</string>
+    <string name="drag_status_too_fast">Too fast! Slow down to 95-99 km/h</string>
+    <string name="drag_status_speed_up">Speed up to 95-99 km/h</string>
+    <string name="drag_status_pass_100">Ready! Pass 100 km/h to start</string>
+    <string name="drag_status_return_95_99">Return to 95-99 km/h for new attempt</string>
+    <string name="drag_status_100to200_complete">100-200 Complete! Return to 95-99 km/h for new attempt</string>
+    <string name="drag_status_0to100_complete">0-100 Complete! Stop completely for new attempt</string>
+    <string name="drag_status_0to200_complete">0-200 Complete! Stop completely for new attempt</string>
+    <string name="drag_status_quarter_complete_stop">1/4 Mile Complete! Stop completely for new attempt</string>
+    <string name="drag_status_quarter_complete_continue">1/4 Mile Complete! Continue for other measurements</string>
+    <string name="drag_complete_stop_for_new">Complete! Stop completely for new attempt</string>
+    <string name="drag_complete_return_95_99">Complete! Return to 95-99 km/h for new attempt</string>
+    <string name="drag_status_all_complete">All measurements complete!</string>
+    <string name="drag_status_stop_to_restart">⚠️ Stop completely to restart session</string>
+    <string name="drag_status_decel_detected">⚠️ Deceleration detected! Stop to restart</string>
+    <string name="drag_finish_session">Finish Session</string>
+    <string name="drag_completed_format">Completed: %s</string>
+    
+    <!-- Drag Session Details -->
+    <string name="drag_speed_chart_title">Speed (km/h)</string>
+    <string name="drag_accel_chart_title">Acceleration (m/s²)</string>
+    <string name="drag_g_force_chart_title">G-Force</string>
+    <string name="drag_chart_max_speed">Max: %.1f km/h</string>
+    <string name="drag_max_speed_label">Max:</string>
+    <string name="drag_chart_max_accel">Max: %.1f m/s²</string>
+    <string name="drag_chart_peak_g">Peak: %.2fg</string>
+    <string name="drag_chart_no_speed_data">No speed data</string>
+    <string name="drag_chart_no_accel_data">No acceleration data</string>
+    <string name="drag_chart_no_g_data">No G-force data</string>
+    <string name="drag_attempt_duration">Duration: %.2fs</string>
+    
+    <!-- Common Messages -->
+    <string name="back_press_exit">Press again to exit</string>
+    <string name="delete_confirmation">Are you sure you want to delete \"%s\"?</string>
+    <string name="delete_button">Delete</string>
+    <string name="cancel_button">Cancel</string>
+    
+    <!-- Popular Brands -->
+    <string name="popular_brands_header">Most Popular</string>
+    
+    <!-- Drag Run Layout Labels -->
+    <string name="drag_speed_unit">km/h</string>
+    <string name="drag_g_current">0.00 g</string>
+    <string name="drag_g_peak">Peak: 0.00 g</string>
+    <string name="drag_label_0to100">0-100 km/h</string>
+    <string name="drag_label_0to200">0-200 km/h</string>
+    <string name="drag_label_100to200">100-200 km/h</string>
+    <string name="drag_label_quarter">0-402m (1/4 mile)</string>
+    <string name="drag_distance_m">0 m</string>
+    <string name="drag_tap_to_restart">Tap to restart</string>
+    <string name="drag_value_placeholder">--</string>
+    <string name="drag_temperature_placeholder">--°C</string>
+    <string name="drag_altitude_placeholder">--m</string>
+    
+    <!-- Drag Session Details Labels -->
+    <string name="drag_best_0to100_label">0-100:</string>
+    <string name="drag_best_0to200_label">0-200:</string>
+    <string name="drag_best_100to200_label">100-200:</string>
+    <string name="drag_best_quarter_label">0-402m:</string>
+    <string name="drag_tab_speed">Speed</string>
+    <string name="drag_tab_acceleration">Acceleration</string>
+    <string name="drag_tab_gforce">G-Force</string>
+    
+    <!-- Drag Measurement Mode Dialog -->
+    <string name="drag_mode_dialog_title">What do you want to measure?</string>
+    <string name="drag_mode_all">Everything</string>
+    <string name="drag_mode_0to100">0-100</string>
+    <string name="drag_mode_0to200">0-200</string>
+    <string name="drag_mode_100to200">100-200</string>
+    <string name="drag_mode_quarter">0-402m</string>
+    <string name="drag_mode_note">Note: For 100-200, start at 90-95 km/h</string>
+    <string name="drag_mode_cancel">Cancel</string>
+    
+    <!-- Track Mode Strings -->
+    <string name="track_lap_label">Lap #%d</string>
+    <string name="track_lap_header">Lap #0</string>
+    <string name="track_laps_header">Laps</string>
+    <string name="track_no_laps">No recorded laps</string>
+    <string name="track_button_lap">LAP</string>
+    <string name="track_button_start">START</string>
+    <string name="track_button_stop">STOP</string>
+    <string name="track_button_resume">RESUME</string>
+    <string name="track_button_cancel">CANCEL</string>
+    <string name="track_button_view">VIEW</string>
+    <string name="track_time_format">00:00.000</string>
+    <string name="track_data_lost">Data was lost</string>
+    <string name="track_lap_saved">Lap %d saved: %s</string>
+    <string name="track_session_saved">Session created: %d laps, best: %s</string>
+    <string name="track_save_error">Save error: %s</string>
+    <string name="track_session_deleted">Session deleted successfully</string>
+    <string name="track_custom_soon">Custom track feature will be added soon...</string>
+    
+    <!-- Track Session Detail Labels -->
+    <string name="track_session_title">Session #%d</string>
+    <string name="track_session_info">Session Information</string>
+    <string name="track_label_date">Date:</string>
+    <string name="track_label_time">Time:</string>
+    <string name="track_label_duration">Duration:</string>
+    <string name="track_label_track">Track:</string>
+    <string name="track_label_laps">Laps:</string>
+    <string name="track_vehicle_header">Vehicle</string>
+    <string name="track_stats_header">Session Statistics</string>
+    <string name="track_best_time">Best Time:</string>
+    <string name="track_min_speed">Min Speed:</string>
+    <string name="track_max_speed">Max Speed:</string>
+    <string name="track_max_acceleration">Max Acceleration:</string>
+    <string name="track_max_cornering">Max Cornering:</string>
+    <string name="track_laps_section">Laps</string>
+    <string name="track_no_sessions">No saved sessions</string>
+    <string name="track_no_sessions_today">No sessions saved for today</string>
+    <string name="track_selection_title">Track Selection</string>
+    <string name="track_selection_serres_desc">Professional track for motorcycles and cars with 4 timing points for precise measurements.</string>
+    <string name="track_create_custom">Create Custom Track</string>
+    <string name="track_create_custom_desc">Create your own track by marking points on the map for timing measurements.</string>
+    <string name="track_name_serres">Serres Circuit</string>
+    <string name="track_name_sofia">Sofia Ring</string>
+    <string name="track_name_custom">Custom Track</string>
+    <string name="track_name_unknown">Unknown Track</string>
+    
+    <!-- Placeholder texts -->
+    <string name="placeholder_track_name">Track Name</string>
+    <string name="placeholder_vehicle_name">Vehicle Name</string>
+    <string name="track_best_lap_label">Best Lap</string>
+    <string name="track_duration_label">Duration</string>
+    <string name="track_laps_label">Laps</string>
+    <string name="track_new_session">+ New Session</string>
+    <string name="track_resume">RESUME</string>
+    <string name="track_delete_session_title">Delete Session</string>
+    <string name="track_delete_session_message">Are you sure you want to delete the session \"%s\"? This action cannot be undone.</string>
+    <string name="track_delete_button">Delete</string>
+    <string name="track_lap_title">Lap #%d</string>
+    <string name="track_prev_lap">Previous lap</string>
+    <string name="track_next_lap">Next lap</string>
+    <string name="track_tab_speed">Speed</string>
+    <string name="track_tab_g_force">G-Force</string>
+    <string name="track_tab_angle">Angle</string>
+    <string name="track_speed_label">Speed:</string>
+    
+    <!-- Map mode buttons -->
+    <string name="map_sessions_button">SESSIONS</string>
+    <string name="map_start_button">START</string>
+    
+    <!-- Settings -->
+    <string name="settings_general_header">═══ GENERAL ═══</string>
+    <string name="settings_drag_header">═══ DRAG ═══</string>
+    <string name="settings_track_header">═══ TRACK ═══</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_auto">Automatic</string>
+    <string name="settings_units_header">Measurement Units</string>
+    <string name="settings_speed_unit">Speed</string>
+    <string name="settings_speed_kmh">km/h</string>
+    <string name="settings_distance_unit">Distance</string>
+    <string name="settings_distance_km">kilometers</string>
+    <string name="settings_temperature_unit">Temperature</string>
+    <string name="settings_temperature_celsius">Celsius</string>
+    <string name="settings_pressure_unit">Pressure</string>
+    <string name="settings_pressure_hpa">hectopascal</string>
+    <string name="settings_sound_100">Sound at 100 km/h</string>
+    <string name="settings_sound_200">Sound at 200 km/h</string>
+    <string name="settings_sound_402">Sound at 402 m</string>
+    <string name="settings_voice_countdown">Voice Countdown</string>
+    <string name="settings_lap_complete_sound">Sound on lap completion</string>
+    <string name="settings_personal_best_sound">Sound on new personal record</string>
+    
+    <!-- Unit display names -->
+    <string name="unit_kmh">km/h</string>
+    <string name="unit_mph">mph</string>
+    <string name="unit_ms">m/s</string>
+    <string name="unit_kilometers">kilometers</string>
+    <string name="unit_miles">miles</string>
+    <string name="unit_meters">meters</string>
+    <string name="unit_celsius">Celsius</string>
+    <string name="unit_fahrenheit">Fahrenheit</string>
+    <string name="unit_hpa">hectopascal</string>
+    <string name="unit_inhg">inches Hg</string>
+    <string name="unit_mmhg">mm Hg</string>
 
 
 </resources>
