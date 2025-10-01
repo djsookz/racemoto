@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="RaceMoto App" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>Serres Circuit</name>
+    <desc>Serres Circuit - 3.2km racing track in Greece</desc>
+    <time>2024-01-01T00:00:00Z</time>
+  </metadata>
+  
+  <!-- Track Layout Points -->
+  <trk>
+    <name>Serres Circuit Layout</name>
+    <desc>Main racing line around Serres Circuit</desc>
+    <trkseg>
+      <!-- Start/Finish Line -->
+      <trkpt lat="41.072667" lon="23.518556">
+        <ele>0</ele>
+        <name>Start/Finish Line</name>
+        <desc>Start and finish of the lap</desc>
+      </trkpt>
+      
+      <!-- Point 1 -->
+      <trkpt lat="41.070778" lon="23.518222">
+        <ele>0</ele>
+        <name>Point 1</name>
+        <desc>First measurement point</desc>
+      </trkpt>
+      
+      <!-- Point 2 -->
+      <trkpt lat="41.073417" lon="23.515278">
+        <ele>0</ele>
+        <name>Point 2</name>
+        <desc>Second measurement point</desc>
+      </trkpt>
+      
+      <!-- Point 3 -->
+      <trkpt lat="41.074306" lon="23.513417">
+        <ele>0</ele>
+        <name>Point 3</name>
+        <desc>Third measurement point</desc>
+      </trkpt>
+      
+      <!-- Back to Start/Finish -->
+      <trkpt lat="41.072667" lon="23.518556">
+        <ele>0</ele>
+        <name>Start/Finish Line</name>
+        <desc>Complete lap</desc>
+      </trkpt>
+    </trkseg>
+  </trk>
+  
+  <!-- Track Points -->
+  <wpt lat="41.072667" lon="23.518556">
+    <name>Start/Finish Line</name>
+    <desc>Start and finish of the lap</desc>
+  </wpt>
+  
+  <wpt lat="41.070778" lon="23.518222">
+    <name>Point 1</name>
+    <desc>First measurement point</desc>
+  </wpt>
+  
+  <wpt lat="41.073417" lon="23.515278">
+    <name>Point 2</name>
+    <desc>Second measurement point</desc>
+  </wpt>
+  
+  <wpt lat="41.074306" lon="23.513417">
+    <name>Point 3</name>
+    <desc>Third measurement point</desc>
+  </wpt>
+  
+</gpx>

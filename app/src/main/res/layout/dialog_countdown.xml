@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@color/card_background"
+    android:layout_gravity="center">
+
+    <!-- Countdown number -->
+    <TextView
+        android:id="@+id/tvCountdown"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="5"
+        android:textSize="80sp"
+        android:textStyle="bold"
+        android:textColor="@color/accent_blue"
+        android:fontFamily="sans-serif-light"
+        android:layout_marginBottom="20dp"
+        android:gravity="center"
+        android:shadowColor="#000000"
+        android:shadowDx="2"
+        android:shadowDy="2"
+        android:shadowRadius="4" />
+
+    <!-- Mode info text -->
+    <TextView
+        android:id="@+id/tvModeInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Measuring: Everything"
+        android:textSize="18sp"
+        android:textColor="@color/text_primary"
+        android:gravity="center"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Progress bar -->
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="8dp"
+        android:progress="100"
+        android:max="100"
+        android:progressDrawable="@drawable/countdown_progress_wide"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Cancel button -->
+    <Button
+        android:id="@+id/btnCancelCountdown"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/cancel"
+        android:textSize="14sp"
+        android:padding="12dp"
+        android:backgroundTint="@android:color/transparent"
+        android:textColor="@color/text_secondary" />
+
+</LinearLayout>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- res/drawable/speedometer_circle.xml -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="240dp"
+    android:viewportWidth="240"
+    android:viewportHeight="240">
+
+    <!-- Outer circle with gradient effect -->
+    <path
+        android:strokeWidth="3"
+        android:strokeColor="#15616d"
+        android:strokeAlpha="0.5"
+        android:pathData="M120,10 A110,110 0 1,1 119.9,10"
+        android:fillColor="#00000000"/>
+
+    <!-- Inner decorative circle -->
+    <path
+        android:strokeWidth="1"
+        android:strokeColor="#15616d"
+        android:strokeAlpha="0.3"
+        android:pathData="M120,30 A90,90 0 1,1 119.9,30"
+        android:fillColor="#00000000"/>
+
+    <!-- Speed marks -->
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#15616d"
+        android:pathData="M120,15 L120,25"/>
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#15616d"
+        android:pathData="M165,35 L160,40"/>
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#15616d"
+        android:pathData="M195,75 L185,80"/>
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#15616d"
+        android:pathData="M205,120 L195,120"/>
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#15616d"
+        android:pathData="M195,165 L185,160"/>
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#15616d"
+        android:pathData="M165,205 L160,200"/>
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#15616d"
+        android:pathData="M120,225 L120,215"/>
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#15616d"
+        android:pathData="M75,205 L80,200"/>
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#15616d"
+        android:pathData="M45,165 L55,160"/>
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#15616d"
+        android:pathData="M35,120 L45,120"/>
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#15616d"
+        android:pathData="M45,75 L55,80"/>
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#15616d"
+        android:pathData="M75,35 L80,40"/>
+</vector>
