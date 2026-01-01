@@ -113,12 +113,5 @@ class GGaugeView @JvmOverloads constructor(
         centerDotPaint.color = Color.RED
         canvas.drawCircle(gX, gY, 12f, centerDotPaint)
 
-        // Draw G-force value below the gauge
-        val gMagnitude = sqrt(gForceX * gForceX + gForceY * gForceY)
-        val gValueText = String.format("%.2f g", gMagnitude)
-        val textY = centerY + graphRadius + 35f
-        textPaint.textSize = 20f
-        textPaint.color = Color.WHITE
-        canvas.drawText(gValueText, centerX, textY, textPaint)
     }
 }

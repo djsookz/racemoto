@@ -15,10 +15,16 @@ import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.clinometer.drag.MeasurementMode
+import com.example.clinometer.drag.PointTooltipMarker
+import com.example.clinometer.drag.SessionSelectionActivity
 import com.example.clinometer.settings.LanguageManager
 import com.example.clinometer.settings.UnitsManager
 import com.github.mikephil.charting.listener.OnChartGestureListener
 import com.github.mikephil.charting.listener.ChartTouchListener
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.highlight.Highlight
+import android.graphics.Canvas
+import com.github.mikephil.charting.utils.MPPointF
 
 class DragSessionDetailsActivity : AppCompatActivity() {
 
@@ -44,7 +50,11 @@ class DragSessionDetailsActivity : AppCompatActivity() {
     private lateinit var tvNoAttempts: TextView
 
     private var session: DragSession? = null
+    private var sessionId: Long = -1L
     private lateinit var attemptsAdapter: DragAttemptsAdapter
+    private var measurementMode: MeasurementMode = MeasurementMode.ALL
+    @Volatile
+    private var closestTo200Normalized: Float? = null // За 200 km/h маркер в 100-200 режим
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,7 +62,7 @@ class DragSessionDetailsActivity : AppCompatActivity() {
         
         setupScreenKeepOn()
 
-        val sessionId = intent.getLongExtra("SESSION_ID", -1L)
+        sessionId = intent.getLongExtra("SESSION_ID", -1L)
         if (sessionId == -1L) {
             finish()
             return
@@ -62,6 +72,14 @@ class DragSessionDetailsActivity : AppCompatActivity() {
         if (session == null) {
             finish()
             return
+        }
+        
+        // Зареждаме measurement mode от сесията
+        measurementMode = try {
+            val modeString = session?.measurementMode ?: "ALL"
+            MeasurementMode.valueOf(modeString)
+        } catch (e: Exception) {
+            MeasurementMode.ALL
         }
 
         initializeViews()
@@ -119,6 +137,14 @@ class DragSessionDetailsActivity : AppCompatActivity() {
         findViewById<View>(R.id.btnBack)?.setOnClickListener {
             finish()
         }
+        
+        findViewById<View>(R.id.btnCompare)?.setOnClickListener {
+            // Отваряме страницата за избор на сесия и опит за сравняване
+            val intent = android.content.Intent(this, SessionSelectionActivity::class.java)
+            intent.putExtra("current_session_id", sessionId)
+            intent.putExtra("current_attempt_id", session?.attempts?.firstOrNull()?.id ?: -1)
+            startActivity(intent)
+        }
     }
 
     private fun displaySessionData() {
@@ -136,7 +162,7 @@ class DragSessionDetailsActivity : AppCompatActivity() {
                 llEnvironment.visibility = View.VISIBLE
 
                 if (hasTemperature) {
-                    tvDetailTemperature.text = UnitsManager.formatTemperature(s.temperature!!, this)
+                    tvDetailTemperature.text = UnitsManager.formatTemperature(s.temperature!!, this, decimals = 0)
                     (tvDetailTemperature.parent as View).visibility = View.VISIBLE
                 } else {
                     (tvDetailTemperature.parent as View).visibility = View.GONE
@@ -214,7 +240,9 @@ class DragSessionDetailsActivity : AppCompatActivity() {
                 rvAttempts.visibility = View.VISIBLE
 
                 val mode = try {
-                    MeasurementMode.valueOf(s.measurementMode ?: "ALL")
+                    val modeString = s.measurementMode ?: "ALL"
+                    val result = MeasurementMode.valueOf(modeString)
+                    result
                 } catch (e: Exception) {
                     MeasurementMode.ALL
                 }
@@ -260,6 +288,10 @@ class DragAttemptsAdapter(
     private val attempts: List<DragAttempt>,
     private val measurementMode: MeasurementMode
 ) : RecyclerView.Adapter<DragAttemptsAdapter.AttemptViewHolder>() {
+    
+    private var currentMode: ChartMode = ChartMode.SPEED
+    private var currentAttempt: DragAttempt? = null
+    private var currentMarkerView: com.github.mikephil.charting.components.MarkerView? = null
 
     inner class AttemptViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val tvAttemptNumber: TextView = itemView.findViewById(R.id.tvAttemptNumber)
@@ -286,7 +318,16 @@ class DragAttemptsAdapter(
     // Използваме линейна интерполация между два съседни семпъла (timestamps са в наносекунди)
     private fun getSpeedCrossingTimeSeconds(attempt: DragAttempt, targetKmH: Float): Float? {
         val (speeds, times) = getAlignedSpeedData(attempt)
-        if (speeds.isEmpty() || times.isEmpty()) return null
+        Log.d("DragSessionDetails", "📊 getSpeedCrossingTimeSeconds: looking for $targetKmH km/h in ${speeds.size} samples")
+        
+        if (speeds.isEmpty() || times.isEmpty()) {
+            Log.d("DragSessionDetails", "⚠️ No speed data available")
+            return null
+        }
+
+        val minSpeed = speeds.minOrNull() ?: 0f
+        val maxSpeed = speeds.maxOrNull() ?: 0f
+        Log.d("DragSessionDetails", "📊 Speed range: $minSpeed - $maxSpeed km/h")
 
         for (i in 1 until speeds.size) {
             val s0 = speeds[i - 1]
@@ -297,9 +338,13 @@ class DragAttemptsAdapter(
                 val t1 = times[i].toDouble()
                 val ratio = ((targetKmH - s0) / (s1 - s0).coerceAtLeast(0.0001f)).toDouble()
                 val tCross = t0 + (t1 - t0) * ratio
-                return (tCross / 1_000_000_000.0).toFloat()
+                val resultSeconds = (tCross / 1_000_000_000.0).toFloat()
+                Log.d("DragSessionDetails", "📊 Found crossing: $s0 -> $s1 km/h at ${resultSeconds}s")
+                return resultSeconds
             }
         }
+        
+        Log.d("DragSessionDetails", "⚠️ No crossing found for $targetKmH km/h")
         return null
     }
 
@@ -327,12 +372,8 @@ class DragAttemptsAdapter(
             holder.tvMaxSpeed.visibility = View.GONE
         }
 
-        // Показване на продължителността
-        val displayDuration = if (attempt.duration > 0) {
-            attempt.duration / 1_000_000_000.0 // от nanoseconds в секунди
-        } else {
-            getMaxMeasuredTime(attempt)
-        }
+        // Показване на продължителността - винаги използваме максималното време от успешните измервания
+        val displayDuration = getMaxMeasuredTime(attempt)
 
         if (displayDuration > 0) {
             holder.tvDuration.text = context.getString(R.string.drag_attempt_duration, displayDuration)
@@ -362,7 +403,7 @@ class DragAttemptsAdapter(
     
     private fun setupChart(holder: AttemptViewHolder, attempt: DragAttempt) {
         // Настройваме графиката
-        setupChartConfiguration(holder.chart)
+        setupChartConfiguration(holder.chart, attempt)
         
         // Настройваме бутоните
         setupChartButtons(holder, attempt)
@@ -371,7 +412,7 @@ class DragAttemptsAdapter(
         updateChartData(holder, attempt, ChartMode.SPEED)
     }
     
-    private fun setupChartConfiguration(chart: com.github.mikephil.charting.charts.LineChart) {
+    private fun setupChartConfiguration(chart: com.github.mikephil.charting.charts.LineChart, attempt: DragAttempt) {
         chart.setTouchEnabled(true)
         chart.isDragEnabled = true
         chart.setScaleEnabled(true)
@@ -476,6 +517,47 @@ class DragAttemptsAdapter(
             true
         }
 
+        // Value selected listener за tooltip-и
+        chart.setOnChartValueSelectedListener(object : com.github.mikephil.charting.listener.OnChartValueSelectedListener {
+            override fun onValueSelected(e: com.github.mikephil.charting.data.Entry?, h: com.github.mikephil.charting.highlight.Highlight?) {
+                if (e != null && h != null) {
+                    val specialPointType = currentAttempt?.let { determinePointType(e.x, it) }
+                    currentMarkerView?.let { markerView ->
+                        markerView.refreshContent(e, h)
+                        // Задаваме свойствата чрез reflection
+                        try {
+                            val pointTypeField = markerView.javaClass.getDeclaredField("pointType")
+                            pointTypeField.isAccessible = true
+                            pointTypeField.set(markerView, specialPointType)
+                            
+                            val isOnSpecialPointField = markerView.javaClass.getDeclaredField("isOnSpecialPoint")
+                            isOnSpecialPointField.isAccessible = true
+                            isOnSpecialPointField.set(markerView, specialPointType != null)
+                            
+                            val actualValueField = markerView.javaClass.getDeclaredField("actualValue")
+                            actualValueField.isAccessible = true
+                            actualValueField.set(markerView, e.y)
+                            
+                            val modeField = markerView.javaClass.getDeclaredField("mode")
+                            modeField.isAccessible = true
+                            modeField.set(markerView, currentMode)
+                            
+                            val attemptField = markerView.javaClass.getDeclaredField("attempt")
+                            attemptField.isAccessible = true
+                            attemptField.set(markerView, currentAttempt)
+                        } catch (e: Exception) {
+                            // Ако reflection не работи, просто обновяваме marker-а
+                        }
+                    }
+                    chart.highlightValue(h)
+                }
+            }
+
+            override fun onNothingSelected() {
+                chart.highlightValue(null)
+            }
+        })
+        
         // Gesture listener за double tap to fit screen
         chart.setOnChartGestureListener(object : OnChartGestureListener {
             override fun onChartGestureStart(me: MotionEvent?, lastGesture: ChartTouchListener.ChartGesture?) {
@@ -490,7 +572,9 @@ class DragAttemptsAdapter(
             override fun onChartDoubleTapped(me: MotionEvent?) {
                 chart.fitScreen()
             }
-            override fun onChartSingleTapped(me: MotionEvent?) {}
+            override fun onChartSingleTapped(me: MotionEvent?) {
+                // Оставяме празно - използваме само OnChartValueSelectedListener
+            }
             override fun onChartFling(me1: MotionEvent?, me2: MotionEvent?, velocityX: Float, velocityY: Float) {}
             override fun onChartScale(me: MotionEvent?, scaleX: Float, scaleY: Float) {}
             override fun onChartTranslate(me: MotionEvent?, dX: Float, dY: Float) {}
@@ -516,8 +600,23 @@ class DragAttemptsAdapter(
         val speeds = attempt.speedSamples
         val times = attempt.speedTimeStamps
         val limit = minOf(speeds.size, times.size)
-        // RAW данни - без филтри, показваме всичко както е записано
-        return speeds.take(limit) to times.take(limit)
+        
+        Log.d("DragSessionDetails", "📊 getAlignedSpeedData: speeds=${speeds.size}, times=${times.size}, limit=$limit")
+        
+        val result = speeds.take(limit) to times.take(limit)
+        
+        if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
+            val maxSpeed = speeds.maxOrNull() ?: 0f
+            val minSpeed = speeds.minOrNull() ?: 0f
+            Log.d("DragSessionDetails", "📊 Speed data: ${speeds.size} samples, range $minSpeed - $maxSpeed km/h")
+            
+            // Debug: показваме първите няколко sample-а
+            for (i in 0 until minOf(5, speeds.size)) {
+                Log.d("DragSessionDetails", "📊 Sample $i: speed=${speeds[i]} km/h, time=${times[i]/1_000_000_000.0}s")
+            }
+        }
+        
+        return result
     }
 
     private fun getAlignedAccelData(attempt: DragAttempt): Pair<List<Float>, List<Long>> {
@@ -528,8 +627,8 @@ class DragAttemptsAdapter(
         return vals.take(limit) to times.take(limit)
     }
 
-    // -------- Start offset helpers (begin charts at 4 km/h) --------
-    private fun getSpeedStartOffsetMs(attempt: DragAttempt, thresholdKmH: Float = 4f): Long {
+    // -------- Start offset helpers (begin charts at 60 km/h) --------
+    private fun getSpeedStartOffsetMs(attempt: DragAttempt, thresholdKmH: Float = 60f): Long {
         val (speeds, times) = getAlignedSpeedData(attempt)
         for (i in speeds.indices) {
             if (speeds[i] >= thresholdKmH) return times[i]
@@ -562,6 +661,8 @@ class DragAttemptsAdapter(
     
     private fun updateChartMode(holder: AttemptViewHolder, attempt: DragAttempt, mode: ChartMode) {
         holder.currentChartMode = mode
+        currentMode = mode
+        currentAttempt = attempt
         
         // Обновяваме стила на бутоните
         updateButtonStyles(holder, mode)
@@ -570,7 +671,7 @@ class DragAttemptsAdapter(
         updateChartData(holder, attempt, mode)
         
         // Обновяваме настройките на графиката при всяко превключване
-        setupChartConfiguration(holder.chart)
+        setupChartConfiguration(holder.chart, attempt)
     }
     
     private fun updateButtonStyles(holder: AttemptViewHolder, mode: ChartMode) {
@@ -605,6 +706,15 @@ class DragAttemptsAdapter(
     }
     
     private fun updateChartData(holder: AttemptViewHolder, attempt: DragAttempt, mode: ChartMode) {
+        // Изчистваме всички данни
+        holder.chart.clear()
+        
+        // Добавяме всички три линии
+        addSpeedLine(holder, attempt, mode == ChartMode.SPEED)
+        addAccelerationLine(holder, attempt, mode == ChartMode.ACCELERATION)
+        addGForceLine(holder, attempt, mode == ChartMode.G_FORCE)
+        
+        // Настройваме заглавието и Y-оста според активния режим
         when (mode) {
             ChartMode.SPEED -> updateSpeedChart(holder, attempt)
             ChartMode.ACCELERATION -> updateAccelerationChart(holder, attempt)
@@ -623,6 +733,197 @@ class DragAttemptsAdapter(
         holder.chart.invalidate()
     }
     
+    private fun addSpeedLine(holder: AttemptViewHolder, attempt: DragAttempt, isActive: Boolean) {
+        Log.d("DragSessionDetails", "📊 addSpeedLine START: attempt.speedSamples=${attempt.speedSamples.size}, attempt.speedTimeStamps=${attempt.speedTimeStamps.size}")
+        
+        val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
+        Log.d("DragSessionDetails", "📊 addSpeedLine: ${speedSamples.size} samples, ${timestamps.size} timestamps")
+        
+        // Debug: показваме всички speed samples
+        for (i in speedSamples.indices) {
+            Log.d("DragSessionDetails", "📊 Speed sample $i: ${speedSamples[i]} km/h at ${timestamps[i]/1_000_000_000.0}s")
+        }
+        
+        if (speedSamples.isEmpty() || timestamps.isEmpty()) {
+            Log.d("DragSessionDetails", "❌ No speed data available for line!")
+            return
+        }
+        
+        if (speedSamples.isNotEmpty() && timestamps.isNotEmpty()) {
+            val speedUnit = UnitsManager.getSpeedUnit(context)
+            val entries = mutableListOf<com.github.mikephil.charting.data.Entry>()
+            
+            // Debug: показваме диапазона на данните
+            val minSpeed = speedSamples.minOrNull() ?: 0f
+            val maxSpeed = speedSamples.maxOrNull() ?: 0f
+            Log.d("DragSessionDetails", "📊 Speed range: $minSpeed - $maxSpeed km/h")
+            
+            if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
+                // За 100-200 режим: мащабираме линията да съвпада с точката
+                val resultTimeSeconds = attempt.time100to200 / 1_000_000_000.0
+                
+                // Намираме кога реално се достига 200 km/h в данните (относително време)
+                val firstTimeSeconds = if (timestamps.isNotEmpty()) {
+                    timestamps.first() / 1_000_000_000.0
+                } else {
+                    0.0
+                }
+                
+                val actual200kmhCrossingTime = findSpeedCrossingPoint(speedSamples, timestamps, 200f)
+                val actual200kmhRelativeTime = if (actual200kmhCrossingTime != null) {
+                    actual200kmhCrossingTime - firstTimeSeconds
+                } else {
+                    0.0
+                }
+                
+                val scalingFactor = if (actual200kmhRelativeTime > 0.001) {
+                    (resultTimeSeconds / actual200kmhRelativeTime).toFloat()
+                } else {
+                    1.0f // No scaling if 200km/h not crossed
+                }
+                
+                // Мащабираме времето така че линията да достигне 200 km/h на resultTimeSeconds
+                for (i in speedSamples.indices) {
+                    val currentSpeed = speedSamples[i]
+                    
+                    val rawTimeInSeconds = timestamps[i] / 1_000_000_000.0
+                    val normalizedTimeInSeconds = rawTimeInSeconds - firstTimeSeconds
+                    val scaledTimeInSeconds = normalizedTimeInSeconds * scalingFactor
+                    val convertedSpeed = UnitsManager.convertSpeed(currentSpeed, speedUnit)
+                    entries.add(com.github.mikephil.charting.data.Entry(scaledTimeInSeconds.toFloat(), convertedSpeed))
+                }
+            } else {
+                // За всички други режими: използваме сурови данни без нормализация (като точките)
+                for (i in speedSamples.indices) {
+                    val currentSpeed = speedSamples[i]
+                    
+                    val rawTimeInSeconds = timestamps[i] / 1_000_000_000.0
+                    val convertedSpeed = UnitsManager.convertSpeed(currentSpeed, speedUnit)
+                    entries.add(com.github.mikephil.charting.data.Entry(rawTimeInSeconds.toFloat(), convertedSpeed))
+                }
+            }
+            
+            Log.d("DragSessionDetails", "📊 Speed line: ${entries.size} entries added")
+            if (entries.isNotEmpty()) {
+                val firstEntry = entries.first()
+                val lastEntry = entries.last()
+                Log.d("DragSessionDetails", "📊 First entry: time=${firstEntry.x}s, speed=${firstEntry.y}")
+                Log.d("DragSessionDetails", "📊 Last entry: time=${lastEntry.x}s, speed=${lastEntry.y}")
+            }
+            
+            val dataSet = com.github.mikephil.charting.data.LineDataSet(entries, "${context.getString(R.string.drag_tab_speed)} (${speedUnit.symbol})").apply {
+                val baseColor = ContextCompat.getColor(holder.itemView.context, R.color.accent_blue)
+                color = if (isActive) baseColor else android.graphics.Color.argb(77, android.graphics.Color.red(baseColor), android.graphics.Color.green(baseColor), android.graphics.Color.blue(baseColor))
+                lineWidth = if (isActive) 2f else 1f
+                setDrawValues(false)
+                setDrawCircles(false)
+            }
+            
+            if (holder.chart.data == null) {
+                val lineData = com.github.mikephil.charting.data.LineData(dataSet)
+                holder.chart.data = lineData
+            } else {
+                holder.chart.data?.addDataSet(dataSet)
+            }
+            
+            if (isActive) {
+                addTooltipMarkers(holder, attempt, ChartMode.SPEED, null)
+            }
+        }
+    }
+    
+    private fun addAccelerationLine(holder: AttemptViewHolder, attempt: DragAttempt, isActive: Boolean) {
+        val (accelSamples, timestamps) = getAlignedAccelData(attempt)
+        if (accelSamples.isNotEmpty() && timestamps.isNotEmpty()) {
+            val entries = mutableListOf<com.github.mikephil.charting.data.Entry>()
+            
+            // За 100-200 режим: нормализираме времето спрямо startTime от attempt-а
+            val crossing100TimeSeconds = if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
+                if (attempt.startTime > 0) {
+                    attempt.startTime / 1_000_000_000.0
+                } else if (timestamps.isNotEmpty()) {
+                    timestamps.first() / 1_000_000_000.0
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            }
+            
+            for (i in accelSamples.indices) {
+                val timeInSeconds = timestamps[i] / 1_000_000_000.0
+                
+                val normalizedTime = timeInSeconds - crossing100TimeSeconds
+                entries.add(com.github.mikephil.charting.data.Entry(normalizedTime.toFloat(), accelSamples[i]))
+            }
+            
+            val dataSet = com.github.mikephil.charting.data.LineDataSet(entries, context.getString(R.string.drag_tab_acceleration)).apply {
+                val baseColor = ContextCompat.getColor(holder.itemView.context, R.color.accent_green)
+                color = if (isActive) baseColor else android.graphics.Color.argb(77, android.graphics.Color.red(baseColor), android.graphics.Color.green(baseColor), android.graphics.Color.blue(baseColor))
+                lineWidth = if (isActive) 2f else 1f
+                setDrawValues(false)
+                setDrawCircles(false)
+            }
+            
+            if (holder.chart.data == null) {
+                val lineData = com.github.mikephil.charting.data.LineData(dataSet)
+                holder.chart.data = lineData
+            } else {
+                holder.chart.data?.addDataSet(dataSet)
+            }
+
+            if (isActive) {
+                addTooltipMarkers(holder, attempt, ChartMode.ACCELERATION, null)
+            }
+        }
+    }
+    
+    private fun addGForceLine(holder: AttemptViewHolder, attempt: DragAttempt, isActive: Boolean) {
+        val (gSamples, timestamps) = getAlignedGData(attempt)
+        if (gSamples.isNotEmpty() && timestamps.isNotEmpty()) {
+            val entries = mutableListOf<com.github.mikephil.charting.data.Entry>()
+            
+            // За 100-200 режим: нормализираме времето спрямо startTime от attempt-а
+            val crossing100TimeSeconds = if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
+                if (attempt.startTime > 0) {
+                    attempt.startTime / 1_000_000_000.0
+                } else if (timestamps.isNotEmpty()) {
+                    timestamps.first() / 1_000_000_000.0
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            }
+            
+            for (i in gSamples.indices) {
+                val timeInSeconds = timestamps[i] / 1_000_000_000.0
+                
+                val normalizedTime = timeInSeconds - crossing100TimeSeconds
+                entries.add(com.github.mikephil.charting.data.Entry(normalizedTime.toFloat(), gSamples[i]))
+            }
+            
+            val dataSet = com.github.mikephil.charting.data.LineDataSet(entries, context.getString(R.string.drag_tab_gforce)).apply {
+                val baseColor = ContextCompat.getColor(holder.itemView.context, R.color.accent_red)
+                color = if (isActive) baseColor else android.graphics.Color.argb(77, android.graphics.Color.red(baseColor), android.graphics.Color.green(baseColor), android.graphics.Color.blue(baseColor))
+                lineWidth = if (isActive) 2f else 1f
+                setDrawValues(false)
+                setDrawCircles(false)
+            }
+            
+            if (holder.chart.data == null) {
+                val lineData = com.github.mikephil.charting.data.LineData(dataSet)
+                holder.chart.data = lineData
+            } else {
+                holder.chart.data?.addDataSet(dataSet)
+            }
+
+            if (isActive) {
+                addTooltipMarkers(holder, attempt, ChartMode.G_FORCE, null)
+            }
+        }
+    }
+    
     private fun updateSpeedChart(holder: AttemptViewHolder, attempt: DragAttempt) {
         val speedUnitSymbol = UnitsManager.getSpeedUnit(context).symbol
         holder.tvChartTitle.text = "${context.getString(R.string.track_tab_speed)} ($speedUnitSymbol)"
@@ -633,21 +934,9 @@ class DragAttemptsAdapter(
             val minSize = speedSamples.size
             val entries = mutableListOf<com.github.mikephil.charting.data.Entry>()
             
-            // Use measurement start time as reference point for consistency with measurement times
-            val firstTimestamp = 0L // Always start from 0 to match measurement timing
-            
-            // Търсим 100 km/h в данните
-            for (i in 0 until minSize) {
-                if (speedSamples[i] >= 100f) {
-                    val timeAt100 = timestamps[i] / 1_000_000_000.0
-                    break
-                }
-            }
-            
-            // Convert speed samples to selected unit
+            // Показваме реалните времена без нормализация
             val speedUnit = UnitsManager.getSpeedUnit(context)
             for (i in 0 until minSize) {
-                // Use measurement start time as reference point for consistency
                 val timeInSeconds = timestamps[i] / 1_000_000_000.0
                 val convertedSpeed = UnitsManager.convertSpeed(speedSamples[i], speedUnit)
                 entries.add(com.github.mikephil.charting.data.Entry(timeInSeconds.toFloat(), convertedSpeed))
@@ -660,22 +949,22 @@ class DragAttemptsAdapter(
             // Debug проверка за съответствие на времената
             val crossing100 = findSpeedCrossingPoint(speedSamples, timestamps, 100f)
             
-            val dataSet = com.github.mikephil.charting.data.LineDataSet(entries, "${context.getString(R.string.drag_tab_speed)} (${speedUnit.symbol})").apply {
-                color = ContextCompat.getColor(holder.itemView.context, R.color.accent_blue)
-                lineWidth = 2f
-                setDrawValues(false)
-                setDrawCircles(false)
-            }
-            
-            val lineData = com.github.mikephil.charting.data.LineData(dataSet)
-            holder.chart.data = lineData
+            // Данните вече са добавени от addSpeedLine
             
             // Настройваме Y оста - конвертирана в избраната единица
             val yAxis = holder.chart.axisLeft
             val convertedMax = UnitsManager.convertSpeed(maxSpeed, speedUnit)
             val threshold200 = UnitsManager.convertSpeed(200f, speedUnit)
-            yAxis.axisMinimum = 0f
-            yAxis.axisMaximum = if (convertedMax > threshold200) convertedMax * 1.1f else threshold200
+            
+            // Настройваме Y оста - за HUNDRED_TO_200 режим започваме от 100 km/h
+            if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
+                val threshold100 = UnitsManager.convertSpeed(100f, speedUnit)
+                yAxis.axisMinimum = threshold100
+                yAxis.axisMaximum = if (convertedMax > threshold200) convertedMax * 1.1f else threshold200
+            } else {
+                yAxis.axisMinimum = 0f
+                yAxis.axisMaximum = if (convertedMax > threshold200) convertedMax * 1.1f else threshold200
+            }
             yAxis.setDrawZeroLine(true)
             yAxis.zeroLineColor = android.graphics.Color.GRAY
             yAxis.zeroLineWidth = 1f
@@ -687,14 +976,23 @@ class DragAttemptsAdapter(
                 }
             }
             
-            // Настройваме X оста - използваме реалните времена
+            // Настройваме X оста - за HUNDRED_TO_200 режим използваме нормализирано време
             if (entries.isNotEmpty()) {
-                val maxTimeFromAllMeasurements = getMaxTimeFromAllMeasurements(attempt).toFloat()
-                
-                holder.chart.xAxis.axisMinimum = 0f
-                holder.chart.xAxis.axisMaximum = maxTimeFromAllMeasurements
-                holder.chart.setVisibleXRangeMaximum(maxTimeFromAllMeasurements)
-                holder.chart.moveViewToX(0f)
+                if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
+                    // За 100-200 режим времето е нормализирано (100 km/h = 0.0s)
+                    val maxNormalizedTime = entries.maxOfOrNull { it.x } ?: 0f
+                    holder.chart.xAxis.axisMinimum = 0f
+                    holder.chart.xAxis.axisMaximum = maxNormalizedTime * 1.1f
+                    holder.chart.setVisibleXRangeMaximum(maxNormalizedTime * 1.1f)
+                    holder.chart.moveViewToX(0f)
+                } else {
+                    // За останалите режими използваме реалните времена
+                    val maxTimeFromAllMeasurements = getMaxTimeFromAllMeasurements(attempt).toFloat()
+                    holder.chart.xAxis.axisMinimum = 0f
+                    holder.chart.xAxis.axisMaximum = maxTimeFromAllMeasurements
+                    holder.chart.setVisibleXRangeMaximum(maxTimeFromAllMeasurements)
+                    holder.chart.moveViewToX(0f)
+                }
             }
             
             holder.chart.invalidate()
@@ -714,32 +1012,26 @@ class DragAttemptsAdapter(
             val minSize = accelSamples.size
             val entries = mutableListOf<com.github.mikephil.charting.data.Entry>()
             
-            // Използваме същата нормализация като маркерите - спрямо първия timestamp
-            val firstTimestamp = timestamps.firstOrNull() ?: 0L
-            
+            // Графиката започва от 0 секунди - показваме всички данни
             for (i in 0 until minSize) {
-                // Нормализираме спрямо първия timestamp, както правят маркерите
-                val timeInSeconds = (timestamps[i] - firstTimestamp) / 1_000_000_000.0
+                val timeInSeconds = timestamps[i] / 1_000_000_000.0
                 entries.add(com.github.mikephil.charting.data.Entry(timeInSeconds.toFloat(), accelSamples[i]))
             }
             
             val maxAccel = accelSamples.maxOrNull() ?: 0f
             holder.tvChartStats.text = context.getString(R.string.drag_chart_max_accel, maxAccel)
             
-            val dataSet = com.github.mikephil.charting.data.LineDataSet(entries, context.getString(R.string.drag_tab_acceleration)).apply {
-                color = ContextCompat.getColor(holder.itemView.context, R.color.accent_green)
-                lineWidth = 2f
-                setDrawValues(false)
-                setDrawCircles(false)
-            }
+            // Данните вече са добавени от addAccelerationLine
             
-            val lineData = com.github.mikephil.charting.data.LineData(dataSet)
-            holder.chart.data = lineData
-            
-            // Настройваме Y оста
+            // Настройваме Y оста - показваме и отрицателни стойности за acceleration
             val yAxis = holder.chart.axisLeft
-            yAxis.axisMinimum = 0f
-            yAxis.axisMaximum = if (maxAccel > 0) maxAccel * 1.1f else 20f
+            val minAccel = accelSamples.minOrNull() ?: 0f
+            val maxAccelValue = accelSamples.maxOrNull() ?: 0f
+            val range = maxAccelValue - minAccel
+            val padding = if (range > 0) range * 0.1f else 2f
+            
+            yAxis.axisMinimum = minAccel - padding
+            yAxis.axisMaximum = maxAccelValue + padding
             yAxis.setDrawZeroLine(true)
             yAxis.zeroLineColor = android.graphics.Color.GRAY
             yAxis.zeroLineWidth = 1f
@@ -778,12 +1070,9 @@ class DragAttemptsAdapter(
             val minSize = gSamples.size
             val entries = mutableListOf<com.github.mikephil.charting.data.Entry>()
             
-            // Използваме същата нормализация като маркерите - спрямо първия timestamp
-            val firstTimestamp = timestamps.firstOrNull() ?: 0L
-            
+            // Графиката започва от 0 секунди - показваме всички данни
             for (i in 0 until minSize) {
-                // Нормализираме спрямо първия timestamp, както правят маркерите
-                val timeInSeconds = (timestamps[i] - firstTimestamp) / 1_000_000_000.0
+                val timeInSeconds = timestamps[i] / 1_000_000_000.0
                 entries.add(com.github.mikephil.charting.data.Entry(timeInSeconds.toFloat(), gSamples[i]))
             }
             
@@ -793,15 +1082,7 @@ class DragAttemptsAdapter(
             
             holder.tvChartStats.text = context.getString(R.string.drag_chart_peak_g, maxG)
             
-            val dataSet = com.github.mikephil.charting.data.LineDataSet(entries, context.getString(R.string.drag_tab_gforce)).apply {
-                color = ContextCompat.getColor(holder.itemView.context, R.color.accent_red)
-                lineWidth = 2f
-                setDrawValues(false)
-                setDrawCircles(false)
-            }
-            
-            val lineData = com.github.mikephil.charting.data.LineData(dataSet)
-            holder.chart.data = lineData
+            // Данните вече са добавени от addGForceLine
             
             // Настройваме Y оста - поправяме скалирането
             val yAxis = holder.chart.axisLeft
@@ -846,108 +1127,347 @@ class DragAttemptsAdapter(
     }
     
     private fun getMaxTimeFromAllMeasurements(attempt: DragAttempt): Double {
-        // Намираме максималното време от всички измервания
+        // Намираме максималното време САМО от успешните измервания
         val allTimes = mutableListOf<Double>()
         
-        // Добавяме всички измерени времена (в секунди)
+        // Добавяме САМО успешните измерени времена (в секунди)
         if (attempt.time0to100 > 0) allTimes.add(attempt.time0to100 / 1_000_000_000.0)
         if (attempt.time0to200 > 0) allTimes.add(attempt.time0to200 / 1_000_000_000.0)
         if (attempt.time100to200 > 0) allTimes.add(attempt.time100to200 / 1_000_000_000.0)
         if (attempt.time0to402 > 0) allTimes.add(attempt.time0to402 / 1_000_000_000.0)
         
-        // Добавяме максималното време от timestamps (в секунди)
-        // Използваме същата нормализация като графиката - спрямо първия timestamp
-        val (_, speedTimestamps) = getAlignedSpeedData(attempt)
-        val firstTimestamp = speedTimestamps.firstOrNull() ?: 0L
-        
-        if (firstTimestamp > 0) {
-            val maxTimestamp = listOf(
-                attempt.speedTimeStamps.maxOrNull() ?: 0L,
-                attempt.timeStamps.maxOrNull() ?: 0L,
-                attempt.gpsTimeStamps.maxOrNull() ?: 0L
-            ).filter { it > 0 }.maxOrNull() ?: 0L
-            
-            if (maxTimestamp > 0) {
-                // Нормализираме спрямо първия timestamp, както прави графиката
-                allTimes.add((maxTimestamp - firstTimestamp) / 1_000_000_000.0)
-            }
-        }
-        
-        return allTimes.maxOrNull() ?: 10.0 // По подразбиране 10 секунди
+        // НЕ добавяме timestamps - използваме само успешните измервания
+        // Ако няма успешни измервания, използваме минимално време
+        return allTimes.maxOrNull() ?: 1.0 // По подразбиране 1 секунда ако няма успешни измервания
     }
 
     private fun addKeyPointMarkers(holder: AttemptViewHolder, attempt: DragAttempt, mode: ChartMode) {
-        val entries = mutableListOf<com.github.mikephil.charting.data.Entry>()
         val context = holder.itemView.context
 
-        val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
-        if (speedSamples.isEmpty() || timestamps.isEmpty()) return
-
-        // Маркер за 100 km/h (зелен) - конвертиран според единицата
-        if (attempt.time0to100 > 0) {
-            val crossing100 = findSpeedCrossingPoint(speedSamples, timestamps, 100f)
-            if (crossing100 != null) {
-                val speedUnit = UnitsManager.getSpeedUnit(holder.itemView.context)
-                val valueAt100 = when (mode) {
-                    ChartMode.SPEED -> UnitsManager.convertSpeed(100f, speedUnit)  // Конвертиран threshold
-                    ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, crossing100, mode)
-                    ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, crossing100, mode)
-                }
-                entries.add(com.github.mikephil.charting.data.Entry(crossing100, valueAt100))
-            }
+        val rawSpeeds = attempt.speedSamples
+        val rawTimes = attempt.speedTimeStamps
+        Log.d("DragSessionDetails", "📊 addKeyPointMarkers: ${rawSpeeds.size} samples, measurementMode=$measurementMode")
+        
+        if (rawSpeeds.isEmpty() || rawTimes.isEmpty()) {
+            Log.d("DragSessionDetails", "⚠️ No data for key point markers")
+            return
         }
 
-        // Маркер за 200 km/h (син) - конвертиран според единицата
-        if (attempt.time0to200 > 0) {
-            val crossing200 = findSpeedCrossingPoint(speedSamples, timestamps, 200f)
-            if (crossing200 != null) {
-                val speedUnit = UnitsManager.getSpeedUnit(holder.itemView.context)
-                val valueAt200 = when (mode) {
-                    ChartMode.SPEED -> UnitsManager.convertSpeed(200f, speedUnit)  // Конвертиран threshold
-                    ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, crossing200, mode)
-                    ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, crossing200, mode)
-                }
-                entries.add(com.github.mikephil.charting.data.Entry(crossing200, valueAt200))
-            }
-        }
-
-        // Маркер за 402m (червен)
-        if (attempt.time0to402 > 0) {
-            val time402Seconds = attempt.time0to402 / 1_000_000_000.0f
-            val valueAt402 = findValueAtTimeInterpolated(attempt, time402Seconds, mode)
-            entries.add(com.github.mikephil.charting.data.Entry(time402Seconds, valueAt402))
-        }
-
-        if (entries.isNotEmpty()) {
-            val existingData = holder.chart.data
-            if (existingData != null) {
-                entries.forEachIndexed { index, entry ->
-                    val color = when (index) {
-                        0 -> R.color.accent_green  // 100 km/h
-                        1 -> R.color.accent_blue   // 200 km/h
-                        2 -> R.color.accent_red    // 402m
-                        else -> R.color.white
+        val existingData = holder.chart.data
+        if (existingData != null) {
+            // За 100-200 режим НЕ показваме маркер на 100 km/h (графиката започва от там)
+            if (attempt.time0to100 > 0 && measurementMode != MeasurementMode.HUNDRED_TO_200) {
+                val crossing100 = findSpeedCrossingPoint(rawSpeeds, rawTimes, 100f)
+                if (crossing100 != null) {
+                    val speedUnit = UnitsManager.getSpeedUnit(holder.itemView.context)
+                    val valueAt100 = when (mode) {
+                        ChartMode.SPEED -> UnitsManager.convertSpeed(100f, speedUnit)
+                        ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, crossing100, mode)
+                        ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, crossing100, mode)
                     }
-
-                    val markerDataSet = com.github.mikephil.charting.data.LineDataSet(listOf(entry), "").apply {
+                    val entry100 = com.github.mikephil.charting.data.Entry(crossing100, valueAt100)
+                    val dataSet100 = com.github.mikephil.charting.data.LineDataSet(listOf(entry100), "").apply {
                         setDrawCircles(true)
                         setDrawValues(false)
                         lineWidth = 0f
                         circleRadius = 8f
                         circleHoleRadius = 4f
-                        setCircleColor(ContextCompat.getColor(context, color))
+                        setCircleColor(ContextCompat.getColor(context, R.color.accent_green)) // 100 km/h - зелена
                     }
-                    existingData.addDataSet(markerDataSet)
+                    existingData.addDataSet(dataSet100)
                 }
-                holder.chart.notifyDataSetChanged()
-                holder.chart.invalidate()
+            }
+
+            val shouldShow200kmh = when (measurementMode) {
+                MeasurementMode.HUNDRED_TO_200 -> {
+                    val result = attempt.time100to200 > 0
+                    result
+                }
+                else -> {
+                    val result = attempt.time0to200 > 0
+                    result
+                }
+            }
+            
+            if (shouldShow200kmh) {
+                val speedUnit = UnitsManager.getSpeedUnit(holder.itemView.context)
+                val valueAt200 = when (mode) {
+                    ChartMode.SPEED -> UnitsManager.convertSpeed(200f, speedUnit)
+                    ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, 0f, mode) // За 100-200 режим използваме резултата
+                    ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, 0f, mode)
+                }
+                
+                val timeForChart = if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
+                    // За 100-200: използваме резултата (attempt.time100to200) - това е продължителността
+                    attempt.time100to200 / 1_000_000_000.0f
+                } else {
+                    // За други режими: използваме findSpeedCrossingPoint
+                    val crossing200 = findSpeedCrossingPoint(rawSpeeds, rawTimes, 200f)
+                    crossing200 ?: 0f
+                }
+                
+                val entry200 = com.github.mikephil.charting.data.Entry(timeForChart, valueAt200)
+                val dataSet200 = com.github.mikephil.charting.data.LineDataSet(listOf(entry200), "").apply {
+                    setDrawCircles(true)
+                    setDrawValues(false)
+                    lineWidth = 0f
+                    circleRadius = 8f
+                    circleHoleRadius = 4f
+                    setCircleColor(ContextCompat.getColor(context, R.color.accent_blue)) // 200 km/h - синя
+                }
+                existingData.addDataSet(dataSet200)
+            }
+
+            if (attempt.time0to402 > 0) {
+                val time402Seconds = attempt.time0to402 / 1_000_000_000.0f
+                val valueAt402 = findValueAtTimeInterpolated(attempt, time402Seconds, mode)
+                val entry402 = com.github.mikephil.charting.data.Entry(time402Seconds, valueAt402)
+                val dataSet402 = com.github.mikephil.charting.data.LineDataSet(listOf(entry402), "").apply {
+                    setDrawCircles(true)
+                    setDrawValues(false)
+                    lineWidth = 0f
+                    circleRadius = 8f
+                    circleHoleRadius = 4f
+                    setCircleColor(ContextCompat.getColor(context, R.color.accent_red)) // 402m - червена
+                }
+                existingData.addDataSet(dataSet402)
+            }
+
+            holder.chart.notifyDataSetChanged()
+            holder.chart.invalidate()
+        }
+        
+        // Tooltip маркерите се добавят в addSpeedLine/addAccelerationLine/addGForceLine
+    }
+    
+    private fun addTooltipMarkers(holder: AttemptViewHolder, attempt: DragAttempt, mode: ChartMode, closestTo200Normalized: Float?) {
+        val context = holder.itemView.context
+        
+        // Изчисляваме позицията на 200 km/h маркера за 100-200 режим
+        var calculatedClosestTo200 = closestTo200Normalized
+        if (measurementMode == MeasurementMode.HUNDRED_TO_200 && attempt.startTime > 0 && calculatedClosestTo200 == null) {
+            val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
+            val startTimeSeconds = attempt.startTime / 1_000_000_000.0f
+            
+            // Намираме най-близката точка до 200 km/h в нормализираните времена
+            var closestTo200: Float? = null
+            var minDistanceTo200 = Float.MAX_VALUE
+            
+            for (i in speedSamples.indices) {
+                val speed = speedSamples[i]
+                val time = timestamps[i] / 1_000_000_000.0f - startTimeSeconds
+                val distanceTo200 = kotlin.math.abs(speed - 200f)
+                
+                if (distanceTo200 < minDistanceTo200 && speed >= 195f) { // Търсим близо до 200 km/h
+                    minDistanceTo200 = distanceTo200
+                    closestTo200 = time
+                }
+            }
+            
+            Log.d("DragSessionDetails", "📊 Calculated closest to 200 km/h at normalized time: $closestTo200")
+            calculatedClosestTo200 = closestTo200
+        }
+        
+        // Създаваме custom marker който показва различни tooltip-и
+        val smartMarker = object : com.github.mikephil.charting.components.MarkerView(context, R.layout.marker_simple) {
+            private var currentEntry: Entry? = null
+            private var isOnSpecialPoint = false
+            private var pointType: PointTooltipMarker.PointType = PointTooltipMarker.PointType.SPEED_100
+            private var actualValue: Float = 0f
+            
+            override fun refreshContent(e: Entry?, highlight: Highlight?) {
+                currentEntry = e
+                if (e != null) {
+                    // Проверяваме дали е на специална точка (цветна) – само за Speed режим
+                    val specialPointType = if (mode == ChartMode.SPEED) {
+                        determinePointType(e.x, attempt, calculatedClosestTo200)
+                    } else {
+                        null
+                    }
+                    isOnSpecialPoint = specialPointType != null
+                    pointType = specialPointType ?: PointTooltipMarker.PointType.SPEED_100
+                    actualValue = e.y
+                }
+                super.refreshContent(e, highlight)
+            }
+            
+            override fun draw(canvas: Canvas, posX: Float, posY: Float) {
+                if (currentEntry == null) return
+                
+                val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+                
+                // Определяме текста и цвета
+                val (text, backgroundColor) = if (isOnSpecialPoint) {
+                    // На специална точка - показваме типа и времето
+                    val typeText = when (pointType) {
+                        PointTooltipMarker.PointType.SPEED_100 -> {
+                            val timeAt100 = currentEntry?.x ?: 0f
+                            "0-100 km/h\n${String.format("%.3f", timeAt100)}s"
+                        }
+                        PointTooltipMarker.PointType.SPEED_200 -> {
+                            val timeAt200 = currentEntry?.x ?: 0f
+                            "0-200 km/h\n${String.format("%.3f", timeAt200)}s"
+                        }
+                        PointTooltipMarker.PointType.DISTANCE_402 -> {
+                            // За 402m показваме скоростта и времето в момента на достигане
+                            val timeAt402 = currentEntry?.x ?: 0f
+                            val speedAt402 = getSpeedAtTime(attempt, timeAt402)
+                            val speedUnit = UnitsManager.getSpeedUnit(context)
+                            val convertedSpeed = UnitsManager.convertSpeed(speedAt402, speedUnit)
+                            "0-402m\n${convertedSpeed.toInt()} ${speedUnit.symbol}\n${String.format("%.3f", timeAt402)}s"
+                        }
+                    }
+                    val bgColor = when (pointType) {
+                        PointTooltipMarker.PointType.SPEED_100 -> ContextCompat.getColor(context, R.color.accent_green)
+                        PointTooltipMarker.PointType.SPEED_200 -> ContextCompat.getColor(context, R.color.accent_blue)
+                        PointTooltipMarker.PointType.DISTANCE_402 -> ContextCompat.getColor(context, R.color.accent_red)
+                    }
+                    Pair(typeText, bgColor)
+                } else {
+                    // На линията - показваме точната стойност и времето
+                    val timeAtPoint = currentEntry?.x ?: 0f
+                    val (valueText, backgroundColor) = when (mode) {
+                        ChartMode.SPEED -> {
+                            val speedUnit = UnitsManager.getSpeedUnit(context)
+                            val unitSymbol = speedUnit.symbol
+                            val text = "${actualValue.toInt()} $unitSymbol\n${String.format("%.3f", timeAtPoint)}s"
+                            text to ContextCompat.getColor(context, R.color.accent_blue)
+                        }
+                        ChartMode.ACCELERATION -> {
+                            val text = "${String.format("%.1f", actualValue)} m/s²\n${String.format("%.3f", timeAtPoint)}s"
+                            text to ContextCompat.getColor(context, R.color.accent_green)
+                        }
+                        ChartMode.G_FORCE -> {
+                            val text = "${String.format("%.2f", actualValue)} G\n${String.format("%.3f", timeAtPoint)}s"
+                            text to ContextCompat.getColor(context, R.color.accent_orange)
+                        }
+                    }
+                    Pair(valueText, backgroundColor)
+                }
+                
+                // Настройваме paint-овете
+                paint.color = backgroundColor
+                textPaint.color = android.graphics.Color.WHITE
+                textPaint.textSize = 28f
+                textPaint.textAlign = android.graphics.Paint.Align.CENTER
+                
+                // Измерваме текста - поддържаме многоредов текст
+                val textBounds = android.graphics.Rect()
+                textPaint.getTextBounds(text, 0, text.length, textBounds)
+                
+                val padding = 16f
+                val lineHeight = textBounds.height() + 4f
+                val lines = if (text.contains("\n")) text.split("\n") else listOf(text)
+                val maxLineWidth = lines.maxOfOrNull { line ->
+                    val bounds = android.graphics.Rect()
+                    textPaint.getTextBounds(line, 0, line.length, bounds)
+                    bounds.width()
+                } ?: textBounds.width()
+                
+                val rectWidth = maxLineWidth + padding * 2
+                val rectHeight = (lineHeight * lines.size) + padding * 2
+                
+                // Позиционираме балончето над точката
+                val balloonX = posX - rectWidth / 2
+                val balloonY = posY - rectHeight - 20f
+                
+                // Рисуваме закръглен правоъгълник (балончето)
+                val rect = android.graphics.RectF(balloonX, balloonY, balloonX + rectWidth, balloonY + rectHeight)
+                canvas.drawRoundRect(rect, 12f, 12f, paint)
+                
+                // Рисуваме текста - поддържаме многоредов текст
+                if (text.contains("\n")) {
+                    val lines = text.split("\n")
+                    val lineHeight = textBounds.height() + 4f // Малко разстояние между редовете
+                    val startY = balloonY + textBounds.height() + padding / 2
+                    
+                    lines.forEachIndexed { index, line ->
+                        val y = startY + (index * lineHeight)
+                        canvas.drawText(line, posX, y, textPaint)
+                    }
+                } else {
+                    canvas.drawText(text, posX, balloonY + textBounds.height() + padding / 2, textPaint)
+                }
+                
+                // Рисуваме малка стрелка надолу към точката
+                val path = android.graphics.Path()
+                path.moveTo(posX - 8f, balloonY + rectHeight)
+                path.lineTo(posX + 8f, balloonY + rectHeight)
+                path.lineTo(posX, balloonY + rectHeight + 12f)
+                path.close()
+                canvas.drawPath(path, paint)
+            }
+            
+            override fun getOffset(): MPPointF {
+                return MPPointF(-width / 2f, -height.toFloat())
             }
         }
+        
+        holder.chart.marker = smartMarker
+        currentMarkerView = smartMarker
+    }
+    
+    private fun determinePointType(x: Float, attempt: DragAttempt, closestTo200Normalized: Float? = null): PointTooltipMarker.PointType? {
+        val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
+        
+        // Проверяваме за 100 km/h точка - много по-тесен радиус
+        // За 100-200 режим НЕ показваме маркер на 100 km/h (графиката започва от там)
+        if (attempt.time0to100 > 0 && measurementMode != MeasurementMode.HUNDRED_TO_200) {
+            val crossing100 = findSpeedCrossingPoint(speedSamples, timestamps, 100f)
+            if (crossing100 != null && kotlin.math.abs(x - crossing100) < 0.05f) {
+                return PointTooltipMarker.PointType.SPEED_100
+            }
+        }
+        
+        // Проверяваме за 200 km/h точка - много по-тесен радиус
+        val shouldCheck200 = when (measurementMode) {
+            MeasurementMode.HUNDRED_TO_200 -> attempt.time100to200 > 0
+            else -> attempt.time0to200 > 0
+        }
+        
+        Log.d("DragSessionDetails", "📊 Checking 200 km/h marker: shouldCheck=$shouldCheck200, time100to200=${attempt.time100to200}")
+        Log.d("DragSessionDetails", "📊 Attempt details: time0to100=${attempt.time0to100}, time0to200=${attempt.time0to200}, time100to200=${attempt.time100to200}")
+        
+        if (shouldCheck200) {
+            // За 100-200 режим: използваме предварително изчисления closestTo200Normalized
+            if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
+                if (closestTo200Normalized != null && kotlin.math.abs(x - closestTo200Normalized!!) < 0.1f) {
+                    Log.d("DragSessionDetails", "📊 Found 200 km/h marker at x=$x, closestTo200=$closestTo200Normalized")
+                    return PointTooltipMarker.PointType.SPEED_200
+                }
+            } else {
+                // За други режими: използваме старата логика
+                val crossing200 = findSpeedCrossingPoint(speedSamples, timestamps, 200f)
+                
+                if (crossing200 != null && kotlin.math.abs(x - crossing200) < 0.05f) {
+                    return PointTooltipMarker.PointType.SPEED_200
+                }
+            }
+        }
+        
+        // Проверяваме за 402m точка - много по-тесен радиус
+        if (attempt.time0to402 > 0) {
+            // Показваме реалното време без нормализация
+            val time402Seconds = attempt.time0to402 / 1_000_000_000.0f
+            if (kotlin.math.abs(x - time402Seconds) < 0.05f) {
+                return PointTooltipMarker.PointType.DISTANCE_402
+            }
+        }
+        
+        // Не е на специална точка
+        return null
+    }
+    
+    // Помощна функция - намира скоростта в даден момент
+    private fun getSpeedAtTime(attempt: DragAttempt, timeSeconds: Float): Float {
+        val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
+        return interpolateValueAtTime(speedSamples, timestamps, timeSeconds)
     }
 
     // Нова функция - намира ТОЧНОТО време когато скоростта пресича targetSpeed
     private fun findSpeedCrossingPoint(speeds: List<Float>, timestamps: List<Long>, targetSpeed: Float): Float? {
-        
+        // Показваме реалните времена без нормализация
         for (i in 1 until speeds.size) {
             val v0 = speeds[i - 1]
             val v1 = speeds[i]
@@ -993,6 +1513,7 @@ class DragAttemptsAdapter(
     private fun interpolateValueAtTime(values: List<Float>, timestamps: List<Long>, targetTimeSeconds: Float): Float {
         if (values.isEmpty() || timestamps.isEmpty()) return 0f
 
+        // Използваме същата нормализация като графиката - без нормализация спрямо първия timestamp
         val targetTimeNanos = (targetTimeSeconds * 1_000_000_000).toLong()
 
         // Намираме двете съседни точки
@@ -1095,7 +1616,7 @@ class DragAttemptsAdapter(
     }
     
     private fun findTimeWhenDistanceReached(attempt: DragAttempt, targetDistance: Float, mode: ChartMode): Float {
-        // За 402m използваме измереното време, но го нормализираме спрямо данните
+        // За 402m използваме измереното време без нормализация
         val time402Seconds = (attempt.time0to402 / 1_000_000_000.0).toFloat()
         
         // Намираме началното време за нормализация спрямо текущия режим
@@ -1126,7 +1647,7 @@ class DragAttemptsAdapter(
     }
     
     private fun findTimeWhenDistanceReachedInData(attempt: DragAttempt, targetDistance: Float, mode: ChartMode): Float {
-        // За 402m използваме измереното време, но го конвертираме в същия формат като данните
+        // За 402m използваме измереното време без нормализация
         val time402Seconds = (attempt.time0to402 / 1_000_000_000.0).toFloat()
         return time402Seconds
     }
@@ -1174,11 +1695,11 @@ class DragAttemptsAdapter(
             
             if (allTimestamps.isNotEmpty()) {
                 allTimestamps.maxOrNull()!! / 1000.0 // Конвертирай от milliseconds в секунди
-        } else {
-            0.0
+            } else {
+                0.0
             }
-        }
-    }
+        } // ЗАТВАРЯ return if
+    } // ЗАТВАРЯ функция
 
     private fun updateVisibility(holder: AttemptViewHolder) {
         when (measurementMode) {
@@ -1215,6 +1736,7 @@ class DragAttemptsAdapter(
         }
     }
 
+    override fun getItemCount(): Int = attempts.size
 
     private fun getMaxMeasuredTime(attempt: DragAttempt): Double {
         val times = mutableListOf<Long>()
@@ -1245,10 +1767,7 @@ class DragAttemptsAdapter(
             0.0
         }
     }
-
-    override fun getItemCount(): Int = attempts.size
-
-
+    
     private fun formatTime(label: String, nanos: Long): String {
         return if (nanos > 0) {
             val seconds = nanos / 1_000_000_000.0
@@ -1264,7 +1783,6 @@ class DragAttemptsAdapter(
         // НЕ нормализираме времената - показваме ги като са записани
         // Нормализацията се използва само за графиката, не за дисплея
         val displayTime = time / 1_000_000_000.0
-        
 
         return if (!label.isNullOrEmpty()) {
             "$label\n${String.format("%.3f s", displayTime)}"  // Добавяме \n за съответствие с formatTime

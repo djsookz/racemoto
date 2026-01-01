@@ -55,7 +55,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/track_resume"
                 android:textColor="#FFFFFF"
-                android:backgroundTint="#4CAF50"
+                android:backgroundTint="#FF6020"
                 android:textSize="12sp"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp"

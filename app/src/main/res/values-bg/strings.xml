@@ -82,16 +82,10 @@
     <string name="exit_race_no">Не</string>
     <string name="always_on_display">Always On Display</string>
     <string name="settings_title">Настройки</string>
-    <string name="profile_details_stats">Статистика</string>
     <string name="mid_range">Средно</string>
     <string name="profile_details_top_speed">Рекорд</string>
     <string name="sprint">Спринт</string>
     <string name="full_sprint">Фул Спринт</string>
-    <string name="profile_detail_duration_format">%1$dд %2$dч</string>
-    <string name="profile_detail_distance_format">%1$.1f Км</string>
-    <string name="profile_detail_session_text">Брой Сесии</string>
-    <string name="profile_detail_distance_text">Общо Разтояние</string>
-    <string name="profile_detail_duration_text">Общо Време</string>
     <string name="drag_best_times_header">Най-добри Времена</string>
     <string name="drag_all_attempts">Всички Опити</string>
     <string name="no_attempts_recorded">Няма записани опити</string>
@@ -99,6 +93,7 @@
     <string name="attempt_title">Опит %d</string>
     <string name="max_speed_format_simple">Макс: %.0f км/ч</string>
     <string name="start_drag_session">Започни Драг Сесия</string>
+    <string name="start_track_session">Започни Трак Сесия</string>
     <string name="no_drag_sessions">Все още няма драг сесии</string>
     <string name="drag_stop_session_title">Спиране на сесията?</string>
     <string name="drag_stop_session_message">Спри тази драг сесия и запази всички опити?</string>
@@ -150,6 +145,38 @@
     <string name="drag_finish_session">Приключи Сесия</string>
     <string name="drag_completed_format">Завършени: %s</string>
     
+    <!-- Drag Calibration -->
+    <string name="calibration_title">Калибриране</string>
+    <string name="calibration_description">Калибрирай посоката напред/назад за двете ориентации</string>
+    <string name="calibration_portrait">📱 ПОРТРЕТ</string>
+    <string name="calibration_landscape">🔄 ПЕЙЗАЖ</string>
+    <string name="calibration_status_calibrated">Калибрирано</string>
+    <string name="calibration_status_not_calibrated">Не е калибрирано</string>
+    <string name="calibration_date_format">Последно: %s</string>
+    <string name="calibration_please_portrait">Моля калибрирайте в портретен режим</string>
+    <string name="calibration_please_landscape">Моля калибрирайте в пейзажен режим</string>
+    <string name="calibration_btn_calibrate">Калибрирай</string>
+    <string name="calibration_btn_recalibrate">Повтори</string>
+    <string name="calibration_btn_clear">Изчисти</string>
+    <string name="calibration_btn_clear_all">Изчисти всички калибрации</string>
+    <string name="calibration_btn_continue">ПРОДЪЛЖИ</string>
+    <string name="calibration_btn_cancel">ОТКАЗ</string>
+    <string name="calibration_instructions_title">📋 Инструкции</string>
+    <string name="calibration_step1">1️⃣ Избери ориентация (Портрет или Пейзаж)</string>
+    <string name="calibration_step2">2️⃣ Постави телефона на желаната позиция</string>
+    <string name="calibration_step3">3️⃣ Натисни бутона \'Калибрирай\'</string>
+    <string name="calibration_step4">4️⃣ Държи неподвижно 5 секунди</string>
+    <string name="calibration_step5">5️⃣ Тръгни напред веднъж</string>
+    <string name="calibration_warning">⚠️ Калибрирай И ДВЕТЕ ако въртиш телефона при измерване!</string>
+    <string name="calibration_hold_steady">Държи неподвижно 5 секунди...</string>
+    <string name="calibration_drive_forward">Тръгни НАПРЕД веднъж...</string>
+    <string name="calibration_success">УСПЕХ!</string>
+    <string name="calibration_portrait_success">Портретът е калибриран успешно!</string>
+    <string name="calibration_landscape_success">Пейзажът е калибриран успешно!</string>
+    <string name="calibration_need_one">⚠️ Моля калибрирай ПОНЕ ЕДНА ориентация преди използване на приложението</string>
+    <string name="calibration_need_profile">⚠️ Моля първо калибрирай %s!</string>
+    <string name="calibration_not_calibrated">Не е калибрирано</string>
+    
     <!-- Drag Session Details -->
     <string name="drag_speed_chart_title">Скорост (км/ч)</string>
     <string name="drag_accel_chart_title">Ускорение (m/s²)</string>
@@ -185,6 +212,7 @@
     <string name="drag_value_placeholder">--</string>
     <string name="drag_temperature_placeholder">--°C</string>
     <string name="drag_altitude_placeholder">--m</string>
+    <string name="weather_until">до</string>
     
     <!-- Drag Session Details Labels -->
     <string name="drag_best_0to100_label">0-100:</string>
@@ -240,7 +268,7 @@
     <string name="track_max_acceleration">Макс. ускорение:</string>
     <string name="track_max_cornering">Макс. натоварване завой:</string>
     <string name="track_laps_section">Обиколки</string>
-    <string name="track_no_sessions">Няма записани сесии</string>
+    <string name="track_no_sessions">Няма записани трак сесии</string>
     <string name="track_no_sessions_today">Няма записани сесии за днес</string>
     <string name="track_selection_title">Избор на писта</string>
     <string name="track_selection_serres_desc">Професионална писта за мотоциклети и автомобили с 4 timing точки за прецизни измервания.</string>
@@ -278,6 +306,49 @@
     <!-- Settings -->
     <string name="settings_general_header">═══ ОБЩИ ═══</string>
     <string name="settings_drag_header">═══ DRAG ═══</string>
+    <string name="settings_drag_calibration">🏁 Калибриране</string>
+    
+    <!-- Garage -->
+    <string name="garage_title">Гараж</string>
+    <string name="garage_add_button">Добави</string>
+    <string name="garage_my_profile">Моят профил</string>
+    <string name="garage_vehicle_car">🚗 Автомобил</string>
+    <string name="garage_vehicle_motorcycle">🏍️ Мотоциклет</string>
+    <string name="garage_change_button">Смени</string>
+    <string name="garage_profile_image">Снимка на профила</string>
+    <string name="garage_select_image">Избери снимка</string>
+    <string name="garage_remove_image">Премахни снимка</string>
+    <string name="garage_my_collection">Моята колекция</string>
+    <string name="garage_sessions_template">⚡ %d сесии</string>
+    <string name="garage_max_speed_template">🏁 %s км/ч макс</string>
+    <string name="garage_confirm_delete">Сигурни ли сте, че искате да изтриете \"%s\"?\n\nВсички %d сесии за този профил също ще бъдат изтрити.</string>
+    <string name="garage_confirm_delete_simple">Сигурни ли сте, че искате да изтриете \"%s\"?</string>
+    <string name="garage_delete_button">Изтрий</string>
+    <string name="garage_cancel_button">Отказ</string>
+    <string name="garage_create_button">Създай</string>
+    <string name="garage_select_brand">Моля изберете марка</string>
+    <string name="garage_select_model">Моля изберете модел</string>
+    <string name="garage_most_popular">Най-популярни</string>
+    <string name="garage_back_press">Натиснете отново за изход</string>
+    
+    <!-- Profile Details -->
+    <string name="profile_detail_session_text">Сесии</string>
+    <string name="profile_detail_distance_format">0,0 км</string>
+    <string name="profile_detail_distance_text">Общо Разстояние</string>
+    <string name="profile_detail_duration_format">%1$dч %2$dм</string>
+    <string name="profile_detail_duration_text">Общо Време</string>
+    <string name="profile_details_stats">Статистика</string>
+    <string name="seconds">секунди</string>
+    <string name="quarter_mile">Четвърт миля</string>
+    <string name="kmh_unit">км/ч</string>
+    <string name="drag_0to100_title">0-100 км/ч</string>
+    <string name="drag_0to200_title">0-200 км/ч</string>
+    <string name="drag_100to200_title">100-200 км/ч</string>
+    <string name="drag_quarter_mile_title">0-402м</string>
+    <string name="profile_detail_reset_title">Нулиране на %s</string>
+    <string name="profile_detail_reset_message">Сигурни ли сте, че искате да нулирате рекорда за %s?\n\nТова ще изтрие най-добрия резултат от всички сесии.</string>
+    <string name="profile_detail_reset_button">Нулирай</string>
+    <string name="profile_detail_max_speed">Максимална скорост</string>
     <string name="settings_track_header">═══ ПИСТА ═══</string>
     <string name="settings_language">Език / Language</string>
     <string name="settings_language_auto">Автоматичен / Auto</string>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- Бяла стрелка, огледална на дясната версия -->
+    <path
+        android:fillColor="#000"
+        android:pathData="M12,4a8,8 0 1,0 7.9,9.2 1,1 0 0,0 -2,-0.3A6,6 0 1,1 12,6v2.2a0.4,0.4 0 0,0 0.7,0.3l3.5,-3.5a0.4,0.4 0 0,0 0,-0.6l-3.5,-3.5A0.4,0.4 0 0,0 12,1.2V4Z"/>
+</vector>
+
+
+
+

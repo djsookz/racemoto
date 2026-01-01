@@ -66,17 +66,9 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Bottom Navigation - ПЪРВО поставяме навигацията -->
-    <include
-        android:id="@+id/bottomNavigation"
-        layout="@layout/bottom_navigation"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+    <!-- Bottom navigation is handled by MainContainerActivity - removed from here -->
 
-    <!-- Start button - СЛЕД това бутона над навигацията -->
+    <!-- Start button - Позициониран над bottom navigation (което е в MainContainerActivity) -->
     <Button
         android:id="@+id/btnStartDragSession"
         android:layout_width="match_parent"
@@ -86,9 +78,9 @@
         android:textSize="18sp"
         android:padding="16dp"
         android:backgroundTint="@color/accent_blue"
-        app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
-    app:layout_constraintStart_toStartOf="parent"
-    app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Sessions list - Над бутона -->
     <androidx.recyclerview.widget.RecyclerView

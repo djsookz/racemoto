@@ -87,7 +87,7 @@
     <string name="profile_details_top_speed">Ρεκόρ</string>
     <string name="sprint">Σπρίντ</string>
     <string name="full_sprint">Φουλ Σπρίντ</string>
-    <string name="profile_detail_duration_format">%1$dμ %2$dω</string>
+    <string name="profile_detail_duration_format">%1$dω %2$dλ</string>
     <string name="profile_detail_distance_format">%1$.1f Χλμ</string>
     <string name="profile_detail_session_text">Σύνολο Ταξιδιών</string>
     <string name="profile_detail_distance_text">Συνολική Απόσταση</string>

@@ -14,7 +14,6 @@ object LanguageManager {
     private const val PREF_LANGUAGE = "app_language"
     
     enum class Language(val displayName: String, val localeCode: String) {
-        AUTO("Автоматичен / Auto / Αυτόματο", "auto"),
         ENGLISH("English", "en"),
         BULGARIAN("Български", "bg"),
         GREEK("Ελληνικά", "el")
@@ -22,7 +21,6 @@ object LanguageManager {
     
     fun getLocaleForLanguage(language: Language): Locale {
         return when (language) {
-            Language.AUTO -> Locale.getDefault()
             Language.ENGLISH -> Locale.ENGLISH
             Language.BULGARIAN -> Locale("bg")
             Language.GREEK -> Locale("el")
@@ -31,11 +29,11 @@ object LanguageManager {
     
     fun getLanguage(context: Context): Language {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val value = prefs.getString(PREF_LANGUAGE, Language.AUTO.name)
+        val value = prefs.getString(PREF_LANGUAGE, Language.ENGLISH.name)
         return try {
-            Language.valueOf(value ?: Language.AUTO.name)
+            Language.valueOf(value ?: Language.ENGLISH.name)
         } catch (e: IllegalArgumentException) {
-            Language.AUTO
+            Language.ENGLISH // Default на английски ако има грешка
         }
     }
     

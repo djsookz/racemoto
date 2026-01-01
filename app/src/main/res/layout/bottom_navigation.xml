@@ -4,11 +4,10 @@
     android:id="@+id/bottomNavigationContainer"
     android:layout_width="match_parent"
     android:layout_height="80dp"
-    android:elevation="12dp"
     android:orientation="horizontal"
-    android:background="#1C1C1E"
     android:paddingVertical="8dp"
-    >
+    android:background="#1C1C1E"
+    android:elevation="8dp">
 
     <!-- Навигационен елемент 1 - Драг -->
     <LinearLayout

@@ -46,6 +46,11 @@ enum class AccelerationState {
 }
 
 class ForegroundService : Service(), SensorEventListener {
+    
+    companion object {
+        const val GPS_HZ_BROADCAST = "com.example.clinometer.GPS_HZ_UPDATE"
+        const val EXTRA_GPS_HZ = "gps_hz"
+    }
 
     private val routePoints = mutableListOf<RoutePoint>()
     private var filteredAngle = 0f
@@ -58,6 +63,9 @@ class ForegroundService : Service(), SensorEventListener {
     private var startTime: Long = 0
     private var lastLocation: Location? = null
     private var serviceStartTime: Long = 0
+    
+    // GPS Hz tracking
+    private var lastGpsHzTimeNanos = 0L  // Changed to nanoseconds for accuracy
     private var totalDistance = 0.0
     private var lastLocationForDistance: Location? = null
     private var resetTime = 0L
@@ -76,7 +84,22 @@ class ForegroundService : Service(), SensorEventListener {
     var accelerationTracking = AccelerationData()
 
     private var lastDataSaveTime = 0L
-    private val DATA_SAVE_INTERVAL = 250L
+    private var lastSavedLocation: Location? = null
+    private var lastAngleSaveTime = 0L  // Отделен timer за angle recording
+    
+    // Angle recording винаги на 250ms (4 Hz) за точност
+    private val angleRecordingInterval = 250L
+    
+    // Различни интервали за различни режими:
+    // - DRAG: 250ms (4 Hz) за максимална точност при ускорение
+    // - NORMAL: 500ms (2 Hz) за баланс между качество, производителност и детайли
+    private fun getDataSaveInterval(): Long {
+        return if (currentMeasurementMode == "NORMAL") {
+            500L  // 2 точки/секунда за нормално каране (по-добър баланс!)
+        } else {
+            250L  // 4 точки/секунда за DRAG режим (максимална точност!)
+        }
+    }
 
     private val gravity = FloatArray(3)
     private val linearAcceleration = FloatArray(3)
@@ -96,11 +119,23 @@ class ForegroundService : Service(), SensorEventListener {
     private var currentGForceY = 0f
     @Volatile
     private var isMeasurementActive = false
+    
+    // Linear Accel start detection
+    private var linearAccelTriggered = false
+    private var linearAccelTriggerTime = 0L
+    private val REQUIRED_ACCEL_SAMPLES = 3
+    private var consecutiveAccelSamples = 0
+    private var currentMeasurementMode = "ALL"
 
     fun getCurrentG(): Float = currentG
     fun getPeakG(): Float = peakG
     fun getCurrentGForceX(): Float = currentGForceX
     fun getCurrentGForceY(): Float = currentGForceY
+    fun isLinearAccelTriggered(): Boolean = linearAccelTriggered
+    fun getLinearAccelTriggerTime(): Long = linearAccelTriggerTime
+    fun isLinearAccelCalibrated(): Boolean = DragCalibration.isUniversalCalibrated
+    fun getAccuracyMode(): String = if (DragCalibration.isUniversalCalibrated) "HIGH_ACCURACY" else "GPS_ONLY"
+    fun isSessionActive(): Boolean = isMeasurementActive
 
     private val SAMPLES_CAPACITY = 1000
 
@@ -211,6 +246,28 @@ class ForegroundService : Service(), SensorEventListener {
     }
 
     fun getRoutePoints(): List<RoutePoint> = routePoints
+    
+    fun getFinalRoutePoints(): List<RoutePoint> {
+        // Ако няма точки, върни празен списък
+        if (routePoints.isEmpty()) return routePoints
+        
+        // ВИНАГИ добави финална точка при STOP
+        // Това гарантира че графиката показва данни до момента на STOP
+        val currentTime = SystemClock.elapsedRealtime()
+        val finalTimestamp = currentTime - actualStartTime
+        val lastPoint = routePoints.last()
+        
+        // Добави финална точка със същите данни като последната, но с текущото време
+        val finalPoint = RoutePoint(
+            geoPoint = lastPoint.geoPoint,
+            speed = currentSpeed,
+            angle = currentCalibratedAngle,
+            timestamp = finalTimestamp,
+            absoluteTime = System.currentTimeMillis()
+        )
+        
+        return routePoints + finalPoint
+    }
     fun getMaxLeftAngle(): Float = maxLeftAngle
     fun getMaxRightAngle(): Float = maxRightAngle
     fun getMaxSpeed(): Float = maxSpeed
@@ -276,7 +333,18 @@ class ForegroundService : Service(), SensorEventListener {
         currentCalibratedAngle = 0f
     }
 
-    fun startNewMeasurement() {
+    fun startNewMeasurement(measurementMode: String = "ALL") {
+        currentMeasurementMode = measurementMode
+        
+        // Логване на калибрацията
+        if (DragCalibration.isUniversalCalibrated) {
+            val dynamicThreshold = DragCalibration.getDynamicThreshold()
+            Log.d("ForegroundService", "╔════════════════════════════════════════════════════════════╗")
+            Log.d("ForegroundService", "║  🏁 DRAG MEASUREMENT ЗАПОЧВА                               ║")
+            Log.d("ForegroundService", "╚════════════════════════════════════════════════════════════╝")
+            Log.d("ForegroundService", "   🔥 MAX вибрация: ${"%.2f".format(DragCalibration.maxVibrationBaseline)} m/s²")
+            Log.d("ForegroundService", "   ⚡ ДИНАМИЧЕН праг: ${"%.2f".format(dynamicThreshold)} m/s² (1.5× MAX)")
+        }
 
         gMeasurementStartTime = System.currentTimeMillis()
         measurementStartTimeNano = System.nanoTime() // Запазваме и nano времето
@@ -285,6 +353,11 @@ class ForegroundService : Service(), SensorEventListener {
         lastGPSAccelSampleTime = 0L
         lastSpeedSampleTime = 0L
         isMeasurementActive = true
+        
+        // ВАЖНО: РЕСЕТВАМЕ linear accel trigger флаговете!
+        linearAccelTriggered = false
+        linearAccelTriggerTime = 0L
+        consecutiveAccelSamples = 0
 
         // Reset measured times
         time0to100Nanos = 0L
@@ -313,6 +386,7 @@ class ForegroundService : Service(), SensorEventListener {
 
     fun resetData() {
         if (!isPreWarmingMode) {
+            Log.d("ForegroundService", "🔄 RESET SESSION - Clearing all data and restarting!")
             // Изчисти всички данни за нова сесия
             routePoints.clear()
             filteredAngle = 0f
@@ -324,11 +398,14 @@ class ForegroundService : Service(), SensorEventListener {
             currentSpeed = 0f
 
             // Нулирай всички времена и задай ново начално време
-            startTime = SystemClock.elapsedRealtime()
-            actualStartTime = SystemClock.elapsedRealtime()
-            lastDataSaveTime = 0L
-            resetTime = SystemClock.elapsedRealtime()
+            val now = SystemClock.elapsedRealtime()
+            startTime = now
+            actualStartTime = now
+            lastDataSaveTime = now  // ВАЖНО: Задай на now, не 0! За да започне да записва веднага!
+            lastAngleSaveTime = now  // Reset angle timer също
+            resetTime = now
             lastAccelerationTime = 0L
+            lastSavedLocation = null  // Reset last saved location за distance check
 
             // Нулирай acceleration данните
             accelerationTracking = AccelerationData()
@@ -353,6 +430,8 @@ class ForegroundService : Service(), SensorEventListener {
                 speedSamplesBuffer.clear()
                 speedTimeStamps.clear()
             }
+            
+            Log.d("ForegroundService", "✅ RESET COMPLETE! New session starts NOW. RoutePoints: ${routePoints.size}, actualStartTime: $actualStartTime")
         } else {
             // Ако сме в pre-warming режим, пак искаме да нулираме сесиите, но да НЕ задаваме actualStartTime
             routePoints.clear()
@@ -367,6 +446,7 @@ class ForegroundService : Service(), SensorEventListener {
             startTime = SystemClock.elapsedRealtime()
             actualStartTime = 0L
             lastDataSaveTime = 0L
+            lastAngleSaveTime = 0L
             resetTime = SystemClock.elapsedRealtime()
             lastAccelerationTime = 0L
 
@@ -447,7 +527,14 @@ class ForegroundService : Service(), SensorEventListener {
         return if (isPreWarmingMode) {
             0L
         } else {
-            SystemClock.elapsedRealtime() - actualStartTime
+            // Ако actualStartTime все още не е инициализиран, инициализирай го
+            if (actualStartTime == 0L) {
+                actualStartTime = SystemClock.elapsedRealtime()
+            }
+            val currentTime = SystemClock.elapsedRealtime()
+            val duration = currentTime - actualStartTime
+            // Връщаме duration само ако е положително (ако actualStartTime е валидно)
+            if (duration > 0) duration else 0L
         }
     }
 
@@ -493,6 +580,11 @@ class ForegroundService : Service(), SensorEventListener {
                 // Calculate G-force components for visualization
                 currentGForceX = linearAcceleration[0] / 9.81f
                 currentGForceY = linearAcceleration[1] / 9.81f
+                
+                // DRAG START DETECTION (UNIVERSAL calibration!)
+                if (currentMeasurementMode != "NORMAL" && !linearAccelTriggered) {
+                    checkLinearAccelStart(event.values)
+                }
 
                 // Проверка за реално ускорение
                 if (magnitude > accelerometerThreshold && gForce > 0.05f) {
@@ -500,9 +592,10 @@ class ForegroundService : Service(), SensorEventListener {
                     lastAccelerationTime = System.nanoTime()
 
                     // Автоматично стартирай измерване ако няма активно
-                    if (!isMeasurementActive && gMeasurementStartTime == 0L) {
-                        startNewMeasurement()
-                    }
+                    // ❌ ПРЕМАХНАТО: Това беше за старата логика, сега mode-а се задава от CountdownActivity/MainActivity
+                    // if (!isMeasurementActive && gMeasurementStartTime == 0L) {
+                    //     startNewMeasurement()  // Беше без параметър → винаги "ALL" → bug!
+                    // }
                 }
 
                 if (System.nanoTime() - lastAccelerationTime > accelerationWindow) {
@@ -534,7 +627,9 @@ class ForegroundService : Service(), SensorEventListener {
                 } else 0f
 
                 val delta = abs(raw - filteredAngle)
-                val adaptiveAlpha = (0.01f + (delta / 45f)).coerceIn(0.05f, 0.3f)
+                // Много по-бърз филтър за нормално каране - следи реалните движения!
+                // Alpha 0.5-0.8 = почти сурови данни с минимално изглаждане на шум
+                val adaptiveAlpha = (0.3f + (delta / 30f)).coerceIn(0.5f, 0.8f)
                 filteredAngle += adaptiveAlpha * (raw - filteredAngle)
                 val calibrated = (offsetAngle - filteredAngle).coerceIn(-90f, 90f)
                 currentCalibratedAngle = calibrated
@@ -564,8 +659,6 @@ class ForegroundService : Service(), SensorEventListener {
                             }
                         }
                     }
-
-                    saveDataPointIfNeeded()
                 }
                 // Записваме пикове дори извън активния период, за да не пропуснем пикове
                 else if (gForce > 0.05f) {
@@ -600,21 +693,20 @@ class ForegroundService : Service(), SensorEventListener {
 
     private fun saveDataPointIfNeeded() {
         if (isPreWarmingMode) return
+        if (!isMeasurementActive) return // Спираме записването на точки когато сесията е спряна
 
-        val currentTime = SystemClock.elapsedRealtime()
-        if (currentTime - lastDataSaveTime >= DATA_SAVE_INTERVAL) {
-            lastDataSaveTime = currentTime
-
-            lastLocation?.let { location ->
-                val pt = RoutePoint(
-                    geoPoint = GeoPoint(location.latitude, location.longitude),
-                    speed = currentSpeed,
-                    angle = currentCalibratedAngle,
-                    timestamp = currentTime - actualStartTime,
-                    absoluteTime = location.time
-                )
-                routePoints.add(pt)
-            }
+        lastLocation?.let { location ->
+            val currentTime = SystemClock.elapsedRealtime()
+            val pt = RoutePoint(
+                geoPoint = GeoPoint(location.latitude, location.longitude),
+                speed = currentSpeed,
+                angle = currentCalibratedAngle,
+                timestamp = currentTime - actualStartTime,
+                absoluteTime = location.time
+            )
+            routePoints.add(pt)
+            
+            android.util.Log.d("ForegroundService", "📍 Added RoutePoint #${routePoints.size}: speed=${"%.1f".format(currentSpeed)} km/h, angle=${"%.1f".format(currentCalibratedAngle)}°")
         }
     }
 
@@ -643,9 +735,18 @@ class ForegroundService : Service(), SensorEventListener {
                 if (isPreWarmingMode) {
                     isPreWarmingMode = false
                 }
-                actualStartTime = SystemClock.elapsedRealtime()
-                resetTime = actualStartTime
-                startTime = actualStartTime
+                
+                // 🔥 ВАЖНО: Задаваме режим "NORMAL" за нормално каране
+                currentMeasurementMode = "NORMAL"
+                val now = SystemClock.elapsedRealtime()
+                
+                actualStartTime = now
+                resetTime = now
+                startTime = now
+                lastDataSaveTime = now  // ВАЖНО: Задаваме за да започне да записва веднага!
+                lastAngleSaveTime = now  // ВАЖНО: Задаваме за angle recording!
+                
+                Log.d("ForegroundService", "🚗 NORMAL mode activated - GPS interval: 500ms (2 Hz), Angle interval: 250ms (4 Hz)")
 
                 // Ако имаме предварително записани GPS стойности от pre-warm — използваме последната
                 if (gpsWarmupLocations.isNotEmpty()) {
@@ -653,6 +754,12 @@ class ForegroundService : Service(), SensorEventListener {
                 }
 
                 registerSensors()
+                
+                // 🔥 ВАЖНО: Задаваме isMeasurementActive = true за да знае MainActivity че има активна сесия
+                isMeasurementActive = true
+                gMeasurementStartTime = System.currentTimeMillis()
+                measurementStartTimeNano = System.nanoTime()
+                measurementStartTimeMs = gMeasurementStartTime
             }
         }
 
@@ -668,9 +775,32 @@ class ForegroundService : Service(), SensorEventListener {
             .setMaxUpdateDelayMillis(100)
             .build()
 
+        Log.d("GPS_TRACKING", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        Log.d("GPS_TRACKING", "🛰️ GPS CONFIGURATION:")
+        Log.d("GPS_TRACKING", "   Priority: HIGH_ACCURACY")
+        Log.d("GPS_TRACKING", "   Interval: 100ms (10Hz)")
+        Log.d("GPS_TRACKING", "   Min Interval: 100ms")
+        Log.d("GPS_TRACKING", "   Max Delay: 100ms")
+        Log.d("GPS_TRACKING", "   Min Distance: 0.1m")
+        Log.d("GPS_TRACKING", "   Wait for Accurate: false")
+        Log.d("GPS_TRACKING", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
         locCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
+                // Process all locations for data collection
                 result.locations.forEach { onNewLocation(it) }
+                
+                // But calculate Hz only from the LAST location to avoid batch timestamp issues
+                result.lastLocation?.let { lastLoc ->
+                    val nowNanos = lastLoc.elapsedRealtimeNanos
+                    if (lastGpsHzTimeNanos > 0L) {
+                        val deltaNanos = nowNanos - lastGpsHzTimeNanos
+                        val deltaMs = deltaNanos / 1_000_000.0
+                        val hz = if (deltaMs > 0) 1000.0 / deltaMs else 0.0
+                        sendGpsHzBroadcast(hz)
+                    }
+                    lastGpsHzTimeNanos = nowNanos
+                }
             }
         }
 
@@ -747,8 +877,16 @@ class ForegroundService : Service(), SensorEventListener {
         return output
     }
 
+    private fun sendGpsHzBroadcast(hz: Double) {
+        val intent = android.content.Intent(GPS_HZ_BROADCAST).apply {
+            putExtra(EXTRA_GPS_HZ, hz)
+        }
+        sendBroadcast(intent)
+    }
 
     private fun onNewLocation(loc: Location) {
+        // Hz calculation moved to onLocationResult to avoid batch timestamp issues
+        
         // Изчисли GPS acceleration
         val gpsAccel = run {
             val prev = lastLocation
@@ -759,8 +897,12 @@ class ForegroundService : Service(), SensorEventListener {
                     val newMs = loc.speed
                     val accel = ((newMs - prevMs) / dtSec).toFloat()
                     if (accel.isFinite() && !accel.isNaN()) accel else 0f
-                } else 0f
-            } else 0f
+                } else {
+                    0f
+                }
+            } else {
+                0f
+            }
         }
 
         lastLocation = loc
@@ -842,20 +984,49 @@ class ForegroundService : Service(), SensorEventListener {
         currentSpeed = newSpeed
 
         if (currentSpeed > maxSpeed) maxSpeed = currentSpeed
+        
+        // 🔥 КРИТИЧНО: Събираме GPS точки за маршрута!
+        // Това е нужно за да има данни в ProcessingActivity и MapActivity!
+        val currentTimeMs = SystemClock.elapsedRealtime()  // Monotonic clock (по-прецизен от System.currentTimeMillis)
+        val interval = getDataSaveInterval()  // Динамичен интервал според режима
+        
+        // 🔍 DEBUG: Логваме какъв е режима и интервала
+        if (routePoints.size % 100 == 0) {  // На всеки 100 точки (не 10, за по-малко spam)
+            android.util.Log.d("ForegroundService", "🔍 Mode: $currentMeasurementMode, Interval: ${interval}ms, Points: ${routePoints.size}")
+        }
+        
+        // Проверка дали е минало достатъчно време И локацията е различна (избягваме GPS batching дубликати)
+        val locationChanged = lastSavedLocation?.let { last ->
+            loc.distanceTo(last) > 0.5f  // Минимум 0.5 метра промяна (избягва статични точки и batching)
+        } ?: true  // Първата точка винаги се записва
+        
+        // КРИТИЧНО: Angle recording е НЕЗАВИСИМ от GPS movement!
+        // Ако си статичен но мърдаш телефона, angle данните СЕ ЗАПИСВАТ!
+        // НО само в NORMAL режим! В DRAG режим данните се записват от dragStartTime!
+        // ВАЖНО: Не записвай данни ако сме в pre-warming режим ИЛИ няма активна сесия!
+        val hasActiveSession = actualStartTime != 0L
+        val shouldRecordAngle = !isPreWarmingMode && hasActiveSession && currentMeasurementMode == "NORMAL" && currentTimeMs - lastAngleSaveTime >= angleRecordingInterval
+        val shouldRecordGPS = !isPreWarmingMode && hasActiveSession && currentTimeMs - lastDataSaveTime >= interval && locationChanged
+        
+        if (shouldRecordAngle || shouldRecordGPS) {
+            saveDataPointIfNeeded()
+            
+            if (shouldRecordAngle) {
+                lastAngleSaveTime = currentTimeMs
+            }
+            if (shouldRecordGPS) {
+                lastDataSaveTime = currentTimeMs
+                lastSavedLocation = loc
+            }
+        }
         updateTotalDistance(loc)
 
         if (SystemClock.elapsedRealtime() % 30_000 == 0L) {
             optimizeRoutePoints()
         }
-
-        val pt = RoutePoint(
-            geoPoint = GeoPoint(loc.latitude, loc.longitude),
-            speed = currentSpeed,
-            angle = currentCalibratedAngle,
-            timestamp = SystemClock.elapsedRealtime() - actualStartTime,
-            absoluteTime = loc.time
-        )
-        routePoints.add(pt)
+        
+        // NOTE: RoutePoint добавяне се случва в saveDataPointIfNeeded(), НЕ тук!
+        // Премахнах дублиращия код който добавяше точки на всяко GPS update
     }
 
 
@@ -1014,5 +1185,74 @@ class ForegroundService : Service(), SensorEventListener {
                 range.isActive = false
             }
         }
+    }
+    
+    private fun checkLinearAccelStart(rawAccel: FloatArray): Boolean {
+        if (linearAccelTriggered) return false
+        
+        // 🔥 ВАЖНО: Проверяваме ТЕКУЩАТА ориентация и използваме правилната калибрация!
+        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        
+        // Проверка дали има калибрация за текущата ориентация
+        val isCalibrated = if (isLandscape) {
+            DragCalibration.isLandscapeCalibrated
+        } else {
+            DragCalibration.isPortraitCalibrated
+        }
+        
+        if (!isCalibrated) {
+            return false
+        }
+        
+        // Forward acceleration (САМО напред!) - използва правилната калибрация за текущата ориентация!
+        val forwardAccel = DragCalibration.getForwardAcceleration(rawAccel, isLandscape)
+        
+        // Lateral acceleration (странично) - перпендикулярно на forward посоката
+        val lateralAccel = DragCalibration.getLateralAcceleration(rawAccel, isLandscape)
+        
+        // WEIGHTED ДИНАМИЧЕН ПРАГ: точно като в калибрацията! (използва правилната ориентация!)
+        val cleanLinearAccel = DragCalibration.getLinearAcceleration(rawAccel, isLandscape)
+        val calculatedThreshold = DragCalibration.getWeightedDynamicThreshold(cleanLinearAccel, isLandscape)
+        
+        // ВАЖНО: Минимален threshold 0.8 m/s² за да избегнем false positives от вибрации!
+        val finalThreshold = calculatedThreshold.coerceAtLeast(0.8f)
+        
+        // КРИТИЧНА ПРОВЕРКА 1: Forward трябва да е над минимум (ПО-ВИСОК!)
+        if (forwardAccel < 0.6f) {
+            consecutiveAccelSamples = 0
+            return false
+        }
+        
+        // КРИТИЧНА ПРОВЕРКА 2: Forward трябва да е МНОГО ДОМИНИРАЩ спрямо lateral!
+        // Вибрации: forward ≈ lateral (хаотични), дори при ratio 4-5 може да е случайно!
+        // Реално ускорение: forward >> lateral (консистентна посока), ratio >6-7
+        if (forwardAccel < lateralAccel * 4.0f) {
+            // Forward не е достатъчно доминиращ → вероятно вибрации!
+            consecutiveAccelSamples = 0
+            return false
+        }
+        
+        // ПРОВЕРКА 3: forward ускорение над WEIGHTED ДИНАМИЧЕН праг
+        if (forwardAccel > finalThreshold) {
+            consecutiveAccelSamples++
+            
+            // Изискваме 3 последователни семпъла
+            if (consecutiveAccelSamples >= REQUIRED_ACCEL_SAMPLES) {
+                linearAccelTriggered = true
+                linearAccelTriggerTime = System.nanoTime()
+                Log.d("ForegroundService", "╔════════════════════════════════════════════════════════════╗")
+                Log.d("ForegroundService", "║  🚀 DRAG START TRIGGERED!                                  ║")
+                Log.d("ForegroundService", "╚════════════════════════════════════════════════════════════╝")
+                Log.d("ForegroundService", "   📏 Forward accel: ${"%.2f".format(forwardAccel)} m/s²")
+                Log.d("ForegroundService", "   📐 Lateral accel: ${"%.2f".format(lateralAccel)} m/s²")
+                Log.d("ForegroundService", "   📊 Ratio (forward/lateral): ${"%.2f".format(forwardAccel / lateralAccel.coerceAtLeast(0.01f))}")
+                Log.d("ForegroundService", "   🎯 Threshold: ${"%.2f".format(finalThreshold)} m/s²")
+                return true
+            }
+        } else {
+            consecutiveAccelSamples = 0
+        }
+        
+        return false
     }
 }

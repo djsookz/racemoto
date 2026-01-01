@@ -66,6 +66,9 @@ dependencies {
 
     // Material Design
     implementation("com.google.android.material:material:1.11.0")
+    
+    // ViewPager2 за instant navigation
+    implementation("androidx.viewpager2:viewpager2:1.1.0")
 
     // Карти и локация
     implementation("com.google.android.gms:play-services-location:21.0.1")
@@ -75,7 +78,27 @@ dependencies {
     implementation("org.osmdroid:osmdroid-android:6.1.17")
     implementation("org.osmdroid:osmdroid-wms:6.1.17")
     implementation("org.osmdroid:osmdroid-mapsforge:6.1.17")
-    implementation("com.github.MKergall:osmbonuspack:6.9.0")
+    implementation("com.github.MKergall:osmbonuspack:6.9.0") {
+        exclude(group = "com.caverock", module = "androidsvg")
+        exclude(group = "com.caverock", module = "androidsvg-aar")
+    }
+    
+    // Mapbox Maps SDK
+    // Using stable version 11.10.0 - if this doesn't work, try 11.0.0
+    implementation("com.mapbox.maps:android:11.10.0")
+    implementation("com.mapbox.extension:maps-compose:11.10.0")
+    
+    // Mapbox Navigation SDK - Core and UI components
+    // REQUIRES: Secret token with DOWNLOADS:READ scope in gradle.properties
+    // DOCUMENTATION: https://docs.mapbox.com/android/navigation/guides/ui-components/
+    implementation("com.mapbox.navigationcore:android:3.17.1") {
+        exclude(group = "com.caverock", module = "androidsvg")
+        exclude(group = "com.caverock", module = "androidsvg-aar")
+    }
+    implementation("com.mapbox.navigationcore:ui-components:3.17.1") {
+        exclude(group = "com.caverock", module = "androidsvg")
+        exclude(group = "com.caverock", module = "androidsvg-aar")
+    }
 
     // JSON и мрежа
     implementation("com.google.code.gson:gson:2.10.1")
@@ -83,6 +106,9 @@ dependencies {
 
     // Графики
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
+    // Offline map matching dependencies
+    // Note: GraphHopper is not available for Android, using custom implementation
 
     // Тестване
     testImplementation("junit:junit:4.13.2")

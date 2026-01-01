@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background color -->
+    <item>
+        <color android:color="@color/dark_background"/>
+    </item>
+    
+    <!-- Background image -->
+    <item>
+        <bitmap
+            android:src="@drawable/start_background"
+            android:gravity="fill"/>
+    </item>
+    
+    <!-- Dark overlay -->
+    <item>
+        <color android:color="#80000000"/>
+    </item>
+    
+    <!-- Logo at top -->
+    <item android:top="30dp" android:gravity="top|center_horizontal">
+        <bitmap
+            android:src="@drawable/dragmelogo"
+            android:gravity="center"/>
+    </item>
+    
+    <!-- Text "THE JOURNEY'S JUST BEGUN!" - не можем да добавим текст в drawable, ще го добавим в activity -->
+</layer-list>
+

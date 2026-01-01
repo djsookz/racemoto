@@ -22,10 +22,12 @@
     <color name="text_tertiary">#9CA3AF</color>
 
     <!-- Акцентен цвят за скоростта -->
-    <color name="accent_color">#3B82F6</color>
+    <color name="accent_color">#FF6020</color>
     <color name="accent_light">#60A5FA</color>
 
     <color name="card_background">#434445</color>
+    <color name="card_background_secondary">#3A3A3A</color>
+    <color name="grid_line">#555555</color>
     <color name="profile_name_text">#212121</color>
     <color name="profile_type_text">#757575</color>
     <color name="icon_tint">#000000</color>
@@ -50,17 +52,17 @@
 
 
     <color name="card_dark">#1E1E2E</color>
-    <color name="accent_blue">#4FC3F7</color>
+    <color name="accent_blue">#FF6020</color>
     <color name="accent_purple">#AB47BC</color>
     <color name="accent_green">#66BB6A</color>
-    <color name="accent_orange">#FF7043</color>
+    <color name="accent_orange">#FF6020</color>
     <color name="accent_gold">#FFD700</color>
     <color name="background_dark">#0F0F17</color>
     <color name="stat_bg">#2A2A3A</color>
     <color name="stat_bg_highlight">#2D2D40</color>
 
-    <color name="primary_color">#2196F3</color>
-    <color name="primary_dark">#1976D2</color>
+    <color name="primary_color">#FF6020</color>
+    <color name="primary_dark">#CC5C09</color>
 
 
 
@@ -68,8 +70,8 @@
 
 
     <!-- Навигационни цветове -->
-    <color name="nav_icon_active">#2196F3</color>
-    <color name="nav_text_active">#2196F3</color>
+    <color name="nav_icon_active">#FF6020</color>
+    <color name="nav_text_active">#FF6020</color>
 
 
     <!-- Допълнителни цветове -->
@@ -78,8 +80,8 @@
 
     <color name="transparent">#00000000</color>
 
-    <color name="car_card_background">#2196F3</color>
-    <color name="motorcycle_card_background">#FF5722</color>
+    <color name="car_card_background">#FF6020</color>
+    <color name="motorcycle_card_background">#FF6020</color>
 
     <!-- Тъмен background -->
     <color name="dark_background">#0F0F23</color>
@@ -127,5 +129,6 @@
     <!-- Track Session Colors -->
     <color name="green">#4CAF50</color>
     <color name="red">#F44336</color>
+    <color name="orange">#FF9800</color>
 
 </resources>
