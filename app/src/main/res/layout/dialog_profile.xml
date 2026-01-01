@@ -1,33 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="16dp"
-    >
+    android:background="@color/dark_surface">
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/dialog_name_profile"
+        android:textColor="@color/white"
         android:layout_marginBottom="8dp"/>
 
     <EditText
         android:id="@+id/etProfileName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="@string/dialog_input_name_profile"/>
+        android:hint="@string/dialog_input_name_profile"
+        android:textColor="@color/white"
+        android:textColorHint="@color/text_secondary"
+        android:backgroundTint="@color/primary_color"/>
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/dialog_vehicle_type"
+        android:textColor="@color/white"
         android:layout_marginTop="16dp"
         android:layout_marginBottom="8dp"/>
 
     <Spinner
         android:id="@+id/spinnerVehicleType"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_height="wrap_content"
+        android:textColor="@color/white"
+        android:backgroundTint="@color/primary_color"
+        android:popupBackground="@color/dark_surface"/>
 
 </LinearLayout>

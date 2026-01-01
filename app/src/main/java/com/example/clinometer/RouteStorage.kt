@@ -19,8 +19,11 @@ object RouteStorage {
             try {
                 val gson = GsonBuilder().create()
                 val json = gson.toJson(races)
-                context.openFileOutput(RACES_FILE, Context.MODE_PRIVATE).use {
+                // Използваме FileOutputStream директно за по-бързо записване
+                val file = File(context.filesDir, RACES_FILE)
+                FileOutputStream(file).use {
                     it.write(json.toByteArray())
+                    it.flush() // Принудително изпращане на данните
                 }
             } catch (e: Exception) {
                 Log.e("RouteStorage", "Error saving races", e)
@@ -32,9 +35,14 @@ object RouteStorage {
     fun saveRoutePoints(context: Context, raceId: Long, points: List<RoutePoint>) {
         synchronized(this) {
             try {
+                Log.d("RouteStorage", "💾 Saving ${points.size} points for raceId=$raceId")
+                
                 // Създаваме директория ако не съществува
                 val dir = File(context.filesDir, POINTS_DIR)
-                if (!dir.exists()) dir.mkdirs()
+                if (!dir.exists()) {
+                    dir.mkdirs()
+                    Log.d("RouteStorage", "📁 Created directory: ${dir.absolutePath}")
+                }
 
                 // Записваме точките във файл
                 val file = File(dir, "points_$raceId.json")
@@ -43,8 +51,15 @@ object RouteStorage {
                 FileOutputStream(file).use {
                     it.write(json.toByteArray())
                 }
+                
+                Log.d("RouteStorage", "✅ Saved ${points.size} points to ${file.absolutePath} (${json.length} bytes)")
+                
+                // ВАЖНА ПРОВЕРКА: Ако презаписваме с ПРАЗЕН СПИСЪК!
+                if (points.isEmpty()) {
+                    Log.e("RouteStorage", "⚠️ WARNING: Saved EMPTY list for raceId=$raceId!")
+                }
             } catch (e: Exception) {
-                Log.e("RouteStorage", "Error saving points", e)
+                Log.e("RouteStorage", "❌ Error saving points for raceId=$raceId", e)
             }
         }
     }
@@ -71,13 +86,25 @@ object RouteStorage {
         synchronized(this) {
             return try {
                 val file = File(File(context.filesDir, POINTS_DIR), "points_$raceId.json")
-                if (!file.exists()) return emptyList()
+                
+                if (!file.exists()) {
+                    Log.w("RouteStorage", "⚠️ File not found for raceId=$raceId at ${file.absolutePath}")
+                    return emptyList()
+                }
 
                 val json = file.readText()
                 val type = object : TypeToken<List<RoutePoint>>() {}.type
-                Gson().fromJson(json, type) ?: emptyList()
+                val points: List<RoutePoint> = Gson().fromJson(json, type) ?: emptyList()
+                
+                Log.d("RouteStorage", "📂 Loaded ${points.size} points for raceId=$raceId from ${file.absolutePath} (${json.length} bytes)")
+                
+                if (points.isEmpty()) {
+                    Log.w("RouteStorage", "⚠️ Loaded EMPTY list for raceId=$raceId! File exists but contains no data!")
+                }
+                
+                points
             } catch (e: Exception) {
-                Log.e("RouteStorage", "Error loading points", e)
+                Log.e("RouteStorage", "❌ Error loading points for raceId=$raceId", e)
                 emptyList()
             }
         }

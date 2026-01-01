@@ -31,6 +31,8 @@ import android.content.res.Configuration
 import com.example.clinometer.settings.SoundManager
 import com.example.clinometer.settings.UnitsManager
 import android.widget.LinearLayout
+import com.example.clinometer.tracking.SmartMapMatcher
+import com.example.clinometer.tracking.TrackSnapper
 
 // Data class for storing lap data
 data class LapData(
@@ -42,7 +44,8 @@ data class LapData(
     val leanAngleData: MutableList<Float> = mutableListOf(),
     val gyroscopeData: MutableList<Float> = mutableListOf(),
     val routePoints: MutableList<RoutePoint> = mutableListOf(),
-    val timestamps: MutableList<Long> = mutableListOf()
+    val timestamps: MutableList<Long> = mutableListOf(),
+    val sensorData: MutableList<SmartMapMatcher.SensorData> = mutableListOf()
 )
 
 class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListener {
@@ -94,6 +97,9 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         }
     }
     private val trackPoints = mutableListOf<TrackPoint>()
+    private val trackPointTypes = mutableListOf<com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType>() // Types of each point
+    private val startFinishLineIndices = mutableListOf<Int>() // Indices of start/finish line points
+    private var customTrackSnapPoints = listOf<org.osmdroid.util.GeoPoint>() // Snap points for SmartMapMatcher
     private var currentTrackPointIndex = 0
     private var lastLocation: Location? = null
     private val accelerationData = mutableListOf<Float>()
@@ -131,7 +137,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private val predictionSmoothingAlpha: Float = 0.12f
     private var lastPredictionDisplayUpdateMs: Long = 0L
     private val predictionDisplayIntervalMs: Long = 1000L
-    private val startProximityMeters: Float = 120f
+    private val startProximityMeters: Float = 20f  // Must pass very close to start/finish to begin
     private val sectorProximityMeters: Float = 50f
     private var distanceToNextSector = 0f // Distance to next sector in meters
     private var maxSpeed: Float = 0f
@@ -191,8 +197,8 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         initializeViews()
         setupClickListeners()
         setupSensors()
+        loadTrackData()  // ✅ CRITICAL: Load track data BEFORE starting location updates
         setupLocation()
-        loadTrackData()
         if (isResumeSession && sessionId.isNotEmpty()) {
             // For resume sessions, we don't need to clear active session
             // The session will continue with the existing sessionId
@@ -257,28 +263,140 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         }
     }
     private fun loadTrackData() {
-        val trackManager = TrackManager(this)
-        val trackData = trackManager.loadTrackData(trackId)
-        
-        // Always load track points regardless of trackData
         trackPoints.clear()
-        // Override with explicit sector markers (including start/finish duplicated at the end)
-        // Start/Finish
-        val s = TrackPoint(41.073128, 23.517839)
-        // Sector 2
-        val s2 = TrackPoint(41.070481, 23.519244)
-        // Sector 3
-        val s3 = TrackPoint(41.072907, 23.516091)
-        // Sector 4
-        val s4 = TrackPoint(41.071511, 23.513143)
-        // Order: start -> s2 -> s3 -> s4 -> start (lap ends when last is crossed)
-        trackPoints.addAll(listOf(s, s2, s3, s4, s))
+        
+        val isOfficial = intent.getBooleanExtra("is_official", true)
+        
+        if (isOfficial) {
+            // Load official track data
+            val trackManager = TrackManager(this)
+            val trackData = trackManager.loadTrackData(trackId)
+            
+            // Override with explicit sector markers (including start/finish duplicated at the end)
+            // Start/Finish
+            val s = TrackPoint(41.073128, 23.517839)
+            // Sector 2
+            val s2 = TrackPoint(41.070481, 23.519244)
+            // Sector 3
+            val s3 = TrackPoint(41.072907, 23.516091)
+            // Sector 4
+            val s4 = TrackPoint(41.071511, 23.513143)
+            // Order: start -> s2 -> s3 -> s4 -> start (lap ends when last is crossed)
+            trackPoints.addAll(listOf(s, s2, s3, s4, s))
+            
+            // ✅ Set awaitingStart for official tracks to wait for start line crossing
+            awaitingStart = true
+            android.util.Log.d("TrackSessionActivity", "⏰ awaitingStart set to TRUE for official track (prevents premature GPS recording)")
+        } else {
+            // Load custom track data
+            val customTrack = com.example.clinometer.tracking.CustomTrackStorage.loadCustomTrack(this, trackId)
+            if (customTrack != null) {
+                // Update track name with the actual custom track name
+                trackName = customTrack.name
+                // Process custom track points based on type
+                when (customTrack.type) {
+                    com.example.clinometer.tracking.CustomTrack.TrackType.CIRCUIT -> {
+                        // For circuit tracks, find start/finish LINE (2 points)
+                        val startFinishPoints = customTrack.points.filter { 
+                            it.pointType == com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH 
+                        }
+                        
+                        android.util.Log.d("TrackSessionActivity", "━━━━━━━━ LOADING CIRCUIT TRACK ━━━━━━━━")
+                        android.util.Log.d("TrackSessionActivity", "Start/finish points found: ${startFinishPoints.size}")
+                        
+                        // For circuit tracks with 2 start/finish points (line):
+                        // - Add both points to trackPoints for line crossing detection
+                        // - Duplicate them at the end for lap completion detection
+                        if (startFinishPoints.size >= 2) {
+                            // Add both points of start/finish line
+                            trackPoints.add(TrackPoint(startFinishPoints[0].geoPoint.latitude, startFinishPoints[0].geoPoint.longitude))
+                            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
+                            
+                            trackPoints.add(TrackPoint(startFinishPoints[1].geoPoint.latitude, startFinishPoints[1].geoPoint.longitude))
+                            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
+                            
+                            // Record indices for line crossing detection
+                            startFinishLineIndices.add(0)
+                            startFinishLineIndices.add(1)
+                            
+                            android.util.Log.d("TrackSessionActivity", "✅ Added start/finish LINE at indices [0, 1]")
+                            android.util.Log.d("TrackSessionActivity", "   Point 1: (${startFinishPoints[0].geoPoint.latitude}, ${startFinishPoints[0].geoPoint.longitude})")
+                            android.util.Log.d("TrackSessionActivity", "   Point 2: (${startFinishPoints[1].geoPoint.latitude}, ${startFinishPoints[1].geoPoint.longitude})")
+                            
+                            // DUPLICATE the line at the end for lap completion detection
+                            trackPoints.add(TrackPoint(startFinishPoints[0].geoPoint.latitude, startFinishPoints[0].geoPoint.longitude))
+                            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
+                            
+                            trackPoints.add(TrackPoint(startFinishPoints[1].geoPoint.latitude, startFinishPoints[1].geoPoint.longitude))
+                            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
+                            
+                            startFinishLineIndices.add(trackPoints.size - 2)
+                            startFinishLineIndices.add(trackPoints.size - 1)
+                            
+                            android.util.Log.d("TrackSessionActivity", "✅ Duplicated start/finish LINE at end (indices [${trackPoints.size - 2}, ${trackPoints.size - 1}])")
+                        }
+                        
+                        // Get snap points for map matching (NOT for lap detection!)
+                        val snapPoints = customTrack.points.filter { 
+                            it.pointType == com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.SNAP_HELPER 
+                        }
+                        android.util.Log.d("TrackSessionActivity", "📊 SNAP points for map matching: ${snapPoints.size} (NOT in trackPoints!)")
+                        
+                        // Store snap points for SmartMapMatcher
+                        customTrackSnapPoints = snapPoints.map { it.geoPoint }
+                        
+                        android.util.Log.d("TrackSessionActivity", "📊 FINAL: trackPoints.size=${trackPoints.size} (start/finish line + duplicate for lap detection)")
+                    }
+                    com.example.clinometer.tracking.CustomTrack.TrackType.POINT_TO_POINT -> {
+                        // For point-to-point tracks, find start and finish points
+                        val startPoints = customTrack.points.filter { 
+                            it.pointType == com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START 
+                        }
+                        val finishPoints = customTrack.points.filter { 
+                            it.pointType == com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.FINISH 
+                        }
+                        val snapPoints = customTrack.points.filter { 
+                            it.pointType == com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.SNAP_HELPER 
+                        }
+                        
+                        // Add start points
+                        startPoints.forEach { customPoint ->
+                            trackPoints.add(TrackPoint(customPoint.geoPoint.latitude, customPoint.geoPoint.longitude))
+                        }
+                        
+                        // Add snap helper points
+                        snapPoints.forEach { customPoint ->
+                            trackPoints.add(TrackPoint(customPoint.geoPoint.latitude, customPoint.geoPoint.longitude))
+                        }
+                        
+                        // Add finish points
+                        finishPoints.forEach { customPoint ->
+                            trackPoints.add(TrackPoint(customPoint.geoPoint.latitude, customPoint.geoPoint.longitude))
+                        }
+                    }
+                }
+                
+                android.util.Log.d("TrackSessionActivity", "Loaded custom track: ${customTrack.name} (${customTrack.type}) with ${trackPoints.size} points")
+                
+                // ✅ CRITICAL: Set awaitingStart IMMEDIATELY for custom tracks to prevent premature GPS recording
+                awaitingStart = true
+                android.util.Log.d("TrackSessionActivity", "⏰ awaitingStart set to TRUE for custom track (prevents premature GPS recording)")
+            } else {
+                android.util.Log.e("TrackSessionActivity", "Custom track not found: $trackId")
+                // Fallback to default track
+                val s = TrackPoint(41.073128, 23.517839)
+                trackPoints.addAll(listOf(s))
+            }
+        }
     }
     private fun toggleRecording() {
-        isRecording = !isRecording
-        if (isRecording) {
+        // Don't toggle isRecording here! It will be set in startSession() after countdown
+        if (!isRecording && !isCountdownActive) {
+            // Start recording - countdown will begin
             startRecording()
         } else {
+            // Stop recording
+            isRecording = false
             stopRecording()
         }
     }
@@ -290,10 +408,16 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         countdownTimer = 5000L
         btnStartStop.text = getString(R.string.track_button_cancel)
         btnStartStop.setBackgroundColor(ContextCompat.getColor(this, R.color.red))
+        
         startLocationUpdates()
         handler.post(countdownRunnable)
     }
     private fun startSession() {
+        // For both official and custom tracks: show dialog if awaitingStart is true
+        if (awaitingStart) {
+            showAwaitingStartDialog()
+        }
+
         isRecording = true
         sessionStartTime = System.currentTimeMillis()
         btnStartStop.text = getString(R.string.track_button_stop)
@@ -304,8 +428,11 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
         handler.post(updateRunnable)
         currentLap = 0
-        lapStartTime = System.currentTimeMillis()
-        sectorStartTime = lapStartTime
+        
+        // ✅ CRITICAL: Don't set lapStartTime until we cross the start line (for both official and custom tracks)
+        lapStartTime = 0L // Keep it 0 until start line crossing
+        
+        sectorStartTime = 0L
         currentSector = 0
         lapTimes.clear()
         totalLaps = 0
@@ -321,8 +448,6 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         lastPredictedLapSeconds = Float.NaN
         displayedPredictedLapSeconds = Float.NaN
         speedGauge.unlockPredictiveColor()
-        awaitingStart = true
-        showAwaitingStartDialog()
         maxSpeed = 0f
         maxAcceleration = 0f
         maxBraking = 0f
@@ -330,9 +455,10 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         maxLeanAngle = 0f
         
         // Initialize first lap data
+        // NOTE: For custom tracks, startTime will be set when crossing start/finish line
         currentLapData = LapData(
             lapNumber = 1,
-            startTime = lapStartTime
+            startTime = 0L  // Will be set when crossing start/finish line for custom tracks
         )
         val sharedPrefs = getSharedPreferences("track_sessions", MODE_PRIVATE)
         sharedPrefs.edit().putBoolean("has_active_session", true).putString("active_track_id", trackId).putString("active_track_name", trackName).apply()
@@ -451,7 +577,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         return String.format("%02d:%02d.%02d", minutes, seconds, milliseconds)
     }
     override fun onSensorChanged(event: SensorEvent?) {
-        if (!isRecording || awaitingStart) return
+        if (!isRecording || awaitingStart || lapStartTime == 0L) return
         event?.let { ev ->
             when (ev.sensor.type) {
                 Sensor.TYPE_ROTATION_VECTOR -> {
@@ -463,6 +589,17 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                         linearAccel[1] = ev.values[1]
                         linearAccel[2] = ev.values[2]
                         processLinearAccelerationAndUpdate(linearAccel)
+                    }
+                    
+                    // Collect sensor data for SmartMapMatcher
+                    if (isRecording && lapStartTime > 0L) {
+                        val sensorData = SmartMapMatcher.SensorData(
+                            accelerometer = ev.values.clone(),
+                            gyroscope = floatArrayOf(0f, 0f, 0f), // Will be filled by gyroscope sensor
+                            magneticField = floatArrayOf(0f, 0f, 0f), // Will be filled by magnetic sensor
+                            timestamp = System.currentTimeMillis()
+                        )
+                        currentLapData.sensorData.add(sensorData)
                     }
                 }
                 Sensor.TYPE_ACCELEROMETER -> {
@@ -476,6 +613,17 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                     linearAccel[2] = ev.values[2] - gravity[2]
                     processLinearAccelerationAndUpdate(linearAccel)
                     }
+                    
+                    // Collect sensor data for SmartMapMatcher
+                    if (isRecording && lapStartTime > 0L) {
+                        val sensorData = SmartMapMatcher.SensorData(
+                            accelerometer = ev.values.clone(),
+                            gyroscope = floatArrayOf(0f, 0f, 0f), // Will be filled by gyroscope sensor
+                            magneticField = floatArrayOf(0f, 0f, 0f), // Will be filled by magnetic sensor
+                            timestamp = System.currentTimeMillis()
+                        )
+                        currentLapData.sensorData.add(sensorData)
+                    }
                 }
                 Sensor.TYPE_GYROSCOPE -> {
                     gyroscopeData.addAll(ev.values.sliceArray(0..2).toList())
@@ -483,9 +631,18 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                         gyroscopeData.removeAt(0)
                     }
                     // Add to current lap data
-                    if (isRecording && !awaitingStart) {
+                    if (isRecording && lapStartTime > 0L) {
                         currentLapData.gyroscopeData.addAll(ev.values.sliceArray(0..2).toList())
                         android.util.Log.d("TrackSessionActivity", "Added gyro data to lap: ${ev.values.size} values")
+                        
+                        // Collect sensor data for SmartMapMatcher
+                        val sensorData = SmartMapMatcher.SensorData(
+                            accelerometer = floatArrayOf(0f, 0f, 0f), // Will be filled by accelerometer sensor
+                            gyroscope = ev.values.clone(),
+                            magneticField = floatArrayOf(0f, 0f, 0f), // Will be filled by magnetic sensor
+                            timestamp = System.currentTimeMillis()
+                        )
+                        currentLapData.sensorData.add(sensorData)
                     }
                 }
             }
@@ -610,13 +767,12 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         }
         
         // Add to current lap data
-        if (isRecording && !awaitingStart) {
+        if (isRecording && lapStartTime > 0L) {
             currentLapData.accelerationData.addAll(deviceAccel.toList())
             currentLapData.leanAngleData.add(currentCalibratedLean)
             currentLapData.timestamps.add(System.currentTimeMillis())
-            android.util.Log.d("TrackSessionActivity", "Added sensor data to lap: accel=${deviceAccel.size}, lean=${currentCalibratedLean}, timestamp=${System.currentTimeMillis()}")
         } else {
-            android.util.Log.d("TrackSessionActivity", "Not adding sensor data: isRecording=$isRecording, awaitingStart=$awaitingStart")
+            android.util.Log.d("TrackSessionActivity", "Not adding sensor data: isRecording=$isRecording, awaitingStart=$awaitingStart, lapStartTime=$lapStartTime")
         }
     }
     private fun clamp(v: Float, min: Float, max: Float) = when {
@@ -626,8 +782,12 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     }
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
     override fun onLocationChanged(location: Location) {
-        // Accumulate distance traveled in current sector and lap
-        if (!awaitingStart) {
+        lastLocation = location
+        val speedKmh = location.speed * 3.6f
+        
+        // ✅ CRITICAL FIX: Only record GPS data if we're recording AND lapStartTime is set
+        if (isRecording && lapStartTime > 0L) {
+            // Accumulate distance traveled in current sector and lap
             val nowT = location.time
             if (lastLocationTimeMs != 0L) {
                 val dtSec = ((nowT - lastLocationTimeMs) / 1000f).coerceIn(0.05f, 1.5f)
@@ -636,23 +796,30 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 lapDistanceAccum += inc
             }
             lastLocationTimeMs = nowT
-        }
-        lastLocation = location
-        val speedKmh = location.speed * 3.6f
-        if (!awaitingStart) {
+            
             speedData.add(speedKmh)
             // Add to current lap data
             currentLapData.speedData.add(speedKmh)
+            
+            val currentTime = System.currentTimeMillis()
+            val relativeTimestamp = currentTime - lapStartTime
+            
+            android.util.Log.d("TrackSessionActivity", "📍 GPS DATA ADDED:")
+            android.util.Log.d("TrackSessionActivity", "   Current time: $currentTime")
+            android.util.Log.d("TrackSessionActivity", "   Lap start time: $lapStartTime")
+            android.util.Log.d("TrackSessionActivity", "   Relative timestamp: $relativeTimestamp")
+            android.util.Log.d("TrackSessionActivity", "   Speed: ${speedKmh}km/h")
+            android.util.Log.d("TrackSessionActivity", "   Total GPS points so far: ${currentLapData.routePoints.size + 1}")
+            
             currentLapData.routePoints.add(RoutePoint(
                 geoPoint = org.osmdroid.util.GeoPoint(location.latitude, location.longitude),
                 speed = speedKmh,
                 angle = currentCalibratedLean,
-                timestamp = System.currentTimeMillis(),
+                timestamp = relativeTimestamp, // Използваме относително време!
                 absoluteTime = location.time
             ))
-            android.util.Log.d("TrackSessionActivity", "Added GPS data to lap: speed=$speedKmh, lat=${location.latitude}, lng=${location.longitude}")
         } else {
-            android.util.Log.d("TrackSessionActivity", "Not adding GPS data: awaitingStart=$awaitingStart")
+            android.util.Log.d("TrackSessionActivity", "Not adding GPS data: isRecording=$isRecording, awaitingStart=$awaitingStart, lapStartTime=$lapStartTime")
         }
         // Keep rolling window of speed samples (m/s)
         val now = System.currentTimeMillis()
@@ -672,30 +839,177 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 smoothedBearingRad + bearingAlpha * delta
             }
         }
-        checkTrackPointProximity(location)
+        
+        // Only check track point proximity if we're actually recording
+        if (isRecording) {
+            checkTrackPointProximity(location)
+        }
     }
+    
+    private var lastLineCheckPosition: org.osmdroid.util.GeoPoint? = null
+    
+    private fun checkStartFinishLineCrossing(
+        location: Location, 
+        point1: TrackPoint, 
+        point2: TrackPoint
+    ): Boolean {
+        // Use PROXIMITY to line (not intersection) because GPS updates are slow
+        val currentPos = org.osmdroid.util.GeoPoint(location.latitude, location.longitude)
+        val linePoint1 = point1.geoPoint
+        val linePoint2 = point2.geoPoint
+        
+        // Calculate distance from current position to the line
+        val distanceToLine = calculateDistanceToLine(currentPos, linePoint1, linePoint2)
+        
+        // For start/finish line, be less strict: must be within 30m
+        val lineThreshold = 30.0 // meters - increased threshold for better detection
+        
+        val isClose = distanceToLine <= lineThreshold
+        
+        // Always log distance for debugging
+        android.util.Log.d("TrackSessionActivity", "Distance to line: ${distanceToLine.toInt()}m (threshold: ${lineThreshold.toInt()}m)")
+        
+        if (isClose) {
+            android.util.Log.d("TrackSessionActivity", "✅ CLOSE TO LINE! Distance: ${distanceToLine.toInt()}m")
+        }
+        
+        return isClose
+    }
+    
+    private fun calculateDistanceToLine(
+        point: org.osmdroid.util.GeoPoint, 
+        lineStart: org.osmdroid.util.GeoPoint, 
+        lineEnd: org.osmdroid.util.GeoPoint
+    ): Double {
+        // Calculate distance from point to line segment using cross product
+        val A = point.latitude - lineStart.latitude
+        val B = point.longitude - lineStart.longitude
+        val C = lineEnd.latitude - lineStart.latitude
+        val D = lineEnd.longitude - lineStart.longitude
+        
+        val dot = A * C + B * D
+        val lenSq = C * C + D * D
+        
+        if (lenSq == 0.0) {
+            // Line is actually a point
+            return point.distanceToAsDouble(lineStart)
+        }
+        
+        val param = dot / lenSq
+        
+        val xx: Double
+        val yy: Double
+        
+        if (param < 0) {
+            xx = lineStart.latitude
+            yy = lineStart.longitude
+        } else if (param > 1) {
+            xx = lineEnd.latitude
+            yy = lineEnd.longitude
+        } else {
+            xx = lineStart.latitude + param * C
+            yy = lineStart.longitude + param * D
+        }
+        
+        val dx = point.latitude - xx
+        val dy = point.longitude - yy
+        
+        return kotlin.math.sqrt(dx * dx + dy * dy) * 111000.0 // Convert to meters (rough approximation)
+    }
+    
+    private fun checkLineCrossing(
+        currentPos: org.osmdroid.util.GeoPoint, 
+        lineStart: org.osmdroid.util.GeoPoint, 
+        lineEnd: org.osmdroid.util.GeoPoint
+    ): Boolean {
+        // Check if we have a previous position for crossing detection
+        val prevLocation = lastLocation
+        if (prevLocation == null) {
+            // No previous position yet, can't detect crossing
+            return false
+        }
+        
+        val lastPos = org.osmdroid.util.GeoPoint(prevLocation.latitude, prevLocation.longitude)
+        
+        // Check if we crossed the line by checking if the line segments intersect
+        return lineSegmentsIntersect(lastPos, currentPos, lineStart, lineEnd)
+    }
+    
+    private fun lineSegmentsIntersect(
+        p1: org.osmdroid.util.GeoPoint, 
+        p2: org.osmdroid.util.GeoPoint, 
+        p3: org.osmdroid.util.GeoPoint, 
+        p4: org.osmdroid.util.GeoPoint
+    ): Boolean {
+        // Check if line segments (p1,p2) and (p3,p4) intersect
+        val d1 = direction(p3, p4, p1)
+        val d2 = direction(p3, p4, p2)
+        val d3 = direction(p1, p2, p3)
+        val d4 = direction(p1, p2, p4)
+        
+        return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && 
+               ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))
+    }
+    
+    private fun direction(
+        p1: org.osmdroid.util.GeoPoint, 
+        p2: org.osmdroid.util.GeoPoint, 
+        p3: org.osmdroid.util.GeoPoint
+    ): Double {
+        return (p3.longitude - p1.longitude) * (p2.latitude - p1.latitude) - 
+               (p2.longitude - p1.longitude) * (p3.latitude - p1.latitude)
+    }
+    
     private fun checkTrackPointProximity(location: Location) {
-        if (trackPoints.isNotEmpty()) {
-            // While awaiting start, only consider the Start/Finish point (index 0)
-            val targetIndex = if (awaitingStart) 0 else currentTrackPointIndex
-            if (targetIndex >= trackPoints.size) return
-            val trackPoint = trackPoints[targetIndex]
-            val trackLocation = Location("track").apply {
-                latitude = trackPoint.latitude
-                longitude = trackPoint.longitude
-            }
-            val distance = location.distanceTo(trackLocation)
-            val threshold = if (awaitingStart) startProximityMeters else sectorProximityMeters
-            if (distance < threshold) {
-                // If waiting for start, initialize timing at the first crossing and do not record a sector
-                if (awaitingStart) {
-                    awaitingStart = false
+        if (trackPoints.isEmpty()) return
+        
+        // For custom circuit tracks with start/finish LINE (4 points total: 2 + 2 duplicate):
+        // Check if we're crossing the start/finish line
+        if (startFinishLineIndices.isNotEmpty() && startFinishLineIndices.size >= 2) {
+            // Check line crossing
+            if (awaitingStart) {
+                // Check initial start/finish line (indices 0 and 1)
+                val crossed = checkStartFinishLineCrossing(location, trackPoints[0], trackPoints[1])
+                if (crossed) {
+                    android.util.Log.d("TrackSessionActivity", "🎉 CROSSED START/FINISH LINE!")
+                    android.util.Log.d("TrackSessionActivity", "🚀 SESSION STARTED!")
+                    
+                    // ✅ CRITICAL: Set lapStartTime IMMEDIATELY
                     lapStartTime = System.currentTimeMillis()
+                    android.util.Log.d("TrackSessionActivity", "⏰ LAP START TIME SET: $lapStartTime")
+                    
+                    awaitingStart = false
                     sectorStartTime = lapStartTime
                     currentSector = 0
-                    // After crossing start, next target is Sector 2 (index 1)
-                    currentTrackPointIndex = 1
-                    // Ensure sensors and location updates are active
+                    currentTrackPointIndex = 2 // Skip to point after the line
+                    
+                    // ✅ CRITICAL: Add the current GPS point immediately with timestamp 0 to eliminate gap
+                    val currentLocation = lastLocation
+                    if (currentLocation != null) {
+                        val currentSpeedKmh = currentLocation.speed * 3.6f
+                        currentLapData.speedData.add(currentSpeedKmh)
+                        currentLapData.routePoints.add(RoutePoint(
+                            geoPoint = org.osmdroid.util.GeoPoint(currentLocation.latitude, currentLocation.longitude),
+                            speed = currentSpeedKmh,
+                            angle = currentCalibratedLean,
+                            timestamp = 0L, // Start with timestamp 0 to eliminate gap
+                            absoluteTime = currentLocation.time
+                        ))
+                        
+                        android.util.Log.d("TrackSessionActivity", "📍 IMMEDIATE GPS POINT ADDED with timestamp 0 to eliminate gap")
+                    }
+                    
+                    // ✅ CRITICAL: Update currentLapData.startTime immediately and fix existing timestamps
+                    val updatedRoutePoints = currentLapData.routePoints.map { routePoint ->
+                        routePoint.copy(timestamp = routePoint.absoluteTime - lapStartTime)
+                    }
+                    currentLapData = currentLapData.copy(
+                        startTime = lapStartTime,
+                        routePoints = updatedRoutePoints.toMutableList()
+                    )
+                    android.util.Log.d("TrackSessionActivity", "⏰ CURRENT LAP DATA START TIME UPDATED: ${currentLapData.startTime}")
+                    android.util.Log.d("TrackSessionActivity", "⏰ FIXED ${updatedRoutePoints.size} existing route point timestamps")
+                    
                     linearAccelSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
                     accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
                     rotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
@@ -706,51 +1020,176 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                     lastLocationTimeMs = location.time
                     lastPredictedLapSeconds = Float.NaN
                     displayedPredictedLapSeconds = Float.NaN
-                    // Do not lock color yet; no best lap → keep neutral until we have a target
                     speedGauge.unlockPredictiveColor()
                     dismissAwaitingStartDialog()
+                }
+                return
+            } else if (lapStartTime == 0L) {
+                // This should not happen - awaitingStart should handle this case
+                android.util.Log.w("TrackSessionActivity", "⚠️ UNEXPECTED: lapStartTime == 0L but not awaitingStart")
+                return
+            } else {
+                // Check if we're at the lap completion line (last 2 points)
+                val lapLineIndex1 = trackPoints.size - 2
+                val lapLineIndex2 = trackPoints.size - 1
+                
+                val crossed = checkStartFinishLineCrossing(location, trackPoints[lapLineIndex1], trackPoints[lapLineIndex2])
+                if (crossed) {
+                    // Check minimum lap time
+                    val lapElapsedTime = System.currentTimeMillis() - lapStartTime
+                    val minLapTime = 10000L
+                    
+                    if (lapElapsedTime < minLapTime) {
+                        android.util.Log.d("TrackSessionActivity", "⏸️ Crossed line but too soon! Elapsed: ${lapElapsedTime / 1000}s (need ${minLapTime / 1000}s)")
+                        return
+                    }
+                    
+                    android.util.Log.d("TrackSessionActivity", "🎉 CROSSED START/FINISH LINE!")
+                    android.util.Log.d("TrackSessionActivity", "🏁 LAP COMPLETED!")
+                    
+                    // 🔍 DIAGNOSTIC: Log finish timing information
+                    android.util.Log.d("TrackSessionActivity", "⏰ FINISH TIMING DIAGNOSTIC:")
+                    android.util.Log.d("TrackSessionActivity", "   Finish line detected at: ${System.currentTimeMillis()}")
+                    android.util.Log.d("TrackSessionActivity", "   Lap duration: ${lapElapsedTime}ms")
+                    android.util.Log.d("TrackSessionActivity", "   Total GPS points: ${currentLapData.routePoints.size}")
+                    if (currentLapData.routePoints.isNotEmpty()) {
+                        android.util.Log.d("TrackSessionActivity", "   Last GPS point timestamp: ${currentLapData.routePoints.last().timestamp}")
+                    }
+                    
+                    // Record sector and lap
+                    val sectorTime = System.currentTimeMillis() - sectorStartTime
+                    sectorTimes.add(sectorTime)
+                    sectorDistances.add(sectorDistanceAccum)
+                    
+                    recordLap()
+                    
+                    // Stay at lap completion line for next lap
+                    currentTrackPointIndex = lapLineIndex1
+                }
+                return
+            }
+        }
+        
+        // Fallback for old single-point logic (shouldn't happen for new custom tracks)
+        val targetIndex = if (awaitingStart) 0 else currentTrackPointIndex
+        if (targetIndex >= trackPoints.size) return
+        
+        val trackPoint = trackPoints[targetIndex]
+        val trackLocation = Location("track").apply {
+            latitude = trackPoint.geoPoint.latitude
+            longitude = trackPoint.geoPoint.longitude
+        }
+        val distance = location.distanceTo(trackLocation)
+        val threshold = if (awaitingStart) startProximityMeters else sectorProximityMeters
+        
+        android.util.Log.d("TrackSessionActivity", "📍 Check point $targetIndex: distance=${distance.toInt()}m, threshold=${threshold.toInt()}m, awaitingStart=$awaitingStart")
+        
+        val shouldTrigger = distance < threshold
+        
+        if (shouldTrigger) {
+            // Anti-bounce: For lap completion point, require minimum lap time
+            if (!awaitingStart && targetIndex == trackPoints.size - 1) {
+                val lapElapsedTime = System.currentTimeMillis() - lapStartTime
+                val minLapTime = 10000L // 10 seconds minimum lap time
+                
+                if (lapElapsedTime < minLapTime) {
+                    android.util.Log.d("TrackSessionActivity", "⏸️ Too soon for lap! Elapsed: ${lapElapsedTime / 1000}s (need ${minLapTime / 1000}s)")
                     return
                 }
-                // Record sector time
-                val sectorTime = System.currentTimeMillis() - sectorStartTime
-                sectorTimes.add(sectorTime)
-                // Record sector distance
-                sectorDistances.add(sectorDistanceAccum)
-                lastSectorChangeAtMs = System.currentTimeMillis()
-                // Lock background color strictly by checkpoint delta (best vs current at THIS point)
-                if (bestLapTime != Long.MAX_VALUE && bestSectorTimes.isNotEmpty()) {
-                    val justCompletedSectors = sectorTimes.size // we just added the sector time
-                    val currentElapsedMs = sectorTimes.sum()
-                    val isStartFinishCross = (targetIndex == 0) // lap boundary
-                    val isSlower: Boolean = if (isStartFinishCross) {
-                        // Compare full lap time vs best lap time BEFORE possibly updating best
-                        currentElapsedMs >= bestLapTime
-                    } else {
-                        // Compare cumulative elapsed to best cumulative at same checkpoint
-                        val bestElapsedMs = bestSectorTimes.take(justCompletedSectors).sum()
-                        currentElapsedMs >= bestElapsedMs
-                    }
-                    speedGauge.lockPredictiveColor(isSlower)
-                }
+            }
+            
+            android.util.Log.d("TrackSessionActivity", "🎉 TRIGGERED at index $targetIndex")
+            
+            // Handle awaiting start
+            if (awaitingStart) {
+                android.util.Log.d("TrackSessionActivity", "🚀 SESSION STARTED!")
+                awaitingStart = false
+                lapStartTime = System.currentTimeMillis()
                 
-                // Update best sector time if this is better
-                if (currentSector < bestSectorTimes.size) {
-                    if (sectorTime < bestSectorTimes[currentSector]) {
-                        bestSectorTimes[currentSector] = sectorTime
+                    // ✅ CRITICAL: Add the current GPS point immediately with timestamp 0 to eliminate gap
+                    val currentLocation = lastLocation
+                    if (currentLocation != null) {
+                        val currentSpeedKmh = currentLocation.speed * 3.6f
+                        currentLapData.speedData.add(currentSpeedKmh)
+                        currentLapData.routePoints.add(RoutePoint(
+                            geoPoint = org.osmdroid.util.GeoPoint(currentLocation.latitude, currentLocation.longitude),
+                            speed = currentSpeedKmh,
+                            angle = currentCalibratedLean,
+                            timestamp = 0L, // Start with timestamp 0 to eliminate gap
+                            absoluteTime = currentLocation.time
+                        ))
+                        
+                        android.util.Log.d("TrackSessionActivity", "📍 IMMEDIATE GPS POINT ADDED with timestamp 0 to eliminate gap (fallback)")
                     }
-                } else {
-                    bestSectorTimes.add(sectorTime)
-                }
                 
-                currentSector++
-                sectorStartTime = System.currentTimeMillis()
+                // ✅ FIX: Reset currentLapData with new startTime
+                currentLapData = currentLapData.copy(startTime = lapStartTime)
+                
+                sectorStartTime = lapStartTime
+                currentSector = 0
+                currentTrackPointIndex = 1 // Go to next point
+                
+                linearAccelSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+                accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+                rotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+                gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
+                handler.post(updateRunnable)
                 sectorDistanceAccum = 0f
-                if (currentTrackPointIndex < trackPoints.size - 1) {
-                    currentTrackPointIndex++
+                lapDistanceAccum = 0f
+                lastLocationTimeMs = location.time
+                lastPredictedLapSeconds = Float.NaN
+                displayedPredictedLapSeconds = Float.NaN
+                speedGauge.unlockPredictiveColor()
+                dismissAwaitingStartDialog()
+                return
+            }
+            
+            // Record sector
+            val sectorTime = System.currentTimeMillis() - sectorStartTime
+            sectorTimes.add(sectorTime)
+            sectorDistances.add(sectorDistanceAccum)
+            lastSectorChangeAtMs = System.currentTimeMillis()
+            
+            // Check if this is START_FINISH point (lap boundary)
+            val isStartFinish = targetIndex < trackPointTypes.size && 
+                               trackPointTypes[targetIndex] == com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH
+            
+            if (bestLapTime != Long.MAX_VALUE && bestSectorTimes.isNotEmpty()) {
+                val justCompletedSectors = sectorTimes.size
+                val currentElapsedMs = sectorTimes.sum()
+                val isSlower = if (isStartFinish) {
+                    currentElapsedMs >= bestLapTime
                 } else {
-                    recordLap()
-                    currentTrackPointIndex = 0
+                    val bestElapsedMs = bestSectorTimes.take(justCompletedSectors).sum()
+                    currentElapsedMs >= bestElapsedMs
                 }
+                speedGauge.lockPredictiveColor(isSlower)
+            }
+            
+            // Update best sector
+            if (currentSector < bestSectorTimes.size) {
+                if (sectorTime < bestSectorTimes[currentSector]) {
+                    bestSectorTimes[currentSector] = sectorTime
+                }
+            } else {
+                bestSectorTimes.add(sectorTime)
+            }
+            
+            currentSector++
+            sectorStartTime = System.currentTimeMillis()
+            sectorDistanceAccum = 0f
+            
+            // Advance to next point
+            currentTrackPointIndex++
+            
+            // Check if we completed a lap (reached end with START_FINISH point)
+            if (currentTrackPointIndex >= trackPoints.size) {
+                android.util.Log.d("TrackSessionActivity", "🏁 LAP COMPLETED!")
+                recordLap()
+                // For custom circuit tracks with 2 points (start/finish duplicated), 
+                // go back to point 1 (the duplicate) to check for next lap completion
+                // Point 0 is ONLY for initial start detection
+                currentTrackPointIndex = if (trackPoints.size == 2) 1 else 0
             }
         }
     }
@@ -987,15 +1426,83 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private fun saveLapData(editor: android.content.SharedPreferences.Editor, sessionId: String, outingNumber: Int) {
         val gson = com.google.gson.Gson()
         android.util.Log.d("TrackSessionActivity", "Saving ${lapData.size} lap data entries")
-        for (i in lapData.indices) {
-            val lap = lapData[i]
+        
+        // Apply smart map matching to each lap
+        val processedLapData = mutableListOf<LapData>()
+        
+        for (lap in lapData) {
+            if (lap.routePoints.isNotEmpty() && lap.sensorData.isNotEmpty()) {
+                try {
+                    // Convert RoutePoint to GeoPoint
+                    val gpsPoints = mutableListOf<org.osmdroid.util.GeoPoint>()
+                    for (routePoint in lap.routePoints) {
+                        gpsPoints.add(routePoint.geoPoint)
+                    }
+                    
+                    // Process with SmartMapMatcher (include snap points for better map matching)
+                    val processedPoints = SmartMapMatcher.processTrackSession(
+                        gpsPoints = gpsPoints,
+                        sensorData = lap.sensorData,
+                        trackId = trackId,
+                        speedData = lap.speedData,
+                        snapPoints = customTrackSnapPoints, // Pass snap points for map matching
+                        context = this@TrackSessionActivity
+                    )
+                    
+                    // Apply TrackSnapper with lateral offset preservation
+                    // TrackSnapper will automatically load user-defined centerline points from OfficialTrackCenterlineStorage
+                    // If no user-defined points exist, it will use fallback (waypoints from TrackGeometry or interpolate from sectors)
+                    val processedGeoPoints = processedPoints.map { it.geoPoint }
+                    val snappedPoints = TrackSnapper.snapPoints(
+                        gpsPoints = processedGeoPoints,
+                        trackId = trackId,
+                        context = this@TrackSessionActivity,
+                        centerlinePoints = null // Let TrackSnapper load from storage automatically
+                    )
+                    
+                    android.util.Log.d("TrackSessionActivity", "📌 TrackSnapper: ${snappedPoints.count { it.isSnapped }} points snapped out of ${snappedPoints.size}")
+                    
+                    // Convert back to RoutePoint
+                    val updatedRoutePoints = mutableListOf<RoutePoint>()
+                    for (i in processedPoints.indices) {
+                        val processedPoint = processedPoints[i]
+                        val snappedPoint = snappedPoints.getOrNull(i)
+                        val originalRoutePoint = lap.routePoints.getOrNull(i)
+                        if (originalRoutePoint != null) {
+                            // Use snapped point if available, otherwise use processed point
+                            val finalGeoPoint = snappedPoint?.geoPoint ?: processedPoint.geoPoint
+                            updatedRoutePoints.add(
+                                RoutePoint(
+                                    geoPoint = finalGeoPoint,
+                                    speed = processedPoint.speed,
+                                    angle = originalRoutePoint.angle, // Keep original lean angle
+                                    timestamp = originalRoutePoint.timestamp,
+                                    absoluteTime = originalRoutePoint.absoluteTime
+                                )
+                            )
+                        }
+                    }
+                    
+                    // Add processed lap
+                    processedLapData.add(lap.copy(routePoints = updatedRoutePoints))
+                } catch (e: Exception) {
+                    android.util.Log.e("TrackSessionActivity", "Error in smart map matching: ${e.message}")
+                    processedLapData.add(lap)
+                }
+            } else {
+                processedLapData.add(lap)
+            }
+        }
+        
+        for (i in processedLapData.indices) {
+            val lap = processedLapData[i]
             val lapKey = "${sessionId}_outing_${outingNumber}_lap_data_${i + 1}"
             val json = gson.toJson(lap)
             editor.putString(lapKey, json)
-            android.util.Log.d("TrackSessionActivity", "Saved lap ${i + 1}: ${lap.routePoints.size} route points, ${lap.speedData.size} speed samples, ${lap.accelerationData.size} accel samples")
+            android.util.Log.d("TrackSessionActivity", "Saved lap ${i + 1}: ${lap.routePoints.size} route points (smart map matched), ${lap.speedData.size} speed samples, ${lap.accelerationData.size} accel samples")
         }
-        editor.putInt("${sessionId}_outing_${outingNumber}_lap_data_count", lapData.size)
-        android.util.Log.d("TrackSessionActivity", "Set lap data count to ${lapData.size}")
+        editor.putInt("${sessionId}_outing_${outingNumber}_lap_data_count", processedLapData.size)
+        android.util.Log.d("TrackSessionActivity", "Set lap data count to ${processedLapData.size}")
     }
     private fun setActiveSession(trackId: String, trackName: String) {
         val sharedPrefs = getSharedPreferences("track_sessions", MODE_PRIVATE)

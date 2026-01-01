@@ -124,8 +124,12 @@ class FirstProfileActivity : AppCompatActivity() {
                 ProfileStorage.saveNewProfile(this, newProfile)
                 ProfileStorage.saveSelectedProfile(this, newProfile.id)
 
-                // Стартиране на основната активност (MainMapActivity) и завършване на текущата
-                startActivity(Intent(this, MainMapActivity::class.java))
+                // ВАЖНО: Първо калибрация, после app!
+                val intent = Intent(this, DragCalibrationActivity::class.java).apply {
+                    putExtra("PROFILE_ID", newProfile.id)
+                    putExtra("IS_FIRST_PROFILE", true) // Маркираме че е първи профил
+                }
+                startActivity(intent)
                 finish()
             } else {
                 if (selectedBrand.isEmpty()) {

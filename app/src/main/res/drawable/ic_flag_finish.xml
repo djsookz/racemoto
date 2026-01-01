@@ -1,0 +1,92 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Дръжка -->
+    <path
+        android:fillColor="#654321"
+        android:pathData="M20,10 L28,10 L28,190 L20,190 Z"/>
+
+    <!-- Топче на върха -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M24,8 m-6,0 a6,6 0,1,1 12,0 a6,6 0,1,1 -12,0"/>
+
+    <!-- Шахматни квадратчета - Ред 1 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,25 Q42,23 52,25 L52,39 Q42,40 28,39 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M76,23 Q90,22 100,23 L100,38 Q90,39 76,38 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M124,23 Q138,23 148,23 L148,38 Q138,38 124,38 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M172,24 Q176,24 180,24 L180,39 Q176,39 172,39 Z"/>
+
+    <!-- Ред 2 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,39 Q66,38 76,39 L76,54 Q66,55 52,54 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M100,38 Q114,38 124,38 L124,53 Q114,53 100,53 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M148,38 Q162,38 172,39 L172,54 Q162,54 148,54 Z"/>
+
+    <!-- Ред 3 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,54 Q42,55 52,54 L52,68 Q42,69 28,68 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M76,54 Q90,54 100,54 L100,68 Q90,68 76,68 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M124,53 Q138,53 148,53 L148,68 Q138,68 124,68 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M172,54 Q176,54 180,54 L180,68 Q176,68 172,68 Z"/>
+
+    <!-- Ред 4 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M52,68 Q66,69 76,68 L76,82 Q66,83 52,82 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M100,68 Q114,68 124,68 L124,82 Q114,82 100,82 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M148,68 Q162,68 172,68 L172,82 Q162,82 148,82 Z"/>
+
+    <!-- Ред 5 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,82 Q42,83 52,82 L52,97 Q42,98 28,97 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M76,82 Q90,82 100,82 L100,97 Q90,97 76,97 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M124,82 Q138,82 148,82 L148,97 Q138,97 124,97 Z"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M172,82 Q176,82 180,82 L180,96 Q176,96 172,96 Z"/>
+
+    <!-- Светъл блясък за обем -->
+    <path
+        android:fillColor="#40FFFFFF"
+        android:pathData="M28,25 Q85,20 140,25 Q160,27 180,26 L180,28 Q160,29 140,27 Q85,22 28,27 Z"/>
+
+    <!-- Сянка за дълбочина -->
+    <path
+        android:fillColor="#40000000"
+        android:pathData="M28,94 Q85,99 140,94 Q160,92 180,93 L180,96 Q160,95 140,97 Q85,102 28,97 Z"/>
+
+</vector>

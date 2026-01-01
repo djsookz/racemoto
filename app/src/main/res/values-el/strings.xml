@@ -75,11 +75,6 @@
     <string name="empty_races_message">Δεν υπάρχουν εγγραφές...</string>
     <string name="dragme">DragMe Pro</string>
     <string name="options">Επιλογές</string>
-    <string name="profile_detail_duration_format">%1$dη %2$dω</string>
-    <string name="profile_detail_distance_format">%1$.1f Km</string>
-    <string name="profile_detail_session_text">Σύνολο Εξόδων</string>
-    <string name="profile_detail_distance_text">Συνολική Απόσταση</string>
-    <string name="profile_detail_duration_text">Συνολική Διάρκεια</string>
     <string name="drag_best_times_header">Καλύτεροι Χρόνοι</string>
     <string name="drag_all_attempts">Όλες οι Προσπάθειες</string>
     <string name="no_attempts_recorded">Δεν υπάρχουν καταγεγραμμένες προσπάθειες</string>
@@ -87,6 +82,7 @@
     <string name="attempt_title">Προσπάθεια %d</string>
     <string name="max_speed_format_simple">Μέγ: %.0f km/h</string>
     <string name="start_drag_session">Ξεκινήστε το DRAG</string>
+    <string name="start_track_session">Ξεκινήστε συνεδρία Πίστας</string>
     <string name="no_drag_sessions">Δεν υπάρχουν drag συνεδρίες ακόμα</string>
     <string name="drag_stop_session_title">Διακοπή Drag?</string>
     <string name="drag_stop_session_message">Διακοπή του drag και αποθήκευση όλων των προσπαθειών?</string>
@@ -151,6 +147,38 @@
     <string name="drag_chart_no_g_data">Δεν υπάρχουν δεδομένα δύναμης-G</string>
     <string name="drag_attempt_duration">Διάρκεια: %.2fs</string>
     
+    <!-- Drag Calibration -->
+    <string name="calibration_title">Βαθμονόμηση</string>
+    <string name="calibration_description">Βαθμονομήστε την κατεύθυνση μπροστά/πίσω για δύο προσανατολισμούς</string>
+    <string name="calibration_portrait">📱 ΠΟΡΤΡΕΤΟ</string>
+    <string name="calibration_landscape">🔄 ΤΟΠΙΟ</string>
+    <string name="calibration_status_calibrated">Βαθμονομημένο</string>
+    <string name="calibration_status_not_calibrated">Δεν έχει βαθμονομηθεί</string>
+    <string name="calibration_date_format">Τελευταίο: %s</string>
+    <string name="calibration_please_portrait">Παρακαλούμε βαθμονομήστε σε λειτουργία πορτρέτου</string>
+    <string name="calibration_please_landscape">Παρακαλούμε βαθμονομήστε σε λειτουργία τοπίου</string>
+    <string name="calibration_btn_calibrate">Βαθμονόμηση</string>
+    <string name="calibration_btn_recalibrate">Επαναφορά</string>
+    <string name="calibration_btn_clear">Διαγραφή</string>
+    <string name="calibration_btn_clear_all">Διαγραφή όλων των βαθμονομήσεων</string>
+    <string name="calibration_btn_continue">ΣΥΝΕΧΙΣΗ</string>
+    <string name="calibration_btn_cancel">ΑΚΥΡΩΣΗ</string>
+    <string name="calibration_instructions_title">📋 Οδηγίες</string>
+    <string name="calibration_step1">1️⃣ Επιλέξτε προσανατολισμό (Πορτρέτο ή Τοπίο)</string>
+    <string name="calibration_step2">2️⃣ Τοποθετήστε το τηλέφωνο στην επιθυμητή θέση</string>
+    <string name="calibration_step3">3️⃣ Πατήστε το κουμπί \'Βαθμονόμηση\'</string>
+    <string name="calibration_step4">4️⃣ Κρατήστε σταθερό για 5 δευτερόλεπτα</string>
+    <string name="calibration_step5">5️⃣ Οδηγήστε μπροστά μία φορά</string>
+    <string name="calibration_warning">⚠️ Βαθμονομήστε ΚΑΙ ΤΑ ΔΥΟ εάν περιστρέφετε το τηλέφωνο κατά τη διάρκεια μετρήσεων!</string>
+    <string name="calibration_hold_steady">Κρατήστε σταθερό για 5 δευτερόλεπτα...</string>
+    <string name="calibration_drive_forward">Οδηγήστε ΜΠΡΟΣΤΑ μία φορά...</string>
+    <string name="calibration_success">ΕΠΙΤΥΧΙΑ!</string>
+    <string name="calibration_portrait_success">Το πορτρέτο βαθμονομήθηκε με επιτυχία!</string>
+    <string name="calibration_landscape_success">Το τοπίο βαθμονομήθηκε με επιτυχία!</string>
+    <string name="calibration_need_one">⚠️ Παρακαλούμε βαθμονομήστε τουλάχιστον ΕΝΑΝ προσανατολισμό πριν χρησιμοποιήσετε την εφαρμογή</string>
+    <string name="calibration_need_profile">⚠️ Παρακαλούμε πρώτα βαθμονομήστε %s!</string>
+    <string name="calibration_not_calibrated">Δεν βαθμονομήθηκε</string>
+    
     <!-- Common Messages -->
     <string name="back_press_exit">Πατήστε ξανά για έξοδο</string>
     <string name="delete_confirmation">Είστε σίγουροι ότι θέλετε να διαγράψετε το \"%s\";</string>
@@ -173,6 +201,7 @@
     <string name="drag_value_placeholder">--</string>
     <string name="drag_temperature_placeholder">--°C</string>
     <string name="drag_altitude_placeholder">--m</string>
+    <string name="weather_until">μέχρι</string>
     
     <!-- Drag Session Details Labels -->
     <string name="drag_best_0to100_label">0-100:</string>
@@ -228,7 +257,7 @@
     <string name="track_max_acceleration">Μέγ. Επιτάχυνση:</string>
     <string name="track_max_cornering">Μέγ. Στροφή:</string>
     <string name="track_laps_section">Γύροι</string>
-    <string name="track_no_sessions">Δεν υπάρχουν αποθηκευμένες εξόδους</string>
+    <string name="track_no_sessions">Δεν υπάρχουν συνεδρίες πίστας</string>
     <string name="track_no_sessions_today">Δεν υπάρχουν έξοδοι για σήμερα</string>
     <string name="track_selection_title">Επιλογή Πίστας</string>
     <string name="track_selection_serres_desc">Επαγγελματική πίστα για μοτοσικλέτες και αυτοκίνητα με 4 σημεία χρονομέτρησης για ακριβείς μετρήσεις.</string>
@@ -266,6 +295,49 @@
     <!-- Settings -->
     <string name="settings_general_header">═══ ΓΕΝΙΚΑ ═══</string>
     <string name="settings_drag_header">═══ DRAG ═══</string>
+    <string name="settings_drag_calibration">🏁 Βαθμονόμηση</string>
+    
+    <!-- Garage -->
+    <string name="garage_title">Γκαράζ</string>
+    <string name="garage_add_button">Προσθήκη</string>
+    <string name="garage_my_profile">Το προφίλ μου</string>
+    <string name="garage_vehicle_car">🚗 Αυτοκίνητο</string>
+    <string name="garage_vehicle_motorcycle">🏍️ Μοτοσικλέτα</string>
+    <string name="garage_change_button">Αλλαγή</string>
+    <string name="garage_profile_image">Εικόνα προφίλ</string>
+    <string name="garage_select_image">Επιλογή εικόνας</string>
+    <string name="garage_remove_image">Αφαίρεση εικόνας</string>
+    <string name="garage_my_collection">Η συλλογή μου</string>
+    <string name="garage_sessions_template">⚡ %d διαδρομές</string>
+    <string name="garage_max_speed_template">🏁 %s μεγ. ταχύτητα</string>
+    <string name="garage_confirm_delete">Είστε σίγουροι ότι θέλετε να διαγράψετε το \"%s\";\n\nΌλες οι %d διαδρομές για αυτό το προφίλ θα διαγραφούν επίσης.</string>
+    <string name="garage_confirm_delete_simple">Είστε σίγουροι ότι θέλετε να διαγράψετε το \"%s\";</string>
+    <string name="garage_delete_button">Διαγραφή</string>
+    <string name="garage_cancel_button">Ακύρωση</string>
+    <string name="garage_create_button">Δημιουργία</string>
+    <string name="garage_select_brand">Παρακαλώ επιλέξτε μάρκα</string>
+    <string name="garage_select_model">Παρακαλώ επιλέξτε μοντέλο</string>
+    <string name="garage_most_popular">Πιο δημοφιλή</string>
+    <string name="garage_back_press">Πατήστε ξανά για έξοδο</string>
+    
+    <!-- Profile Details -->
+    <string name="profile_detail_session_text">Διαδρομές</string>
+    <string name="profile_detail_distance_format">0,0 km</string>
+    <string name="profile_detail_distance_text">Συνολική Απόσταση</string>
+    <string name="profile_detail_duration_format">%1$dω %2$dλ</string>
+    <string name="profile_detail_duration_text">Συνολικός Χρόνος</string>
+    <string name="profile_details_stats">Στατιστικά</string>
+    <string name="seconds">δευτερόλεπτα</string>
+    <string name="quarter_mile">Τέταρτο Μίλι</string>
+    <string name="kmh_unit">km/h</string>
+    <string name="drag_0to100_title">0-100 km/h</string>
+    <string name="drag_0to200_title">0-200 km/h</string>
+    <string name="drag_100to200_title">100-200 km/h</string>
+    <string name="drag_quarter_mile_title">0-402m</string>
+    <string name="profile_detail_reset_title">Επαναφορά %s</string>
+    <string name="profile_detail_reset_message">Είστε σίγουροι ότι θέλετε να επαναφέρετε το ρεκόρ για %s;\n\nΑυτό θα διαγράψει το καλύτερο αποτέλεσμα από όλες τις διαδρομές.</string>
+    <string name="profile_detail_reset_button">Επαναφορά</string>
+    <string name="profile_detail_max_speed">Μέγιστη Ταχύτητα</string>
     <string name="settings_track_header">═══ ΠΙΣΤΑ ═══</string>
     <string name="settings_language">Γλώσσα / Language</string>
     <string name="settings_language_auto">Αυτόματη / Auto</string>

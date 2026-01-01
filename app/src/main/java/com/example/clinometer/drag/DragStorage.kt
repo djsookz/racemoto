@@ -75,4 +75,8 @@ object DragStorage {
     fun getDragSession(context: Context, sessionId: Long): DragSession? {
         return loadDragSessions(context).find { it.id == sessionId }
     }
+    
+    fun getAllDragSessions(context: Context): List<DragSession> {
+        return loadDragSessions(context)
+    }
 }

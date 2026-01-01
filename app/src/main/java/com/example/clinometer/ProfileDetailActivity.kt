@@ -2,12 +2,20 @@
 
 package com.example.clinometer
 
+import android.content.Context
+import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import android.widget.Toast
+import com.example.clinometer.settings.LanguageManager
+import java.io.File
 
 class ProfileDetailActivity : AppCompatActivity() {
 
@@ -26,6 +34,12 @@ class ProfileDetailActivity : AppCompatActivity() {
 
         val tvName = findViewById<TextView>(R.id.tvProfileNameDetail)
         val tvVehicleType = findViewById<TextView>(R.id.tvVehicleTypeDetail)
+        val tvNameOverlay = findViewById<TextView>(R.id.tvProfileNameOverlay)
+        val tvVehicleTypeOverlay = findViewById<TextView>(R.id.tvVehicleTypeOverlay)
+        val ivProfileImage = findViewById<ImageView>(R.id.ivProfileImage)
+        val flProfileImageContainer = findViewById<android.widget.FrameLayout>(R.id.flProfileImageContainer)
+        val llOriginalLayout = findViewById<android.widget.LinearLayout>(R.id.llOriginalLayout)
+        val vFadeOverlay = findViewById<View>(R.id.vFadeOverlay)
 
         val btnReset0to100 = findViewById<ImageButton>(R.id.btnReset0to100)
         val btnReset0to200 = findViewById<ImageButton>(R.id.btnReset0to200)
@@ -34,12 +48,20 @@ class ProfileDetailActivity : AppCompatActivity() {
         val tvBest0to402 = findViewById<TextView>(R.id.tvBest0to402)
         val btnReset0to402 = findViewById<ImageButton>(R.id.btnReset0to402)
 
-
-        tvName.text = profile.name
-        tvVehicleType.text = when (profile.vehicleType) {
+        // Задаваме текста за името и типа
+        val nameText = profile.name
+        val typeText = when (profile.vehicleType) {
             Profile.VehicleType.CAR ->"🚗 " +  getString(R.string.vehicle_type_car)
             Profile.VehicleType.MOTORCYCLE -> "🏍️ " + getString(R.string.vehicle_type_motorcycle)
         }
+        
+        tvName.text = nameText
+        tvVehicleType.text = typeText
+        tvNameOverlay.text = nameText
+        tvVehicleTypeOverlay.text = typeText
+
+        // Зареждаме снимката или показваме оригиналния layout
+        updateProfileImage(ivProfileImage, flProfileImageContainer, llOriginalLayout, vFadeOverlay)
 
         updateStatistics()
 
@@ -65,7 +87,7 @@ class ProfileDetailActivity : AppCompatActivity() {
         }
 
         btnResetMaxSpeed.setOnClickListener {
-            showResetConfirmation("Максимална скорост") {
+            showResetConfirmation(getString(R.string.profile_detail_max_speed)) {
                 resetStat(StatType.MAX_SPEED)
                 updateStatistics()
             }
@@ -109,7 +131,66 @@ class ProfileDetailActivity : AppCompatActivity() {
         val totalDist = profileRaces.sumOf { it.distance }
         tvTotalDistance.text = String.format("%.1f km", totalDist)
 
-        val racesTimeMs = profileRaces.sumOf { it.duration.toLong() }
+        // Изчисляваме времето от races - ако duration е 0 или невалидно, изчисляваме от routePoints
+        val racesTimeMs = profileRaces.sumOf { race ->
+            android.util.Log.d("ProfileDetail", "   Checking race ${race.id}: duration=${race.duration}ms, timestamp=${race.timestamp}, absoluteTimestamp=${race.absoluteTimestamp}")
+            if (race.duration > 0) {
+                android.util.Log.d("ProfileDetail", "   Race ${race.id}: using stored duration=${race.duration}ms")
+                race.duration.toLong()
+            } else if (race.absoluteTimestamp > race.timestamp && race.absoluteTimestamp > 0) {
+                // Fallback: използвай absoluteTimestamp ако е различен от timestamp
+                // Но това не е duration, а само timestamp, така че не можем да го използваме директно
+                // Затова продължаваме към изчисляване от routePoints
+                android.util.Log.d("ProfileDetail", "   Race ${race.id}: duration is 0, will calculate from routePoints")
+                0L // Продължаваме към изчисляване от routePoints
+            } else {
+                android.util.Log.d("ProfileDetail", "   Race ${race.id}: duration is 0, calculating from routePoints...")
+                // Изчисляваме duration от routePoints (разлика между първата и последната точка)
+                // Ако routePoints не са заредени в паметта, зареждаме ги от storage
+                val points = if (race.routePoints.isNotEmpty()) {
+                    race.routePoints
+                } else {
+                    // Зареждаме routePoints от storage само ако не са в паметта
+                    // ОПТИМИЗАЦИЯ: Зареждаме само първата и последната точка за по-бързо изчисление
+                    val allPoints = RouteStorage.loadRoutePoints(this, race.id)
+                    if (allPoints.size >= 2) {
+                        listOf(allPoints.first(), allPoints.last())
+                    } else {
+                        allPoints
+                    }
+                }
+                
+                if (points.isNotEmpty()) {
+                    // Използваме absoluteTime вместо timestamp, защото timestamp е относителен
+                    val firstPoint = points.first()
+                    val lastPoint = points.last()
+                    val firstTime = firstPoint.absoluteTime
+                    val lastTime = lastPoint.absoluteTime
+                    
+                    // Ако absoluteTime е 0 или невалидно, опитай се с timestamp (относителен)
+                    val calculatedDuration = if (firstTime > 0 && lastTime > 0 && lastTime > firstTime) {
+                        lastTime - firstTime
+                    } else {
+                        // Fallback: използвай timestamp (относителен)
+                        val firstTimestamp = firstPoint.timestamp
+                        val lastTimestamp = lastPoint.timestamp
+                        if (lastTimestamp > firstTimestamp) {
+                            lastTimestamp - firstTimestamp
+                        } else {
+                            0L
+                        }
+                    }
+                    
+                    android.util.Log.d("ProfileDetail", "   Race ${race.id}: firstTime=$firstTime, lastTime=$lastTime")
+                    android.util.Log.d("ProfileDetail", "   Race ${race.id}: calculated duration = ${calculatedDuration}ms (${calculatedDuration/1000}s)")
+                    calculatedDuration.coerceAtLeast(0L)
+                } else {
+                    android.util.Log.w("ProfileDetail", "   Race ${race.id}: no points available")
+                    0L
+                }
+            }
+        }
+        
         val dragTimeMs = profileDragSessions.sumOf { session ->
             session.attempts.sumOf { attempt ->
                 attempt.duration / 1_000_000 // от nanoseconds в milliseconds
@@ -117,22 +198,38 @@ class ProfileDetailActivity : AppCompatActivity() {
         }
 
         val totalTimeMs = racesTimeMs + dragTimeMs
+        
+        // Debug logging
+        android.util.Log.d("ProfileDetail", "⏱️ Time calculation:")
+        android.util.Log.d("ProfileDetail", "   Races count: ${profileRaces.size}")
+        android.util.Log.d("ProfileDetail", "   Races time (ms): $racesTimeMs")
+        android.util.Log.d("ProfileDetail", "   Drag sessions count: ${profileDragSessions.size}")
+        android.util.Log.d("ProfileDetail", "   Drag time (ms): $dragTimeMs")
+        android.util.Log.d("ProfileDetail", "   Total time (ms): $totalTimeMs")
+        
         val totalSeconds = totalTimeMs / 1000
-        val days = totalSeconds / (24 * 3600)
-        val hours = (totalSeconds % (24 * 3600)) / 3600
-        tvTotalDuration.text = getString(R.string.profile_detail_duration_format, days, hours)
+        val totalHours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        
+        android.util.Log.d("ProfileDetail", "   Total seconds: $totalSeconds")
+        android.util.Log.d("ProfileDetail", "   Hours: $totalHours, Minutes: $minutes")
+        
+        tvTotalDuration.text = getString(R.string.profile_detail_duration_format, totalHours, minutes)
     }
 
     private fun showResetConfirmation(statName: String, onConfirm: () -> Unit) {
-        AlertDialog.Builder(this)
-            .setTitle("Нулиране на $statName")
-            .setMessage("Сигурни ли сте, че искате да нулирате рекорда за $statName?\n\nТова ще изтрие най-добрия резултат от всички сесии.")
-            .setPositiveButton("Нулирай") { _, _ ->
+        val resetDialog = AlertDialog.Builder(this, R.style.CustomAlertDialog)
+            .setTitle(getString(R.string.profile_detail_reset_title, statName))
+            .setMessage(getString(R.string.profile_detail_reset_message, statName))
+            .setPositiveButton(getString(R.string.profile_detail_reset_button)) { _, _ ->
                 onConfirm()
                 Toast.makeText(this, "✅ $statName е нулиран", Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton("Отказ", null)
-            .show()
+            .setNegativeButton(getString(R.string.garage_cancel_button), null)
+            .create()
+        
+        DialogHelper.styleDialogButtons(resetDialog)
+        resetDialog.show()
     }
 
     private fun resetStat(statType: StatType) {
@@ -296,5 +393,53 @@ class ProfileDetailActivity : AppCompatActivity() {
         HUNDRED_TO_200,
         ZERO_TO_402,
         MAX_SPEED
+    }
+
+    private fun updateProfileImage(
+        imageView: ImageView,
+        container: android.widget.FrameLayout,
+        originalLayout: android.widget.LinearLayout,
+        fadeOverlay: View
+    ) {
+        // Зареждаме снимка ако има, иначе показваме оригиналния layout
+        if (!profile.imagePath.isNullOrEmpty()) {
+            val imageFile = File(getExternalFilesDir(null), profile.imagePath)
+            if (imageFile.exists()) {
+                val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
+                imageView.setImageBitmap(bitmap)
+                imageView.scaleType = ImageView.ScaleType.CENTER_CROP
+                imageView.imageTintList = null
+                
+                // Показваме контейнера със снимката
+                container.visibility = View.VISIBLE
+                // Скриваме оригиналния layout
+                originalLayout.visibility = View.GONE
+                // Показваме fade градиента
+                fadeOverlay.visibility = View.VISIBLE
+            } else {
+                // Файлът не съществува, показваме оригиналния layout
+                showOriginalLayout(container, originalLayout, fadeOverlay)
+            }
+        } else {
+            // Няма снимка, показваме оригиналния layout
+            showOriginalLayout(container, originalLayout, fadeOverlay)
+        }
+    }
+
+    private fun showOriginalLayout(
+        container: android.widget.FrameLayout,
+        originalLayout: android.widget.LinearLayout,
+        fadeOverlay: View
+    ) {
+        // Скриваме контейнера за снимката
+        container.visibility = View.GONE
+        // Показваме оригиналния layout
+        originalLayout.visibility = View.VISIBLE
+        // Скриваме fade градиента
+        fadeOverlay.visibility = View.GONE
+    }
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(LanguageManager.applyLanguage(newBase))
     }
 }

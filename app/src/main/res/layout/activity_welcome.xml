@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/dark_background"
+    >
+
+    <!-- Full Screen Background Image -->
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:src="@drawable/start_background"
+        android:scaleType="centerCrop" />
+
+    <!-- Dark Overlay -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000" />
+
+    <!-- Logo at top -->
+    <ImageView
+        android:layout_width="151dp"
+        android:layout_height="69dp"
+        android:layout_gravity="center_horizontal|top"
+        android:layout_marginTop="30dp"
+        android:contentDescription="@string/app_name"
+        android:scaleType="fitCenter"
+        android:src="@drawable/dragmelogo" />
+
+    <!-- Tagline text below car/motorcycle -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|bottom"
+        android:layout_marginBottom="260dp"
+        android:text="THE JOURNEY'S JUST BEGUN!"
+        android:textColor="@color/white"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.15"
+        android:fontFamily="sans-serif-condensed"
+        android:shadowColor="#CC000000"
+        android:shadowDx="0"
+        android:shadowDy="3"
+        android:shadowRadius="8" />
+
+    <!-- START Button at bottom -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnStart"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="40dp"
+        android:layout_marginEnd="40dp"
+        android:layout_marginTop="40dp"
+        android:layout_marginBottom="80dp"
+        android:text="START"
+        android:textColor="@color/white"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:backgroundTint="@color/primary_color"
+        app:cornerRadius="32dp"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp" />
+</FrameLayout>
+

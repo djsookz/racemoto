@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:fitsSystemWindows="true">
+
+    <!-- Top info bar with status bar padding -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#1C1C1E"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="32dp"
+        android:paddingBottom="16dp"
+        android:elevation="8dp">
+        
+        <TextView
+            android:id="@+id/tvDestinationName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Дестинация"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+            
+            <TextView
+                android:id="@+id/tvRouteDistance"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="0.0 km"
+                android:textColor="#AAAAAA"
+                android:textSize="16sp" />
+            
+            <TextView
+                android:id="@+id/tvRouteDuration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0м"
+                android:textColor="#56A8FB"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Map -->
+    <com.mapbox.maps.MapView
+        android:id="@+id/mapView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Motorway options button - positioned left (X) and center (Y) -->
+    <ImageButton
+        android:id="@+id/btnMotorwayOptions"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_marginStart="16dp"
+        android:background="@drawable/bg_motorway_button"
+        android:src="@drawable/ic_motorway"
+        android:padding="16dp"
+        android:scaleType="centerInside"
+        android:contentDescription="Route options"
+        app:tint="#FFFFFF"
+        android:foreground="?attr/selectableItemBackgroundBorderless"
+        android:stateListAnimator="@null"
+        android:layout_gravity="start|center_vertical" />
+
+    <!-- Motorway options container (shown above start button when clicked, covers the start button) -->
+    <LinearLayout
+        android:id="@+id/motorwayOptionsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="24dp"
+        android:background="#1C1C1E"
+        android:padding="16dp"
+        android:elevation="12dp"
+        android:gravity="center"
+        android:visibility="gone">
+        
+        <ImageButton
+            android:id="@+id/btnWithMotorways"
+            android:layout_width="0dp"
+            android:layout_height="120dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_motorway"
+            android:padding="12dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="С магистрали"
+            app:tint="#FFFFFF"
+            android:stateListAnimator="@null" />
+        
+        <ImageButton
+            android:id="@+id/btnWithoutMotorways"
+            android:layout_width="0dp"
+            android:layout_height="120dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_road"
+            android:padding="12dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="Без магистрали"
+            app:tint="#FFFFFF"
+            android:stateListAnimator="@null" />
+    </LinearLayout>
+
+    <!-- Start navigation button with extra bottom margin for nav bar (hidden when options are shown) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnStartNavigation"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="24dp"
+        android:text="@string/start_button"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:backgroundTint="@color/primary_color"
+        app:cornerRadius="30dp"
+        android:textColor="#FFFFFF"
+        android:layout_gravity="bottom" />
+
+</FrameLayout>

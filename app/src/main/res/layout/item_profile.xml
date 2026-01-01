@@ -47,7 +47,7 @@
                 android:id="@+id/tvProfileName"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Моят профил"
+                android:text="@string/garage_my_profile"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
@@ -57,7 +57,7 @@
                 android:id="@+id/tvVehicleType"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🚗 Автомобил"
+                android:text="@string/garage_vehicle_car"
                 android:textSize="14sp"
                 android:textColor="@color/text_primary"
                 android:layout_marginTop="2dp" />
@@ -73,22 +73,22 @@
                     android:id="@+id/tvSessionCount"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="⚡ 0 сесии"
-                    android:textSize="12sp"
+                    android:text="@string/garage_sessions_template"
+                    android:textSize="10sp"
                     android:textColor="@color/accent_color"
                     android:background="@drawable/stat_chip_background"
-                    android:paddingHorizontal="8dp"
+                    android:paddingHorizontal="6dp"
                     android:paddingVertical="2dp" />
 
                 <TextView
                     android:id="@+id/tvMaxSpeed"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="🏁 -- км/ч макс"
-                    android:textSize="12sp"
+                    android:text="@string/garage_max_speed_template"
+                    android:textSize="10sp"
                     android:textColor="@color/success_color"
                     android:background="@drawable/stat_chip_background"
-                    android:paddingHorizontal="8dp"
+                    android:paddingHorizontal="6dp"
                     android:paddingVertical="2dp"
                     android:layout_marginStart="6dp" />
 
