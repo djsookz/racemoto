@@ -811,9 +811,9 @@ class MapActivity : AppCompatActivity() {
                 val deltaY = abs(detector.currentSpanY - detector.previousSpanY)
 
                 val scaleFactorX = if (deltaX > deltaY * 1.5) detector.scaleFactor else 1f
-                val scaleFactorY = if (deltaY > deltaX * 1.5) detector.scaleFactor else 1f
+                val scaleFactorY = if (deltaY > detector.currentSpanX * 1.5) detector.scaleFactor else 1f
 
-                if (deltaX <= deltaY * 1.5 && deltaY <= deltaX * 1.5) {
+                if (deltaX <= deltaY * 1.5 && deltaY <= detector.currentSpanX * 1.5) {
                     // Зумваме и по двете оси
                     chart.zoom(detector.scaleFactor, detector.scaleFactor,
                         chart.width / 2f, chart.height / 2f,
@@ -843,7 +843,7 @@ class MapActivity : AppCompatActivity() {
 
             override fun onScaleEnd(detector: ScaleGestureDetector) {
                 isZooming = false
-                // Обновяваме позицията
+                // Обновваме позицията
                 val centerX = (chart.lowestVisibleX + chart.highestVisibleX) / 2f
                 updateReaderPosition(centerX)
             }

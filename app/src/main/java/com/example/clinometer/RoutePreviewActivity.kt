@@ -35,8 +35,6 @@ import com.mapbox.maps.MapboxMap
 import com.mapbox.maps.Style
 import android.util.Log
 import com.mapbox.maps.extension.style.layers.addLayer
-import com.mapbox.maps.extension.style.layers.properties.generated.LineCap
-import com.mapbox.maps.extension.style.layers.properties.generated.LineJoin
 import com.mapbox.maps.extension.style.layers.generated.lineLayer
 import com.mapbox.maps.extension.style.sources.addSource
 import com.mapbox.maps.extension.style.sources.generated.geoJsonSource
@@ -537,8 +535,8 @@ class RoutePreviewActivity : AppCompatActivity() {
                         lineLayer("$routeId-casing-layer", "$routeId-source") {
                             lineColor("#5A2D16")
                             lineWidth(10.0)
-                            lineCap(LineCap.ROUND)
-                            lineJoin(LineJoin.ROUND)
+                            lineCap(com.mapbox.maps.extension.style.layers.properties.generated.LineCap.ROUND)
+                            lineJoin(com.mapbox.maps.extension.style.layers.properties.generated.LineJoin.ROUND)
                             slot("middle")
                         }
                     )
@@ -546,8 +544,8 @@ class RoutePreviewActivity : AppCompatActivity() {
                         lineLayer("$routeId-layer", "$routeId-source") {
                             lineColor("#994015")  // Darker orange
                             lineWidth(6.0)
-                            lineCap(LineCap.ROUND)
-                            lineJoin(LineJoin.ROUND)
+                            lineCap(com.mapbox.maps.extension.style.layers.properties.generated.LineCap.ROUND)
+                            lineJoin(com.mapbox.maps.extension.style.layers.properties.generated.LineJoin.ROUND)
                             slot("middle")
                         }
                     )
@@ -560,8 +558,8 @@ class RoutePreviewActivity : AppCompatActivity() {
                 lineLayer("$primaryRouteId-casing-layer", "$primaryRouteId-source") {
                     lineColor(casingColor)
                     lineWidth(12.0)
-                    lineCap(LineCap.ROUND)
-                    lineJoin(LineJoin.ROUND)
+                    lineCap(com.mapbox.maps.extension.style.layers.properties.generated.LineCap.ROUND)
+                    lineJoin(com.mapbox.maps.extension.style.layers.properties.generated.LineJoin.ROUND)
                     slot("middle")
                 }
             )
@@ -569,8 +567,8 @@ class RoutePreviewActivity : AppCompatActivity() {
                 lineLayer("$primaryRouteId-layer", "$primaryRouteId-source") {
                     lineColor(routeColor)
                     lineWidth(8.0)
-                    lineCap(LineCap.ROUND)
-                    lineJoin(LineJoin.ROUND)
+                    lineCap(com.mapbox.maps.extension.style.layers.properties.generated.LineCap.ROUND)
+                    lineJoin(com.mapbox.maps.extension.style.layers.properties.generated.LineJoin.ROUND)
                     slot("middle")
                 }
             )
@@ -904,4 +902,3 @@ class RoutePreviewActivity : AppCompatActivity() {
         return bearing
     }
 }
-

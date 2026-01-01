@@ -15,7 +15,6 @@
         android:orientation="vertical"
         android:paddingBottom="60dp">
 
-        <!-- Останалата част от съдържанието остава същата -->
         <!-- Тъмна горна лента (navigation bar) -->
         <RelativeLayout
             android:id="@+id/topBar"

@@ -1,283 +1,335 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/dark_background"
-    android:fillViewport="true">
+    android:background="@color/dark_background">
 
-    <LinearLayout
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="320dp"
+        android:background="@android:color/transparent"
+        app:elevation="0dp">
 
-        <!-- Map Preview -->
-        <FrameLayout
+        <com.google.android.material.appbar.CollapsingToolbarLayout
+            android:id="@+id/collapsingToolbar"
             android:layout_width="match_parent"
-            android:layout_height="300dp"
-            android:background="@color/card_background">
+            android:layout_height="match_parent"
+            app:layout_scrollFlags="scroll|exitUntilCollapsed"
+            app:contentScrim="@color/dark_background"
+            app:titleEnabled="false">
 
-            <com.mapbox.maps.MapView
-                android:id="@+id/mapPreview"
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
+                android:layout_height="match_parent"
+                app:layout_collapseMode="parallax">
 
-            <!-- Loading overlay -->
-            <ProgressBar
-                android:id="@+id/mapLoadingProgress"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:indeterminateTint="@color/accent_orange"
-                android:visibility="visible" />
-        </FrameLayout>
+                <com.mapbox.maps.MapView
+                    android:id="@+id/mapPreview"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
 
-        <!-- Statistics Card - Modern Design -->
-        <androidx.cardview.widget.CardView
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="160dp"
+                    android:layout_gravity="bottom"
+                    android:background="@drawable/bg_map_gradient_bottom" />
+
+                <ProgressBar
+                    android:id="@+id/mapLoadingProgress"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="center"
+                    android:indeterminateTint="@color/accent_orange" />
+            </FrameLayout>
+
+            <androidx.appcompat.widget.Toolbar
+                android:id="@+id/toolbar"
+                android:layout_width="match_parent"
+                android:layout_height="?attr/actionBarSize"
+                app:layout_collapseMode="pin" />
+
+        </com.google.android.material.appbar.CollapsingToolbarLayout>
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_bottom_sheet_curve"
+        android:clipToPadding="false"
+        android:layout_marginTop="-24dp"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp">
+            android:orientation="vertical"
+            android:padding="24dp">
 
+            <!-- Date and Time Header -->
+            <TextView
+                android:id="@+id/dateTimeText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="24dp"
+                android:alpha="0.5"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.1"
+                android:text="JANUARY 1, 2024 • 15:05"
+                android:textColor="@color/white"
+                android:textSize="11sp" />
+
+            <!-- Stats Bar -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:padding="20dp">
+                android:baselineAligned="false"
+                android:weightSum="3">
 
                 <!-- Distance -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:gravity="center">
+                    android:gravity="center"
+                    android:orientation="vertical">
 
                     <TextView
                         android:id="@+id/distanceText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-black"
+                        android:includeFontPadding="false"
                         android:text="0.00 km"
-                        android:textColor="@color/accent_orange"
-                        android:textSize="24sp"
-                        android:textStyle="bold"
-                        android:maxLines="1"
-                        android:ellipsize="none" />
+                        android:textColor="@color/white"
+                        android:textSize="20sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="Разстояние"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11sp" />
+                        android:alpha="0.5"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="DISTANCE"
+                        android:textColor="@color/white"
+                        android:textSize="10sp"
+                        android:letterSpacing="0.1" />
                 </LinearLayout>
-
-                <!-- Divider -->
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="40dp"
-                    android:layout_marginHorizontal="12dp"
-                    android:layout_gravity="center_vertical"
-                    android:background="@color/stroke_dark" />
 
                 <!-- Duration -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:gravity="center">
+                    android:gravity="center"
+                    android:orientation="vertical">
 
                     <TextView
                         android:id="@+id/durationText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="00:00:00"
-                        android:textColor="@color/accent_orange"
-                        android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:maxLines="1"
-                        android:ellipsize="none"
+                        android:fontFamily="sans-serif-black"
                         android:includeFontPadding="false"
-                        android:letterSpacing="0.02" />
+                        android:text="00:00:24"
+                        android:textColor="@color/white"
+                        android:textSize="20sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="Време"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11sp" />
+                        android:alpha="0.5"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="TIME"
+                        android:textColor="@color/white"
+                        android:textSize="10sp"
+                        android:letterSpacing="0.1" />
                 </LinearLayout>
-
-                <!-- Divider -->
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="40dp"
-                    android:layout_marginHorizontal="12dp"
-                    android:layout_gravity="center_vertical"
-                    android:background="@color/stroke_dark" />
 
                 <!-- Max Speed -->
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:gravity="center">
+                    android:gravity="center"
+                    android:orientation="vertical">
 
                     <TextView
                         android:id="@+id/maxSpeedText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="0 km/h"
-                        android:textColor="@color/accent_orange"
-                        android:textSize="24sp"
-                        android:textStyle="bold"
-                        android:maxLines="1"
-                        android:ellipsize="none" />
+                        android:fontFamily="sans-serif-black"
+                        android:includeFontPadding="false"
+                        android:text="17 km/h"
+                        android:textColor="@color/white"
+                        android:textSize="20sp" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="Макс. Скорост"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="11sp" />
+                        android:alpha="0.5"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="MAX SPEED"
+                        android:textColor="@color/white"
+                        android:textSize="10sp"
+                        android:letterSpacing="0.1" />
                 </LinearLayout>
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
 
-        <!-- Session Name Input -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginBottom="16dp"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp">
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="24dp"
+                android:alpha="0.1"
+                android:background="@color/white" />
 
-            <com.google.android.material.textfield.TextInputLayout
+            <!-- Session Name Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="SESSION NAME"
+                android:textColor="@color/accent_orange"
+                android:textSize="11sp"
+                android:letterSpacing="0.05" />
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/sessionNameInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Име на сесията"
-                app:hintTextColor="@color/text_secondary"
-                app:boxStrokeColor="@color/accent_orange"
-                app:boxStrokeWidth="2dp"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                android:background="@drawable/bg_input_field"
+                android:fontFamily="sans-serif-medium"
+                android:hint="Enter session name"
+                android:inputType="text"
+                android:padding="16dp"
+                android:textColor="@color/white"
+                android:textColorHint="#40FFFFFF"
+                android:textSize="16sp" />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/sessionNameInput"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="text"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_secondary"
-                    android:textSize="16sp"
-                    android:padding="16dp" />
-            </com.google.android.material.textfield.TextInputLayout>
-        </androidx.cardview.widget.CardView>
+            <!-- Description Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="DESCRIPTION"
+                android:textColor="@color/accent_orange"
+                android:textSize="11sp"
+                android:letterSpacing="0.05" />
 
-        <!-- Description Input -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginBottom="16dp"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp">
-
-            <com.google.android.material.textfield.TextInputLayout
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/descriptionInput"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Описание (по избор)"
-                app:hintTextColor="@color/text_secondary"
-                app:boxStrokeColor="@color/accent_orange"
-                app:boxStrokeWidth="2dp"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                android:background="@drawable/bg_input_field"
+                android:fontFamily="sans-serif"
+                android:gravity="top|start"
+                android:hint="How was your ride?"
+                android:inputType="textMultiLine"
+                android:minLines="3"
+                android:padding="16dp"
+                android:textColor="@color/white"
+                android:textColorHint="#40FFFFFF"
+                android:textSize="15sp" />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/descriptionInput"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="textMultiLine"
-                    android:lines="4"
-                    android:gravity="top|start"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_secondary"
-                    android:textSize="16sp"
-                    android:padding="16dp" />
-            </com.google.android.material.textfield.TextInputLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- Photos Section -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginBottom="16dp"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp">
+            <!-- Photos Section -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="12dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="PHOTOS"
+                android:textColor="@color/accent_orange"
+                android:textSize="11sp"
+                android:letterSpacing="0.05" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:orientation="horizontal">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Снимки"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="12dp" />
+                <!-- Add Photo Tile -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/addPhotoButton"
+                    android:layout_width="84dp"
+                    android:layout_height="84dp"
+                    android:layout_marginEnd="8dp"
+                    app:cardBackgroundColor="@color/card_background"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="0dp">
 
-                <!-- Photos Grid -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_add_photo"
+                            app:tint="@color/accent_orange" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:fontFamily="sans-serif-medium"
+                            android:text="ADD"
+                            android:textColor="@color/accent_orange"
+                            android:textSize="9sp" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/photosRecyclerView"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="84dp"
                     android:orientation="horizontal"
-                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
-
-                <!-- Add Photo Button -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/addPhotoButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="Добави снимка"
-                    android:textColor="@color/text_primary"
-                    android:backgroundTint="@color/accent_orange"
-                    app:icon="@android:drawable/ic_menu_camera"
-                    app:iconTint="@color/text_primary"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+                    tools:listitem="@layout/item_photo" />
             </LinearLayout>
-        </androidx.cardview.widget.CardView>
 
-        <!-- Save Button -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/saveButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginBottom="32dp"
-            android:text="Запази сесията"
-            android:textColor="@color/text_primary"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:backgroundTint="@color/accent_orange"
-            android:padding="16dp"
-            app:cornerRadius="12dp" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/saveButton"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:layout_marginTop="40dp"
+                android:layout_marginBottom="40dp"
+                android:backgroundTint="@color/accent_orange"
+                android:fontFamily="sans-serif-black"
+                android:text="SAVE SESSION"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                android:letterSpacing="0.05"
+                app:cornerRadius="30dp"
+                app:elevation="4dp" />
 
-    </LinearLayout>
-</ScrollView>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
+    <!-- Floating Delete Button - Always on Top -->
+    <ImageButton
+        android:id="@+id/btnDelete"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="20dp"
+        android:layout_marginEnd="16dp"
+        android:padding="10dp"
+        android:scaleType="centerInside"
+        android:background="@drawable/bg_circle_trash"
+        android:src="@drawable/ic_delete"
+        app:tint="@color/error_color"
+        android:elevation="10dp" />
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>
