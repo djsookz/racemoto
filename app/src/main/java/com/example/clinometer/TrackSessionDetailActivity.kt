@@ -351,53 +351,36 @@ class TrackSessionDetailActivity : AppCompatActivity() {
                 // Remove profileId prefix (everything before first underscore)
                 val withoutProfileId = sessionId.substringAfter("_")
                 android.util.Log.d("TrackSessionDetailActivity", "extractTrackIdFromSessionId: withoutProfileId='$withoutProfileId'")
-                // Then extract trackId from the remaining part
-                if (withoutProfileId.contains("_01.") || withoutProfileId.contains("_02.") || withoutProfileId.contains("_03.") || 
-                    withoutProfileId.contains("_04.") || withoutProfileId.contains("_05.") || withoutProfileId.contains("_06.") ||
-                    withoutProfileId.contains("_07.") || withoutProfileId.contains("_08.") || withoutProfileId.contains("_09.") ||
-                    withoutProfileId.contains("_10.") || withoutProfileId.contains("_11.") || withoutProfileId.contains("_12.") ||
-                    withoutProfileId.contains("_23.") || withoutProfileId.contains("_24.") || withoutProfileId.contains("_25.") ||
-                    withoutProfileId.contains("_26.") || withoutProfileId.contains("_27.") || withoutProfileId.contains("_28.") ||
-                    withoutProfileId.contains("_29.") || withoutProfileId.contains("_30.") || withoutProfileId.contains("_31.")) {
-                    val datePattern = Regex("_\\d{2}\\.\\d{2}\\.\\d{4}")
-                    val match = datePattern.find(withoutProfileId)
-                    if (match != null) {
-                        val extracted = withoutProfileId.substring(0, match.range.first)
-                        android.util.Log.d("TrackSessionDetailActivity", "extractTrackIdFromSessionId: extracted with date='$extracted'")
-                        extracted
-                    } else {
-                        android.util.Log.d("TrackSessionDetailActivity", "extractTrackIdFromSessionId: no date match, returning withoutProfileId")
-                        withoutProfileId
+                
+                // Extract trackId by finding the first known track pattern
+                when {
+                    withoutProfileId.startsWith("serres_circuit") -> "serres_circuit"
+                    withoutProfileId.startsWith("sofia_ring") -> "sofia_ring"
+                    withoutProfileId.startsWith("custom_track") -> "custom_track"
+                    else -> {
+                        // Try to extract until first date pattern
+                        val datePattern = Regex("_\\d{2}\\.\\d{2}\\.\\d{4}")
+                        val match = datePattern.find(withoutProfileId)
+                        if (match != null) {
+                            val extracted = withoutProfileId.substring(0, match.range.first)
+                            android.util.Log.d("TrackSessionDetailActivity", "extractTrackIdFromSessionId: extracted with date='$extracted'")
+                            extracted
+                        } else {
+                            android.util.Log.d("TrackSessionDetailActivity", "extractTrackIdFromSessionId: no date match, returning withoutProfileId")
+                            withoutProfileId
+                        }
                     }
-                } else {
-                    android.util.Log.d("TrackSessionDetailActivity", "extractTrackIdFromSessionId: no date in string, returning withoutProfileId")
-                    withoutProfileId
-                }
-            }
-            sessionId.contains("_01.") || sessionId.contains("_02.") || sessionId.contains("_03.") ||
-            sessionId.contains("_04.") || sessionId.contains("_05.") || sessionId.contains("_06.") ||
-            sessionId.contains("_07.") || sessionId.contains("_08.") || sessionId.contains("_09.") ||
-            sessionId.contains("_10.") || sessionId.contains("_11.") || sessionId.contains("_12.") ||
-            sessionId.contains("_23.") || sessionId.contains("_24.") || sessionId.contains("_25.") ||
-            sessionId.contains("_26.") || sessionId.contains("_27.") || sessionId.contains("_28.") ||
-            sessionId.contains("_29.") || sessionId.contains("_30.") || sessionId.contains("_31.") -> {
-                // Old format with date: "serres_circuit_23.09.2025_2004_1758647057766"
-                android.util.Log.d("TrackSessionDetailActivity", "extractTrackIdFromSessionId: matched date format")
-                val datePattern = Regex("_\\d{2}\\.\\d{2}\\.\\d{4}")
-                val match = datePattern.find(sessionId)
-                if (match != null) {
-                    val extracted = sessionId.substring(0, match.range.first)
-                    android.util.Log.d("TrackSessionDetailActivity", "extractTrackIdFromSessionId: extracted='$extracted'")
-                    extracted
-                } else {
-                    android.util.Log.d("TrackSessionDetailActivity", "extractTrackIdFromSessionId: no match, returning sessionId")
-                    sessionId
                 }
             }
             else -> {
-                // Very old format: "serres_circuit"
-                android.util.Log.d("TrackSessionDetailActivity", "extractTrackIdFromSessionId: matched simple format, returning sessionId")
-                sessionId
+                // Simple format: "serres_circuit" or "serres_circuit_..."
+                android.util.Log.d("TrackSessionDetailActivity", "extractTrackIdFromSessionId: matched simple format")
+                when {
+                    sessionId.startsWith("serres_circuit") -> "serres_circuit"
+                    sessionId.startsWith("sofia_ring") -> "sofia_ring"
+                    sessionId.startsWith("custom_track") -> "custom_track"
+                    else -> sessionId
+                }
             }
         }
         
@@ -411,7 +394,16 @@ class TrackSessionDetailActivity : AppCompatActivity() {
             "serres_circuit" -> getString(R.string.track_name_serres)
             "sofia_ring" -> getString(R.string.track_name_sofia)
             "custom_track" -> getString(R.string.track_name_custom)
-            else -> getString(R.string.track_name_unknown)
+            else -> {
+                // Check if it's a custom track by ID pattern
+                if (trackId.startsWith("custom_")) {
+                    // Try to load the custom track to get its actual name
+                    val customTrack = com.example.clinometer.tracking.CustomTrackStorage.loadCustomTrack(this, trackId)
+                    customTrack?.name ?: getString(R.string.track_name_unknown)
+                } else {
+                    getString(R.string.track_name_unknown)
+                }
+            }
         }
         android.util.Log.d("TrackSessionDetailActivity", "getTrackName: returning '$name'")
         return name

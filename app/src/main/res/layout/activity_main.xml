@@ -2,12 +2,12 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/rootContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#0D1117"
-    tools:context=".MainActivity"
-    android:fitsSystemWindows="true">
+    tools:context=".MainActivity">
 
     <!-- Top: Map Section -->
     <FrameLayout
@@ -15,157 +15,581 @@
         android:layout_height="0dp"
         android:layout_weight="1.2">
 
-    <org.osmdroid.views.MapView
-        android:id="@+id/mapView"
+    <!-- MapView will be added programmatically based on selected provider -->
+    <FrameLayout
+        android:id="@+id/mapContainer"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent">
+        
+        <!-- OSMDroid MapView (default, will be removed if Mapbox is selected) -->
+        <org.osmdroid.views.MapView
+            android:id="@+id/mapView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
+    
+    <!-- Custom Maneuver instructions view (only visible during navigation) -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/maneuverViewContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginTop="40dp"
+        app:cardBackgroundColor="#E6202123"
+        android:visibility="gone"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="4dp">
 
-    <!-- Wrapper за навигационния панел + винаги видим бутон -->
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/navigationPanelWrapper"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="top"
-            android:padding="0dp"
-            >
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:gravity="center_vertical">
 
-    <!-- Navigation Info Panel -->
+            <ImageView
+                android:id="@+id/ivManeuverIcon"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_turn_straight"
+                app:tint="#FFFFFF" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvManeuverDistance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="500 m"
+                    android:textColor="#FF6020"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:id="@+id/tvManeuverPrimary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Continue"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/tvManeuverSecondary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textColor="#A0A0A0"
+                    android:textSize="13sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+
+    <!-- Custom Trip Progress (ETA, Remaining time, Distance) -->
     <LinearLayout
-        android:id="@+id/navigationInfoContainer"
-        android:layout_width="match_parent"
+        android:id="@+id/tripProgressContainer"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_gravity="bottom|right"
         android:layout_marginStart="12dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginEnd="16dp"
-    android:background="@drawable/bg_rounded_translucent"
-    android:elevation="8dp"
-    android:orientation="vertical"
-    android:padding="16dp"
-    android:visibility="gone">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="15dp"
+        android:background="@drawable/bg_map_controls_pill"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp"
+        android:gravity="center"
         android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <!-- Navigation Icon -->
-        <ImageView
-            android:id="@+id/ivNavigationIcon"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@drawable/ic_navigation"
-            android:tint="#00D4FF"
-            android:layout_marginEnd="12dp"/>
+        android:visibility="gone"
+       >
 
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:gravity="center"
             android:orientation="vertical">
 
-            <!-- Main Instruction -->
             <TextView
-                android:id="@+id/tvNavigationInstruction"
-                android:layout_width="match_parent"
+                android:id="@+id/tvTripEta"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Продължете направо"
-                android:textColor="#FFFFFF"
+                android:singleLine="true"
+                android:minWidth="52dp"
+                android:text="--:--"
+                android:textColor="#FFFFFFFF"
                 android:textSize="16sp"
-                android:textStyle="bold"
-                android:maxLines="2"
-                android:ellipsize="end"/>
+                android:textStyle="bold" />
 
-            <!-- Distance to next turn -->
             <TextView
-                android:id="@+id/tvDistanceToTurn"
-                android:layout_width="match_parent"
+                android:id="@+id/tvTripEtaLabel"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="След 300 м"
-                android:textColor="#00D4FF"
-                android:textSize="14sp" />
+                android:text="ETA"
+                android:textColor="#E0E0E0"
+                android:textSize="10sp" />
         </LinearLayout>
 
-        <!-- Distance and Time to Destination -->
+        <View
+            android:layout_width="1dp"
+            android:layout_height="32dp"
+            android:layout_marginHorizontal="12dp"
+            android:background="#33FFFFFF" />
+
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="end">
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
 
             <TextView
-                android:id="@+id/tvDistanceToDestination"
+                android:id="@+id/tvTripRemainingTime"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="2.5 км"
-                android:textColor="#FFD700"
+                android:singleLine="true"
+                android:minWidth="52dp"
+                android:text="--:--"
+                android:textColor="#FFFFFFFF"
                 android:textSize="16sp"
-                android:textStyle="bold"/>
+                android:textStyle="bold" />
 
             <TextView
-                android:id="@+id/tvTimeToDestination"
+                android:id="@+id/tvTripRemainingTimeLabel"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="5 мин"
-                android:textColor="#B0B0B0"
-                android:textSize="12sp"/>
+                android:text="time"
+                android:textColor="#E0E0E0"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="32dp"
+            android:layout_marginHorizontal="12dp"
+            android:background="#33FFFFFF" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvTripRemainingDistance"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:singleLine="true"
+                android:minWidth="52dp"
+                android:text="--"
+                android:textColor="#FFFFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvTripRemainingDistanceLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="km"
+                android:textColor="#E0E0E0"
+                android:textSize="10sp" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Destination Name (optional) -->
-    <TextView
-        android:id="@+id/tvDestinationName"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text=""
-        android:textColor="#58A6FF"
-        android:textSize="12sp"
-        android:visibility="gone"/>
-</LinearLayout>
-
-    <!-- Toggle бутон (винаги видим) - малко по-голям и близо до панела -->
-        <ImageButton
-            android:id="@+id/btnToggleNav"
-            android:layout_width="20dp"
-            android:layout_height="48dp"
-            android:layout_marginEnd="15dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/toggle_navigation"
-            android:src="@drawable/ic_chevron_right"
-            android:tint="#FFFFFF"
-            android:elevation="10dp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/navigationInfoContainer"
-            app:layout_constraintBottom_toBottomOf="@id/navigationInfoContainer"
-            />
-        </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <!-- Orientation toggle (top-right) -->
-        <ImageButton
-            android:id="@+id/btnOrientationToggle"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
+        <!-- Map controls (top-right) -->
+        <LinearLayout
+            android:id="@+id/mapControlsContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_gravity="top|end"
             android:layout_marginEnd="12dp"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/bg_circle_translucent"
-            android:contentDescription="Orientation toggle"
-            android:src="@drawable/ic_unlock"
-            app:tint="#FFFFFF"
-            android:elevation="10dp"/>
+            android:layout_marginTop="150dp"
+            android:background="@drawable/bg_map_controls_pill"
+            android:orientation="vertical"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="8dp"
+            android:gravity="center_horizontal">
+
+            <ImageButton
+                android:id="@+id/btnOrientationToggle"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/map_control_orientation"
+                android:src="@drawable/ic_unlock"
+                android:padding="6dp"
+                app:tint="#FFFFFF" />
+
+            <ImageButton
+                android:id="@+id/btnCameraNorthMode"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginTop="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/map_control_heading_mode"
+                android:src="@drawable/ic_map_heading"
+                android:padding="6dp"
+                app:tint="#FFFFFF" />
+
+        </LinearLayout>
+
+        <!-- Speed/angle overlay -->
+        <LinearLayout
+            android:id="@+id/speedOverlayContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="26dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/speedTextCar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="18dp"
+                android:paddingVertical="12dp"
+                android:background="@drawable/bg_speed_circle"
+                android:text="0"
+                android:textColor="#FFFFFFFF"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"/>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical"
+                android:gravity="center">
+
+                <TextView
+                    android:id="@+id/angleTextMotoLandscape"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="10dp"
+                    android:background="@drawable/bg_angle_pill"
+                    android:text="0°"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"/>
+
+                <com.example.clinometer.LinearGaugeView
+                    android:id="@+id/linearGaugeViewLandscape"
+                    android:layout_width="140dp"
+                    android:layout_height="16dp"
+                    android:layout_marginTop="8dp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Angle display with linear gauge for motorcycle mode -->
+        <LinearLayout
+            android:id="@+id/angleContainerMoto"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="0dp"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone"
+            android:tag="moto_angle_container">
+
+            <TextView
+                android:id="@+id/angleTextMoto"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="10dp"
+                android:background="@drawable/bg_angle_pill"
+                android:text="0°"
+                android:textColor="#FFFFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-medium"/>
+
+            <com.example.clinometer.LinearGaugeView
+                android:id="@+id/linearGaugeView"
+                android:layout_width="140dp"
+                android:layout_height="16dp"
+                android:layout_marginTop="2dp" />
+
+        </LinearLayout>
+
+        <!-- Car action buttons (landscape) -->
+        <LinearLayout
+            android:id="@+id/carActionButtonsOverlay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="24dp"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:visibility="gone"
+            android:clipToPadding="false"
+            android:clipChildren="false">
+
+            <ImageButton
+                android:id="@+id/btnResetCarMap"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="16dp"
+                android:background="@drawable/bg_circle_button_reset"
+                android:src="@drawable/ic_reset_arrow_white"
+                android:foreground="?attr/selectableItemBackgroundBorderless"
+                android:padding="14dp"
+                android:scaleType="centerInside"
+                android:contentDescription="@string/reset_button"
+                android:stateListAnimator="@null"/>
+
+            <ImageButton
+                android:id="@+id/btnZeroCarMap"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginEnd="16dp"
+                android:background="@drawable/bg_circle_button_zero"
+                android:src="@drawable/ic_zero_calibrate"
+                android:foreground="?attr/selectableItemBackgroundBorderless"
+                android:padding="14dp"
+                android:scaleType="centerInside"
+                android:contentDescription="@string/zero_button"
+                android:stateListAnimator="@null"
+                android:visibility="gone"/>
+
+            <ImageButton
+                android:id="@+id/btnStopCarMap"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:background="@drawable/bg_circle_button_stop"
+                android:src="@drawable/ic_stop_square_white"
+                android:foreground="?attr/selectableItemBackgroundBorderless"
+                android:padding="14dp"
+                android:scaleType="centerInside"
+                android:contentDescription="@string/stop_button"
+                android:stateListAnimator="@null"/>
+
+        </LinearLayout>
+
+        <!-- Small gauge overlay for motorcycle mode (portrait) -->
+        <com.example.clinometer.GaugeView
+            android:id="@+id/smallGaugeView"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_gravity="top|start"
+            android:layout_marginStart="24dp"
+            android:layout_marginTop="80dp"
+            android:visibility="gone" />
+
+        <!-- Car stats overlay (landscape) -->
+        <LinearLayout
+            android:id="@+id/carStatsOverlay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_marginStart="24dp"
+            android:layout_marginTop="28dp"
+            android:orientation="horizontal"
+            android:background="@drawable/bg_map_controls_pill"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="12dp"
+            android:gravity="center_vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center_horizontal">
+
+                <TextView
+                    android:id="@+id/distanceTextCarLandscape"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0.00"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="km"
+                    android:textColor="#E0E0E0"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="1dp"
+                android:layout_height="36dp"
+                android:layout_marginHorizontal="12dp"
+                android:background="#3DFFFFFF" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <Chronometer
+                        android:id="@+id/chronometerCarLandscape"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium"
+                        android:gravity="center" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="time"
+                        android:textColor="#E0E0E0"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+            <!-- Trip Progress for Navigation (Motorcycle Landscape) -->
+            <View
+                android:id="@+id/tripProgressSeparator1"
+                android:layout_width="1dp"
+                android:layout_height="36dp"
+                android:layout_marginHorizontal="12dp"
+                android:background="#3DFFFFFF"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/tripProgressLandscapeContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <TextView
+                        android:id="@+id/tvTripEtaLandscape"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--:--"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="ETA"
+                        android:textColor="#E0E0E0"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="36dp"
+                    android:layout_marginHorizontal="12dp"
+                    android:background="#3DFFFFFF" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <TextView
+                        android:id="@+id/tvTripRemainingTimeLandscape"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--:--"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="time"
+                        android:textColor="#E0E0E0"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="36dp"
+                    android:layout_marginHorizontal="12dp"
+                    android:background="#3DFFFFFF" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <TextView
+                        android:id="@+id/tvTripRemainingDistanceLandscape"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="17sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-medium" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="km"
+                        android:textColor="#E0E0E0"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
 
     </FrameLayout>
 
     <!-- Bottom: Dashboard -->
 <androidx.constraintlayout.widget.ConstraintLayout
-android:layout_width="match_parent"
-android:layout_height="0dp"
-android:layout_weight="1"
-android:background="#161B22"
-android:padding="5dp"
-android:paddingBottom="0dp">
+    android:id="@+id/dashboardContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="#E6202123"
+    android:paddingHorizontal="12dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="12dp">
 
 <!-- (тук оставих останалата част от твоето оформление непроменена) -->
 
@@ -192,7 +616,7 @@ android:paddingBottom="0dp">
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintWidth_max="270dp"
-        app:tint="#15616d"
+        app:tint="#2E3950"
         />
 
     <!-- Gauge View -->
@@ -201,6 +625,7 @@ android:paddingBottom="0dp">
         android:layout_width="236dp"
         android:layout_height="250dp"
         android:padding="0dp"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintDimensionRatio="1:1"
         app:layout_constraintEnd_toEndOf="parent"
@@ -216,22 +641,22 @@ android:paddingBottom="0dp">
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:fontFamily="sans-serif-thin"
-        android:shadowColor="#0099CC"
+        android:shadowColor="@color/primary_color"
         android:shadowRadius="10"
         android:text="0"
         android:textAlignment="center"
-        android:textColor="#00D4FF"
+        android:textColor="@color/primary_color"
         android:textSize="48sp"
         android:textStyle="bold"
         android:paddingLeft="12dp"
         android:paddingRight="12dp"
-        android:paddingTop="6dp"
+        android:paddingTop="0dp"
         android:paddingBottom="6dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.35" />
+        app:layout_constraintVertical_bias="0.29" />
 
     <!-- Angle Display -->
     <TextView
@@ -242,13 +667,13 @@ android:paddingBottom="0dp">
         android:paddingVertical="4dp"
         android:text="0°"
         android:textAlignment="center"
-        android:textColor="#58A6FF"
+        android:textColor="@color/primary_color"
         android:textSize="20sp"
         app:layout_constraintBottom_toBottomOf="@+id/speedometerBackground"
         app:layout_constraintEnd_toEndOf="@+id/speedometerBackground"
         app:layout_constraintStart_toStartOf="@+id/speedometerBackground"
         app:layout_constraintTop_toBottomOf="@+id/speedText"
-        app:layout_constraintVertical_bias="0.05"
+        app:layout_constraintVertical_bias="0.09"
         app:layout_constraintHorizontal_bias="0.500"/>
 
     <!-- Timer -->
@@ -258,126 +683,86 @@ android:paddingBottom="0dp">
         android:layout_height="wrap_content"
         android:layout_marginTop="-35dp"
         android:textAlignment="center"
-        android:textColor="#FFD700"
+        android:textColor="@color/primary_color"
         android:textSize="18sp"
         app:layout_constraintEnd_toEndOf="@+id/speedometerBackground"
         app:layout_constraintStart_toStartOf="@+id/speedometerBackground"
         app:layout_constraintTop_toBottomOf="@+id/speedometerBackground" />
 
-    <!-- Car Mode UI -->
-    <LinearLayout
-        android:id="@+id/carModeContainer"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:padding="24dp"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <!-- Speed Display -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="300dp"
-            android:layout_height="150dp"
-            app:cardBackgroundColor="#1F2937"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="12dp"
-            android:layout_marginBottom="24dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical"
-                android:gravity="center"
-                android:padding="24dp">
-
-                <TextView
-                    android:id="@+id/speedTextCar"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textColor="#00D4FF"
-                    android:textSize="72sp"
-                    android:textStyle="bold"
-                    android:fontFamily="sans-serif-thin"
-                    android:shadowColor="#00D4FF"
-                    android:shadowRadius="12"/>
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- Bottom Row: Timer and Distance -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center">
-
-            <!-- Timer Card -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="120dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="12dp"
-                app:cardBackgroundColor="#1F2937"
-                app:cardCornerRadius="18dp"
-                app:cardElevation="8dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="20dp">
-
-                    <Chronometer
-                        android:id="@+id/chronometerCar"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textColor="#FFD700"
-                        android:textSize="20sp"
-                        android:textStyle="bold"
-                        android:fontFamily="sans-serif-thin"
-                        android:gravity="center"/>
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <!-- Distance Card -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="120dp"
-                android:layout_weight="1"
-                android:layout_marginStart="12dp"
-                app:cardBackgroundColor="#1F2937"
-                app:cardCornerRadius="18dp"
-                app:cardElevation="8dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical"
-                    android:gravity="center"
-                    android:padding="20dp">
-
-                    <TextView
-                        android:id="@+id/distanceTextCar"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0.00 км"
-                        android:textColor="#10B981"
-                        android:textSize="22sp"
-                        android:textStyle="bold"
-                        android:fontFamily="sans-serif-thin"
-                        android:shadowColor="#10B981"
-                        android:shadowRadius="8"/>
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-        </LinearLayout>
-    </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
 
+<!-- Car Mode Stats (visible for car profiles) -->
+<LinearLayout
+    android:id="@+id/carModeContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/bg_car_mode_stats"
+    android:paddingHorizontal="20dp"
+    android:paddingVertical="10dp"
+    android:visibility="gone"
+    android:layout_marginBottom="4dp"
+    app:layout_constraintBottom_toTopOf="@id/buttonContainer"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/distanceTextCar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0.00"
+            android:textColor="#FFFFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="km"
+            android:textColor="@color/primary_color"
+            android:textSize="14sp"/>
+    </LinearLayout>
+
+    <View
+        android:layout_width="1dp"
+        android:layout_height="28dp"
+        android:layout_marginHorizontal="16dp"
+        android:background="#33FFFFFF"/>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <Chronometer
+            android:id="@+id/chronometerCar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="time"
+            android:textColor="@color/primary_color"
+            android:textSize="14sp"/>
+    </LinearLayout>
+</LinearLayout>
 
 <!-- Distance Display (Motorcycle only) -->
 <LinearLayout
@@ -397,7 +782,7 @@ android:paddingBottom="0dp">
         android:layout_height="wrap_content"
         android:text="Distance: 0.00 km"
         android:textSize="16sp"
-        android:textColor="#00D4FF"/>
+        android:textColor="@color/primary_color"/>
 </LinearLayout>
 
 <!-- Button Container -->
@@ -459,26 +844,6 @@ android:paddingBottom="0dp">
         android:background="@drawable/rounded_button"
         app:backgroundTint="#E53E3E"/>
 </LinearLayout>
-
-<!-- Hidden diagnostic elements -->
-<TextView
-    android:id="@+id/maxSpeedText"
-    android:layout_width="0dp"
-    android:layout_height="0dp"
-    android:visibility="gone"/>
-    <TextView
-        android:id="@+id/maxLeftText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="0"
-        android:visibility="gone"/>
-
-    <TextView
-        android:id="@+id/maxRightText"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:visibility="gone"/>
-
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

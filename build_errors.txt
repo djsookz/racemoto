@@ -1,0 +1,92 @@
+﻿> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+
+> Task :app:processDebugMainManifest
+package="com.example.clinometer" found in source AndroidManifest.xml: E:\Projects\New folder\racemoto\app\src\main\AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.example.clinometer" from the source AndroidManifest.xml: E:\Projects\New folder\racemoto\app\src\main\AndroidManifest.xml.
+E:\Projects\New folder\racemoto\app\src\main\AndroidManifest.xml:12:5-77 Warning:
+	Element uses-permission#android.permission.FOREGROUND_SERVICE at AndroidManifest.xml:12:5-77 duplicated with element declared at AndroidManifest.xml:7:5-77
+E:\Projects\New folder\racemoto\app\src\main\AndroidManifest.xml:13:5-86 Warning:
+	Element uses-permission#android.permission.FOREGROUND_SERVICE_LOCATION at AndroidManifest.xml:13:5-86 duplicated with element declared at AndroidManifest.xml:6:5-86
+
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:processDebugManifestForPackage
+warn: removing resource com.example.clinometer:string/best_lap without required default value.
+warn: removing resource com.example.clinometer:string/drag_complete without required default value.
+warn: removing resource com.example.clinometer:string/lap_time without required default value.
+warn: removing resource com.example.clinometer:string/map_max_left without required default value.
+warn: removing resource com.example.clinometer:string/map_max_right without required default value.
+warn: removing resource com.example.clinometer:string/map_max_speed without required default value.
+warn: removing resource com.example.clinometer:string/session_days without required default value.
+warn: removing resource com.example.clinometer:string/session_month without required default value.
+warn: removing resource com.example.clinometer:string/session_months without required default value.
+warn: removing resource com.example.clinometer:string/session_name without required default value.
+warn: removing resource com.example.clinometer:string/session_year without required default value.
+warn: removing resource com.example.clinometer:string/session_years without required default value.
+warn: removing resource com.example.clinometer:string/track_session without required default value.
+
+> Task :app:processDebugResources
+
+> Task :app:compileDebugKotlin FAILED
+.\gradlew.bat : e: file:///E:/Projects/New%20folder/racemoto/app/src/main/java/
+com/example/clinometer/RoutePreviewActivity.kt:177:21 None of the following can
+didates is applicable:
+At line:1 char:63
++ ... Android\Android Studio\jbr"; .\gradlew.bat assembleDebug 2>&1 | Out-F ...
++                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (e: file:///E:/P... is applicable: 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+fun lineCap(lineCap: Expression): LineLayer
+fun lineCap(lineCap: LineCap = ...): LineLayer
+e: file:///E:/Projects/New%20folder/racemoto/app/src/main/java/com/example/clin
+ometer/RoutePreviewActivity.kt:178:21 None of the following candidates is appli
+cable:
+fun lineJoin(lineJoin: Expression): LineLayer
+fun lineJoin(lineJoin: LineJoin = ...): LineLayer
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.Gradle
+CompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 5s
+28 actionable tasks: 5 executed, 23 up-to-date

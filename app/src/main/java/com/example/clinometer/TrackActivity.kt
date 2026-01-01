@@ -9,7 +9,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.example.clinometer.settings.UnitsManager
-import com.example.clinometer.network.WeatherService
+import com.example.clinometer.network.WeatherApiService
 import com.example.clinometer.network.OpenMeteoService
 import com.example.clinometer.network.ElevationResponse
 import kotlinx.coroutines.launch
@@ -24,12 +24,14 @@ import android.location.LocationManager
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
+import android.content.res.ColorStateList
+import androidx.appcompat.app.AlertDialog
 
 class TrackActivity : BaseActivity(), LocationListener {
     override fun getLayoutResourceId(): Int = R.layout.activity_track
     override fun getNavigationItemId(): Int = R.id.navTrack
 
-    private lateinit var btnStartNewSession: MaterialButton
+    private lateinit var btnStartNewSession: android.widget.Button
     private lateinit var btnViewTrack: MaterialButton
     private lateinit var llEnvironment: LinearLayout
     private lateinit var tvTemperature: TextView
@@ -70,6 +72,7 @@ class TrackActivity : BaseActivity(), LocationListener {
         
         companion object {
             private const val LOCATION_PERMISSION_REQUEST = 1001
+            private const val CACHE_LOCATION_THRESHOLD_KM = 5.0  // Кешът е валиден ако локацията е в радиус от 5км
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,7 +81,9 @@ class TrackActivity : BaseActivity(), LocationListener {
         trackManager = TrackManager(this)
         initializeViews()
         setupClickListeners()
-        updateEnvironmentDisplay() // Показваме placeholder стойности веднага
+        // Зареждаме кешираните данни веднага за моментално показване
+        loadCachedWeatherData()
+        updateEnvironmentDisplay() // Показваме кешираните стойности веднага
         setupLocation()
         checkActiveSessions()
         showNoSessionsMessage()
@@ -256,6 +261,7 @@ class TrackActivity : BaseActivity(), LocationListener {
         overridePendingTransition(0, 0)
     }
     
+    
     private fun showToast(message: String) {
         android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show()
     }
@@ -420,7 +426,16 @@ class TrackActivity : BaseActivity(), LocationListener {
             "serres_circuit" -> getString(R.string.track_name_serres)
             "sofia_ring" -> getString(R.string.track_name_sofia)
             "custom_track" -> getString(R.string.track_name_custom)
-            else -> getString(R.string.track_name_unknown)
+            else -> {
+                // Check if it's a custom track by ID pattern
+                if (trackId.startsWith("custom_")) {
+                    // Try to load the custom track to get its actual name
+                    val customTrack = com.example.clinometer.tracking.CustomTrackStorage.loadCustomTrack(this, trackId)
+                    customTrack?.name ?: getString(R.string.track_name_unknown)
+                } else {
+                    getString(R.string.track_name_unknown)
+                }
+            }
         }
         return result
     }
@@ -435,13 +450,7 @@ class TrackActivity : BaseActivity(), LocationListener {
     }
     
     private fun updateViewTrackButton() {
-        if (hasActiveSession) {
-            btnViewTrack.text = getString(R.string.track_button_resume)
-            btnViewTrack.setBackgroundColor(ContextCompat.getColor(this, R.color.green))
-        } else {
-            btnViewTrack.text = getString(R.string.track_button_view)
-            btnViewTrack.setBackgroundColor(ContextCompat.getColor(this, R.color.accent_blue))
-        }
+        btnViewTrack.visibility = View.GONE
     }
     
     private fun resumeSession() {
@@ -762,7 +771,7 @@ class TrackActivity : BaseActivity(), LocationListener {
     
     private fun updateEnvironmentDisplay() {
         val tempText = if (currentTemperature != null) {
-            UnitsManager.formatTemperature(currentTemperature!!, this)
+            UnitsManager.formatTemperature(currentTemperature!!, this, decimals = 0)
         } else {
             val unit = UnitsManager.getTemperatureUnit(this)
             "--${unit.symbol}"
@@ -788,7 +797,7 @@ class TrackActivity : BaseActivity(), LocationListener {
         lifecycleScope.launch {
             try {
                 val weatherRetrofit = Retrofit.Builder()
-                    .baseUrl("https://api.openweathermap.org/data/2.5/")
+                    .baseUrl("https://api.weatherapi.com/v1/")
                     .addConverterFactory(GsonConverterFactory.create())
                     .build()
                 
@@ -797,21 +806,19 @@ class TrackActivity : BaseActivity(), LocationListener {
                     .addConverterFactory(GsonConverterFactory.create())
                     .build()
                 
-                val weatherService = weatherRetrofit.create(WeatherService::class.java)
+                val weatherApiService = weatherRetrofit.create(WeatherApiService::class.java)
                 val openMeteoService = elevationRetrofit.create(OpenMeteoService::class.java)
                 
-                // Fetch weather
-                val weatherResponse = weatherService.getCurrentWeather(
-                    location.latitude,
-                    location.longitude,
-                    "metric",
-                    "bg",
-                    "3779e3fdd0b6656b070993ef70b1420f"
+                // Fetch weather from WeatherAPI.com
+                val weatherResponse = weatherApiService.getCurrentWeather(
+                    apiKey = "547cc84c36a447ab8fe131642251808",
+                    location = "${location.latitude},${location.longitude}",
+                    lang = "bg"
                 )
                 android.util.Log.d("TrackActivity", "Weather response: ${weatherResponse.isSuccessful}")
                 if (weatherResponse.isSuccessful && weatherResponse.body() != null) {
                     val weather = weatherResponse.body()!!
-                    currentTemperature = weather.main.temp.toFloat()
+                    currentTemperature = weather.current.temp_c.toFloat()
                     android.util.Log.d("TrackActivity", "Temperature: $currentTemperature")
                 }
                 
@@ -827,6 +834,9 @@ class TrackActivity : BaseActivity(), LocationListener {
                     android.util.Log.d("TrackActivity", "Altitude: $currentAltitude")
                 }
                 
+                // Кешираме новите данни
+                cacheWeatherData(location)
+                
                 withContext(Dispatchers.Main) {
                     updateEnvironmentDisplay()
                 }
@@ -837,9 +847,83 @@ class TrackActivity : BaseActivity(), LocationListener {
     }
     
     override fun onLocationChanged(location: Location) {
-        if (currentTemperature == null && currentAltitude == null) {
+        // Проверяваме дали трябва да направим заявка
+        val shouldFetch = shouldFetchWeatherData(location)
+        if (shouldFetch) {
             fetchWeatherFromAPI(location)
         }
+    }
+    
+    /**
+     * Зарежда кешираните данни за температура и височина от SharedPreferences
+     */
+    private fun loadCachedWeatherData() {
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+        val cachedTemp = prefs.getFloat("cached_temperature", Float.NaN)
+        val cachedAlt = prefs.getFloat("cached_altitude", Float.NaN)
+        val cachedLat = prefs.getFloat("cached_location_lat", Float.NaN)
+        val cachedLon = prefs.getFloat("cached_location_lon", Float.NaN)
+        
+        if (!cachedTemp.isNaN() && !cachedLat.isNaN() && !cachedLon.isNaN()) {
+            currentTemperature = cachedTemp
+            android.util.Log.d("TrackActivity", "✅ Loaded cached temperature: $currentTemperature°C")
+        }
+        
+        if (!cachedAlt.isNaN() && !cachedLat.isNaN() && !cachedLon.isNaN()) {
+            currentAltitude = cachedAlt
+            android.util.Log.d("TrackActivity", "✅ Loaded cached altitude: $currentAltitude m")
+        }
+    }
+    
+    /**
+     * Кешира данните за температура и височина в SharedPreferences
+     */
+    private fun cacheWeatherData(location: Location) {
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+        val editor = prefs.edit()
+        
+        currentTemperature?.let {
+            editor.putFloat("cached_temperature", it)
+        }
+        currentAltitude?.let {
+            editor.putFloat("cached_altitude", it)
+        }
+        editor.putFloat("cached_location_lat", location.latitude.toFloat())
+        editor.putFloat("cached_location_lon", location.longitude.toFloat())
+        editor.apply()
+        
+        android.util.Log.d("TrackActivity", "💾 Cached weather data: temp=$currentTemperature, alt=$currentAltitude")
+    }
+    
+    /**
+     * Проверява дали трябва да направим заявка за данни
+     */
+    private fun shouldFetchWeatherData(location: Location): Boolean {
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+        val cachedLat = prefs.getFloat("cached_location_lat", Float.NaN)
+        val cachedLon = prefs.getFloat("cached_location_lon", Float.NaN)
+        
+        // Ако нямаме кеширани данни, правим заявка
+        if (cachedLat.isNaN() || cachedLon.isNaN()) {
+            android.util.Log.d("TrackActivity", "🔄 No cached data, fetching...")
+            return true
+        }
+        
+        // Проверяваме дали локацията е се променила значително
+        val cachedLocation = Location("cached").apply {
+            latitude = cachedLat.toDouble()
+            longitude = cachedLon.toDouble()
+        }
+        val distanceKm = location.distanceTo(cachedLocation) / 1000.0
+        
+        if (distanceKm > CACHE_LOCATION_THRESHOLD_KM) {
+            android.util.Log.d("TrackActivity", "🔄 Location changed significantly (${String.format("%.1f", distanceKm)}km), fetching...")
+            return true
+        }
+        
+        // Ако имаме кеширани данни и локацията е близо, не правим заявка
+        android.util.Log.d("TrackActivity", "✅ Using cached data (location change: ${String.format("%.1f", distanceKm)}km)")
+        return false
     }
     
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}

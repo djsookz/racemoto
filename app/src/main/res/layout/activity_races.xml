@@ -12,14 +12,15 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <!-- Header с бутон за назад -->
-        <LinearLayout
+        <!-- Header с бутон за назад и заглавие -->
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="top"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:padding="16dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="16dp"
             android:layout_marginTop="16dp">
 
             <!-- Бутон за назад -->
@@ -27,7 +28,8 @@
                 android:id="@+id/btnBack"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
-                android:layout_marginEnd="16dp"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
                 android:backgroundTint="@android:color/transparent"
                 app:icon="@drawable/ic_arrow_back"
                 app:iconTint="#FFFFFF"
@@ -35,16 +37,78 @@
                 app:cornerRadius="24dp"
                 style="@style/Widget.Material3.Button.IconButton" />
 
-            <!-- Заглавие -->
+            <!-- Заглавие - центрирано в екрана -->
             <TextView
                 android:id="@+id/tvTitle"
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:layout_centerInParent="true"
                 android:text="@string/session_header"
                 android:textSize="24sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF" />
+
+            <!-- Кошче за изтриване (скрито по подразбиране) -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDeleteSelected"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:visibility="gone"
+                android:backgroundTint="@android:color/transparent"
+                app:icon="@drawable/ic_delete"
+                app:iconTint="#FF7A18"
+                app:iconSize="24dp"
+                app:cornerRadius="24dp"
+                style="@style/Widget.Material3.Button.IconButton" />
+
+        </RelativeLayout>
+
+        <!-- Тънка линия за разделение -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_gravity="top"
+            android:layout_marginTop="80dp"
+            android:background="#333333" />
+
+        <!-- Бутони All и Favorites -->
+        <LinearLayout
+            android:id="@+id/llTabButtons"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:orientation="horizontal"
+            android:layout_marginTop="81dp"
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="12dp"
+            android:padding="8dp"
+            android:gravity="center">
+
+            <!-- Бутон All -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAll"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="@string/tab_all"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#333333"
+                app:cornerRadius="8dp" />
+
+            <!-- Бутон Favorites -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnFavorites"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="@string/tab_favorites"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#333333"
+                app:cornerRadius="8dp" />
 
         </LinearLayout>
 
@@ -52,7 +116,7 @@
             android:id="@+id/rvRaces"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginTop="80dp"
+            android:layout_marginTop="140dp"
             android:padding="16dp"
             android:clipToPadding="false" />
 

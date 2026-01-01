@@ -171,42 +171,55 @@ abstract class BaseActivity : AppCompatActivity() {
 
 
     protected open fun navigateToDrag() {
-        val intent = Intent(this, DragPageActivity::class.java)
+        val intent = Intent(this, MainContainerActivity::class.java).apply {
+            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_DRAG)
+        }
         startActivity(intent)
         overridePendingTransition(0, 0)
         finish()
     }
 
     protected open fun navigateToGarage() {
-        val intent = Intent(this, GarageActivity::class.java)
+        val intent = Intent(this, MainContainerActivity::class.java).apply {
+            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_GARAGE)
+        }
         startActivity(intent)
         overridePendingTransition(0, 0)
         finish()
     }
 
     protected open fun navigateToMap() {
-        val intent = Intent(this, MainMapActivity::class.java)
+        val intent = Intent(this, MainContainerActivity::class.java).apply {
+            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_MAP)
+        }
         startActivity(intent)
         overridePendingTransition(0, 0)
         finish()
     }
 
     protected open fun navigateToSessions() {
-        val intent = Intent(this, RacesActivity::class.java)
+        // Навигираме към RACES страницата в MainContainerActivity
+        val intent = Intent(this, MainContainerActivity::class.java).apply {
+            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_RACES)
+        }
         startActivity(intent)
         overridePendingTransition(0, 0)
         finish()
     }
 
     protected open fun navigateToTrack() {
-        val intent = Intent(this, TrackActivity::class.java)
+        val intent = Intent(this, MainContainerActivity::class.java).apply {
+            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_TRACK)
+        }
         startActivity(intent)
         overridePendingTransition(0, 0)
         finish()
     }
 
     protected open fun navigateToSettings() {
-        val intent = Intent(this, SettingsActivity::class.java)
+        val intent = Intent(this, MainContainerActivity::class.java).apply {
+            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_SETTINGS)
+        }
         startActivity(intent)
         overridePendingTransition(0, 0)
         finish()

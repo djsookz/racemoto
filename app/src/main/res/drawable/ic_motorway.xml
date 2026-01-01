@@ -1,0 +1,47 @@
+<!-- res/drawable/ic_highway_sign.xml -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="130">
+
+    <!-- Left lane - TOP part (before bridge) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,5 L45,5 L45,58 L30,58 Z"/>
+
+    <!-- Left lane - BOTTOM part (after bridge) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,72 L45,72 L45,125 L20,125 Z"/>
+
+    <!-- Right lane - TOP part (before bridge) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M55,5 L62,5 L70,58 L55,58 Z"/>
+
+    <!-- Right lane - BOTTOM part (after bridge) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M55,72 L72,72 L80,125 L55,125 Z"/>
+
+    <!-- Bridge/Guard rail - LEFT part -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M5,63 L58,63 L58,67 L5,67 Z"/>
+
+    <!-- Bridge/Guard rail - RIGHT part -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M56,63 L95,63 L95,67 L56,67 Z"/>
+
+    <!-- Left vertical connector line (between bridge and left lane) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M23,65 L28,63 L24,75 L20,76 Z"/>
+
+    <!-- Right vertical connector line (between bridge and right lane) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M75,63 L71,63 L76,75 L80,76 Z"/>
+</vector>

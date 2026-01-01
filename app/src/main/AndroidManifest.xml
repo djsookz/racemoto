@@ -12,8 +12,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
     <application
+        android:name=".MyApplication"
         android:theme="@style/Theme.DragMe"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -26,8 +32,10 @@
         android:usesCleartextTraffic="true">
 
         <activity
-            android:name=".MainMapActivity"
-            android:exported="true">
+            android:name=".SplashActivity"
+            android:exported="true"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.DragMe.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -35,18 +43,56 @@
         </activity>
 
         <activity
+            android:name=".MainMapActivity"
+            android:exported="true" />
+        
+        <activity
+            android:name=".MainContainerActivity"
+            android:exported="true" />
+        
+        <activity
+            android:name=".DestinationSearchActivity"
+            android:label="Търсене на дестинация"
+            android:parentActivityName=".MainMapActivity"
+            android:exported="false" />
+        
+        <activity
+            android:name=".RoutePreviewActivity"
+            android:label="@string/route_preview_title"
+            android:parentActivityName=".DestinationSearchActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".WelcomeActivity"
+            android:exported="true"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".StartActivity"
             android:launchMode="singleTop"
             android:screenOrientation="portrait"
-            android:exported="true"
-            >
-
-        </activity>
+            android:exported="false" />
 
         <activity
             android:name=".FirstProfileActivity"
             android:exported="true"
             android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".VehicleSelectionActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".BatteryOptimizationActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".OptimizationSetupActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar" />
 
         <activity
             android:name=".GarageActivity"
@@ -55,6 +101,16 @@
         <activity
             android:name=".MainActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".SaveSessionActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
+        <activity
+            android:name=".ProcessingActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity
             android:name=".RacesActivity"
@@ -74,6 +130,9 @@
             android:name=".SettingsActivity"
             android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar"/>
         <activity
+            android:name=".DragCalibrationActivity"
+            android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar"/>
+        <activity
             android:name=".TrackActivity"
             android:exported="false" />
         <activity
@@ -86,11 +145,24 @@
             android:name=".TrackMapActivity"
             android:exported="false" />
         <activity
+            android:name=".OfficialTrackCenterlineEditorActivity"
+            android:exported="false" />
+        <activity
             android:name=".TrackSelectionActivity"
+            android:exported="false" />
+        <activity
+            android:name=".TrackTypeSelectionActivity"
+            android:exported="false" />
+        <activity
+            android:name=".CustomTrackBuilderActivity"
             android:exported="false" />
         <activity
             android:name=".TrackSessionActivity"
             android:exported="false" />
+        <activity
+            android:name=".TrackEditorActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar"/>
         <activity
             android:name=".ProfileDetailActivity"
             android:parentActivityName=".GarageActivity">
@@ -110,6 +182,16 @@
         <activity
             android:name=".DragSessionDetailsActivity"
            />
+        <activity
+            android:name=".drag.SessionSelectionActivity"
+            android:exported="false" />
+        <activity
+            android:name=".drag.CompareAttemptsActivity"
+            android:exported="false" />
+        
+        <activity
+            android:name=".MapboxTestActivity"
+            android:exported="false" />
 
 
 
@@ -118,6 +200,16 @@
             android:exported="true"
             android:foregroundServiceType="location"
             android:permission="android.permission.FOREGROUND_SERVICE"/>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 </manifest>

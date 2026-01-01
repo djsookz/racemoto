@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/dark_surface"
+    android:padding="0dp">
+
+    <!-- Title -->
+    <TextView
+        android:id="@+id/tvDialogTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/garage_profile_image"
+        android:textColor="@color/white"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="24dp"
+        android:paddingBottom="16dp" />
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/text_secondary"
+        android:alpha="0.3" />
+
+    <!-- Select Image Option -->
+    <LinearLayout
+        android:id="@+id/llSelectImage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:gravity="center_vertical"
+        android:background="?android:attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_add"
+            app:tint="@color/primary_color"
+            android:layout_marginEnd="16dp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/garage_select_image"
+            android:textColor="@color/white"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/text_secondary"
+        android:alpha="0.3" />
+
+    <!-- Remove Image Option -->
+    <LinearLayout
+        android:id="@+id/llRemoveImage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:gravity="center_vertical"
+        android:background="?android:attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_delete"
+            app:tint="@android:color/holo_red_dark"
+            android:layout_marginEnd="16dp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/garage_remove_image"
+            android:textColor="@color/white"
+            android:textSize="16sp" />
+    </LinearLayout>
+
+    <!-- Bottom Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/text_secondary"
+        android:alpha="0.3" />
+
+    <!-- Cancel Button -->
+    <Button
+        android:id="@+id/btnCancel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/garage_cancel_button"
+        android:textColor="@android:color/holo_red_dark"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:background="@android:color/transparent"
+        android:padding="16dp"
+        android:layout_marginTop="8dp"
+        style="@style/Widget.MaterialComponents.Button.TextButton" />
+
+</LinearLayout>
+

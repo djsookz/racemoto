@@ -20,6 +20,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import com.example.clinometer.DialogHelper
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -41,7 +42,7 @@ import android.content.res.Configuration
 import android.util.Log
 import com.example.clinometer.settings.SoundManager
 import com.example.clinometer.settings.UnitsManager
-import com.example.clinometer.network.WeatherService
+import com.example.clinometer.network.WeatherApiService
 import com.example.clinometer.network.OpenMeteoService
 
 
@@ -66,7 +67,7 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
     private lateinit var locationManager: LocationManager
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var openMeteoService: OpenMeteoService
-    private lateinit var weatherService: WeatherService
+    private lateinit var weatherApiService: WeatherApiService
 
     private var backPressedTime: Long = 0
     private lateinit var backToast: Toast
@@ -120,6 +121,8 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
             }
         }
 
+        // Зареждаме кешираните данни веднага за моментално показване
+        loadCachedWeatherData()
         updateEnvironmentDisplay()
     }
 
@@ -133,10 +136,10 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
         openMeteoService = retrofitOpenMeteo.create(OpenMeteoService::class.java)
 
         val retrofitWeather = Retrofit.Builder()
-            .baseUrl("https://api.openweathermap.org/data/2.5/")
+            .baseUrl("https://api.weatherapi.com/v1/")
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-        weatherService = retrofitWeather.create(WeatherService::class.java)
+        weatherApiService = retrofitWeather.create(WeatherApiService::class.java)
     }
 
     private fun initializeSensors() {
@@ -221,7 +224,7 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
 
     private fun updateEnvironmentDisplay() {
         val tempText = if (currentTemperature != null) {
-            UnitsManager.formatTemperature(currentTemperature!!, this)
+            UnitsManager.formatTemperature(currentTemperature!!, this, decimals = 0)
         } else {
             val unit = UnitsManager.getTemperatureUnit(this)
             "--${unit.symbol}"
@@ -236,7 +239,80 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
         tvTemperature.text = tempText
         tvAltitude.text = altText
     }
-
+    
+    /**
+     * Зарежда кешираните данни за температура и височина от SharedPreferences
+     */
+    private fun loadCachedWeatherData() {
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+        val cachedTemp = prefs.getFloat("cached_temperature", Float.NaN)
+        val cachedAlt = prefs.getFloat("cached_altitude", Float.NaN)
+        val cachedLat = prefs.getFloat("cached_location_lat", Float.NaN)
+        val cachedLon = prefs.getFloat("cached_location_lon", Float.NaN)
+        
+        // Зареждаме само ако нямаме данни от сензорите
+        if (currentTemperature == null && !cachedTemp.isNaN() && !cachedLat.isNaN() && !cachedLon.isNaN()) {
+            currentTemperature = cachedTemp
+            Log.d("DragPage", "✅ Loaded cached temperature: $currentTemperature°C")
+        }
+        
+        if (currentAltitude == null && !cachedAlt.isNaN() && !cachedLat.isNaN() && !cachedLon.isNaN()) {
+            currentAltitude = cachedAlt
+            Log.d("DragPage", "✅ Loaded cached altitude: $currentAltitude m")
+        }
+    }
+    
+    /**
+     * Кешира данните за температура и височина в SharedPreferences
+     */
+    private fun cacheWeatherData(location: Location) {
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+        val editor = prefs.edit()
+        
+        currentTemperature?.let {
+            editor.putFloat("cached_temperature", it)
+        }
+        currentAltitude?.let {
+            editor.putFloat("cached_altitude", it)
+        }
+        editor.putFloat("cached_location_lat", location.latitude.toFloat())
+        editor.putFloat("cached_location_lon", location.longitude.toFloat())
+        editor.apply()
+        
+        Log.d("DragPage", "💾 Cached weather data: temp=$currentTemperature, alt=$currentAltitude")
+    }
+    
+    /**
+     * Проверява дали трябва да направим заявка за данни
+     */
+    private fun shouldFetchWeatherData(location: Location): Boolean {
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+        val cachedLat = prefs.getFloat("cached_location_lat", Float.NaN)
+        val cachedLon = prefs.getFloat("cached_location_lon", Float.NaN)
+        
+        // Ако нямаме кеширани данни, правим заявка
+        if (cachedLat.isNaN() || cachedLon.isNaN()) {
+            Log.d("DragPage", "🔄 No cached data, fetching...")
+            return true
+        }
+        
+        // Проверяваме дали локацията е се променила значително
+        val cachedLocation = Location("cached").apply {
+            latitude = cachedLat.toDouble()
+            longitude = cachedLon.toDouble()
+        }
+        val distanceKm = location.distanceTo(cachedLocation) / 1000.0
+        
+        if (distanceKm > CACHE_LOCATION_THRESHOLD_KM) {
+            Log.d("DragPage", "🔄 Location changed significantly (${String.format("%.1f", distanceKm)}km), fetching...")
+            return true
+        }
+        
+        // Ако имаме кеширани данни и локацията е близо, не правим заявка
+        Log.d("DragPage", "✅ Using cached data (location change: ${String.format("%.1f", distanceKm)}km)")
+        return false
+    }
+    
     private fun fetchWeatherAndElevation() {
         if (!checkLocationPermission()) return
 
@@ -244,29 +320,36 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
             if (location != null) {
                 lifecycleScope.launch {
                     try {
-                        // Fetch weather
-                        val weatherResponse = weatherService.getCurrentWeather(
-                            location.latitude,
-                            location.longitude,
-                            "metric",
-                            "bg",
-                            "3779e3fdd0b6656b070993ef70b1420f" // Replace with your actual API key
+                        // Fetch weather from WeatherAPI.com
+                        val weatherResponse = weatherApiService.getCurrentWeather(
+                            apiKey = "547cc84c36a447ab8fe131642251808",
+                            location = "${location.latitude},${location.longitude}",
+                            lang = "bg"
                         )
                         if (weatherResponse.isSuccessful && weatherResponse.body() != null) {
                             val weather = weatherResponse.body()!!
-                            // Weather API с "metric" параметър връща в Celsius
-                            currentTemperature = weather.main.temp.toFloat()
+                            // WeatherAPI.com връща температурата в Celsius (temp_c)
+                            // API е приоритетен - винаги презаписваме температурата от API
+                            currentTemperature = weather.current.temp_c.toFloat()
+                            updateEnvironmentDisplay()
                         }
 
-                        // Fetch elevation
+                        // Fetch elevation - API е най-точен, затова винаги го използваме първо
                         val elevationResponse = openMeteoService.getElevation(
                             location.latitude,
                             location.longitude
                         )
                         if (elevationResponse.isSuccessful && elevationResponse.body() != null) {
                             val elevation = elevationResponse.body()!!.elevation.firstOrNull()
-                            currentAltitude = elevation?.toFloat()
+                            // API е приоритетен - винаги презаписваме височината от API
+                            elevation?.let {
+                                currentAltitude = it.toFloat()
+                                updateEnvironmentDisplay()
+                            }
                         }
+
+                        // Кешираме новите данни
+                        cacheWeatherData(location)
 
                         updateEnvironmentDisplay()
                     } catch (e: Exception) {
@@ -285,7 +368,7 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
     private fun showCountdownDialog(mode: MeasurementMode) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_countdown, null)
 
-        val dialog = AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this, R.style.CustomAlertDialog)
             .setView(dialogView)
             .setCancelable(false)
             .create()
@@ -309,6 +392,9 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
 
         // Start GPS location updates during countdown (like in normal sessions)
         startLocationUpdates()
+        
+        // Pre-start service and begin calibration IMMEDIATELY
+        preStartDragService(mode)
 
         // Start countdown timer
         countdownTimer = object : CountDownTimer(5000, 1000) {
@@ -321,11 +407,6 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
                 
                 // Play voice countdown
                 soundManager.speakCountdown(seconds)
-                
-                // Pre-start the service at 2 seconds so it's ready when countdown finishes
-                if (seconds == 2) {
-                    preStartDragService(mode)
-                }
             }
 
             override fun onFinish() {
@@ -384,7 +465,7 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
     private fun showMeasurementModeDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_measurement_mode, null)
 
-        val dialog = AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this, R.style.CustomAlertDialog)
             .setView(dialogView)
             .setCancelable(false)
             .create()
@@ -467,7 +548,7 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
     }
 
     private fun showDeleteConfirmation(session: DragSession) {
-        AlertDialog.Builder(this)
+        val deleteDialog = AlertDialog.Builder(this, R.style.CustomAlertDialog)
             .setTitle(getString(R.string.delete_session_title))
             .setMessage(getString(R.string.delete_session_message))
             .setPositiveButton(getString(R.string.delete)) { _, _ ->
@@ -477,7 +558,9 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
                 updateNoDataVisibility()
             }
             .setNegativeButton(getString(R.string.dialog_cancel_button), null)
-            .show()
+            .create()
+        DialogHelper.styleDialogButtons(deleteDialog)
+        deleteDialog.show()
     }
 
     private fun checkLocationPermission(): Boolean {
@@ -550,9 +633,20 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
             registerReceiver(sessionUpdateReceiver, IntentFilter("SESSION_UPDATED"))
         }
         loadCurrentProfile()
+        
+        // Презареждаме калибрацията за текущия профил
+        currentProfile?.let { profile ->
+            DragCalibration.setProfile(profile.id)
+            Log.d("DragPage", "🔄 onResume - Calibration reloaded for profile: ${profile.name} (ID: ${profile.id}), Calibrated: ${DragCalibration.isCalibrated}")
+        }
+        
         loadSessions()  // This will now filter by the current profile
         dragAdapter.notifyDataSetChanged()
         updateNoDataVisibility()
+
+        // Зареждаме кешираните данни веднага за моментално показване
+        loadCachedWeatherData()
+        updateEnvironmentDisplay()
 
         // Останалия код за сензори и локация
         temperatureSensor?.let {
@@ -571,7 +665,12 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
                     0f,
                     this
                 )
-                fetchWeatherAndElevation()
+                // Проверяваме дали трябва да направим заявка
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    if (location != null && shouldFetchWeatherData(location)) {
+                        fetchWeatherAndElevation()
+                    }
+                }
             } catch (e: SecurityException) {
                 // Handle permission error
             }
@@ -592,7 +691,8 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
 
     override fun onPause() {
         super.onPause()
-        sensorManager.unregisterListener(this)
+        // НЕ unregister-ваме сензорите - те са регистрирани от ForegroundService!
+        // sensorManager.unregisterListener(this) - ПРЕМАХНАТО защото вреди на ForegroundService
         locationManager.removeUpdates(this)
     }
 
@@ -600,16 +700,24 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
     override fun onSensorChanged(event: SensorEvent) {
         when (event.sensor.type) {
             Sensor.TYPE_AMBIENT_TEMPERATURE -> {
-                currentTemperature = event.values[0]
-                updateEnvironmentDisplay()
+                // Използваме sensor само като fallback (ако нямаме API данни)
+                // API е по-точен за външната температура, затова не презаписваме ако вече имаме API данни
+                if (currentTemperature == null) {
+                    currentTemperature = event.values[0]
+                    updateEnvironmentDisplay()
+                }
             }
             Sensor.TYPE_PRESSURE -> {
-                val pressure = event.values[0]
-                currentAltitude = SensorManager.getAltitude(
-                    SensorManager.PRESSURE_STANDARD_ATMOSPHERE,
-                    pressure
-                )
-                updateEnvironmentDisplay()
+                // Използваме pressure sensor само като последен fallback (ако нямаме API данни)
+                // Не презаписваме височината ако вече имаме данни от API
+                if (currentAltitude == null) {
+                    val pressure = event.values[0]
+                    currentAltitude = SensorManager.getAltitude(
+                        SensorManager.PRESSURE_STANDARD_ATMOSPHERE,
+                        pressure
+                    )
+                    updateEnvironmentDisplay()
+                }
             }
         }
     }
@@ -623,7 +731,9 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
         currentLatitude = location.latitude
         currentLongitude = location.longitude
         
-        if (location.hasAltitude()) {
+        // Използваме GPS altitude само като fallback (ако нямаме API данни)
+        // API е по-точен, затова не презаписваме ако вече имаме данни от API
+        if (location.hasAltitude() && currentAltitude == null) {
             currentAltitude = location.altitude.toFloat()
             updateEnvironmentDisplay()
         }
@@ -665,8 +775,9 @@ class DragPageActivity : BaseActivity(), SensorEventListener, LocationListener {
     }
 
     companion object {
-    private const val REQUEST_DRAG_RUN = 1001
+        private const val REQUEST_DRAG_RUN = 1001
         private const val PERMISSION_REQUEST_LOCATION = 1003
+        private const val CACHE_LOCATION_THRESHOLD_KM = 5.0  // Кешът е валиден ако локацията е в радиус от 5км
     }
 }
 

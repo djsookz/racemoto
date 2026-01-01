@@ -15,7 +15,7 @@
         android:fillViewport="true"
     android:padding="16dp"
     app:layout_constraintTop_toTopOf="parent"
-    app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
+    app:layout_constraintBottom_toBottomOf="parent"
     app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintEnd_toEndOf="parent">
 
@@ -35,7 +35,7 @@
             android:gravity="center"
             android:paddingStart="4dp"
             android:paddingEnd="4dp"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="30dp"
             android:layout_marginBottom="16dp"/>
 
         <!-- Always On Display -->
@@ -65,6 +65,174 @@
                     android:id="@+id/switchAlwaysOn"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Battery Optimization -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardBatteryOptimization"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardElevation="2dp"
+            app:cardCornerRadius="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="#3A3D40">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Battery Optimization"
+                    android:textSize="16sp"
+                    android:textColor="#FFF"/>
+
+                <TextView
+                    android:id="@+id/tvBatteryOptimizationStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="⚠️ Not optimized - tap to configure"
+                    android:textSize="14sp"
+                    android:textColor="#AAA"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Drag Direction Calibration -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardDragCalibration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardElevation="2dp"
+            app:cardCornerRadius="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="#3A3D40">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_drag_calibration"
+                    android:textSize="16sp"
+                    android:textColor="#FFF"/>
+
+                <TextView
+                    android:id="@+id/tvDragCalibrationStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="⚠️ Not calibrated - tap to calibrate"
+                    android:textSize="14sp"
+                    android:textColor="#AAA"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Track Editor -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardTrackEditor"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardElevation="2dp"
+            app:cardCornerRadius="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="#3A3D40">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Track Editor"
+                    android:textSize="16sp"
+                    android:textColor="#FFF"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Добави centerline точки за snapping на официални писти"
+                    android:textSize="14sp"
+                    android:textColor="#AAA"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Map Provider -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardMapProvider"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardElevation="2dp"
+            app:cardCornerRadius="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="#3A3D40">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Map Provider"
+                    android:textSize="16sp"
+                    android:textColor="#FFF"/>
+
+                <TextView
+                    android:id="@+id/tvMapProviderValue"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="OSMDroid (Default)"
+                    android:textSize="14sp"
+                    android:textColor="#AAA"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Test Mapbox -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardTestMapbox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardElevation="2dp"
+            app:cardCornerRadius="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="#3A3D40">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Test Mapbox"
+                    android:textSize="16sp"
+                    android:textColor="#FFF"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Open Mapbox test map"
+                    android:textSize="14sp"
+                    android:textColor="#AAA"
+                    android:layout_marginTop="4dp"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -434,13 +602,6 @@
     </LinearLayout>
 </ScrollView>
 
-<include
-android:id="@+id/bottomNavigation"
-layout="@layout/bottom_navigation"
-android:layout_width="0dp"
-android:layout_height="wrap_content"
-app:layout_constraintBottom_toBottomOf="parent"
-app:layout_constraintStart_toStartOf="parent"
-app:layout_constraintEnd_toEndOf="parent"/>
+<!-- Bottom navigation is handled by MainContainerActivity - removed from here -->
 
     </androidx.constraintlayout.widget.ConstraintLayout>

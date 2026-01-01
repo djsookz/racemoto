@@ -8,7 +8,8 @@ data class Profile(
     var best0to100: Long = Long.MAX_VALUE, // Инициализираме с много голяма стойност
     var best0to200: Long = Long.MAX_VALUE,
     var best100to200: Long = Long.MAX_VALUE,
-    var maxSpeed: Float = 0f
+    var maxSpeed: Float = 0f,
+    var imagePath: String? = null // Път към снимката на профила
 ) : Serializable {
     enum class VehicleType { CAR, MOTORCYCLE }
 

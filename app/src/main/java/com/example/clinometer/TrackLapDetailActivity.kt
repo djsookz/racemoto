@@ -16,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.PreferenceManager
 import com.example.clinometer.settings.LanguageManager
 import com.example.clinometer.settings.UnitsManager
+import com.example.clinometer.tracking.TrackSnapper
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
@@ -229,8 +230,38 @@ class TrackLapDetailActivity : AppCompatActivity() {
         // Convert lap data to route points and NORMALIZE timestamps като в MapActivity
         if (lapData.routePoints.isNotEmpty()) {
             val baseTimestamp = lapData.routePoints.first().timestamp
-            routePoints = lapData.routePoints.map { point ->
+            var tempRoutePoints = lapData.routePoints.map { point ->
                 point.copy(timestamp = point.timestamp - baseTimestamp)
+            }
+            
+            // Apply TrackSnapper to snap points to track centerline with lateral offset preservation
+            val trackId = intent.getStringExtra("track_id") ?: ""
+            if (trackId.isNotEmpty()) {
+                try {
+                    val gpsPoints = tempRoutePoints.map { it.geoPoint }
+                    val snappedPoints = TrackSnapper.snapPoints(
+                        gpsPoints = gpsPoints,
+                        trackId = trackId,
+                        context = this
+                    )
+                    
+                    android.util.Log.d("TrackLapDetailActivity", "📌 TrackSnapper: ${snappedPoints.count { it.isSnapped }} points snapped out of ${snappedPoints.size}")
+                    
+                    // Update route points with snapped coordinates
+                    routePoints = tempRoutePoints.mapIndexed { index, routePoint ->
+                        val snappedPoint = snappedPoints.getOrNull(index)
+                        if (snappedPoint != null && snappedPoint.isSnapped) {
+                            routePoint.copy(geoPoint = snappedPoint.geoPoint)
+                        } else {
+                            routePoint
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("TrackLapDetailActivity", "Error applying TrackSnapper: ${e.message}")
+                    routePoints = tempRoutePoints
+                }
+            } else {
+                routePoints = tempRoutePoints
             }
         } else {
             routePoints = emptyList()

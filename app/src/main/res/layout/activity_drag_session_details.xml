@@ -53,6 +53,15 @@
                 android:textColor="@color/text_secondary" />
 
         </LinearLayout>
+
+        <ImageButton
+            android:id="@+id/btnCompare"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_compare"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="@color/white"
+            android:contentDescription="@string/compare_attempts" />
     </LinearLayout>
 
     <!-- Environment info -->

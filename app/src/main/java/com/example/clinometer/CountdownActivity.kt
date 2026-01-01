@@ -1,10 +1,14 @@
 package com.example.clinometer
 
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Bundle
 import android.os.CountDownTimer
+import android.os.IBinder
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -14,6 +18,26 @@ class CountdownActivity : AppCompatActivity() {
     private var isCountingDown = true
     private var hasFinished = false
     private lateinit var selectedProfile: Profile
+    
+    private var foregroundService: ForegroundService? = null
+    private var serviceBound = false
+    
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            val local = binder as? ForegroundService.LocalBinder
+            foregroundService = local?.getService()
+            serviceBound = true
+            
+            // Linear Accel калибрация се прави САМО за DRAG режима, не за нормални сесии
+            // foregroundService?.startLinearAccelCalibration()
+            // GPS се подготвя в background (без визуален текст)
+        }
+
+        override fun onServiceDisconnected(name: ComponentName?) {
+            serviceBound = false
+            foregroundService = null
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,6 +62,9 @@ class CountdownActivity : AppCompatActivity() {
             putExtra("PRE_WARMING_MODE", true)
         }
         ContextCompat.startForegroundService(this, serviceIntent)
+        
+        // Bind към service за калибрация
+        bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
 
         object : CountDownTimer(5000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
@@ -50,6 +77,11 @@ class CountdownActivity : AppCompatActivity() {
                 
                 isCountingDown = false
                 hasFinished = true
+                
+                // Linear Accel калибрация е САМО за DRAG режима
+                // foregroundService?.stopLinearAccelCalibration()
+                
+                // За нормални сесии GPS е вече готов (без визуален индикатор)
 
                 // Сигнализираме на услугата че вече може да премине в нормален режим
                 val activateIntent = Intent(this@CountdownActivity, ForegroundService::class.java).apply {
@@ -77,6 +109,18 @@ class CountdownActivity : AppCompatActivity() {
     override fun onBackPressed() {
         if (!isCountingDown) {
             super.onBackPressed()
+        }
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        if (serviceBound) {
+            try {
+                unbindService(serviceConnection)
+            } catch (e: Exception) {
+                // Ignore
+            }
+            serviceBound = false
         }
     }
 }

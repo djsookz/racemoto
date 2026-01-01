@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="4dp"
+    app:cardBackgroundColor="#2C2C2C">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="16dp"
+        android:gravity="center_vertical">
+
+        <!-- Track Icon -->
+        <TextView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:text="🏁"
+            android:textSize="24sp"
+            android:gravity="center"
+            android:background="@drawable/bg_rounded_button"
+            android:layout_marginEnd="16dp" />
+
+        <!-- Track Info -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvTrackTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Serres Circuit"
+                android:textSize="18sp"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/tvTrackDetails"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="3.2km • 12 завоя • Гърция"
+                android:textSize="14sp"
+                android:textColor="#CCCCCC"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:id="@+id/tvTrackDescription"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Професионална писта за мотоциклети и автомобили с 4 timing точки за прецизни измервания."
+                android:textSize="12sp"
+                android:textColor="#888888"
+                android:lineSpacingMultiplier="1.2" />
+
+        </LinearLayout>
+
+        <!-- Action Buttons -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginStart="8dp">
+
+            <!-- Delete Button (only for custom tracks) -->
+            <Button
+                android:id="@+id/btnDelete"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:text="🗑️"
+                android:textSize="16sp"
+                android:background="@drawable/bg_rounded_button"
+                android:backgroundTint="#F44336"
+                android:layout_marginEnd="8dp"
+                android:visibility="gone" />
+
+            <!-- Chevron -->
+            <TextView
+                android:id="@+id/tvChevron"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="▼"
+                android:textSize="16sp"
+                android:textColor="#888888" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

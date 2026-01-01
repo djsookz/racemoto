@@ -4,6 +4,9 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.TransitionDrawable
 import android.os.Build
 import android.os.Bundle
@@ -18,6 +21,7 @@ import com.example.clinometer.settings.LanguageManager
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputLayout
+import java.io.File
 
 class StartActivity : AppCompatActivity() {
     
@@ -42,7 +46,7 @@ class StartActivity : AppCompatActivity() {
         profileDropdownLayout = findViewById(R.id.profileDropdownLayout)
 
         if (ProfileStorage.loadProfiles(this).isEmpty()) {
-            startActivity(Intent(this, FirstProfileActivity::class.java))
+            startActivity(Intent(this, WelcomeActivity::class.java))
             finish()
             return
         }
@@ -54,7 +58,7 @@ class StartActivity : AppCompatActivity() {
 
         loadProfiles()
         if (profiles.isEmpty()) {
-            startActivity(Intent(this, FirstProfileActivity::class.java))
+            startActivity(Intent(this, WelcomeActivity::class.java))
             finish()
             return
         }
@@ -66,6 +70,20 @@ class StartActivity : AppCompatActivity() {
 
             if (selectedIndex >= 0) {
                 val selectedProfile = profiles[selectedIndex]
+                
+                // ВАЖНО: Проверяваме дали профилът има ПОНЕ 1 калибрация!
+                DragCalibration.setProfile(selectedProfile.id)
+                if (!DragCalibration.hasAnyCalibration()) {
+                    // Няма калибрация - редиректваме към калибрация
+                    Toast.makeText(this, getString(R.string.calibration_need_profile, selectedProfile.name), Toast.LENGTH_LONG).show()
+                    val intent = Intent(this, DragCalibrationActivity::class.java).apply {
+                        putExtra("PROFILE_ID", selectedProfile.id)
+                    }
+                    startActivity(intent)
+                    return@setOnClickListener
+                }
+                
+                // Калибриран - продължаваме нормално
                 val intent = Intent(this, CountdownActivity::class.java).apply {
                     putExtra("SELECTED_PROFILE", selectedProfile)
                 }
@@ -143,11 +161,44 @@ class StartActivity : AppCompatActivity() {
     }
 
     private fun updateProfileIcon(profile: Profile) {
-        val iconRes = when (profile.vehicleType) {
-            Profile.VehicleType.CAR -> R.drawable.ic_car
-            Profile.VehicleType.MOTORCYCLE -> R.drawable.ic_motorcycle
+        // Зареждаме снимка ако има, иначе показваме иконка
+        if (!profile.imagePath.isNullOrEmpty()) {
+            val imageFile = File(getExternalFilesDir(null), profile.imagePath)
+            if (imageFile.exists()) {
+                val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
+                // Правим снимката кръгла
+                val circularBitmap = createCircularBitmap(bitmap)
+                profileDropdownLayout.startIconDrawable = BitmapDrawable(resources, circularBitmap)
+            } else {
+                // Файлът не съществува, показваме иконка
+                val iconRes = when (profile.vehicleType) {
+                    Profile.VehicleType.CAR -> R.drawable.ic_car
+                    Profile.VehicleType.MOTORCYCLE -> R.drawable.ic_motorcycle
+                }
+                profileDropdownLayout.startIconDrawable = ContextCompat.getDrawable(this, iconRes)
+            }
+        } else {
+            // Няма снимка, показваме иконка
+            val iconRes = when (profile.vehicleType) {
+                Profile.VehicleType.CAR -> R.drawable.ic_car
+                Profile.VehicleType.MOTORCYCLE -> R.drawable.ic_motorcycle
+            }
+            profileDropdownLayout.startIconDrawable = ContextCompat.getDrawable(this, iconRes)
         }
-        profileDropdownLayout.startIconDrawable = ContextCompat.getDrawable(this, iconRes)
+    }
+    
+    private fun createCircularBitmap(bitmap: Bitmap): Bitmap {
+        val size = minOf(bitmap.width, bitmap.height)
+        val output = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(output)
+        val paint = android.graphics.Paint()
+        val rect = android.graphics.Rect(0, 0, size, size)
+        paint.isAntiAlias = true
+        canvas.drawARGB(0, 0, 0, 0)
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f, paint)
+        paint.xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.SRC_IN)
+        canvas.drawBitmap(bitmap, rect, rect, paint)
+        return output
     }
 
     class CrossfadeTransition(private val imageView: ImageView, private val duration: Int) {

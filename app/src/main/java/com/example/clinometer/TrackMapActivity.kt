@@ -23,6 +23,8 @@ class TrackMapActivity : AppCompatActivity() {
             applicationContext,
             PreferenceManager.getDefaultSharedPreferences(applicationContext)
         )
+        
+        // Default OSMDroid configuration
         setContentView(R.layout.activity_track_map)
         
         // Get track data from intent
