@@ -1,6 +1,7 @@
 package com.example.clinometer.tracking
 
-import org.osmdroid.util.GeoPoint
+import com.example.clinometer.GeoPoint
+
 
 /**
  * Data class representing a custom track created by the user

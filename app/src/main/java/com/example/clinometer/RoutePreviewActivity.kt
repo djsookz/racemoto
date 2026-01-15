@@ -34,6 +34,7 @@ import com.mapbox.maps.MapView
 import com.mapbox.maps.MapboxMap
 import com.mapbox.maps.Style
 import android.util.Log
+import com.example.clinometer.data.ProfileStorage
 import com.mapbox.maps.extension.style.layers.addLayer
 import com.mapbox.maps.extension.style.layers.generated.lineLayer
 import com.mapbox.maps.extension.style.sources.addSource
@@ -830,6 +831,48 @@ class RoutePreviewActivity : AppCompatActivity() {
             ?: profiles.firstOrNull() 
             ?: Profile(name = "My profile", vehicleType = Profile.VehicleType.MOTORCYCLE)
         
+        // ВАЖНО: Запази големите данни във файлове вместо в Intent за да избегнем TransactionTooLargeException
+        val geometryJson = geometry.toJson()
+        val geometryInCache = if (geometryJson.length > 50_000) {
+            // Голям маршрут - запази във файл
+            try {
+                NavigationDataCache.saveRouteGeometry(this, geometryJson)
+                true
+            } catch (e: Exception) {
+                Log.e("RoutePreview", "Failed to cache route geometry", e)
+                false
+            }
+        } else {
+            // Малък маршрут - може да се предаде директно
+            false
+        }
+        
+        var directionsResponseInCache = false
+        var directionsResponseJson: String? = null
+        try {
+            val selectedRoute = allRoutes.getOrNull(selectedRouteIndex)
+            if (selectedRoute != null) {
+                // Create a minimal response with just the selected route
+                val minimalResponse = com.example.clinometer.navigation.DirectionsResponse(
+                    routes = listOf(selectedRoute),
+                    code = "Ok"
+                )
+                directionsResponseJson = Gson().toJson(minimalResponse)
+                
+                if (directionsResponseJson.length > 50_000) {
+                    // Голям JSON - запази във файл
+                    try {
+                        NavigationDataCache.saveDirectionsResponse(this, directionsResponseJson)
+                        directionsResponseInCache = true
+                    } catch (e: Exception) {
+                        Log.e("RoutePreview", "Failed to cache directions response", e)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("RoutePreview", "Error serializing route: ${e.message}")
+        }
+        
         // Pass route data to MainActivity with fresh GPS coordinates
         val intent = Intent(this, MainActivity::class.java).apply {
             putExtra("navigation_active", true)
@@ -840,26 +883,35 @@ class RoutePreviewActivity : AppCompatActivity() {
             putExtra("destination_latitude", destinationLat)
             putExtra("destination_longitude", destinationLon)
             putExtra("destination_name", destinationName)
-            putExtra("route_geometry", geometry.toJson())
             putExtra("route_distance", routeDistance)
             putExtra("route_duration", routeDuration)
-            // Pass only selected route JSON (not full response to avoid TransactionTooLargeException)
-            try {
-                val selectedRoute = allRoutes.getOrNull(selectedRouteIndex)
-                if (selectedRoute != null) {
-                    // Create a minimal response with just the selected route
-                    val minimalResponse = com.example.clinometer.navigation.DirectionsResponse(
-                        routes = listOf(selectedRoute),
-                        code = "Ok"
-                    )
-                    putExtra("directions_response_json", Gson().toJson(minimalResponse))
-                }
-            } catch (e: Exception) {
-                Log.e("RoutePreview", "Error serializing route: ${e.message}")
+            
+            // Предай route geometry само ако е малък, иначе използвай флаг за файл
+            if (geometryInCache) {
+                putExtra("route_geometry_in_cache", true)
+            } else {
+                putExtra("route_geometry", geometryJson)
+            }
+            
+            // Предай directions response само ако не е в cache
+            if (!directionsResponseInCache && directionsResponseJson != null) {
+                putExtra("directions_response_json", directionsResponseJson)
+            } else if (directionsResponseInCache) {
+                putExtra("directions_response_in_cache", true)
             }
         }
         startActivity(intent)
         finish()
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // Изчисти navigation data cache ако Activity е паузиран
+        try {
+            NavigationDataCache.clear(this)
+        } catch (e: Exception) {
+            Log.e("RoutePreview", "Failed to clear navigation cache", e)
+        }
     }
     
     private fun startLocationUpdates() {

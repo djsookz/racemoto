@@ -6,6 +6,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import com.example.clinometer.data.ProfileStorage
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button

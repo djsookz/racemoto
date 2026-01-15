@@ -10,9 +10,12 @@
     android:layout_marginBottom="8dp"
     app:cardCornerRadius="12dp"
     app:cardElevation="4dp"
-    app:cardBackgroundColor="#282828"
+    app:cardBackgroundColor="#1C2128"
     android:forceDarkAllowed="false"
-    app:cardPreventCornerOverlap="true">
+    app:cardPreventCornerOverlap="true"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?android:attr/selectableItemBackground">
 
     <RelativeLayout
         android:layout_width="match_parent"
@@ -46,19 +49,36 @@
             android:id="@+id/miniMapContainer"
             android:layout_width="match_parent"
             android:layout_height="120dp"
-            android:forceDarkAllowed="false">
+            android:forceDarkAllowed="false"
+            android:clickable="false"
+            android:focusable="false">
 
-            <org.osmdroid.views.MapView
-                android:id="@+id/miniMapView"
+            <!-- 🔥 SNAPSHOT ImageView - показва bitmap snapshot на картата (НЕ live MapView) -->
+            <ImageView
+                android:id="@+id/miniMapSnapshot"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"/>
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:background="#1C2128"
+                android:clickable="false"
+                android:focusable="false"
+                android:contentDescription="Route map"/>
+
+            <!-- 🔒 TOUCH BLOCKER - поглъща всички touch събития -->
+            <View
+                android:id="@+id/mapTouchBlocker"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="@android:color/transparent"/>
 
             <!-- Overlay за loading/no data -->
             <LinearLayout
                 android:id="@+id/layoutMapPlaceholder"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="#F1F3F4"
+                android:background="#1C2128"
                 android:gravity="center"
                 android:orientation="vertical"
                 android:visibility="gone"
@@ -76,7 +96,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Няма данни за маршрут"
-                    android:textColor="#FFFFFF"
+                    android:textColor="#AAAAAA"
                     android:textSize="12sp"/>
             </LinearLayout>
         </FrameLayout>

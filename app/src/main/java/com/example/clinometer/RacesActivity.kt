@@ -16,6 +16,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.clinometer.settings.LanguageManager
 import com.example.clinometer.DialogHelper
+import com.example.clinometer.data.ProfileStorage
 import com.google.android.material.button.MaterialButton
 
 class RacesActivity : AppCompatActivity() {
@@ -294,7 +295,7 @@ class RacesActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         loadRaces()
-        adapter.notifyDataSetChanged()
+        adapter.updateRaces(racesList)
         checkEmptyList()
     }
 

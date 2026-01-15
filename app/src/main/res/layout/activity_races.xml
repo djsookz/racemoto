@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:background="#1C1C1E"
+    android:background="@color/background_primary"
     android:fitsSystemWindows="true">
 
     <!-- Основно съдържание - заема целия екран -->
@@ -17,11 +17,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="top"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
             android:paddingStart="8dp"
-            android:paddingEnd="16dp"
-            android:layout_marginTop="16dp">
+            android:paddingEnd="16dp">
 
             <!-- Бутон за назад -->
             <com.google.android.material.button.MaterialButton
@@ -70,7 +67,7 @@
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:layout_gravity="top"
-            android:layout_marginTop="80dp"
+            android:layout_marginTop="45dp"
             android:background="#333333" />
 
         <!-- Бутони All и Favorites -->
@@ -80,10 +77,9 @@
             android:layout_height="wrap_content"
             android:layout_gravity="top"
             android:orientation="horizontal"
-            android:layout_marginTop="81dp"
+            android:layout_marginTop="50dp"
             android:layout_marginStart="12dp"
             android:layout_marginEnd="12dp"
-            android:padding="8dp"
             android:gravity="center">
 
             <!-- Бутон All -->
@@ -95,7 +91,7 @@
                 android:layout_marginEnd="4dp"
                 android:text="@string/tab_all"
                 android:textColor="#FFFFFF"
-                android:backgroundTint="#333333"
+                android:backgroundTint="@color/card_background"
                 app:cornerRadius="8dp" />
 
             <!-- Бутон Favorites -->
@@ -107,7 +103,7 @@
                 android:layout_marginStart="4dp"
                 android:text="@string/tab_favorites"
                 android:textColor="#FFFFFF"
-                android:backgroundTint="#333333"
+                android:backgroundTint="@color/card_background"
                 app:cornerRadius="8dp" />
 
         </LinearLayout>
@@ -116,7 +112,7 @@
             android:id="@+id/rvRaces"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginTop="140dp"
+            android:layout_marginTop="100dp"
             android:padding="16dp"
             android:clipToPadding="false" />
 

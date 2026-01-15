@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="#1C1C1E">
+    android:background="@color/background_primary">
 
     <!-- Top bar with environment info -->
     <LinearLayout
@@ -15,11 +15,12 @@
         android:orientation="horizontal"
         android:padding="16dp"
         android:background="@color/card_background"
+        android:gravity="center_vertical"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Temperature section with icon -->
+        <!-- Left side: Temperature and Altitude -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -39,16 +40,8 @@
                 android:layout_height="wrap_content"
                 android:text="@string/drag_temperature_placeholder"
                 android:textSize="16sp"
-                android:textColor="@color/text_primary" />
-        </LinearLayout>
-
-        <!-- Altitude section with icon -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:gravity="center_vertical|end">
+                android:textColor="@color/text_primary"
+                android:layout_marginEnd="16dp" />
 
             <ImageView
                 android:layout_width="24dp"
@@ -63,6 +56,49 @@
                 android:text="@string/drag_altitude_placeholder"
                 android:textSize="16sp"
                 android:textColor="@color/text_primary" />
+        </LinearLayout>
+
+        <!-- Right side: Profile model name and image -->
+        <LinearLayout
+            android:id="@+id/llActiveProfileHeader"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="5dp"
+            android:layout_marginStart="12dp">
+
+            <TextView
+                android:id="@+id/tvHeaderModelName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="8dp"
+                android:text=""
+                android:minWidth="30dp"
+                android:visibility="visible" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardProfileImage"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                app:cardCornerRadius="19dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1.5dp"
+                app:strokeColor="#4DFFFFFF"
+                android:visibility="visible">
+
+                <ImageView
+                    android:id="@+id/ivHeaderProfileImage"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_car"
+                    android:visibility="visible"
+                    android:contentDescription="Profile image" />
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </LinearLayout>
 

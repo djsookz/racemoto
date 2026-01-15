@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="#1C1C1E">
+    android:background="@color/background_primary">
 
     <!-- ViewPager2 за Fragments -->
     <androidx.viewpager2.widget.ViewPager2

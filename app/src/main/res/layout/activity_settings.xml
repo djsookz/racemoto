@@ -162,7 +162,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Добави centerline точки за snapping на официални писти"
+                    android:text="Добави centerline точки за snapping на official писти"
                     android:textSize="14sp"
                     android:textColor="#AAA"
                     android:layout_marginTop="4dp"/>
@@ -230,6 +230,43 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Open Mapbox test map"
+                    android:textSize="14sp"
+                    android:textColor="#AAA"
+                    android:layout_marginTop="4dp"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- New: Test Navigation -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardTestNavigation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            app:cardElevation="2dp"
+            app:cardCornerRadius="8dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="#3A3D40">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="🚀 Test Navigation"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#FF6B35"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Mapbox v3 Turn-by-Turn Experience"
                     android:textSize="14sp"
                     android:textColor="#AAA"
                     android:layout_marginTop="4dp"/>
@@ -315,7 +352,7 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Distance Unit - СКРИТ, синхронизира се автоматично със скоростта -->
+        <!-- Distance Unit -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardDistanceUnit"
             android:layout_width="match_parent"
@@ -602,6 +639,4 @@
     </LinearLayout>
 </ScrollView>
 
-<!-- Bottom navigation is handled by MainContainerActivity - removed from here -->
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

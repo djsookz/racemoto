@@ -6,7 +6,7 @@
     android:layout_height="80dp"
     android:orientation="horizontal"
     android:paddingVertical="8dp"
-    android:background="#1C1C1E"
+    android:background="@color/background_primary"
     android:elevation="8dp">
 
     <!-- Навигационен елемент 1 - Драг -->

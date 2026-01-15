@@ -17,6 +17,7 @@ import android.content.Context
 import android.graphics.Typeface
 import androidx.preference.PreferenceManager
 import android.view.WindowManager
+import com.example.clinometer.data.ProfileStorage
 
 /**
  * Главна Container Activity която държи ViewPager2 с всички основни Fragments

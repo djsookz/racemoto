@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.settings.LanguageManager
 import com.google.android.material.button.MaterialButton
 

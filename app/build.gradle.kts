@@ -39,6 +39,7 @@ android {
 
     buildFeatures {
         compose = true
+        viewBinding = true
     }
 }
 
@@ -72,7 +73,6 @@ dependencies {
 
     // Карти и локация
     implementation("com.google.android.gms:play-services-location:21.0.1")
-    implementation("com.google.android.gms:play-services-maps:18.2.0")
 
     // OSMDroid и BonusPack
     implementation("org.osmdroid:osmdroid-android:6.1.17")
@@ -84,13 +84,10 @@ dependencies {
     }
     
     // Mapbox Maps SDK
-    // Using stable version 11.10.0 - if this doesn't work, try 11.0.0
     implementation("com.mapbox.maps:android:11.10.0")
     implementation("com.mapbox.extension:maps-compose:11.10.0")
     
     // Mapbox Navigation SDK - Core and UI components
-    // REQUIRES: Secret token with DOWNLOADS:READ scope in gradle.properties
-    // DOCUMENTATION: https://docs.mapbox.com/android/navigation/guides/ui-components/
     implementation("com.mapbox.navigationcore:android:3.17.1") {
         exclude(group = "com.caverock", module = "androidsvg")
         exclude(group = "com.caverock", module = "androidsvg-aar")
@@ -107,9 +104,6 @@ dependencies {
     // Графики
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 
-    // Offline map matching dependencies
-    // Note: GraphHopper is not available for Android, using custom implementation
-
     // Тестване
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
@@ -118,4 +112,7 @@ dependencies {
     implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation ("com.google.android.gms:play-services-location:21.0.1")
     implementation ("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
+    
+    // Coil за зареждане на изображения (memory caching)
+    implementation("io.coil-kt:coil:2.4.0")
 }

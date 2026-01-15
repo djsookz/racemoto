@@ -36,7 +36,6 @@ import com.mapbox.maps.extension.style.sources.addSource
 import com.mapbox.maps.extension.style.sources.generated.geoJsonSource
 import com.mapbox.maps.extension.style.layers.addLayer
 import com.mapbox.maps.extension.style.layers.generated.lineLayer
-import org.osmdroid.util.BoundingBox
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -334,9 +333,20 @@ class SaveSessionActivity : AppCompatActivity() {
             if (raceIndex != -1) {
                 allRaces[raceIndex] = updatedRace
                 com.example.clinometer.RouteStorage.saveRaces(this, allRaces)
-                val intent = Intent(this, com.example.clinometer.ProcessingActivity::class.java).apply { putExtra("raceId", raceId) }
-                startActivity(intent)
-                finish()
+                
+                val isNewSession = intent.getBooleanExtra("isNewSession", false)
+                if (isNewSession) {
+                    // Нова сесия от навигация/активна сесия - отиваме в ProcessingActivity
+                    val intent = Intent(this, com.example.clinometer.ProcessingActivity::class.java).apply { putExtra("raceId", raceId) }
+                    startActivity(intent)
+                    finish()
+                } else {
+                    // Редактиране от списъка със сесии - връщаме се в списъка със сесии
+                    val intent = Intent(this, com.example.clinometer.RacesActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    startActivity(intent)
+                    finish()
+                }
             }
         }
     }
@@ -355,7 +365,7 @@ class PhotoAdapter(
 ) : RecyclerView.Adapter<PhotoAdapter.PhotoViewHolder>() {
     class PhotoViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val imageView: android.widget.ImageView = itemView.findViewById(R.id.photoImageView)
-        val removeButton: MaterialButton = itemView.findViewById(R.id.removePhotoButton)
+        val removeButton: android.widget.ImageView = itemView.findViewById(R.id.removePhotoButton)
     }
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoViewHolder {
         val view = android.view.LayoutInflater.from(parent.context).inflate(R.layout.item_photo, parent, false)
@@ -365,7 +375,27 @@ class PhotoAdapter(
         val photoPath = photoPaths[position]
         val bitmap = BitmapFactory.decodeFile(photoPath)
         holder.imageView.setImageBitmap(bitmap)
-        holder.removeButton.setOnClickListener { onRemoveClick(position) }
+        
+        // Reset remove button visibility when binding
+        holder.removeButton.visibility = View.GONE
+        
+        // Long press to show X button
+        holder.imageView.setOnLongClickListener {
+            holder.removeButton.visibility = View.VISIBLE
+            true
+        }
+        
+        // Click on X button to remove photo
+        holder.removeButton.setOnClickListener {
+            onRemoveClick(position)
+        }
+        
+        // Click on image to hide X button if visible
+        holder.imageView.setOnClickListener {
+            if (holder.removeButton.visibility == View.VISIBLE) {
+                holder.removeButton.visibility = View.GONE
+            }
+        }
     }
     override fun getItemCount() = photoPaths.size
 }

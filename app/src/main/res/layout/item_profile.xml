@@ -10,7 +10,7 @@
     android:clickable="true"
     android:focusable="true"
     android:foreground="?android:attr/selectableItemBackground"
-    android:backgroundTint="#3A3D40">
+    android:backgroundTint="@color/card_background">
 
     <LinearLayout
         android:layout_width="match_parent"

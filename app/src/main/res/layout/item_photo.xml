@@ -13,20 +13,19 @@
         android:background="@color/card_background"
         android:contentDescription="Session photo" />
 
-    <com.google.android.material.button.MaterialButton
+    <ImageView
         android:id="@+id/removePhotoButton"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
         android:layout_gravity="top|end"
         android:layout_margin="4dp"
-        android:text="×"
-        android:textColor="@color/text_primary"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:backgroundTint="@color/error_color"
-        app:cornerRadius="16dp"
-        app:iconPadding="0dp"
-        app:iconSize="0dp" />
+        android:src="@drawable/ic_close"
+        android:background="@drawable/bg_remove_photo_button"
+        android:contentDescription="Remove photo"
+        android:tint="#FFFFFF"
+        android:padding="4dp"
+        android:visibility="gone" />
 
 </FrameLayout>
+
 

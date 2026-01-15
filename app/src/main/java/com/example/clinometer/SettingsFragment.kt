@@ -15,6 +15,7 @@ import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceManager
 import com.example.clinometer.settings.LanguageManager
 import com.example.clinometer.DialogHelper
+import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.settings.SoundManager
 import com.example.clinometer.settings.UnitsManager
 import com.example.clinometer.settings.MapProviderManager
@@ -45,6 +46,7 @@ class SettingsFragment : Fragment() {
     private lateinit var cardBatteryOptimization: MaterialCardView
     private lateinit var cardMapProvider: MaterialCardView
     private lateinit var cardTestMapbox: MaterialCardView
+    private lateinit var cardTestNavigation: MaterialCardView
     
     private lateinit var tvLanguageValue: TextView
     private lateinit var tvSpeedUnitValue: TextView
@@ -91,6 +93,7 @@ class SettingsFragment : Fragment() {
         cardBatteryOptimization = view.findViewById(R.id.cardBatteryOptimization)
         cardMapProvider = view.findViewById(R.id.cardMapProvider)
         cardTestMapbox = view.findViewById(R.id.cardTestMapbox)
+        cardTestNavigation = view.findViewById(R.id.cardTestNavigation)
         
         tvLanguageValue = view.findViewById(R.id.tvLanguageValue)
         tvSpeedUnitValue = view.findViewById(R.id.tvSpeedUnitValue)
@@ -147,14 +150,18 @@ class SettingsFragment : Fragment() {
         
         cardLanguage.setOnClickListener { showLanguageDialog() }
         
-        cardTrackEditor.setOnClickListener {
-            showOfficialTrackSelection()
-        }
+        // Track editor removed - SDK handles map matching
+        cardTrackEditor.visibility = View.GONE
         
         cardMapProvider.setOnClickListener { showMapProviderDialog() }
         
         cardTestMapbox.setOnClickListener {
             val intent = Intent(requireContext(), MapboxTestActivity::class.java)
+            startActivity(intent)
+        }
+
+        cardTestNavigation.setOnClickListener {
+            val intent = Intent(requireContext(), TestNavigationActivity::class.java)
             startActivity(intent)
         }
         
@@ -235,7 +242,7 @@ class SettingsFragment : Fragment() {
         val title = when (currentLanguage) {
             LanguageManager.Language.ENGLISH -> "Select Language"
             LanguageManager.Language.BULGARIAN -> "Изберете език"
-            LanguageManager.Language.GREEK -> "Επιλέξτε γλώσσα"
+            LanguageManager.Language.GREEK -> "Εпиλέξτε γλώσσα"
         }
         
         val cancelButton = when (currentLanguage) {
@@ -315,30 +322,6 @@ class SettingsFragment : Fragment() {
         DialogHelper.styleDialogButtons(speedDialog)
     }
     
-    private fun showOfficialTrackSelection() {
-        val tracks = arrayOf("Серес", "Sofia Ring", "Отмени")
-        AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
-            .setTitle("Избери писта")
-            .setItems(tracks) { _, which ->
-                when (which) {
-                    0 -> {
-                        val intent = Intent(requireContext(), OfficialTrackCenterlineEditorActivity::class.java).apply {
-                            putExtra("track_id", "serres_circuit")
-                            putExtra("track_name", getString(R.string.track_name_serres))
-                        }
-                        startActivity(intent)
-                    }
-                    1 -> {
-                        val intent = Intent(requireContext(), OfficialTrackCenterlineEditorActivity::class.java).apply {
-                            putExtra("track_id", "sofia_ring")
-                            putExtra("track_name", "Sofia Ring")
-                        }
-                        startActivity(intent)
-                    }
-                }
-            }
-            .show()
-    }
     
     private fun showTemperatureUnitDialog() {
         val units = UnitsManager.TemperatureUnit.values()

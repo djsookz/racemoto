@@ -14,6 +14,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import android.widget.Toast
+import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.settings.LanguageManager
 import java.io.File
 

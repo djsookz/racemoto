@@ -29,6 +29,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.data.VehicleData
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
@@ -53,8 +54,6 @@ class GarageFragment : Fragment() {
     private lateinit var tvActiveProfileType: TextView
     private lateinit var ivActiveProfileIcon: ImageView
     private lateinit var flProfileImageContainer: FrameLayout
-    private lateinit var vFadeOverlay: View
-    private lateinit var vOrangeDivider: View
     private lateinit var btnChangeProfile: MaterialButton
     private lateinit var tvProfileCount: TextView
     private lateinit var recyclerView: RecyclerView
@@ -99,8 +98,6 @@ class GarageFragment : Fragment() {
         tvActiveProfileType = view.findViewById(R.id.tvActiveProfileType)
         ivActiveProfileIcon = view.findViewById(R.id.ivActiveProfileIcon)
         flProfileImageContainer = view.findViewById(R.id.flProfileImageContainer)
-        vFadeOverlay = view.findViewById(R.id.vFadeOverlay)
-        vOrangeDivider = view.findViewById(R.id.vOrangeDivider)
         btnChangeProfile = view.findViewById(R.id.btnChangeProfile)
         tvProfileCount = view.findViewById(R.id.tvProfileCount)
         recyclerView = view.findViewById(R.id.rvProfiles)
@@ -308,26 +305,53 @@ class GarageFragment : Fragment() {
         val selectedId = ProfileStorage.getSelectedProfileId(requireContext())
         val otherProfiles = profiles.filter { it.id != selectedId }
         
-        val options = otherProfiles.map { profile ->
-            val emoji = when (profile.vehicleType) {
-                Profile.VehicleType.CAR -> "🚗"
-                Profile.VehicleType.MOTORCYCLE -> "🏍️"
-            }
-            "$emoji ${profile.name}"
-        }.toTypedArray()
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_change_vehicle, null)
+        val rvProfileOptions = dialogView.findViewById<RecyclerView>(R.id.rvProfileOptions)
+        val btnCancel = dialogView.findViewById<android.widget.Button>(R.id.btnCancel)
         
-        AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
-            .setTitle("🔄 Смени превозното средство")
-            .setItems(options) { _, which ->
-                val newProfile = otherProfiles[which]
-                ProfileStorage.saveSelectedProfile(requireContext(), newProfile.id)
-                updateActiveProfileCard()
-                adapter.notifyDataSetChanged()
-                
-                Toast.makeText(requireContext(), "✅ Сега караш: ${newProfile.name}", Toast.LENGTH_SHORT).show()
+        val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
+            .setView(dialogView)
+            .create()
+        
+        rvProfileOptions.layoutManager = LinearLayoutManager(requireContext())
+        val profileOptionsAdapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+                val view = LayoutInflater.from(parent.context)
+                    .inflate(R.layout.item_profile_option, parent, false)
+                return object : RecyclerView.ViewHolder(view) {}
             }
-            .setNegativeButton(getString(R.string.garage_cancel_button), null)
-            .show()
+            
+            override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+                val profile = otherProfiles[position]
+                val ivVehicleIcon = holder.itemView.findViewById<ImageView>(R.id.ivVehicleIcon)
+                val tvProfileName = holder.itemView.findViewById<TextView>(R.id.tvProfileName)
+                
+                val iconRes = when (profile.vehicleType) {
+                    Profile.VehicleType.CAR -> R.drawable.ic_car
+                    Profile.VehicleType.MOTORCYCLE -> R.drawable.ic_motorcycle
+                }
+                ivVehicleIcon.setImageResource(iconRes)
+                tvProfileName.text = profile.name
+                
+                holder.itemView.setOnClickListener {
+                    dialog.dismiss()
+                    val newProfile = otherProfiles[position]
+                    ProfileStorage.saveSelectedProfile(requireContext(), newProfile.id)
+                    updateActiveProfileCard()
+                    adapter.notifyDataSetChanged()
+                    Toast.makeText(requireContext(), "✅ Сега караш: ${newProfile.name}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            
+            override fun getItemCount(): Int = otherProfiles.size
+        }
+        rvProfileOptions.adapter = profileOptionsAdapter
+        
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        dialog.show()
     }
     
     private fun showCreateProfileDialog() {
@@ -761,8 +785,6 @@ class GarageFragment : Fragment() {
         ivActiveProfileIcon.imageTintList = ContextCompat.getColorStateList(requireContext(), R.color.primary_color)
         ivActiveProfileIcon.clipToOutline = false
         ivActiveProfileIcon.outlineProvider = null
-        vFadeOverlay.visibility = View.GONE
-        vOrangeDivider.visibility = View.GONE
     }
     
     private fun decodeSampledBitmapFromFile(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
@@ -827,8 +849,6 @@ class GarageFragment : Fragment() {
         ivActiveProfileIcon.imageTintList = null
         ivActiveProfileIcon.clipToOutline = false
         ivActiveProfileIcon.outlineProvider = null
-        vFadeOverlay.visibility = View.VISIBLE
-        vOrangeDivider.visibility = View.VISIBLE
     }
     
     private fun showEditProfileDialog(profile: Profile) {

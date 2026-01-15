@@ -40,17 +40,12 @@
         </activity>
 
         <activity
-            android:name=".MainMapActivity"
-            android:exported="true" />
-        
-        <activity
             android:name=".MainContainerActivity"
             android:exported="true" />
         
         <activity
             android:name=".DestinationSearchActivity"
             android:label="Търсене на дестинация"
-            android:parentActivityName=".MainMapActivity"
             android:exported="false" />
         
         <activity
@@ -64,11 +59,6 @@
             android:exported="true"
             android:screenOrientation="portrait" />
 
-        <activity
-            android:name=".StartActivity"
-            android:launchMode="singleTop"
-            android:screenOrientation="portrait"
-            android:exported="false" />
 
         <activity
             android:name=".FirstProfileActivity"
@@ -91,13 +81,11 @@
             android:screenOrientation="portrait"
             android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar" />
 
-        <activity
-            android:name=".GarageActivity"
-            android:exported="false" />
 
         <activity
             android:name=".MainActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity
             android:name=".SaveSessionActivity"
@@ -116,7 +104,13 @@
         <activity
             android:name=".MapActivity"
             android:exported="false"
+            android:screenOrientation="portrait"
             />
+        
+        <activity
+            android:name=".FullScreenImageActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity
             android:name=".CountdownActivity"
@@ -124,14 +118,9 @@
             android:configChanges="orientation|screenSize|keyboardHidden"/>
 
         <activity
-            android:name=".SettingsActivity"
-            android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar"/>
-        <activity
             android:name=".DragCalibrationActivity"
+            android:screenOrientation="portrait"
             android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar"/>
-        <activity
-            android:name=".TrackActivity"
-            android:exported="false" />
         <activity
             android:name=".TrackSessionDetailActivity"
             android:exported="false" />
@@ -140,9 +129,6 @@
             android:exported="false" />
         <activity
             android:name=".TrackMapActivity"
-            android:exported="false" />
-        <activity
-            android:name=".OfficialTrackCenterlineEditorActivity"
             android:exported="false" />
         <activity
             android:name=".TrackSelectionActivity"
@@ -162,35 +148,34 @@
             android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar"/>
         <activity
             android:name=".ProfileDetailActivity"
-            android:parentActivityName=".GarageActivity">
-            <meta-data
-                android:name="android.support.PARENT_ACTIVITY"
-                android:value=".GarageActivity" />
-        </activity>
+            android:screenOrientation="portrait" />
 
-        <activity
-            android:name=".DragPageActivity"
-            android:exported="true"
-            android:configChanges="orientation|screenSize|keyboardHidden" />
         <activity
             android:name=".drag.DragRunPageActivity"
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity
             android:name=".DragSessionDetailsActivity"
+            android:screenOrientation="portrait"
            />
         <activity
             android:name=".drag.SessionSelectionActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
         <activity
             android:name=".drag.CompareAttemptsActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
         
         <activity
             android:name=".MapboxTestActivity"
             android:exported="false" />
-
-
+        
+        <activity
+            android:name=".TestNavigationActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|keyboardHidden|screenSize" />
 
         <service
             android:name=".ForegroundService"

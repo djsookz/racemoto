@@ -97,6 +97,16 @@
                     android:layout_weight="1"
                     android:gravity="center"
                     android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="10dp"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="DISTANCE"
+                        android:textColor="@color/accent_orange"
+                        android:textSize="10sp"
+                        android:letterSpacing="0.1" />
 
                     <TextView
                         android:id="@+id/distanceText"
@@ -108,16 +118,7 @@
                         android:textColor="@color/white"
                         android:textSize="20sp" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:alpha="0.5"
-                        android:fontFamily="sans-serif-medium"
-                        android:text="DISTANCE"
-                        android:textColor="@color/white"
-                        android:textSize="10sp"
-                        android:letterSpacing="0.1" />
+
                 </LinearLayout>
 
                 <!-- Duration -->
@@ -127,6 +128,16 @@
                     android:layout_weight="1"
                     android:gravity="center"
                     android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="10dp"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="TIME"
+                        android:textColor="@color/accent_orange"
+                        android:textSize="10sp"
+                        android:letterSpacing="0.1" />
 
                     <TextView
                         android:id="@+id/durationText"
@@ -138,16 +149,7 @@
                         android:textColor="@color/white"
                         android:textSize="20sp" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:alpha="0.5"
-                        android:fontFamily="sans-serif-medium"
-                        android:text="TIME"
-                        android:textColor="@color/white"
-                        android:textSize="10sp"
-                        android:letterSpacing="0.1" />
+
                 </LinearLayout>
 
                 <!-- Max Speed -->
@@ -157,6 +159,16 @@
                     android:layout_weight="1"
                     android:gravity="center"
                     android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:layout_marginBottom="10dp"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="MAX SPEED"
+                        android:textColor="@color/accent_orange"
+                        android:textSize="10sp"
+                        android:letterSpacing="0.1" />
 
                     <TextView
                         android:id="@+id/maxSpeedText"
@@ -168,16 +180,7 @@
                         android:textColor="@color/white"
                         android:textSize="20sp" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:alpha="0.5"
-                        android:fontFamily="sans-serif-medium"
-                        android:text="MAX SPEED"
-                        android:textColor="@color/white"
-                        android:textSize="10sp"
-                        android:letterSpacing="0.1" />
+
                 </LinearLayout>
             </LinearLayout>
 

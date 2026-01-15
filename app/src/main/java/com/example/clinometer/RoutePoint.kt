@@ -2,7 +2,6 @@ package com.example.clinometer
 
 import android.os.Parcel
 import android.os.Parcelable
-import org.osmdroid.util.GeoPoint
 
 data class RoutePoint(
     val geoPoint: GeoPoint,

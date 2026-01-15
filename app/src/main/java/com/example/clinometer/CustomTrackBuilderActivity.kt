@@ -21,7 +21,6 @@ import kotlin.math.abs
 import kotlin.math.pow
 import com.example.clinometer.tracking.CustomTrack
 import com.example.clinometer.tracking.CustomTrackStorage
-import com.example.clinometer.tracking.TrackGeometry
 import org.osmdroid.api.IMapController
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
@@ -849,12 +848,14 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
 
         // Add drawing points as SNAP_HELPER
         currentTrackPoints.forEach { geoPoint ->
-            trackPoints.add(CustomTrack.TrackPoint(geoPoint, CustomTrack.TrackPoint.PointType.SNAP_HELPER))
+            val customGeoPoint = com.example.clinometer.GeoPoint(geoPoint.latitude, geoPoint.longitude)
+            trackPoints.add(CustomTrack.TrackPoint(customGeoPoint, CustomTrack.TrackPoint.PointType.SNAP_HELPER))
         }
 
         // Add start/finish line (2 points)
         startFinishLinePoints.forEach { point ->
-            trackPoints.add(CustomTrack.TrackPoint(point, CustomTrack.TrackPoint.PointType.START_FINISH))
+            val customGeoPoint = com.example.clinometer.GeoPoint(point.latitude, point.longitude)
+            trackPoints.add(CustomTrack.TrackPoint(customGeoPoint, CustomTrack.TrackPoint.PointType.START_FINISH))
         }
 
         // Add other special points (start/finish/snap) from markers
@@ -865,7 +866,9 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                 "Снапване" -> CustomTrack.TrackPoint.PointType.SNAP_HELPER
                 else -> CustomTrack.TrackPoint.PointType.SNAP_HELPER
             }
-            trackPoints.add(CustomTrack.TrackPoint(marker.position as GeoPoint, pointType))
+            val markerGeoPoint = marker.position as org.osmdroid.util.GeoPoint
+            val customGeoPoint = com.example.clinometer.GeoPoint(markerGeoPoint.latitude, markerGeoPoint.longitude)
+            trackPoints.add(CustomTrack.TrackPoint(customGeoPoint, pointType))
         }
 
         val customTrack = CustomTrack(

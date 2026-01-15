@@ -3,6 +3,7 @@ package com.example.clinometer
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -18,56 +19,109 @@ import android.view.ViewGroup
 import android.widget.*
 import android.animation.ValueAnimator
 import android.view.animation.DecelerateInterpolator
+import android.view.inputmethod.InputMethodManager
+import java.text.DecimalFormat
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
-import com.google.android.gms.location.*
 import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.osmdroid.config.Configuration
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.CustomZoomButtonsController
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import com.example.clinometer.settings.MapProviderManager
 import com.mapbox.geojson.Point as MapboxPoint
 import com.mapbox.maps.CameraOptions
+import com.mapbox.maps.EdgeInsets
+import com.mapbox.maps.ImageHolder
 import com.mapbox.maps.MapView as MapboxMapView
 import com.mapbox.maps.Style
-import com.mapbox.maps.plugin.annotation.generated.*
-import com.mapbox.maps.plugin.annotation.annotations
+import com.mapbox.maps.plugin.animation.camera
+import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.compass.compass
 import com.mapbox.maps.plugin.scalebar.scalebar
 import com.mapbox.maps.plugin.attribution.attribution
+import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
+import com.mapbox.maps.plugin.locationcomponent.location
+import com.mapbox.maps.plugin.gestures.addOnMapClickListener
+import com.mapbox.maps.plugin.gestures.addOnMapLongClickListener
+import com.mapbox.api.directions.v5.models.RouteOptions
+import com.mapbox.geojson.Point
+import com.mapbox.navigation.base.ExperimentalPreviewMapboxNavigationAPI
+import com.mapbox.navigation.base.options.NavigationOptions
+import com.mapbox.navigation.base.extensions.applyDefaultNavigationOptions
+import com.mapbox.navigation.base.extensions.applyLanguageAndVoiceUnitOptions
+import com.mapbox.navigation.base.route.NavigationRoute
+import com.mapbox.navigation.base.route.NavigationRouterCallback
+import com.mapbox.navigation.base.route.RouterFailure
+import com.mapbox.navigation.core.MapboxNavigation
+import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
+import com.mapbox.navigation.core.lifecycle.MapboxNavigationObserver
+import com.mapbox.navigation.core.lifecycle.requireMapboxNavigation
+import com.mapbox.navigation.core.trip.session.LocationMatcherResult
+import com.mapbox.navigation.core.trip.session.LocationObserver
+import com.mapbox.navigation.ui.maps.camera.NavigationCamera
+import com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource
+import com.mapbox.navigation.ui.maps.camera.lifecycle.NavigationBasicGesturesHandler
+import com.mapbox.navigation.ui.maps.location.NavigationLocationProvider
+import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineApi
+import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineView
+import com.mapbox.navigation.ui.maps.route.line.model.RouteLineColorResources
+import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineApiOptions
+import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineViewOptions
+import com.mapbox.navigation.base.trip.model.RouteProgress
+import com.example.clinometer.navigation.MapboxGeocodingService
+import com.example.clinometer.navigation.GeocodingFeature
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.example.clinometer.data.ProfileStorage
+import com.google.android.material.textfield.TextInputEditText
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import com.example.clinometer.settings.UnitsManager
 import com.example.clinometer.network.OpenMeteoService
 import com.example.clinometer.network.WeatherApiService
 import com.example.clinometer.utils.WeatherIconMapper
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import com.mapbox.geojson.LineString
+import com.mapbox.maps.plugin.animation.easeTo
+import com.mapbox.common.location.Location as MapboxLocation
+import com.example.clinometer.MainContainerActivity
 
-/**
- * Fragment за картата - конвертиран от MainMapActivity
- * MapView се запазва в паметта между lifecycle промени за instant navigation
- */
+@OptIn(ExperimentalPreviewMapboxNavigationAPI::class)
 class MapFragment : Fragment() {
     
     // Map views
-    private lateinit var mapView: MapView // OSMDroid MapView
     private var mapboxMapView: MapboxMapView? = null // Mapbox MapView (nullable)
-    private var isMapboxMode = false
     
     // UI Elements
-    private lateinit var myLocationOverlay: MyLocationNewOverlay
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var btnStartSession: MaterialButton
     private lateinit var btnSessions: MaterialButton
+    private lateinit var destinationSearchContainer: LinearLayout
+    private lateinit var searchContainer: LinearLayout
+    private lateinit var searchInputContainer: LinearLayout
+    private lateinit var etSearch: TextInputEditText
+    private lateinit var rvSearchResults: RecyclerView
+    private lateinit var searchResultsAdapter: SearchResultsAdapter
+    private lateinit var geocodingService: MapboxGeocodingService
+    private var mapboxAccessToken: String = ""
+    private lateinit var routeInfoContainer: LinearLayout
+    private lateinit var tvDestinationName: TextView
+    private lateinit var tvRouteDistance: TextView
+    private lateinit var tvRouteDuration: TextView
+    private lateinit var btnStartNavigation: com.google.android.material.button.MaterialButton // Keep for compatibility
+    private lateinit var btnNavigateRoute: com.google.android.material.button.MaterialButton
+    private lateinit var btnCancelRoute: com.google.android.material.button.MaterialButton
+    private lateinit var routePreviewBottomContainer: LinearLayout
+    private lateinit var btnSearchRoute: ImageButton
+    private lateinit var btnMotorwayOptions: ImageButton
+    private lateinit var motorwayOptionsContainer: LinearLayout
+    private lateinit var btnWithMotorways: ImageButton
+    private lateinit var btnWithoutMotorways: ImageButton
+    private var btnOverview: ImageButton? = null
+    private var btnRecenter: ImageButton? = null
+    private var allowMotorways: Boolean = false
     private lateinit var llTemperature: LinearLayout
     private lateinit var llWeatherExpanded: TextView
     private lateinit var tvSeparator: TextView
@@ -78,14 +132,125 @@ class MapFragment : Fragment() {
     private lateinit var tvTemperature: TextView
     private lateinit var tvAltitude: TextView
     private lateinit var fabMyLocationContainer: FrameLayout
-    private lateinit var pulsingOverlay: PulsingLocationOverlay
     
-    // Mapbox annotations
-    private var mapboxPointAnnotationManager: PointAnnotationManager? = null
-    private var mapboxLocationAnnotation: PointAnnotation? = null
-    private var mapboxCircleAnnotationManager: CircleAnnotationManager? = null
-    private var mapboxPulsingCircleAnnotation: CircleAnnotation? = null
-    private var pulsingAnimator: ValueAnimator? = null
+    // Inline route preview (draw routes on the same map, like TestNavigationActivity)
+    private lateinit var routeLineApi: MapboxRouteLineApi
+    private lateinit var routeLineView: MapboxRouteLineView
+    private var currentMapboxStyle: Style? = null
+    private var currentDestination: Point? = null
+    private var currentDestinationName: String? = null
+
+    // Route cache: exactly 1 request for allowMotorways=true and 1 for allowMotorways=false per (fixedOrigin,destination)
+    private var fixedOriginForRoute: Point? = null
+    private var routeCacheKey: String? = null
+    private var cachedRoutesAllowMotorways: List<NavigationRoute>? = null
+    private var cachedRoutesNoMotorways: List<NavigationRoute>? = null
+    private var routeRequestInFlightForAllowMotorways: Boolean? = null
+
+    // Alternative route selection (like TestNavigationActivity)
+    // Keep original order stable so route numbering (1..N) stays consistent even after we reorder for rendering.
+    private var currentRoutesOriginal: List<NavigationRoute> = emptyList()
+    private var selectedRouteIndex: Int = 0
+
+    // NavigationCamera overview animation (same behaviour as TestNavigationActivity)
+    private lateinit var navigationCamera: NavigationCamera
+    private lateinit var viewportDataSource: MapboxNavigationViewportDataSource
+    private val pixelDensity = Resources.getSystem().displayMetrics.density
+    // Adjust padding based on orientation - smaller padding for landscape to prevent zooming too far
+    private val overviewPadding: EdgeInsets by lazy {
+        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        if (isLandscape) {
+            EdgeInsets(80.0 * pixelDensity, 40.0 * pixelDensity, 80.0 * pixelDensity, 40.0 * pixelDensity)
+        } else {
+            EdgeInsets(140.0 * pixelDensity, 40.0 * pixelDensity, 120.0 * pixelDensity, 40.0 * pixelDensity)
+        }
+    }
+    private val followingPadding = EdgeInsets(180.0 * pixelDensity, 40.0 * pixelDensity, 150.0 * pixelDensity, 40.0 * pixelDensity)
+    
+    // Mapbox location component (SDK)
+    private var isMapboxLocationComponentEnabled: Boolean = false
+    private var isUsingNavigationLocationProvider: Boolean = false
+
+    // Mapbox Navigation SDK (used for map-matched "enhancedLocation" snapping, like TestNavigationActivity)
+    private val navigationLocationProvider = NavigationLocationProvider()
+    // (Turn-by-turn UI is handled in MainActivity; MapFragment stays as search + route preview)
+    private val mapboxNavigation: MapboxNavigation by requireMapboxNavigation(
+        onResumedObserver = object : MapboxNavigationObserver {
+            override fun onAttached(mapboxNavigation: MapboxNavigation) {
+                mapboxNavigation.registerLocationObserver(navigationLocationObserver)
+                mapboxNavigation.startTripSession()
+            }
+
+            override fun onDetached(mapboxNavigation: MapboxNavigation) {
+                mapboxNavigation.unregisterLocationObserver(navigationLocationObserver)
+                mapboxNavigation.stopTripSession()
+            }
+        },
+        onInitialize = this::initNavigation
+    )
+    private val navigationLocationObserver = object : LocationObserver {
+        override fun onNewRawLocation(rawLocation: com.mapbox.common.location.Location) {}
+
+        override fun onNewLocationMatcherResult(locationMatcherResult: LocationMatcherResult) {
+            val enhanced = locationMatcherResult.enhancedLocation
+
+            // This is the "snapped" location (map matched) - feed it to the map puck
+            navigationLocationProvider.changePosition(enhanced, locationMatcherResult.keyPoints)
+
+            // Switch the map's location provider to the navigation provider on first enhanced update.
+            // Until then, we keep the default provider so the user still sees a raw GPS puck quickly.
+            if (!isUsingNavigationLocationProvider) {
+                mapboxMapView?.location?.setLocationProvider(navigationLocationProvider)
+                isUsingNavigationLocationProvider = true
+                Log.d("MapFragment", "✅ Switched puck to NavigationLocationProvider (snapped)")
+            }
+
+            // Also maintain android.location.Location for the rest of this screen (weather, caching, camera)
+            val androidLoc = Location("mapbox").apply {
+                latitude = enhanced.latitude
+                longitude = enhanced.longitude
+                time = System.currentTimeMillis()
+                // best-effort extras
+                enhanced.speed?.let { speed = it.toFloat() }
+                enhanced.bearing?.let { bearing = it.toFloat() }
+                enhanced.altitude?.let { altitude = it }
+            }
+
+            currentLocation = androidLoc
+            mapStateViewModel.saveLastLocation(androidLoc)
+
+            // (Turn-by-turn UI is handled in MainActivity)
+
+            // Camera init/restore
+            if (!mapStateViewModel.hasInitializedCamera) {
+                mapStateViewModel.hasInitializedCamera = true
+
+                val savedState = mapStateViewModel.lastMapState
+                if (savedState != null) {
+                    mapboxMapView?.mapboxMap?.setCamera(
+                        CameraOptions.Builder()
+                            .center(MapboxPoint.fromLngLat(savedState.centerLon, savedState.centerLat))
+                            .zoom(savedState.zoom)
+                            .pitch(savedState.pitch ?: 45.0)
+                            .build()
+                    )
+                } else {
+                    mapboxMapView?.mapboxMap?.setCamera(
+                        CameraOptions.Builder()
+                            .center(MapboxPoint.fromLngLat(androidLoc.longitude, androidLoc.latitude))
+                            .zoom(17.0)
+                            .build()
+                    )
+                    mapStateViewModel.saveMapState(androidLoc.latitude, androidLoc.longitude, 17.0, 45.0)
+                }
+            }
+
+            // Weather fetch (only if needed)
+            if (isAdded && context != null && shouldFetchWeatherData(androidLoc)) {
+                fetchWeatherFromAPI(androidLoc)
+            }
+        }
+    }
     
     // State
     private var isWeatherExpanded = false
@@ -107,8 +272,6 @@ class MapFragment : Fragment() {
     private var currentPressure: Double = 0.0
     
     private val handler = Handler(Looper.getMainLooper())
-    private lateinit var locationRequest: LocationRequest
-    private lateinit var locationCallback: LocationCallback
     
     companion object {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1001
@@ -130,7 +293,7 @@ class MapFragment : Fragment() {
         mapStateViewModel = ViewModelProvider(this)[MapStateViewModel::class.java]
         
         val mapProvider = MapProviderManager.getMapProvider(requireContext())
-        isMapboxMode = mapProvider == MapProviderManager.MapProvider.MAPBOX
+        // Always use Mapbox
     }
     
     override fun onCreateView(
@@ -144,49 +307,52 @@ class MapFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         
-        if (isMapboxMode) {
-            // Скриваме OSMDroid mapView ако съществува и премахваме overlays
-            val osmdroidMapView = view.findViewById<MapView>(R.id.mapView)
-            osmdroidMapView?.let {
-                // КРИТИЧНО: Премахваме всички overlays за да не се показват location markers
-                it.overlays.clear()
-                it.visibility = View.GONE
+        // Hide any OSMDroid mapView if it exists (legacy support)
+        val osmdroidMapView = view.findViewById<android.view.View>(R.id.mapView)
+        osmdroidMapView?.let {
+            it.visibility = View.GONE
+            if (it.parent != null) {
+                (it.parent as? ViewGroup)?.removeView(it)
             }
-            
-            setupMapboxMap(view)
-        } else {
-            // Скриваме Mapbox mapView ако съществува
-            val mapContainer = view.findViewById<FrameLayout>(R.id.mapContainer)
-            mapContainer?.let { container ->
-                // Премахваме всички MapboxMapView от контейнера
-                for (i in 0 until container.childCount) {
-                    val child = container.getChildAt(i)
-                    if (child is com.mapbox.maps.MapView || child::class.simpleName == "MapboxMapView") {
-                        container.removeViewAt(i)
-                        break
-                    }
-                }
-            }
-            
-            Configuration.getInstance().load(
-                requireContext().applicationContext,
-                PreferenceManager.getDefaultSharedPreferences(requireContext().applicationContext)
-            )
-            Configuration.getInstance().userAgentValue = requireContext().packageName
-            
-            mapView = view.findViewById(R.id.mapView)
-            mapView?.visibility = View.VISIBLE
-            setupOsmdroidMap()
         }
+        
+        setupMapboxMap(view)
         
         // Initialize UI elements
         btnStartSession = view.findViewById(R.id.btnStartNavigationNoDestination)
         btnSessions = view.findViewById(R.id.btnSessions)
         
-        val destinationSearchContainer = view.findViewById<LinearLayout>(R.id.destinationSearchContainer)
-        destinationSearchContainer.setOnClickListener {
-            startActivity(Intent(requireContext(), DestinationSearchActivity::class.java))
-        }
+        destinationSearchContainer = view.findViewById(R.id.destinationSearchContainer)
+        searchContainer = view.findViewById(R.id.searchContainer)
+        searchInputContainer = view.findViewById(R.id.searchInputContainer)
+        etSearch = view.findViewById(R.id.etSearch)
+        rvSearchResults = view.findViewById(R.id.rvSearchResults)
+
+        routeInfoContainer = view.findViewById(R.id.routeInfoContainer)
+        tvDestinationName = view.findViewById(R.id.tvDestinationName)
+        tvRouteDistance = view.findViewById(R.id.tvRouteDistance)
+        tvRouteDuration = view.findViewById(R.id.tvRouteDuration)
+        btnStartNavigation = view.findViewById(R.id.btnStartNavigation) // Keep for compatibility
+        btnNavigateRoute = view.findViewById(R.id.btnNavigateRoute)
+        btnCancelRoute = view.findViewById(R.id.btnCancelRoute)
+        routePreviewBottomContainer = view.findViewById(R.id.routePreviewBottomContainer)
+        btnSearchRoute = view.findViewById(R.id.btnSearchRoute)
+        btnMotorwayOptions = view.findViewById(R.id.btnMotorwayOptions)
+        motorwayOptionsContainer = view.findViewById(R.id.motorwayOptionsContainer)
+        btnWithMotorways = view.findViewById(R.id.btnWithMotorways)
+        btnWithoutMotorways = view.findViewById(R.id.btnWithoutMotorways)
+        
+        // Initialize camera control buttons
+        btnOverview = view.findViewById(R.id.btnOverview)
+        btnRecenter = view.findViewById(R.id.btnRecenter)
+
+        // Load motorway preference
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        allowMotorways = prefs.getBoolean("allow_motorways", false)
+        updateMotorwayButtonIcon()
+
+        setupInlineSearchUI()
+        setupRoutePreviewUi()
         
         llTemperature = view.findViewById(R.id.llTemperature)
         llWeatherExpanded = view.findViewById(R.id.llWeatherExpanded)
@@ -201,7 +367,7 @@ class MapFragment : Fragment() {
         adjustMarginsForLandscapeNavigation(view)
         fabMyLocationContainer = view.findViewById(R.id.fabMyLocationContainer)
         
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
+        // Mapbox mode uses Mapbox Location Component
         
         btnStartSession.setOnClickListener { startNormalSession() }
         btnSessions.setOnClickListener { navigateToSessions() }
@@ -219,158 +385,761 @@ class MapFragment : Fragment() {
         loadCachedWeatherData()
         updateEnvironmentDisplay()
         
-        locationRequest = LocationRequest.Builder(
-            Priority.PRIORITY_HIGH_ACCURACY,
-            LOCATION_UPDATE_INTERVAL
-        )
-            .setMinUpdateIntervalMillis(LOCATION_FASTEST_UPDATE_INTERVAL)
-            .setWaitForAccurateLocation(false)
-            .setMinUpdateDistanceMeters(0.1f)
-            .setMaxUpdateDelayMillis(100)
+        // Init route line rendering (Mapbox mode only)
+        val orangeColor = Color.parseColor("#FF6020")
+        val darkerOrange = Color.parseColor("#CC4D1A")
+
+        val routeLineColorResources = RouteLineColorResources.Builder()
+            .routeDefaultColor(orangeColor)
+            .routeCasingColor(darkerOrange)
+            .routeUnknownCongestionColor(orangeColor)
+            .routeLowCongestionColor(orangeColor)
+            .routeModerateCongestionColor(orangeColor)
+            .routeHeavyCongestionColor(orangeColor)
+            .routeSevereCongestionColor(orangeColor)
             .build()
-        
-        locationCallback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                super.onLocationResult(locationResult)
-                locationResult.lastLocation?.let { location ->
-                    currentLocation = location
-                    // Запазваме локацията в ViewModel за instant display при resume
-                    mapStateViewModel.saveLastLocation(location)
-                    
-                    if (!mapStateViewModel.hasInitializedCamera) {
-                        mapStateViewModel.hasInitializedCamera = true
-                        
-                        val savedState = mapStateViewModel.lastMapState
-                        if (savedState != null) {
-                            if (isMapboxMode) {
-                                mapboxMapView?.mapboxMap?.setCamera(
-                                    CameraOptions.Builder()
-                                        .center(MapboxPoint.fromLngLat(savedState.centerLon, savedState.centerLat))
-                                        .zoom(savedState.zoom)
-                                        .pitch(savedState.pitch ?: 45.0)
-                                        .build()
-                                )
-                            } else {
-                                val geoPoint = GeoPoint(savedState.centerLat, savedState.centerLon)
-                                mapView.controller.setZoom(savedState.zoom)
-                                mapView.controller.setCenter(geoPoint)
-                            }
-                        } else {
-                            if (isMapboxMode) {
-                                mapboxMapView?.mapboxMap?.setCamera(
-                                    CameraOptions.Builder()
-                                        .center(MapboxPoint.fromLngLat(location.longitude, location.latitude))
-                                        .zoom(17.0)
-                                        .build()
-                                )
-                                mapStateViewModel.saveMapState(location.latitude, location.longitude, 17.0, 45.0)
-                            } else {
-                                val geoPoint = GeoPoint(location.latitude, location.longitude)
-                                mapView.controller.animateTo(geoPoint, MY_LOCATION_ZOOM, 400L)
-                                mapStateViewModel.saveMapState(location.latitude, location.longitude, MY_LOCATION_ZOOM)
-                            }
-                        }
-                        
-                        if (isMapboxMode) {
-                            updateMapboxLocationMarker(location)
-                        } else {
-                            myLocationOverlay.onLocationChanged(location, null)
-                            if (::pulsingOverlay.isInitialized) {
-                                pulsingOverlay.updateLocation(location)
-                            }
-                        }
-                    } else {
-                        if (isMapboxMode) {
-                            mapboxMapView?.let { mv ->
-                                updateMapboxLocationMarker(location)
-                                mv.mapboxMap.cameraState.center.let { center ->
-                                    mapStateViewModel.saveMapState(
-                                        center.latitude(),
-                                        center.longitude(),
-                                        mv.mapboxMap.cameraState.zoom,
-                                        mv.mapboxMap.cameraState.pitch
-                                    )
-                                }
-                            }
-                        } else {
-                            myLocationOverlay.onLocationChanged(location, null)
-                            if (::pulsingOverlay.isInitialized) {
-                                pulsingOverlay.updateLocation(location)
-                            }
-                            val center = mapView.mapCenter
-                            mapStateViewModel.saveMapState(center.latitude, center.longitude, mapView.zoomLevelDouble)
-                        }
-                    }
-                    
-                    val shouldFetch = shouldFetchWeatherData(location)
-                    if (shouldFetch) {
-                        fetchWeatherFromAPI(location)
-                    }
-                }
-            }
-        }
+
+        routeLineApi = MapboxRouteLineApi(
+            MapboxRouteLineApiOptions.Builder()
+                .vanishingRouteLineEnabled(false)
+                .isRouteCalloutsEnabled(false)
+                .build()
+        )
+
+        routeLineView = MapboxRouteLineView(
+            MapboxRouteLineViewOptions.Builder(requireContext())
+                .routeLineBelowLayerId("road-label")
+                .routeLineColorResources(routeLineColorResources)
+                .displaySoftGradientForTraffic(false)
+                .build()
+        )
+
+        // Location updates: Mapbox Location Component drives updates (mapView.location)
         
         if (!checkLocationPermission()) {
             requestLocationPermission()
         } else {
             retrieveCurrentLocation()
         }
+        displayLastKnownLocationInstantly()
+    }
+
+    private fun setupInlineSearchUI() {
+        // Token + Retrofit (same approach as TestNavigationActivity)
+        try {
+            val resourceId = resources.getIdentifier("mapbox_access_token", "string", requireContext().packageName)
+            mapboxAccessToken = resources.getString(resourceId)
+        } catch (_: Resources.NotFoundException) {
+            Toast.makeText(requireContext(), "Mapbox token не е намерен", Toast.LENGTH_SHORT).show()
+            mapboxAccessToken = ""
+        }
+
+        val retrofit = Retrofit.Builder()
+            .baseUrl("https://api.mapbox.com/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+        geocodingService = retrofit.create(MapboxGeocodingService::class.java)
+
+        searchResultsAdapter = SearchResultsAdapter { feature ->
+            selectDestinationInline(feature)
+        }
+        rvSearchResults.layoutManager = LinearLayoutManager(requireContext())
+        rvSearchResults.adapter = searchResultsAdapter
+
+        // Tap on collapsed pill -> expand inline search
+        destinationSearchContainer.setOnClickListener { showInlineSearch() }
+        searchInputContainer.setOnClickListener { showInlineSearch() }
+
+        etSearch.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val q = s?.toString()?.trim().orEmpty()
+                if (q.length >= 2) {
+                    performInlineSearch(q)
+                } else {
+                    searchResultsAdapter.updateResults(emptyList())
+                    rvSearchResults.visibility = View.GONE
+                }
+            }
+        })
+    }
+
+    private fun showInlineSearch() {
+        destinationSearchContainer.visibility = View.GONE
+        searchContainer.visibility = View.VISIBLE
+        etSearch.requestFocus()
+        val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.showSoftInput(etSearch, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun hideInlineSearch() {
+        val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(etSearch.windowToken, 0)
+        rvSearchResults.visibility = View.GONE
+        searchContainer.visibility = View.GONE
+        destinationSearchContainer.visibility = View.VISIBLE
+    }
+
+    private fun performInlineSearch(query: String) {
+        if (mapboxAccessToken.isBlank()) return
+        lifecycleScope.launch {
+            try {
+                val proximity = currentLocation?.let { "${it.longitude},${it.latitude}" }
+                val response = withContext(Dispatchers.IO) {
+                    geocodingService.searchPlaces(query, mapboxAccessToken, proximity, 10)
+                }
+                if (response.isSuccessful && response.body() != null) {
+                    val features = response.body()!!.features
+                    searchResultsAdapter.updateResults(features)
+                    rvSearchResults.visibility = if (features.isNotEmpty()) View.VISIBLE else View.GONE
+                } else {
+                    searchResultsAdapter.updateResults(emptyList())
+                    rvSearchResults.visibility = View.GONE
+                }
+            } catch (e: Exception) {
+                searchResultsAdapter.updateResults(emptyList())
+                rvSearchResults.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun selectDestinationInline(feature: GeocodingFeature) {
+        // Update the collapsed pill text to destination name
+        val tv = destinationSearchContainer.findViewById<TextView>(R.id.tvDestinationPlaceholder)
+        currentDestinationName = feature.placeName
+        tv.text = currentDestinationName ?: getString(R.string.destination_placeholder)
+        hideInlineSearch()
+
+        val center = feature.center
+        if (center.size >= 2) {
+            val destination = Point.fromLngLat(center[0], center[1])
+            setDestinationAndFindRoute(destination, currentDestinationName)
+        }
     }
     
-    private fun setupOsmdroidMap() {
-        // КРИТИЧНО: Гарантираме че няма стари overlays преди да добавим нови
-        mapView.overlays.clear()
+    private fun setDestinationAndFindRoute(destination: Point, destinationName: String?) {
+        currentDestination = destination
+        currentDestinationName = destinationName
+        tvDestinationName.text = destinationName ?: "Дестинация"
         
-        mapView.setTileSource(TileSourceFactory.MAPNIK)
-        mapView.setMultiTouchControls(true)
-        mapView.setBuiltInZoomControls(false)
-        mapView.zoomController.setVisibility(CustomZoomButtonsController.Visibility.NEVER)
+        // Update collapsed pill text
+        val tv = destinationSearchContainer.findViewById<TextView>(R.id.tvDestinationPlaceholder)
+        tv.text = destinationName ?: getString(R.string.destination_placeholder)
+
+        // Fix origin for this destination selection (so caches remain valid when GPS updates).
+        // If currentLocation is not available yet, we'll fall back to currentLocation inside findRouteInline().
+        fixedOriginForRoute = currentLocation?.let { loc ->
+            Point.fromLngLat(loc.longitude, loc.latitude)
+        }
+        resetRouteCacheForNewSelection()
+        findRouteInline(destination)
+    }
+    
+    private fun handleLongPressDestination(point: com.mapbox.geojson.Point) {
+        if (mapboxAccessToken.isBlank()) {
+            Toast.makeText(requireContext(), "Mapbox token not available", Toast.LENGTH_SHORT).show()
+            return
+        }
         
-        // ПРОФЕСИОНАЛНО: Използваме запазеното състояние или lastKnownLocation
-        val savedState = mapStateViewModel.lastMapState
-        if (savedState != null) {
-            mapView.controller.setZoom(savedState.zoom)
-            val geoPoint = GeoPoint(savedState.centerLat, savedState.centerLon)
-            mapView.controller.setCenter(geoPoint)
-        } else {
-            // Ако няма savedState, използваме lastKnownLocation за центриране
-            val lastLocation = mapStateViewModel.lastKnownLocation
-            if (lastLocation != null) {
-                val geoPoint = GeoPoint(lastLocation.latitude, lastLocation.longitude)
-                mapView.controller.setZoom(17.0)
-                mapView.controller.setCenter(geoPoint)
-            } else {
-                // Последен fallback: default zoom без центриране (OSMDroid ще покаже по default)
-                mapView.controller.setZoom(17.0)
+        // Show loading indicator
+        val loadingToast = Toast.makeText(requireContext(), "Търсене на локация...", Toast.LENGTH_SHORT)
+        loadingToast.show()
+        
+        // Perform reverse geocoding to get place name
+        lifecycleScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    geocodingService.reverseGeocode(
+                        point.longitude(),
+                        point.latitude(),
+                        mapboxAccessToken,
+                        1
+                    )
+                }
+                
+                if (response.isSuccessful && response.body() != null) {
+                    val features = response.body()!!.features
+                    if (features.isNotEmpty()) {
+                        val feature = features.first()
+                        val destinationName = feature.placeName ?: feature.text ?: "Избрана локация"
+                        
+                        // Set destination and find route
+                        withContext(Dispatchers.Main) {
+                            loadingToast.cancel()
+                            setDestinationAndFindRoute(point, destinationName)
+                            Toast.makeText(requireContext(), "Дестинация зададена: $destinationName", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            loadingToast.cancel()
+                            // If no place name found, use coordinates
+                            val destinationName = String.format(
+                                java.util.Locale.getDefault(),
+                                "%.5f, %.5f",
+                                point.latitude(),
+                                point.longitude()
+                            )
+                            setDestinationAndFindRoute(point, destinationName)
+                            Toast.makeText(requireContext(), "Дестинация зададена", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        loadingToast.cancel()
+                        // Fallback: use coordinates as name
+                        val destinationName = String.format(
+                            java.util.Locale.getDefault(),
+                            "%.5f, %.5f",
+                            point.latitude(),
+                            point.longitude()
+                        )
+                        setDestinationAndFindRoute(point, destinationName)
+                        Toast.makeText(requireContext(), "Дестинация зададена", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MapFragment", "Error reverse geocoding", e)
+                withContext(Dispatchers.Main) {
+                    loadingToast.cancel()
+                    // Fallback: use coordinates as name
+                    val destinationName = String.format(
+                        java.util.Locale.getDefault(),
+                        "%.5f, %.5f",
+                        point.latitude(),
+                        point.longitude()
+                    )
+                    setDestinationAndFindRoute(point, destinationName)
+                    Toast.makeText(requireContext(), "Дестинация зададена", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun resetRouteCacheForNewSelection() {
+        routeCacheKey = null
+        cachedRoutesAllowMotorways = null
+        cachedRoutesNoMotorways = null
+        routeRequestInFlightForAllowMotorways = null
+    }
+
+    private fun buildRouteCacheKey(origin: Point, destination: Point): String {
+        // Round to reduce cache invalidation due to tiny GPS jitter
+        fun Double.r5() = String.format(java.util.Locale.US, "%.5f", this)
+        return "${origin.longitude().r5()},${origin.latitude().r5()}|${destination.longitude().r5()},${destination.latitude().r5()}"
+    }
+
+    private fun setupRoutePreviewUi() {
+        // Navigate button: start turn-by-turn navigation
+        btnNavigateRoute.setOnClickListener { 
+            startNavigationInMainActivityWithTransfer() 
+        }
+        
+        // Cancel button: clear route and return to initial state (like first time entering the page)
+        btnCancelRoute.setOnClickListener {
+            // Clear search input and hide search container
+            etSearch.text?.clear()
+            hideInlineSearch()
+            
+            // Clear current route data
+            currentDestination = null
+            currentDestinationName = null
+            resetRouteCacheForNewSelection()
+            
+            // Hide route preview UI
+            routeInfoContainer.visibility = View.GONE
+            routePreviewBottomContainer.visibility = View.GONE
+            btnMotorwayOptions.visibility = View.GONE
+            btnSearchRoute.visibility = View.GONE
+            motorwayOptionsContainer.visibility = View.GONE
+            
+            // Clear route line from map
+            if (::routeLineApi.isInitialized && ::routeLineView.isInitialized && currentMapboxStyle != null) {
+                routeLineApi.clearRouteLine { value ->
+                    routeLineView.renderClearRouteLineValue(currentMapboxStyle!!, value)
+                }
+            }
+            
+            // Animate camera back to current location using NavigationCamera (like SDK does)
+            currentLocation?.let { androidLocation ->
+                if (this::viewportDataSource.isInitialized && this::navigationCamera.isInitialized) {
+                    // Clear route data from viewport data source
+                    viewportDataSource.clearRouteData()
+                    // Animate camera to current location with pitch 0 using easeTo (like renderRoutesInline does)
+                    currentLocation?.let { location ->
+                        val currentCameraState = mapboxMapView?.mapboxMap?.cameraState
+                        currentCameraState?.let { state ->
+                            val cameraOptions = CameraOptions.Builder()
+                                .center(MapboxPoint.fromLngLat(location.longitude, location.latitude))
+                                .zoom(if (state.zoom in 15.0..18.0) state.zoom else 17.0) // Reasonable zoom range
+                                .bearing(state.bearing)
+                                .pitch(0.0) // Always pitch 0 when canceling route
+                                .build()
+                            mapboxMapView?.mapboxMap?.let { mapboxMap ->
+                                mapboxMap.easeTo(cameraOptions)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Show initial state UI (like first time entering)
+            destinationSearchContainer.visibility = View.VISIBLE
+            view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = View.VISIBLE
+            llTemperature.visibility = View.VISIBLE
+            llAltitude.visibility = View.VISIBLE
+            fabMyLocationContainer.visibility = View.VISIBLE
+            
+            // Show bottom navigation
+            requireActivity().findViewById<View>(R.id.bottomNavigationContainer)?.visibility = View.VISIBLE
+        }
+
+        // Search button: return to search to find new destination
+        btnSearchRoute.setOnClickListener {
+            // Clear current route and show search interface
+            currentDestination = null
+            currentDestinationName = null
+            routeInfoContainer.visibility = View.GONE
+            routePreviewBottomContainer.visibility = View.GONE
+            btnMotorwayOptions.visibility = View.GONE
+            btnSearchRoute.visibility = View.GONE
+            motorwayOptionsContainer.visibility = View.GONE
+            // Clear route line
+            if (::routeLineApi.isInitialized && ::routeLineView.isInitialized && currentMapboxStyle != null) {
+                routeLineApi.clearRouteLine { value ->
+                    routeLineView.renderClearRouteLineValue(currentMapboxStyle!!, value)
+                }
+            }
+            // Reset route cache
+            resetRouteCacheForNewSelection()
+            // Show search interface
+            showInlineSearch()
+            // Show initial bottom container
+            view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = View.VISIBLE
+            // Show bottom navigation
+            requireActivity().findViewById<View>(R.id.bottomNavigationContainer)?.visibility = View.VISIBLE
+        }
+
+        btnMotorwayOptions.setOnClickListener {
+            val isVisible = motorwayOptionsContainer.visibility == View.VISIBLE
+            motorwayOptionsContainer.visibility = if (isVisible) View.GONE else View.VISIBLE
+        }
+
+        btnWithMotorways.setOnClickListener {
+            if (!allowMotorways) {
+                allowMotorways = true
+                PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    .edit().putBoolean("allow_motorways", true).apply()
+                updateMotorwayButtonIcon()
+                motorwayOptionsContainer.visibility = View.GONE
+                currentDestination?.let { findRouteInline(it) }
+            }
+        }
+
+        btnWithoutMotorways.setOnClickListener {
+            if (allowMotorways) {
+                allowMotorways = false
+                PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    .edit().putBoolean("allow_motorways", false).apply()
+                updateMotorwayButtonIcon()
+                motorwayOptionsContainer.visibility = View.GONE
+                currentDestination?.let { findRouteInline(it) }
+            }
+        }
+    }
+
+    private fun updateMotorwayButtonIcon() {
+        val iconRes = if (allowMotorways) R.drawable.ic_motorway else R.drawable.ic_road
+        btnMotorwayOptions.setImageResource(iconRes)
+    }
+    
+    private fun setupNavigationCameraButtons() {
+        // Show camera control buttons when route is displayed
+        btnOverview?.setOnClickListener {
+            if (this::viewportDataSource.isInitialized && this::navigationCamera.isInitialized) {
+                // Request overview state to show entire route
+                mapboxMapView?.post {
+                    navigationCamera.requestNavigationCameraToOverview()
+                }
             }
         }
         
-        mapView.isTilesScaledToDpi = true
-        pulsingOverlay = PulsingLocationOverlay(mapView)
-        
-        val customLocationIcon = createLocationDotIcon()
-        myLocationOverlay = MyLocationNewOverlay(mapView).apply {
-            enableMyLocation()
-            setDrawAccuracyEnabled(false)
-            setPersonIcon(customLocationIcon)
-            setDirectionIcon(customLocationIcon)
-            setEnableAutoStop(false)
+        btnRecenter?.setOnClickListener {
+            // Use easeTo to animate camera to current location with pitch 0
+            currentLocation?.let { location ->
+                val currentCameraState = mapboxMapView?.mapboxMap?.cameraState
+                currentCameraState?.let { state ->
+                    val cameraOptions = CameraOptions.Builder()
+                        .center(MapboxPoint.fromLngLat(location.longitude, location.latitude))
+                        .zoom(if (state.zoom in 15.0..18.0) state.zoom else 17.0)
+                        .bearing(state.bearing)
+                        .pitch(0.0)
+                        .build()
+                    mapboxMapView?.mapboxMap?.easeTo(cameraOptions)
+                }
+            }
         }
-        mapView.overlays.add(pulsingOverlay)
-        mapView.overlays.add(myLocationOverlay)
+        
+        // Initially hide buttons - they will be shown when route is displayed
+        btnOverview?.visibility = View.GONE
+        btnRecenter?.visibility = View.GONE
     }
-    
+
+    private fun startNavigationInMainActivityWithTransfer() {
+        // Always Mapbox mode
+
+        val dest = currentDestination
+        if (dest == null) {
+            Toast.makeText(requireContext(), "Няма избрана дестинация", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val origin = fixedOriginForRoute ?: currentLocation?.let { loc ->
+            Point.fromLngLat(loc.longitude, loc.latitude)
+        }
+        if (origin == null) {
+            Toast.makeText(requireContext(), "Няма текуща локация", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // Animate camera to current location before starting navigation (like SDK does)
+        // Use easeTo for smooth animation to current location
+        currentLocation?.let { location ->
+            val currentCameraState = mapboxMapView?.mapboxMap?.cameraState
+            currentCameraState?.let { state ->
+                val cameraOptions = CameraOptions.Builder()
+                    .center(MapboxPoint.fromLngLat(location.longitude, location.latitude))
+                    .zoom(if (state.zoom in 15.0..18.0) state.zoom else 17.0)
+                    .bearing(state.bearing)
+                    .pitch(0.0)
+                    .build()
+                mapboxMapView?.mapboxMap?.easeTo(cameraOptions)
+            }
+        }
+
+        // Use the route the user selected (from the original list), not always the current SDK primary.
+        // MainActivity re-requests routes, so we also pass a "preferred" route signature (polyline) for re-selection.
+        val selectedRoute = currentRoutesOriginal.getOrNull(selectedRouteIndex)
+            ?: mapboxNavigation.getNavigationRoutes().firstOrNull()
+        val routeGeometryJson: String? = try {
+            val geometry = selectedRoute?.directionsRoute?.geometry().orEmpty()
+            if (geometry.isBlank()) null else {
+                // polyline6 is default; fallback to 5
+                try {
+                    com.mapbox.geojson.LineString.fromPolyline(geometry, 6).toJson()
+                } catch (_: Throwable) {
+                    com.mapbox.geojson.LineString.fromPolyline(geometry, 5).toJson()
+                }
+            }
+        } catch (_: Throwable) {
+            null
+        }
+        val preferredRoutePolyline: String? = selectedRoute?.directionsRoute?.geometry()
+
+        val cameraState = mapboxMapView?.mapboxMap?.cameraState
+
+        // Pass selected profile so MainActivity preserves CAR/MOTO UI logic and saves the session under the correct profile.
+        val selectedProfileId = ProfileStorage.getSelectedProfileId(requireContext())
+        val selectedProfile = ProfileStorage.loadProfiles(requireContext())
+            .firstOrNull { it.id == selectedProfileId }
+            ?: ProfileStorage.loadProfiles(requireContext()).firstOrNull()
+
+        val intent = Intent(requireContext(), MainActivity::class.java).apply {
+            selectedProfile?.let { putExtra("SELECTED_PROFILE", it) }
+            putExtra("navigation_active", true)
+            putExtra("destination_latitude", dest.latitude())
+            putExtra("destination_longitude", dest.longitude())
+            putExtra("destination_name", currentDestinationName ?: tvDestinationName.text?.toString().orEmpty())
+            putExtra("origin_latitude", origin.latitude())
+            putExtra("origin_longitude", origin.longitude())
+            putExtra("origin_bearing", currentLocation?.bearing ?: 0f)
+            putExtra("allow_motorways", allowMotorways)
+
+            // Transfer current preview camera so MainActivity doesn't do a jumpy zoom-out.
+            cameraState?.let {
+                putExtra("nav_camera_center_lat", it.center.latitude())
+                putExtra("nav_camera_center_lon", it.center.longitude())
+                putExtra("nav_camera_zoom", it.zoom)
+                putExtra("nav_camera_bearing", it.bearing)
+                putExtra("nav_camera_pitch", it.pitch)
+            }
+
+            // ВАЖНО: Запази големите данни във файлове вместо в Intent за да избегнем TransactionTooLargeException
+            val geometryInCache = if (routeGeometryJson != null && routeGeometryJson.length > 50_000) {
+                // Голям маршрут - запази във файл
+                try {
+                    NavigationDataCache.saveRouteGeometry(requireContext(), routeGeometryJson)
+                    true
+                } catch (e: Exception) {
+                    android.util.Log.e("MapFragment", "Failed to cache route geometry", e)
+                    false
+                }
+        } else {
+                // Малък маршрут - може да се предаде директно
+                false
+            }
+            
+            // Предай route geometry само ако е малък, иначе използвай флаг за файл
+            if (geometryInCache) {
+                putExtra("route_geometry_in_cache", true)
+            } else {
+                routeGeometryJson?.let { putExtra("route_geometry", it) }
+            }
+            
+            // Also transfer the selected route's polyline so MainActivity can re-select that alternative after re-requesting routes.
+            preferredRoutePolyline?.let { putExtra("preferred_route_polyline", it) }
+
+            // Tell MainActivity it is coming from the preview screen (skip initial overview).
+            putExtra("nav_start_from_preview", true)
+        }
+        startActivity(intent)
+    }
+
+    private fun setCompactRouteMode(enabled: Boolean) {
+        // Hide/show map screen UI to match TestNavigationActivity behaviour after destination selection
+        llTemperature.visibility = if (enabled) View.GONE else View.VISIBLE
+        llAltitude.visibility = if (enabled) View.GONE else View.VISIBLE
+        fabMyLocationContainer.visibility = if (enabled) View.GONE else View.VISIBLE
+
+        // Hide bottom container (sessions/start)
+        view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = if (enabled) View.GONE else View.VISIBLE
+
+        // Bottom navigation should always be visible (handled by MainContainerActivity)
+        // We don't hide it when route preview is shown
+
+        destinationSearchContainer.visibility = if (enabled) View.GONE else View.VISIBLE
+        searchContainer.visibility = View.GONE
+
+        routeInfoContainer.visibility = if (enabled) View.VISIBLE else View.GONE
+        routePreviewBottomContainer.visibility = if (enabled) View.VISIBLE else View.GONE
+        btnSearchRoute.visibility = if (enabled) View.VISIBLE else View.GONE
+        btnMotorwayOptions.visibility = if (enabled) View.VISIBLE else View.GONE
+        if (!enabled) {
+            motorwayOptionsContainer.visibility = View.GONE
+        }
+
+        // Ensure overlays are above the mapContainer (MapView is declared later in XML)
+        if (enabled) {
+            routeInfoContainer.bringToFront()
+            routePreviewBottomContainer.bringToFront()
+            btnSearchRoute.bringToFront()
+            btnMotorwayOptions.bringToFront()
+            motorwayOptionsContainer.bringToFront()
+        }
+    }
+
+    private fun findRouteInline(destination: Point) {
+        // Always Mapbox mode
+        if (!this::routeLineApi.isInitialized || !this::routeLineView.isInitialized) {
+            Toast.makeText(requireContext(), "Картата още се зарежда…", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val originPoint = fixedOriginForRoute ?: run {
+            val originLoc = currentLocation
+            if (originLoc != null) {
+                Point.fromLngLat(originLoc.longitude, originLoc.latitude)
+            } else null
+        }
+
+        if (originPoint == null) {
+            Toast.makeText(requireContext(), "Няма текуща локация", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val key = buildRouteCacheKey(originPoint, destination)
+        if (routeCacheKey != key) {
+            // new origin/destination pair -> clear caches
+            routeCacheKey = key
+            cachedRoutesAllowMotorways = null
+            cachedRoutesNoMotorways = null
+            routeRequestInFlightForAllowMotorways = null
+        }
+
+        val cached = if (allowMotorways) cachedRoutesAllowMotorways else cachedRoutesNoMotorways
+        if (!cached.isNullOrEmpty()) {
+            selectedRouteIndex = 0
+            currentRoutesOriginal = cached
+            renderRoutesInline(routesToRender = cached, originalRoutes = cached)
+            return
+        }
+
+        // Avoid spamming requests if user toggles rapidly
+        if (routeRequestInFlightForAllowMotorways == allowMotorways) return
+        routeRequestInFlightForAllowMotorways = allowMotorways
+
+        // Clear previous route line
+        currentMapboxStyle?.let { style ->
+            routeLineApi.clearRouteLine { value ->
+                routeLineView.renderClearRouteLineValue(style, value)
+            }
+        }
+
+        val routeOptionsBuilder = RouteOptions.builder()
+            .applyDefaultNavigationOptions()
+            .applyLanguageAndVoiceUnitOptions(requireContext())
+            .coordinatesList(listOf(originPoint, destination))
+            .alternatives(true)
+
+        if (!allowMotorways) {
+            routeOptionsBuilder.exclude("motorway")
+        }
+
+        val routeOptions = routeOptionsBuilder.build()
+
+        mapboxNavigation.requestRoutes(
+            routeOptions,
+            object : NavigationRouterCallback {
+                override fun onRoutesReady(routes: List<NavigationRoute>, routerOrigin: String) {
+                    routeRequestInFlightForAllowMotorways = null
+                    if (routes.isEmpty()) return
+
+                    // Cache results for future toggles
+                    if (allowMotorways) {
+                        cachedRoutesAllowMotorways = routes
+                    } else {
+                        cachedRoutesNoMotorways = routes
+                    }
+
+                    selectedRouteIndex = 0
+                    currentRoutesOriginal = routes
+                    renderRoutesInline(routesToRender = routes, originalRoutes = routes)
+                }
+
+                override fun onFailure(reasons: List<RouterFailure>, routeOptions: RouteOptions) {
+                    routeRequestInFlightForAllowMotorways = null
+                    Toast.makeText(requireContext(), "Грешка при намиране на маршрут", Toast.LENGTH_SHORT).show()
+                }
+
+                override fun onCanceled(routeOptions: RouteOptions, routerOrigin: String) {
+                    routeRequestInFlightForAllowMotorways = null
+                }
+            }
+        )
+    }
+
+    private fun renderRoutesInline(
+        routesToRender: List<NavigationRoute>,
+        originalRoutes: List<NavigationRoute> = routesToRender
+    ) {
+        if (routesToRender.isEmpty()) return
+        currentRoutesOriginal = originalRoutes
+
+        // Store routes in Navigation SDK (needed for alternative metadata)
+        mapboxNavigation.setNavigationRoutes(routesToRender)
+
+        val style = currentMapboxStyle ?: return
+        val metadata = mapboxNavigation.getAlternativeMetadataFor(routesToRender)
+        routeLineApi.setNavigationRoutes(routesToRender, metadata) { value ->
+            routeLineView.renderRouteDrawData(style, value)
+
+            // EXACT same "overview after render" behaviour as TestNavigationActivity
+            // Use NavigationCamera for smooth SDK-like animation to show entire route
+            if (this@MapFragment::viewportDataSource.isInitialized && this@MapFragment::navigationCamera.isInitialized) {
+                val primary = routesToRender.first()
+                
+                // Provide route data to viewport data source
+                viewportDataSource.onRouteChanged(primary)
+                
+                // Evaluate to generate camera targets
+                viewportDataSource.evaluate()
+                
+                // Show camera control buttons when route is displayed
+                btnOverview?.visibility = View.VISIBLE
+                btnRecenter?.visibility = View.VISIBLE
+                
+                // Request overview state for smooth animation showing entire route
+                mapboxMapView?.post {
+                    navigationCamera.requestNavigationCameraToOverview()
+                }
+            }
+        }
+
+        // Update route info UI like TestNavigationActivity
+        val primary = routesToRender.first()
+        val distanceMeters = primary.directionsRoute.distance() ?: 0.0
+        val durationSeconds = primary.directionsRoute.duration() ?: 0.0
+        val distanceKm = distanceMeters / 1000.0
+        val df = DecimalFormat("#.#")
+        tvRouteDistance.text = "${df.format(distanceKm)} km"
+        val minutes = (durationSeconds / 60).toInt()
+        val h = minutes / 60
+        val m = minutes % 60
+        tvRouteDuration.text = if (h > 0) "${h}ч ${m}м" else "${m}м"
+
+        setCompactRouteMode(true)
+    }
+
+    private fun handleRouteClick(clickPoint: com.mapbox.geojson.Point) {
+        if (currentRoutesOriginal.size <= 1) return
+
+        // Calculate distance from click to each route using decoded polyline geometry
+        val routeDistances = mutableListOf<Pair<Int, Double>>()
+
+        for (i in currentRoutesOriginal.indices) {
+            val route = currentRoutesOriginal[i]
+            var minDistanceForRoute = Double.MAX_VALUE
+
+            val geometry = route.directionsRoute.geometry().orEmpty()
+            if (geometry.isBlank()) continue
+
+            val coordinates: List<com.mapbox.geojson.Point> = try {
+                // Navigation SDK uses polyline6 by default
+                LineString.fromPolyline(geometry, 6).coordinates()
+            } catch (_: Throwable) {
+                try {
+                    LineString.fromPolyline(geometry, 5).coordinates()
+                } catch (_: Throwable) {
+                    emptyList()
+                }
+            }
+
+            if (coordinates.isEmpty()) continue
+
+            for (coord in coordinates) {
+                val dx = clickPoint.longitude() - coord.longitude()
+                val dy = clickPoint.latitude() - coord.latitude()
+                val distance = kotlin.math.sqrt(dx * dx + dy * dy)
+                if (distance < minDistanceForRoute) {
+                    minDistanceForRoute = distance
+                }
+            }
+
+            if (minDistanceForRoute != Double.MAX_VALUE) {
+                routeDistances.add(i to minDistanceForRoute)
+            }
+        }
+
+        if (routeDistances.isEmpty()) return
+
+        routeDistances.sortBy { it.second }
+        val (closestIdx, closestDist) = routeDistances.first()
+
+        // Same generous threshold as TestNavigationActivity (degrees)
+        val selectionThreshold = 0.15
+        if (closestIdx != selectedRouteIndex && closestDist < selectionThreshold) {
+            selectedRouteIndex = closestIdx
+
+            val reordered = mutableListOf<NavigationRoute>()
+            reordered.add(currentRoutesOriginal[selectedRouteIndex])
+            for (j in currentRoutesOriginal.indices) {
+                if (j != selectedRouteIndex) reordered.add(currentRoutesOriginal[j])
+            }
+
+            // Re-render with selected route as primary (no network call), preserve original ordering for numbering
+            renderRoutesInline(routesToRender = reordered, originalRoutes = currentRoutesOriginal)
+            Toast.makeText(requireContext(), "Маршрут ${selectedRouteIndex + 1} избран", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun setupMapboxMap(view: View) {
         val mapContainer = view.findViewById<FrameLayout>(R.id.mapContainer)
-        val osmdroidMapView = view.findViewById<MapView>(R.id.mapView)
-        
-        // Скриваме OSMDroid mapView напълно ако съществува и премахваме всички overlays
-        if (osmdroidMapView != null) {
-            // КРИТИЧНО: Премахваме всички overlays (включително location overlays) преди да скрием mapView
-            osmdroidMapView.overlays.clear()
-            osmdroidMapView.visibility = View.GONE
-            if (osmdroidMapView.parent != null) {
-                (osmdroidMapView.parent as? ViewGroup)?.removeView(osmdroidMapView)
+        // Hide any OSMDroid mapView if it exists (legacy support)
+        val osmdroidMapView = view.findViewById<android.view.View>(R.id.mapView)
+        osmdroidMapView?.let {
+            it.visibility = View.GONE
+            if (it.parent != null) {
+                (it.parent as? ViewGroup)?.removeView(it)
             }
         }
         
@@ -379,6 +1148,40 @@ class MapFragment : Fragment() {
         mapboxMapView?.alpha = 0f
         
         mapContainer.addView(mapboxMapView)
+
+        // Setup NavigationCamera (same as TestNavigationActivity)
+        mapboxMapView?.let { mv ->
+            viewportDataSource = MapboxNavigationViewportDataSource(mv.mapboxMap).apply {
+                overviewPadding = this@MapFragment.overviewPadding
+                followingPadding = this@MapFragment.followingPadding
+            }
+            navigationCamera = NavigationCamera(mv.mapboxMap, mv.camera, viewportDataSource)
+            mv.camera.addCameraAnimationsLifecycleListener(NavigationBasicGesturesHandler(navigationCamera))
+            
+            // Setup camera control buttons
+            setupNavigationCameraButtons()
+
+            // Enable alternative route selection by tapping on a route (same UX as TestNavigationActivity)
+            mv.mapboxMap.addOnMapClickListener { clickPoint ->
+                if (routeInfoContainer.visibility == View.VISIBLE && currentRoutesOriginal.size > 1) {
+                    handleRouteClick(clickPoint)
+                    true
+                } else {
+                    false
+                }
+            }
+            
+            // Enable long press to set destination (like Google Maps)
+            mv.mapboxMap.addOnMapLongClickListener { longPressPoint ->
+                // Only allow long press when not in route preview mode
+                if (routeInfoContainer.visibility == View.GONE) {
+                    handleLongPressDestination(longPressPoint)
+                    true // Consume the event
+                } else {
+                    false // Don't consume if route preview is shown
+                }
+            }
+        }
         
         val styleUri = "mapbox://styles/djsookz/cmiyer8iu000101s84wqsav5l"
         mapboxMapView?.mapboxMap?.loadStyleUri(styleUri)
@@ -399,6 +1202,17 @@ class MapFragment : Fragment() {
         }
         
         mapboxMapView?.mapboxMap?.getStyle { style ->
+            currentMapboxStyle = style
+
+            // Initialize route line layers (if route line was initialized in onViewCreated)
+            if (this::routeLineView.isInitialized) {
+                try {
+                    routeLineView.initializeLayers(style)
+                } catch (_: Throwable) {
+                    // ignore - custom styles may differ; route line can still render in many cases
+                }
+            }
+
             mapboxMapView?.post {
                 mapboxMapView?.setBackgroundColor(Color.TRANSPARENT)
                 mapboxMapView?.alpha = 1f
@@ -414,22 +1228,9 @@ class MapFragment : Fragment() {
                         .build()
                 )
             }
-            
-            // ВАЖНО: Винаги създаваме annotation managers, дори ако няма начална локация
-            // Маркерът ще се създаде при първото location update
-            mapboxMapView?.let {
-                val annotationApi = it.annotations
-                mapboxCircleAnnotationManager = annotationApi.createCircleAnnotationManager()
-                mapboxPointAnnotationManager = annotationApi.createPointAnnotationManager()
-            }
-            
-            if (initialLocation != null) {
-                setupMapboxLocationMarker(style, initialLocation)
-            } else {
-                // НЕ създаваме маркер ако няма локация - ще се създаде при първото location update
-                // Но annotation managers вече са създадени горе
-                Log.d("MapFragment", "No initial location - marker will be created on first location update")
-            }
+
+            // Enable Mapbox Location Component (SDK puck) when style is ready
+            tryEnableMapboxLocationComponent()
         }
         
         configureMapboxPlugins()
@@ -443,132 +1244,120 @@ class MapFragment : Fragment() {
             it.attribution.enabled = false
         }
     }
-    
-    /**
-     * ПРОФЕСИОНАЛНО: Определя началната локация по следния приоритет:
-     * 1. lastKnownLocation от ViewModel (най-надеждно)
-     * 2. lastMapState.center от ViewModel (запазено състояние на камерата)
-     * 3. getLastLocation() от FusedLocationProvider (fallback)
-     * ВАЖНО: НЕ показваме София или друга default локация - по-добре да изчакаме реална локация
-     */
     private fun determineInitialLocation(): Pair<Double, Double>? {
-        // 1. Най-висок приоритет: lastKnownLocation от ViewModel
         mapStateViewModel.lastKnownLocation?.let { location ->
             return Pair(location.latitude, location.longitude)
         }
-        
-        // 2. Втори приоритет: lastMapState center (запазено състояние на камерата)
         mapStateViewModel.lastMapState?.let { state ->
             return Pair(state.centerLat, state.centerLon)
         }
-        
-        // 3. Трети приоритет: getLastLocation() (ако имаме permission)
-        // Забележка: getLastLocation() е асинхронен и не може да се използва блокиращо тук
-        // Затова разчитаме на lastKnownLocation от ViewModel който се обновява при location updates
-        // Ако няма данни в ViewModel, getLastLocation() ще се извика в displayLastKnownLocationInstantly()
-        
-        // ВАЖНО: НЕ показваме София - връщаме null и ще изчакаме реална локация
+
         return null
     }
     
-    private fun setupMapboxLocationMarker(style: Style, initialLocation: Pair<Double, Double>) {
-        val locationIconBitmap = createLocationDotIconForMapbox()
-        style.addImage("location-dot-icon", locationIconBitmap)
-        
-        // Annotation managers вече са създадени в setupMapboxMap()
-        val initialPoint = MapboxPoint.fromLngLat(initialLocation.second, initialLocation.first)
-        setupMapboxPulsingCircle(initialPoint)
-        
-        val pointAnnotationOptions = PointAnnotationOptions()
-            .withPoint(initialPoint)
-            .withIconImage("location-dot-icon")
-            .withIconSize(1.0)
-        
-        mapboxLocationAnnotation = mapboxPointAnnotationManager?.create(pointAnnotationOptions)
-    }
-    
-    private fun setupMapboxPulsingCircle(point: MapboxPoint) {
-        if (mapboxCircleAnnotationManager == null) return
-        
-        val haloStartRadiusMeters = 10.0
-        val haloEndRadiusMeters = 25.0
-        
-        val circleOptions = CircleAnnotationOptions()
-            .withPoint(point)
-            .withCircleRadius(haloStartRadiusMeters)
-            .withCircleColor("#FF7A18")
-            .withCircleOpacity(0.0)
-            .withCircleStrokeColor("#00000000")
-            .withCircleStrokeWidth(0.0)
-        
-        mapboxPulsingCircleAnnotation = mapboxCircleAnnotationManager?.create(circleOptions)
-        startPulsingAnimation(haloStartRadiusMeters, haloEndRadiusMeters)
-    }
-    
-    private fun startPulsingAnimation(minRadius: Double, maxRadius: Double) {
-        pulsingAnimator?.cancel()
-        
-        pulsingAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 3200L
-            repeatCount = ValueAnimator.INFINITE
-            repeatMode = ValueAnimator.RESTART
-            
-            addUpdateListener { animation ->
-                val progress = animation.animatedValue as Float
-                val easedProgress = (0.5f - 0.5f * kotlin.math.cos(kotlin.math.PI * progress.toDouble())).toFloat()
-                val currentRadius = minRadius + (maxRadius - minRadius) * easedProgress
-                val envelope = if (progress < 0.5f) progress * 2f else (1f - progress) * 2f
-                val maxAlpha = 64
-                val currentAlpha = (maxAlpha * envelope).toInt().coerceIn(0, maxAlpha)
-                val opacity = currentAlpha / 255.0
-                
-                mapboxPulsingCircleAnnotation?.let { circle ->
-                    val currentPoint = circle.point
-                    mapboxCircleAnnotationManager?.delete(circle)
-                    
-                    val circleOptions = CircleAnnotationOptions()
-                        .withPoint(currentPoint)
-                        .withCircleRadius(currentRadius)
-                        .withCircleColor("#FF7A18")
-                        .withCircleOpacity(opacity)
-                        .withCircleStrokeColor("#00000000")
-                        .withCircleStrokeWidth(0.0)
-                    
-                    mapboxPulsingCircleAnnotation = mapboxCircleAnnotationManager?.create(circleOptions)
-                }
-            }
+    private fun tryEnableMapboxLocationComponent() {
+        val mapView = mapboxMapView ?: return
+        if (!checkLocationPermission()) return
+        if (isMapboxLocationComponentEnabled) return
+
+        val orangeColor = Color.parseColor("#FF7A18")
+
+        // Keep default provider initially (fast raw GPS puck). We'll switch to snapped provider when enhancedLocation arrives.
+        isUsingNavigationLocationProvider = false
+
+        mapView.location.updateSettings {
+            enabled = true
+            pulsingEnabled = true
+            pulsingColor = orangeColor
+            puckBearingEnabled = true
+            locationPuck = LocationPuck2D(
+                topImage = ImageHolder.from(createMapboxPuckTopImage()),
+                bearingImage = ImageHolder.from(createMapboxPuckBearingImage()),
+                shadowImage = ImageHolder.from(createMapboxPuckShadowImage())
+            )
         }
-        
-        pulsingAnimator?.start()
+    
+        // Touch the navigation instance to ensure the lifecycle delegate is active.
+        // (Location updates are pushed into navigationLocationProvider via navigationLocationObserver.)
+        @Suppress("UNUSED_VARIABLE")
+        val _nav = mapboxNavigation
+
+        isMapboxLocationComponentEnabled = true
+        Log.d("MapFragment", "✅ Mapbox Location Component enabled")
+    }
+
+    private fun disableMapboxLocationComponent() {
+        val mapView = mapboxMapView ?: return
+        if (!isMapboxLocationComponentEnabled) return
+
+        mapView.location.updateSettings { enabled = false }
+        isMapboxLocationComponentEnabled = false
+        isUsingNavigationLocationProvider = false
+    }
+
+    private fun initNavigation() {
+        // Defensive: MyApplication already calls MapboxNavigationApp.setup, but keep this aligned with TestNavigationActivity.
+        if (!MapboxNavigationApp.isSetup()) {
+            MapboxNavigationApp.setup(NavigationOptions.Builder(requireContext()).build())
+        }
     }
     
-    private fun createLocationDotIconForMapbox(): Bitmap {
+    private fun createMapboxPuckTopImage(): Bitmap {
         val density = resources.displayMetrics.density
         val size = (32 * density).toInt()
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         
-        val baseRadiusPx = 11f * density
         val centerX = size / 2f
         val centerY = size / 2f
+        val radius = 11f * density
         
-        val strokePaint = Paint().apply {
-            isAntiAlias = true
-            color = Color.WHITE
-            style = Paint.Style.STROKE
-            strokeWidth = 3f * density
-        }
-        canvas.drawCircle(centerX, centerY, baseRadiusPx, strokePaint)
-        
-        val fillPaint = Paint().apply {
-            isAntiAlias = true
+        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#FF7A18")
             style = Paint.Style.FILL
         }
-        canvas.drawCircle(centerX, centerY, baseRadiusPx, fillPaint)
+        canvas.drawCircle(centerX, centerY, radius, fillPaint)
         
+        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = 3f * density
+    }
+        canvas.drawCircle(centerX, centerY, radius, strokePaint)
+    
         return bitmap
     }
+    
+    private fun createMapboxPuckBearingImage(): Bitmap = createMapboxPuckTopImage()
+
+    private fun createMapboxPuckShadowImage(): Bitmap {
+        val density = resources.displayMetrics.density
+        val size = (32 * density).toInt()
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val centerX = size / 2f
+        val centerY = size / 2f
+        val radiusX = 14f * density
+        val radiusY = 6f * density
+
+        val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(100, 0, 0, 0)
+            style = Paint.Style.FILL
+        }
+
+        val rect = android.graphics.RectF(
+            centerX - radiusX,
+            centerY - radiusY,
+            centerX + radiusX,
+            centerY + radiusY
+        )
+        canvas.drawOval(rect, shadowPaint)
+
+        return bitmap
+    }
+    
+
     
     private fun createLocationDotIcon(): Bitmap {
         val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
@@ -576,55 +1365,7 @@ class MapFragment : Fragment() {
         return bitmap
     }
     
-    private fun updateMapboxLocationMarker(location: Location) {
-        val point = MapboxPoint.fromLngLat(location.longitude, location.latitude)
-        
-        mapboxLocationAnnotation?.let {
-            // Annotation вече съществува - просто го обновяваме
-            it.point = point
-            mapboxPointAnnotationManager?.update(it)
-        } ?: run {
-            // Annotation не съществува - създаваме нов САМО ако style е зареден
-            mapboxMapView?.mapboxMap?.getStyle { style ->
-                // ДВОЙНА ПРОВЕРКА: Проверяваме отново дали annotation не е създадено междувременно
-                if (mapboxLocationAnnotation == null) {
-                    val locationIconBitmap = createLocationDotIconForMapbox()
-                    style.addImage("location-dot-icon", locationIconBitmap)
-                    
-                    if (mapboxPulsingCircleAnnotation == null) {
-                        setupMapboxPulsingCircle(point)
-                    }
-                    
-                    val pointAnnotationOptions = PointAnnotationOptions()
-                        .withPoint(point)
-                        .withIconImage("location-dot-icon")
-                        .withIconSize(1.0)
-                    
-                    mapboxLocationAnnotation = mapboxPointAnnotationManager?.create(pointAnnotationOptions)
-                } else {
-                    // Annotation е създадено междувременно - просто го обновяваме
-                    mapboxLocationAnnotation?.let { annotation ->
-                        annotation.point = point
-                        mapboxPointAnnotationManager?.update(annotation)
-                    }
-                }
-            }
-        }
-        
-        mapboxPulsingCircleAnnotation?.let { circle ->
-            val currentRadius = circle.circleRadius ?: 0.5
-            mapboxCircleAnnotationManager?.delete(circle)
-            
-            val circleOptions = CircleAnnotationOptions()
-                .withPoint(point)
-                .withCircleRadius(currentRadius)
-                .withCircleColor("#FF7A18")
-                .withCircleOpacity(0.0)
-                .withCircleStrokeColor("#00000000")
-                .withCircleStrokeWidth(0.0)
-            mapboxPulsingCircleAnnotation = mapboxCircleAnnotationManager?.create(circleOptions)
-        }
-    }
+
     
     private fun startNormalSession() {
         if (!checkLocationPermission()) {
@@ -672,16 +1413,12 @@ class MapFragment : Fragment() {
     
     override fun onStart() {
         super.onStart()
-        if (isMapboxMode) {
-            mapboxMapView?.onStart()
-        }
+        mapboxMapView?.onStart()
     }
     
     override fun onStop() {
         super.onStop()
-        if (isMapboxMode) {
-            mapboxMapView?.onStop()
-        }
+        mapboxMapView?.onStop()
     }
     
     override fun onResume() {
@@ -690,20 +1427,27 @@ class MapFragment : Fragment() {
         loadCachedWeatherData()
         updateEnvironmentDisplay()
         
-        // ПРОФЕСИОНАЛНО РЕШЕНИЕ: Показваме last known location ВЕДНАГА за instant display
-        displayLastKnownLocationInstantly()
+        // ВАЖНО: Ако има currentDestination (route preview режим), НЕ приближаваме до локацията
+        // Запазваме текущата camera позиция (zoom на маршрута)
+        if (currentDestination == null) {
+            // Само ако няма route preview, показваме last known location
+            displayLastKnownLocationInstantly()
+            displayLastKnownLocationInstantly() // ПРОФЕСИОНАЛНО РЕШЕНИЕ: Показваме last known location ВЕДНАГА за instant display
+        }
         
-        if (isMapboxMode) {
-            mapboxMapView?.onResume()
-            startLocationUpdates()
-        } else {
-            mapView.onResume()
-            myLocationOverlay.enableMyLocation()
-            startLocationUpdates()
-            if (::pulsingOverlay.isInitialized) {
-                pulsingOverlay.start()
+        // ВАЖНО: Ако има currentDestination но сме в MainContainerActivity (не в MainActivity),
+        // значи сме се върнали от навигацията - скрий temperature и altitude
+        if (currentDestination != null) {
+            val activity = requireActivity()
+            if (activity.javaClass.simpleName == "MainContainerActivity") {
+                // Сме се върнали от навигацията - скрий temperature и altitude
+                llTemperature.visibility = View.GONE
+                llAltitude.visibility = View.GONE
             }
         }
+        
+        mapboxMapView?.onResume()
+        tryEnableMapboxLocationComponent()
     }
     
     /**
@@ -712,55 +1456,40 @@ class MapFragment : Fragment() {
      */
     private fun displayLastKnownLocationInstantly() {
         if (!checkLocationPermission()) return
-        
-        // Първо проверяваме ViewModel за запазена локация
-        val lastLocation = mapStateViewModel.lastKnownLocation
-        
-        if (lastLocation != null) {
-            // Използваме запазената локация от ViewModel
-            currentLocation = lastLocation
-            updateLocationMarkerOnly(lastLocation)
-        } else {
-            // Ако няма в ViewModel, опитваме getLastLocation() за instant display
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                location?.let {
-                    val locationAge = System.currentTimeMillis() - it.time
-                    // Използваме локацията ако е свежа (не по-стара от 60 секунди)
-                    if (locationAge < 60000) {
-                        currentLocation = it
-                        mapStateViewModel.saveLastLocation(it)
-                        updateLocationMarkerOnly(it)
-                    }
-                }
-            }
-        }
+
+        val last = mapStateViewModel.lastKnownLocation ?: return
+        mapboxMapView?.mapboxMap?.setCamera(
+            CameraOptions.Builder()
+                .center(MapboxPoint.fromLngLat(last.longitude, last.latitude))
+                .zoom(17.0)
+                .build()
+        )
     }
-    
+
+
     /**
      * Обновява само location marker без да мести камерата (използва се за instant display)
      */
     private fun updateLocationMarkerOnly(location: Location) {
-        if (isMapboxMode) {
-            updateMapboxLocationMarker(location)
-        } else {
-            if (::myLocationOverlay.isInitialized) {
-                myLocationOverlay.onLocationChanged(location, null)
-            }
-            if (::pulsingOverlay.isInitialized) {
-                pulsingOverlay.updateLocation(location)
-            }
-        }
+        // Mapbox mode uses SDK puck; no manual marker update.
     }
     
     override fun onPause() {
         super.onPause()
+        
+        // Изчисти navigation data cache ако Fragment е паузиран
+        try {
+            NavigationDataCache.clear(requireContext())
+        } catch (e: Exception) {
+            Log.e("MapFragment", "Failed to clear navigation cache", e)
+        }
         
         // ПРОФЕСИОНАЛНО: Запазваме последната локация и състоянието на камерата
         currentLocation?.let { location ->
             mapStateViewModel.saveLastLocation(location)
         }
         
-        if (isMapboxMode && mapboxMapView != null) {
+        if (mapboxMapView != null) {
             mapboxMapView?.mapboxMap?.cameraState?.let { cameraState ->
                 mapStateViewModel.saveMapState(
                     cameraState.center.latitude(),
@@ -769,20 +1498,11 @@ class MapFragment : Fragment() {
                     cameraState.pitch
                 )
             }
-        } else if (!isMapboxMode && ::mapView.isInitialized) {
-            val center = mapView.mapCenter
-            mapStateViewModel.saveMapState(center.latitude, center.longitude, mapView.zoomLevelDouble)
         }
         
-        stopLocationUpdates()
+        disableMapboxLocationComponent()
         
-        if (!isMapboxMode) {
-            mapView.onPause()
-            myLocationOverlay.disableMyLocation()
-            if (::pulsingOverlay.isInitialized) {
-                pulsingOverlay.stop()
-            }
-        }
+        // Mapbox cleanup
     }
     
     override fun onDestroyView() {
@@ -793,13 +1513,8 @@ class MapFragment : Fragment() {
     
     override fun onDestroy() {
         super.onDestroy()
-        pulsingAnimator?.cancel()
-        if (isMapboxMode) {
-            mapboxMapView?.onDestroy()
-        }
-        if (::pulsingOverlay.isInitialized) {
-            pulsingOverlay.onDestroy()
-        }
+        disableMapboxLocationComponent()
+        mapboxMapView?.onDestroy()
     }
     
     private fun toggleWeatherExpansion() {
@@ -1004,96 +1719,19 @@ class MapFragment : Fragment() {
     }
     
     private fun centerOnCurrentLocation() {
-        if (isMapboxMode) {
-            currentLocation?.let { location ->
-                mapboxMapView?.mapboxMap?.setCamera(
-                    CameraOptions.Builder()
-                        .center(MapboxPoint.fromLngLat(location.longitude, location.latitude))
-                        .zoom(17.0)
-                        .build()
-                )
-            } ?: retrieveCurrentLocation()
-        } else {
-            val loc = myLocationOverlay.myLocation
-            if (loc != null) {
-                mapView.controller.animateTo(
-                    GeoPoint(loc.latitude, loc.longitude),
-                    MY_LOCATION_ZOOM,
-                    400L
-                )
-            } else {
-                retrieveCurrentLocation()
-            }
-        }
+        currentLocation?.let { location ->
+            mapboxMapView?.mapboxMap?.setCamera(
+                CameraOptions.Builder()
+                    .center(MapboxPoint.fromLngLat(location.longitude, location.latitude))
+                    .zoom(17.0)
+                    .build()
+            )
+        } ?: retrieveCurrentLocation()
     }
     
     private fun retrieveCurrentLocation() {
-        if (checkLocationPermission()) {
-            // Започваме location updates за реално време
-            startLocationUpdates()
-            
-            // ПРОФЕСИОНАЛНО: Използваме getLastLocation() за instant display докато чакаме новите данни
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                location?.let {
-                    val locationAge = System.currentTimeMillis() - it.time
-                    // Използваме локацията ако е свежа (не по-стара от 10 секунди)
-                    if (locationAge < 10000) {
-                        currentLocation = it
-                        mapStateViewModel.saveLastLocation(it)
-                        
-                        val savedState = mapStateViewModel.lastMapState
-                        if (savedState != null) {
-                            // Възстановяваме запазеното състояние на камерата (zoom, center, pitch)
-                            if (isMapboxMode) {
-                                mapboxMapView?.mapboxMap?.setCamera(
-                                    CameraOptions.Builder()
-                                        .center(MapboxPoint.fromLngLat(savedState.centerLon, savedState.centerLat))
-                                        .zoom(savedState.zoom)
-                                        .pitch(savedState.pitch ?: 45.0)
-                                        .build()
-                                )
-                            } else {
-                                val geoPoint = GeoPoint(savedState.centerLat, savedState.centerLon)
-                                mapView.controller.setZoom(savedState.zoom)
-                                mapView.controller.setCenter(geoPoint)
-                            }
-                            mapStateViewModel.hasInitializedCamera = true
-                            
-                            // Обновяваме location marker веднага (без да местим камерата)
-                            updateLocationMarkerOnly(it)
-                        } else {
-                            // Няма запазено състояние - центрираме на локацията
-                            if (isMapboxMode) {
-                                mapboxMapView?.mapboxMap?.setCamera(
-                                    CameraOptions.Builder()
-                                        .center(MapboxPoint.fromLngLat(it.longitude, it.latitude))
-                                        .zoom(17.0)
-                                        .build()
-                                )
-                                mapStateViewModel.saveMapState(it.latitude, it.longitude, 17.0, 45.0)
-                            } else {
-                                val geoPoint = GeoPoint(it.latitude, it.longitude)
-                                mapView.controller.animateTo(geoPoint, MY_LOCATION_ZOOM, 400L)
-                                mapStateViewModel.saveMapState(it.latitude, it.longitude, MY_LOCATION_ZOOM)
-                            }
-                            mapStateViewModel.hasInitializedCamera = true
-                            
-                            // Обновяваме location marker
-                            if (isMapboxMode) {
-                                updateMapboxLocationMarker(it)
-                            } else {
-                                if (::myLocationOverlay.isInitialized) {
-                                    myLocationOverlay.onLocationChanged(it, null)
-                                }
-                                if (::pulsingOverlay.isInitialized) {
-                                    pulsingOverlay.updateLocation(it)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // Mapbox Location Component handles location updates
+        tryEnableMapboxLocationComponent()
     }
     
     private fun checkLocationPermission(): Boolean {
@@ -1130,21 +1768,11 @@ class MapFragment : Fragment() {
     }
     
     private fun startLocationUpdates() {
-        if (ActivityCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            fusedLocationClient.requestLocationUpdates(
-                locationRequest,
-                locationCallback,
-                Looper.getMainLooper()
-            )
-        }
+        // Mapbox uses Location Component, no need for manual updates
     }
     
     private fun stopLocationUpdates() {
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+        // Mapbox uses Location Component, no need for manual updates
     }
     
     private fun updateEnvironmentDisplay() {
@@ -1183,7 +1811,7 @@ class MapFragment : Fragment() {
         
         if (!cachedTemp.isNaN() && !cachedLat.isNaN() && !cachedLon.isNaN()) {
             currentTemperature = cachedTemp
-            if (cachedIcon != -1) {
+            if (cachedIcon != -1 && isValidWeatherIcon(cachedIcon)) {
                 currentWeatherIcon = cachedIcon
             }
         }
@@ -1205,8 +1833,26 @@ class MapFragment : Fragment() {
         editor.apply()
     }
     
+    private fun isValidWeatherIcon(iconRes: Int): Boolean {
+        val validIcons = setOf(
+            R.drawable.ic_thermometer,
+            R.drawable.ic_weather_sunny,
+            R.drawable.ic_weather_clear_night,
+            R.drawable.ic_weather_partly_cloudy,
+            R.drawable.ic_weather_partly_cloudy_night,
+            R.drawable.ic_weather_cloudy,
+            R.drawable.ic_weather_rainy,
+            R.drawable.ic_weather_snowy
+        )
+        return validIcons.contains(iconRes)
+    }
+    
     private fun shouldFetchWeatherData(location: Location): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        // Check if fragment is attached before accessing context
+        val context = context ?: return false
+        if (!isAdded) return false
+        
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val cachedLat = prefs.getFloat("cached_location_lat", Float.NaN)
         val cachedLon = prefs.getFloat("cached_location_lon", Float.NaN)
         

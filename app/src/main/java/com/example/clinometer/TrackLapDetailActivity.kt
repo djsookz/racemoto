@@ -14,9 +14,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.PreferenceManager
+import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.settings.LanguageManager
 import com.example.clinometer.settings.UnitsManager
-import com.example.clinometer.tracking.TrackSnapper
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
@@ -234,32 +234,11 @@ class TrackLapDetailActivity : AppCompatActivity() {
                 point.copy(timestamp = point.timestamp - baseTimestamp)
             }
             
-            // Apply TrackSnapper to snap points to track centerline with lateral offset preservation
+            // SDK handles map matching - use raw route points
             val trackId = intent.getStringExtra("track_id") ?: ""
             if (trackId.isNotEmpty()) {
-                try {
-                    val gpsPoints = tempRoutePoints.map { it.geoPoint }
-                    val snappedPoints = TrackSnapper.snapPoints(
-                        gpsPoints = gpsPoints,
-                        trackId = trackId,
-                        context = this
-                    )
-                    
-                    android.util.Log.d("TrackLapDetailActivity", "📌 TrackSnapper: ${snappedPoints.count { it.isSnapped }} points snapped out of ${snappedPoints.size}")
-                    
-                    // Update route points with snapped coordinates
-                    routePoints = tempRoutePoints.mapIndexed { index, routePoint ->
-                        val snappedPoint = snappedPoints.getOrNull(index)
-                        if (snappedPoint != null && snappedPoint.isSnapped) {
-                            routePoint.copy(geoPoint = snappedPoint.geoPoint)
-                        } else {
-                            routePoint
-                        }
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("TrackLapDetailActivity", "Error applying TrackSnapper: ${e.message}")
-                    routePoints = tempRoutePoints
-                }
+                // SDK handles snapping - use raw points
+                routePoints = tempRoutePoints
             } else {
                 routePoints = tempRoutePoints
             }
@@ -326,7 +305,10 @@ class TrackLapDetailActivity : AppCompatActivity() {
                 }
 
                 val segmentPolyline = Polyline().apply {
-                    setPoints(listOf(startPoint.geoPoint, endPoint.geoPoint))
+                    setPoints(listOf(
+                        org.osmdroid.util.GeoPoint(startPoint.geoPoint.latitude, startPoint.geoPoint.longitude),
+                        org.osmdroid.util.GeoPoint(endPoint.geoPoint.latitude, endPoint.geoPoint.longitude)
+                    ))
                     this.color = color
                     outlinePaint.strokeWidth = 18f
                 }
@@ -480,7 +462,9 @@ class TrackLapDetailActivity : AppCompatActivity() {
     private fun setupMapZoom() {
         if (routePoints.isEmpty()) return
         
-        val allGeoPoints = routePoints.map { it.geoPoint }
+        val allGeoPoints = routePoints.map { 
+            org.osmdroid.util.GeoPoint(it.geoPoint.latitude, it.geoPoint.longitude)
+        }
         
         if (allGeoPoints.size >= 2) {
             val boundingBox = org.osmdroid.util.BoundingBox.fromGeoPointsSafe(allGeoPoints)
@@ -895,8 +879,9 @@ class TrackLapDetailActivity : AppCompatActivity() {
         val index = findClosestIndexToTime(timeInSeconds)
         if (index in routePoints.indices) {
             val point = routePoints[index]
-            marker.position = point.geoPoint
-            map.controller.setCenter(point.geoPoint)
+            val osmdroidPoint = org.osmdroid.util.GeoPoint(point.geoPoint.latitude, point.geoPoint.longitude)
+            marker.position = osmdroidPoint
+            map.controller.setCenter(osmdroidPoint)
 
             // Рисуваме маршрута до текущия индекс само ако потребителят е взаимодействал
             if (hasUserInteracted) {
