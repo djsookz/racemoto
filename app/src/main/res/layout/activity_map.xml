@@ -78,7 +78,7 @@
                             android:id="@+id/mapRoute"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent" />
-                        
+
                         <LinearLayout
                             android:id="@+id/zoomButtonsContainer"
                             android:layout_width="wrap_content"
@@ -136,25 +136,29 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
+                    android:touchscreenBlocksFocus="false"
                     app:cardBackgroundColor="#161B22"
                     app:cardCornerRadius="20dp">
+
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
                         android:padding="12dp">
+
                         <com.google.android.material.tabs.TabLayout
                             android:id="@+id/tabs"
                             android:layout_width="match_parent"
                             android:layout_height="36dp"
                             android:layout_marginBottom="12dp"
                             android:background="@android:color/transparent"
-                            app:tabIndicatorGravity="stretch"
                             app:tabIndicator="@drawable/bg_tab_indicator"
                             app:tabIndicatorColor="#FF6020"
+                            app:tabIndicatorGravity="stretch"
+                            app:tabMode="fixed"
                             app:tabSelectedTextColor="#FFFFFF"
-                            app:tabTextColor="#8B949E"
-                            app:tabMode="fixed" />
+                            app:tabTextColor="#8B949E" />
+
                         <com.github.mikephil.charting.charts.LineChart
                             android:id="@+id/chart"
                             android:layout_width="match_parent"

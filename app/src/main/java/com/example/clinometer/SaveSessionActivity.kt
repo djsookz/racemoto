@@ -342,7 +342,9 @@ class SaveSessionActivity : AppCompatActivity() {
                     finish()
                 } else {
                     // Редактиране от списъка със сесии - връщаме се в списъка със сесии
-                    val intent = Intent(this, com.example.clinometer.RacesActivity::class.java)
+                    val intent = Intent(this, com.example.clinometer.MainContainerActivity::class.java).apply {
+                        putExtra("INITIAL_PAGE", com.example.clinometer.MainContainerActivity.PAGE_RACES)
+                    }
                     intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     startActivity(intent)
                     finish()

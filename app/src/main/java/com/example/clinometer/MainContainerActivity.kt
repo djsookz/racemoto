@@ -109,6 +109,34 @@ class MainContainerActivity : AppCompatActivity() {
         // Setup bottom navigation
         setupBottomNavigation()
         
+        // Използваме OnBackPressedDispatcher вместо onBackPressed() за да позволим на Fragments да обработват back първо
+        // Важно: Fragment callbacks се изпълняват ПРЕДИ Activity callbacks, защото се регистрират по-късно
+        // Така че ако Fragment callback-ът е enabled и се изпълни, той ще спре цепочката
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // Проверяваме дали сме на RACES страницата и дали Fragment-ът е в selection mode
+                if (currentPage == PAGE_RACES) {
+                    val racesFragment = supportFragmentManager.fragments.find { 
+                        it is RacesFragment 
+                    } as? RacesFragment
+                    if (racesFragment != null && racesFragment.isSelectionModeEnabled()) {
+                        // Ако Fragment-ът е в selection mode, неговата callback-а трябва да се изпълни първо
+                        // Но ако по някаква причина не се изпълни, извикваме exitSelectionMode директно
+                        racesFragment.exitSelectionModeDirectly()
+                        return
+                    }
+                    // Ако не сме в selection mode, връщаме се на MAP
+                    viewPager.setCurrentItem(PAGE_MAP, false)
+                } else if (currentPage == PAGE_MAP) {
+                    // Ако сме на началната страница, излизаме от приложението
+                    finish()
+                } else {
+                    // Връщаме се на началната страница
+                    viewPager.setCurrentItem(PAGE_MAP, false)
+                }
+            }
+        })
+        
         // Listener за ViewPager промени (ако някой промени страницата програмно)
         viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
@@ -237,6 +265,10 @@ class MainContainerActivity : AppCompatActivity() {
         textViewId?.let { container?.findViewById<TextView>(it)?.apply {
             setTextColor(ContextCompat.getColor(this@MainContainerActivity, R.color.nav_text_inactive))
             setTypeface(null, Typeface.NORMAL)
+            // Принудително обновяване на текста за да се покаже изцяло при промяна на ориентацията
+            val currentText = text.toString()
+            text = ""
+            text = currentText
         }}
     }
     
@@ -266,6 +298,10 @@ class MainContainerActivity : AppCompatActivity() {
         textViewId?.let { container?.findViewById<TextView>(it)?.apply {
             setTextColor(ContextCompat.getColor(this@MainContainerActivity, R.color.primary_color))
             setTypeface(null, Typeface.BOLD)
+            // Принудително обновяване на текста за да се покаже изцяло при промяна на ориентацията
+            val currentText = text.toString()
+            text = ""
+            text = currentText
         }}
     }
     
@@ -288,18 +324,6 @@ class MainContainerActivity : AppCompatActivity() {
         }
     }
     
-    override fun onBackPressed() {
-        // Ако сме на RACES страницата, връщаме се на MAP
-        if (currentPage == PAGE_RACES) {
-            viewPager.setCurrentItem(PAGE_MAP, false)
-        } else if (currentPage == PAGE_MAP) {
-            // Ако сме на началната страница, излизаме от приложението
-            super.onBackPressed()
-        } else {
-            // Връщаме се на началната страница
-            viewPager.setCurrentItem(PAGE_MAP, false)
-        }
-    }
     
     /**
      * Публичен метод за навигация към конкретна страница
@@ -312,6 +336,43 @@ class MainContainerActivity : AppCompatActivity() {
             // Ако не е една от стандартните страници (не е в bottom nav), не променяме highlight
             if (page <= PAGE_SETTINGS) {
                 highlightActiveNavItem(getItemIdForPage(page))
+            }
+        }
+    }
+    
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // Принудително обновяване на текста на всички navigation items при промяна на ориентацията
+        refreshNavigationTexts()
+        // Обновяване на активния item
+        highlightActiveNavItem(getItemIdForPage(currentPage))
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Принудително обновяване на текста на всички navigation items при resume
+        refreshNavigationTexts()
+        // Обновяване на активния item
+        highlightActiveNavItem(getItemIdForPage(currentPage))
+    }
+    
+    private fun refreshNavigationTexts() {
+        // Принудително обновяване на текста на всички navigation items
+        val navItems = listOf(
+            R.id.navDrag to R.id.tvNavDrag,
+            R.id.navTrack to R.id.tvNavTrack,
+            R.id.navMap to R.id.tvNavMap,
+            R.id.navGarage to R.id.tvNavGarage,
+            R.id.navOptions to R.id.tvNavOptions
+        )
+        
+        navItems.forEach { (containerId, textViewId) ->
+            findViewById<TextView>(textViewId)?.let { textView ->
+                val currentText = textView.text.toString()
+                if (currentText.isNotEmpty()) {
+                    textView.text = ""
+                    textView.text = currentText
+                }
             }
         }
     }

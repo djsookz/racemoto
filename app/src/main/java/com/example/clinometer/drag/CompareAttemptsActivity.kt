@@ -72,9 +72,22 @@ class CompareAttemptsActivity : AppCompatActivity() {
         SPEED, ACCELERATION, G_FORCE
     }
     
+    enum class PointType {
+        SPEED_100, SPEED_200, DISTANCE_402
+    }
+    
     private var currentMode = ChartMode.SPEED
     private lateinit var smartMarker: SmartMarker
     
+    // Data class за специални точки (използван в snapping логиката)
+    private data class SpecialPoint(
+        val x: Float,
+        val y: Float,
+        val type: PointType,
+        val isCurrent: Boolean,
+        val exactTime: Float
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_compare_attempts)
@@ -84,7 +97,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         compareAttemptId = intent.getLongExtra("compare_attempt_id", -1)
         
         setupViews()
-        loadData()
+        // loadData() се извиква в setupViews() след настройката на графиката
     }
     
     private fun setupViews() {
@@ -108,8 +121,11 @@ class CompareAttemptsActivity : AppCompatActivity() {
         tvCompare0to402 = findViewById(R.id.tvCompare0to402)
         
         setupChart()
-        setupChartZoom(chart)
         setupChartModeButtons()
+        // КРИТИЧНО: Първо зареждаме данните, после настройваме listener-ите
+        loadData()
+        // СЛЕД това настройваме listener-ите (сега маркерът и данните са готови)
+        setupChartZoom(chart)
         
         findViewById<View>(R.id.btnBack)?.setOnClickListener {
             finish()
@@ -173,18 +189,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         // Настройваме smart marker за балончета
         setupSmartMarker()
         
-        // Настройваме listener за селекция на точки
-        chart.setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
-            override fun onValueSelected(e: Entry?, h: Highlight?) {
-                if (e != null && h != null) {
-                    smartMarker.refreshContent(e, h)
-                }
-            }
-            
-            override fun onNothingSelected() {
-                // Празна имплементация
-            }
-        })
+        // Listener-ите се настройват в setupChartZoom СЛЕД зареждане на данните
     }
     
     private fun setupChartModeButtons() {
@@ -198,15 +203,75 @@ class CompareAttemptsActivity : AppCompatActivity() {
     private fun updateChartMode(mode: ChartMode) {
         currentMode = mode
         
-        // Обновяваме бутоните
-        btnSpeed.background = ContextCompat.getDrawable(this, if (mode == ChartMode.SPEED) R.drawable.button_toggle_selected else R.drawable.button_toggle_unselected)
-        btnSpeed.setTextColor(ContextCompat.getColor(this, if (mode == ChartMode.SPEED) R.color.white else R.color.text_primary))
+        // Обновяваме бутоните - използваме същите цветове като в DragSessionDetailsActivity
+        val density = resources.displayMetrics.density
         
-        btnAcceleration.background = ContextCompat.getDrawable(this, if (mode == ChartMode.ACCELERATION) R.drawable.button_toggle_selected else R.drawable.button_toggle_unselected)
-        btnAcceleration.setTextColor(ContextCompat.getColor(this, if (mode == ChartMode.ACCELERATION) R.color.white else R.color.text_primary))
+        // Reset всички бутони
+        btnSpeed.setBackgroundResource(R.drawable.button_toggle_unselected)
+        btnSpeed.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+        btnAcceleration.setBackgroundResource(R.drawable.button_toggle_unselected)
+        btnAcceleration.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+        btnGForce.setBackgroundResource(R.drawable.button_toggle_unselected)
+        btnGForce.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
         
-        btnGForce.background = ContextCompat.getDrawable(this, if (mode == ChartMode.G_FORCE) R.drawable.button_toggle_selected else R.drawable.button_toggle_unselected)
-        btnGForce.setTextColor(ContextCompat.getColor(this, if (mode == ChartMode.G_FORCE) R.color.white else R.color.text_primary))
+        // Задай активния бутон
+        when (mode) {
+            ChartMode.SPEED -> {
+                // Create drawable programmatically to avoid caching issues - FORCE ORANGE
+                val orangeColorInt = 0xFFFF6020.toInt() // Hardcoded orange #FF6020
+                val orangeDrawable = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    setColor(orangeColorInt)
+                    cornerRadius = 8f * density
+                    setStroke((1 * density).toInt(), orangeColorInt)
+                }
+                // Clear any tint that might override the color
+                btnSpeed.backgroundTintList = null
+                btnSpeed.background = null // Clear first
+                btnSpeed.background = orangeDrawable
+                btnSpeed.setTextColor(android.graphics.Color.WHITE)
+                btnSpeed.post {
+                    btnSpeed.invalidate()
+                    btnSpeed.requestLayout()
+                }
+            }
+            ChartMode.ACCELERATION -> {
+                // Create drawable programmatically with #3486A9 color
+                val accelerationColorInt = 0xFF3486A9.toInt() // #3486A9
+                val accelerationDrawable = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    setColor(accelerationColorInt)
+                    cornerRadius = 8f * density
+                    setStroke((1 * density).toInt(), accelerationColorInt)
+                }
+                btnAcceleration.backgroundTintList = null
+                btnAcceleration.background = null
+                btnAcceleration.background = accelerationDrawable
+                btnAcceleration.setTextColor(android.graphics.Color.WHITE)
+                btnAcceleration.post {
+                    btnAcceleration.invalidate()
+                    btnAcceleration.requestLayout()
+                }
+            }
+            ChartMode.G_FORCE -> {
+                // Create drawable programmatically with #E68894 color
+                val gForceColorInt = 0xFFE68894.toInt() // #E68894
+                val gForceDrawable = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    setColor(gForceColorInt)
+                    cornerRadius = 8f * density
+                    setStroke((1 * density).toInt(), gForceColorInt)
+                }
+                btnGForce.backgroundTintList = null
+                btnGForce.background = null
+                btnGForce.background = gForceDrawable
+                btnGForce.setTextColor(android.graphics.Color.WHITE)
+                btnGForce.post {
+                    btnGForce.invalidate()
+                    btnGForce.requestLayout()
+                }
+            }
+        }
         
         // Обновяваме маркера
         updateSmartMarker()
@@ -231,6 +296,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         println("🔍 Compare session: ${compareSession?.name}, attempts: ${compareSession?.attempts?.size}")
         println("🔍 Compare attempt: ${compareAttempt?.id}, speedSamples: ${compareAttempt?.speedSamples?.size}")
         
+        // КРИТИЧНО: Първо зареждаме данните на графиката (създава маркера)
         updateChart()
         updateSessionInfo()
         updateComparisonStats()
@@ -277,17 +343,30 @@ class CompareAttemptsActivity : AppCompatActivity() {
         val compareTime0to402 = if (compareAttempt!!.time0to402 > 0) compareAttempt!!.time0to402 / 1_000_000_000.0 else 0.0
         
         // Update UI
+        val currentColor = 0xFFFF6020.toInt() // #FF6020 - оранжев като бутона Speed
+        val compareColor = 0xFFA64CEB.toInt() // #A64CEB - лилав винаги за Compare
+        
         tvCurrentMax.text = "Max: ${currentMaxSpeedConverted.toInt()} ${speedUnit.symbol}"
+        tvCurrentMax.setTextColor(currentColor)
         tvCurrent0to100.text = "0-100: ${String.format("%.3f", currentTime0to100)}s"
+        tvCurrent0to100.setTextColor(android.graphics.Color.WHITE)
         tvCurrent0to200.text = "0-200: ${String.format("%.3f", currentTime0to200)}s"
+        tvCurrent0to200.setTextColor(android.graphics.Color.WHITE)
         tvCurrent100to200.text = "100-200: ${String.format("%.3f", currentTime100to200)}s"
+        tvCurrent100to200.setTextColor(android.graphics.Color.WHITE)
         tvCurrent0to402.text = "0-402m: ${String.format("%.3f", currentTime0to402)}s"
+        tvCurrent0to402.setTextColor(android.graphics.Color.WHITE)
         
         tvCompareMax.text = "Max: ${compareMaxSpeedConverted.toInt()} ${speedUnit.symbol}"
+        tvCompareMax.setTextColor(compareColor)
         tvCompare0to100.text = "0-100: ${String.format("%.3f", compareTime0to100)}s"
+        tvCompare0to100.setTextColor(android.graphics.Color.WHITE)
         tvCompare0to200.text = "0-200: ${String.format("%.3f", compareTime0to200)}s"
+        tvCompare0to200.setTextColor(android.graphics.Color.WHITE)
         tvCompare100to200.text = "100-200: ${String.format("%.3f", compareTime100to200)}s"
+        tvCompare100to200.setTextColor(android.graphics.Color.WHITE)
         tvCompare0to402.text = "0-402m: ${String.format("%.3f", compareTime0to402)}s"
+        tvCompare0to402.setTextColor(android.graphics.Color.WHITE)
     }
     
     private fun updateAccelerationStats() {
@@ -311,17 +390,30 @@ class CompareAttemptsActivity : AppCompatActivity() {
         val currentMaxAccel100to200 = findMaxValueInRange(currentAttempt!!, currentAttempt!!.time0to100 / 1_000_000_000.0f, currentAttempt!!.time0to200 / 1_000_000_000.0f, ChartMode.ACCELERATION)
         val compareMaxAccel100to200 = findMaxValueInRange(compareAttempt!!, compareAttempt!!.time0to100 / 1_000_000_000.0f, compareAttempt!!.time0to200 / 1_000_000_000.0f, ChartMode.ACCELERATION)
         
+        val currentColor = 0xFF3486A9.toInt() // #3486A9 - син-зелен като бутона Acceleration
+        val compareColor = 0xFFA64CEB.toInt() // #A64CEB - лилав винаги за Compare
+        
         tvCurrentMax.text = "Max: ${String.format("%.1f", currentMaxAccel)} m/s²"
+        tvCurrentMax.setTextColor(currentColor)
         tvCurrent0to100.text = "0-100: ${String.format("%.1f", currentAccelAt100)} m/s²"
+        tvCurrent0to100.setTextColor(currentColor)
         tvCurrent0to200.text = "0-200: ${String.format("%.1f", currentAccelAt200)} m/s²"
+        tvCurrent0to200.setTextColor(currentColor)
         tvCurrent100to200.text = "100-200: ${String.format("%.1f", currentMaxAccel100to200)} m/s²"
+        tvCurrent100to200.setTextColor(currentColor)
         tvCurrent0to402.text = "0-402m: ${String.format("%.1f", currentAccelAt402)} m/s²"
+        tvCurrent0to402.setTextColor(currentColor)
         
         tvCompareMax.text = "Max: ${String.format("%.1f", compareMaxAccel)} m/s²"
+        tvCompareMax.setTextColor(compareColor)
         tvCompare0to100.text = "0-100: ${String.format("%.1f", compareAccelAt100)} m/s²"
+        tvCompare0to100.setTextColor(compareColor)
         tvCompare0to200.text = "0-200: ${String.format("%.1f", compareAccelAt200)} m/s²"
+        tvCompare0to200.setTextColor(compareColor)
         tvCompare100to200.text = "100-200: ${String.format("%.1f", compareMaxAccel100to200)} m/s²"
+        tvCompare100to200.setTextColor(compareColor)
         tvCompare0to402.text = "0-402m: ${String.format("%.1f", compareAccelAt402)} m/s²"
+        tvCompare0to402.setTextColor(compareColor)
     }
     
     private fun updateGForceStats() {
@@ -345,17 +437,30 @@ class CompareAttemptsActivity : AppCompatActivity() {
         val currentMaxG100to200 = findMaxValueInRange(currentAttempt!!, currentAttempt!!.time0to100 / 1_000_000_000.0f, currentAttempt!!.time0to200 / 1_000_000_000.0f, ChartMode.G_FORCE)
         val compareMaxG100to200 = findMaxValueInRange(compareAttempt!!, compareAttempt!!.time0to100 / 1_000_000_000.0f, compareAttempt!!.time0to200 / 1_000_000_000.0f, ChartMode.G_FORCE)
         
+        val currentColor = 0xFFE68894.toInt() // #E68894 - розов като бутона G-Force
+        val compareColor = 0xFFA64CEB.toInt() // #A64CEB - лилав винаги за Compare
+        
         tvCurrentMax.text = "Max: ${String.format("%.2f", currentMaxG)} G"
+        tvCurrentMax.setTextColor(currentColor)
         tvCurrent0to100.text = "0-100: ${String.format("%.2f", currentGAt100)} G"
+        tvCurrent0to100.setTextColor(currentColor)
         tvCurrent0to200.text = "0-200: ${String.format("%.2f", currentGAt200)} G"
+        tvCurrent0to200.setTextColor(currentColor)
         tvCurrent100to200.text = "100-200: ${String.format("%.2f", currentMaxG100to200)} G"
+        tvCurrent100to200.setTextColor(currentColor)
         tvCurrent0to402.text = "0-402m: ${String.format("%.2f", currentGAt402)} G"
+        tvCurrent0to402.setTextColor(currentColor)
         
         tvCompareMax.text = "Max: ${String.format("%.2f", compareMaxG)} G"
+        tvCompareMax.setTextColor(compareColor)
         tvCompare0to100.text = "0-100: ${String.format("%.2f", compareGAt100)} G"
+        tvCompare0to100.setTextColor(compareColor)
         tvCompare0to200.text = "0-200: ${String.format("%.2f", compareGAt200)} G"
+        tvCompare0to200.setTextColor(compareColor)
         tvCompare100to200.text = "100-200: ${String.format("%.2f", compareMaxG100to200)} G"
+        tvCompare100to200.setTextColor(compareColor)
         tvCompare0to402.text = "0-402m: ${String.format("%.2f", compareGAt402)} G"
+        tvCompare0to402.setTextColor(compareColor)
     }
     
     private fun updateChart() {
@@ -374,8 +479,8 @@ class CompareAttemptsActivity : AppCompatActivity() {
         
         // Създаваме нов LineData с двете линии
         val lineData = LineData()
-        addSpeedLineToData(lineData, currentAttempt!!, "Current", R.color.accent_blue, true)
-        addSpeedLineToData(lineData, compareAttempt!!, "Compare", R.color.accent_orange, false)
+        addSpeedLineToData(lineData, currentAttempt!!, "Current", 0xFFFF6020.toInt(), true) // #FF6020 като в DragSessionDetailsActivity
+        addSpeedLineToData(lineData, compareAttempt!!, "Compare", 0xFFA64CEB.toInt(), false) // #A64CEB винаги за Compare
         
         // Добавяме ключовите точки директно към lineData
         addKeyPointMarkersToData(lineData)
@@ -421,8 +526,8 @@ class CompareAttemptsActivity : AppCompatActivity() {
         
         // Създаваме нов LineData с двете линии
         val lineData = LineData()
-        addAccelerationLineToData(lineData, currentAttempt!!, "Current", R.color.accent_green, true)
-        addAccelerationLineToData(lineData, compareAttempt!!, "Compare", R.color.accent_orange, false)
+        addAccelerationLineToData(lineData, currentAttempt!!, "Current", 0xFF3486A9.toInt(), true) // #3486A9 като в DragSessionDetailsActivity
+        addAccelerationLineToData(lineData, compareAttempt!!, "Compare", 0xFFA64CEB.toInt(), false) // #A64CEB винаги за Compare
         
         // Добавяме ключовите точки директно към lineData
         addKeyPointMarkersToData(lineData)
@@ -470,8 +575,8 @@ class CompareAttemptsActivity : AppCompatActivity() {
         
         // Създаваме нов LineData с двете линии
         val lineData = LineData()
-        addGForceLineToData(lineData, currentAttempt!!, "Current", R.color.accent_red, true)
-        addGForceLineToData(lineData, compareAttempt!!, "Compare", R.color.accent_orange, false)
+        addGForceLineToData(lineData, currentAttempt!!, "Current", 0xFFE68894.toInt(), true) // #E68894 като в DragSessionDetailsActivity
+        addGForceLineToData(lineData, compareAttempt!!, "Compare", 0xFFA64CEB.toInt(), false) // #A64CEB винаги за Compare
         
         // Добавяме ключовите точки директно към lineData
         addKeyPointMarkersToData(lineData)
@@ -510,7 +615,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         chart.invalidate()
     }
     
-    private fun addSpeedLineToData(lineData: LineData, attempt: DragAttempt, label: String, colorRes: Int, isCurrent: Boolean) {
+    private fun addSpeedLineToData(lineData: LineData, attempt: DragAttempt, label: String, colorInt: Int, isCurrent: Boolean) {
         val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
         if (speedSamples.isNotEmpty() && timestamps.isNotEmpty()) {
             val speedUnit = UnitsManager.getSpeedUnit(this)
@@ -524,10 +629,12 @@ class CompareAttemptsActivity : AppCompatActivity() {
             }
             
             val dataSet = LineDataSet(entries, label).apply {
-                color = ContextCompat.getColor(this@CompareAttemptsActivity, colorRes)
+                color = colorInt // Използваме директно Int color
                 lineWidth = if (isCurrent) 3f else 2f
                 setDrawValues(false)
                 setDrawCircles(false)
+                // КРИТИЧНО: И двете линии (Current и Compare) могат да се highlight-ват
+                isHighlightEnabled = true
             }
             
             lineData.addDataSet(dataSet)
@@ -562,7 +669,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         }
     }
     
-    private fun addAccelerationLineToData(lineData: LineData, attempt: DragAttempt, label: String, colorRes: Int, isCurrent: Boolean) {
+    private fun addAccelerationLineToData(lineData: LineData, attempt: DragAttempt, label: String, colorInt: Int, isCurrent: Boolean) {
         val (accelSamples, timestamps) = getAlignedAccelData(attempt)
         if (accelSamples.isNotEmpty() && timestamps.isNotEmpty()) {
             val entries = mutableListOf<Entry>()
@@ -574,10 +681,12 @@ class CompareAttemptsActivity : AppCompatActivity() {
             }
             
             val dataSet = LineDataSet(entries, label).apply {
-                color = ContextCompat.getColor(this@CompareAttemptsActivity, colorRes)
+                color = colorInt // Използваме директно Int color
                 lineWidth = if (isCurrent) 3f else 2f
                 setDrawValues(false)
                 setDrawCircles(false)
+                // КРИТИЧНО: И двете линии (Current и Compare) могат да се highlight-ват
+                isHighlightEnabled = true
             }
             
             lineData.addDataSet(dataSet)
@@ -610,7 +719,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         }
     }
     
-    private fun addGForceLineToData(lineData: LineData, attempt: DragAttempt, label: String, colorRes: Int, isCurrent: Boolean) {
+    private fun addGForceLineToData(lineData: LineData, attempt: DragAttempt, label: String, colorInt: Int, isCurrent: Boolean) {
         val (gSamples, timestamps) = getAlignedGData(attempt)
         if (gSamples.isNotEmpty() && timestamps.isNotEmpty()) {
             val entries = mutableListOf<Entry>()
@@ -621,10 +730,12 @@ class CompareAttemptsActivity : AppCompatActivity() {
             }
             
             val dataSet = LineDataSet(entries, label).apply {
-                color = ContextCompat.getColor(this@CompareAttemptsActivity, colorRes)
+                color = colorInt // Използваме директно Int color
                 lineWidth = if (isCurrent) 3f else 2f
                 setDrawValues(false)
                 setDrawCircles(false)
+                // КРИТИЧНО: И двете линии (Current и Compare) могат да се highlight-ват
+                isHighlightEnabled = true
             }
             
             lineData.addDataSet(dataSet)
@@ -841,23 +952,256 @@ class CompareAttemptsActivity : AppCompatActivity() {
                 chart.fitScreen()
             }
             override fun onChartSingleTapped(me: MotionEvent?) {
-                // Оставяме празно - използваме само OnChartValueSelectedListener
+                // Нищо – не искаме бъбъл при обикновено цъкане (snapping-ът в onValueSelected ще се погрижи)
             }
             override fun onChartFling(me1: MotionEvent?, me2: MotionEvent?, velocityX: Float, velocityY: Float) {}
             override fun onChartScale(me: MotionEvent?, scaleX: Float, scaleY: Float) {}
             override fun onChartTranslate(me: MotionEvent?, dX: Float, dY: Float) {}
         })
         
-        // Value selected listener за tooltip-и - ТОЧНО като в DragSessionDetailsActivity
+        // Value selected listener за tooltip-и с SNAPPING логика
         chart.setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
             override fun onValueSelected(e: Entry?, h: Highlight?) {
-                // Оставяме празно за сега - може да добавим tooltip-и по-късно
+                if (e == null || h == null || currentAttempt == null || compareAttempt == null) {
+                    chart.highlightValue(null)
+                    smartMarker.shouldShow = false
+                    chart.invalidate()
+                    return
+                }
+
+                smartMarker.shouldShow = true  // Винаги показваме бъбъл при плъзгане
+
+                // 2D snapping за специални точки
+                val specialPoints = mutableListOf<SpecialPoint>()
+                addSpecialPointsForAttempt(specialPoints, currentAttempt!!, true, currentMode)
+                addSpecialPointsForAttempt(specialPoints, compareAttempt!!, false, currentMode)
+
+                var closestSpecial: SpecialPoint? = null
+                var minDist2D = Float.MAX_VALUE
+                val xThresh = 0.6f
+                val yThreshMultiplier = 12f
+                val yThreshBase = chart.height / 12f
+
+                for (point in specialPoints) {
+                    val dx = kotlin.math.abs(e.x - point.x)
+                    val dy = kotlin.math.abs(e.y - point.y)
+                    val yThresh = yThreshBase * yThreshMultiplier
+                    if (dx < xThresh && dy < yThresh) {
+                        val dist2D = kotlin.math.sqrt(dx * dx + dy * dy)
+                        if (dist2D < minDist2D) {
+                            minDist2D = dist2D
+                            closestSpecial = point
+                        }
+                    }
+                }
+
+                var finalEntry = e
+                // Определяме на коя линия сме - използваме dataSetIndex от highlight
+                var finalIsCurrent = (h.dataSetIndex == 0) // 0 = Current, 1 = Compare
+                var finalExactTime = e.x
+
+                if (closestSpecial != null) {
+                    // Специална точка – snap с точна Y
+                    val exactY = when (currentMode) {
+                        ChartMode.SPEED -> {
+                            val speedUnit = UnitsManager.getSpeedUnit(this@CompareAttemptsActivity)
+                            when (closestSpecial.type) {
+                                PointType.SPEED_100 -> UnitsManager.convertSpeed(100f, speedUnit)
+                                PointType.SPEED_200 -> UnitsManager.convertSpeed(200f, speedUnit)
+                                PointType.DISTANCE_402 -> {
+                                    val attempt = if (closestSpecial.isCurrent) currentAttempt!! else compareAttempt!!
+                                    findValueAtTimeInterpolated(attempt, closestSpecial.x, currentMode)
+                                }
+                            }
+                        }
+                        else -> {
+                            val attempt = if (closestSpecial.isCurrent) currentAttempt!! else compareAttempt!!
+                            findValueAtTimeInterpolated(attempt, closestSpecial.x, currentMode)
+                        }
+                    }
+                    finalEntry = Entry(closestSpecial.x, exactY)
+                    finalIsCurrent = closestSpecial.isCurrent
+                    finalExactTime = closestSpecial.exactTime
+                }
+
+                smartMarker.refreshContent(finalEntry, h)
+
+                try {
+                    // Запазваме текущия pointType преди да го сетнем (за fallback)
+                    val currentPointTypeField = smartMarker.javaClass.getDeclaredField("pointType")
+                    currentPointTypeField.isAccessible = true
+                    val currentPointType = currentPointTypeField.get(smartMarker) as? PointType
+                    
+                    val pointTypeField = smartMarker.javaClass.getDeclaredField("pointType")
+                    pointTypeField.isAccessible = true
+                    pointTypeField.set(smartMarker, closestSpecial?.type ?: currentPointType)
+
+                    val isOnSpecialPointField = smartMarker.javaClass.getDeclaredField("isOnSpecialPoint")
+                    isOnSpecialPointField.isAccessible = true
+                    isOnSpecialPointField.set(smartMarker, closestSpecial != null)
+
+                    val actualValueField = smartMarker.javaClass.getDeclaredField("actualValue")
+                    actualValueField.isAccessible = true
+                    actualValueField.set(smartMarker, finalEntry.y)
+
+                    val exactTimeField = smartMarker.javaClass.getDeclaredField("exactTime")
+                    exactTimeField.isAccessible = true
+                    exactTimeField.set(smartMarker, finalExactTime)
+
+                    val isOnCurrentLineField = smartMarker.javaClass.getDeclaredField("isOnCurrentLine")
+                    isOnCurrentLineField.isAccessible = true
+                    isOnCurrentLineField.set(smartMarker, finalIsCurrent)
+
+                    val modeField = smartMarker.javaClass.getDeclaredField("mode")
+                    modeField.isAccessible = true
+                    modeField.set(smartMarker, currentMode)
+
+                    val attemptField = smartMarker.javaClass.getDeclaredField("currentAttempt")
+                    attemptField.isAccessible = true
+                    attemptField.set(smartMarker, currentAttempt)
+
+                    val compareAttemptField = smartMarker.javaClass.getDeclaredField("compareAttempt")
+                    compareAttemptField.isAccessible = true
+                    compareAttemptField.set(smartMarker, compareAttempt)
+
+                    // Активираме показването
+                    val shouldShowField = smartMarker.javaClass.getDeclaredField("shouldShow")
+                    shouldShowField.isAccessible = true
+                    shouldShowField.set(smartMarker, true)
+                } catch (ex: Exception) {}
+
+                val lineIndex = if (finalIsCurrent) 0 else 1
+                val highlight = Highlight(finalEntry.x, finalEntry.y, lineIndex)
+                chart.highlightValues(arrayOf(highlight))
+                chart.invalidate()
             }
 
             override fun onNothingSelected() {
-                // Оставяме празно
+                chart.highlightValue(null)
+                // КРИТИЧНО: Скриваме маркера когато няма избрана стойност
+                smartMarker.shouldShow = false
+                chart.invalidate()
             }
         })
+    }
+    
+    // Помощна функция за добавяне на специални точки в списък (за snapping логиката)
+    private fun addSpecialPointsForAttempt(
+        specialPoints: MutableList<SpecialPoint>,
+        attempt: DragAttempt,
+        isCurrent: Boolean,
+        mode: ChartMode
+    ) {
+        val (speeds, times) = getAlignedSpeedData(attempt)
+        
+        // 0-100 km/h
+        if (attempt.time0to100 > 0) {
+            val time100 = findSpeedCrossingPoint(speeds, times, 100f)
+            if (time100 != null && time100 > 0f) {
+                val speedUnit = UnitsManager.getSpeedUnit(this)
+                val y100 = when (mode) {
+                    ChartMode.SPEED -> UnitsManager.convertSpeed(100f, speedUnit)
+                    ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, time100, mode)
+                    ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, time100, mode)
+                }
+                val exactTime100 = attempt.time0to100 / 1_000_000_000.0f
+                specialPoints.add(SpecialPoint(time100, y100, PointType.SPEED_100, isCurrent, exactTime100))
+            }
+        }
+        
+        // 0-200 km/h
+        if (attempt.time0to200 > 0) {
+            val time200 = findSpeedCrossingPoint(speeds, times, 200f)
+            if (time200 != null && time200 > 0f) {
+                val speedUnit = UnitsManager.getSpeedUnit(this)
+                val y200 = when (mode) {
+                    ChartMode.SPEED -> UnitsManager.convertSpeed(200f, speedUnit)
+                    ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, time200, mode)
+                    ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, time200, mode)
+                }
+                val exactTime200 = attempt.time0to200 / 1_000_000_000.0f
+                specialPoints.add(SpecialPoint(time200, y200, PointType.SPEED_200, isCurrent, exactTime200))
+            }
+        }
+        
+        // 0-402m
+        if (attempt.time0to402 > 0) {
+            val time402 = attempt.time0to402 / 1_000_000_000.0f
+            if (time402 > 0f) {
+                val y402 = findValueAtTimeInterpolated(attempt, time402, mode)
+                val exactTime402 = attempt.time0to402 / 1_000_000_000.0f
+                specialPoints.add(SpecialPoint(time402, y402, PointType.DISTANCE_402, isCurrent, exactTime402))
+            }
+        }
+    }
+    
+    // Помощна функция за показване на маркера на специална точка
+    private fun showMarkerAtPoint(chart: LineChart, entry: Entry, pointType: PointType, exactTime: Float, isCurrentAttempt: Boolean = true) {
+        val dataSetIndex = when (currentMode) {
+            ChartMode.SPEED -> {
+                chart.data?.dataSets?.indexOfFirst {
+                    it.label.contains("Speed", ignoreCase = true) || it.label.contains("Current", ignoreCase = true) || it.label.isEmpty()
+                } ?: 0
+            }
+            ChartMode.ACCELERATION -> {
+                chart.data?.dataSets?.indexOfFirst {
+                    it.label.contains("Acceleration", ignoreCase = true) || it.label.contains("Accel", ignoreCase = true) || it.label.contains("Current", ignoreCase = true)
+                } ?: 0
+            }
+            ChartMode.G_FORCE -> {
+                chart.data?.dataSets?.indexOfFirst {
+                    it.label.contains("G-Force", ignoreCase = true) || it.label.contains("G Force", ignoreCase = true) || it.label.contains("GForce", ignoreCase = true) || it.label.contains("Current", ignoreCase = true)
+                } ?: 0
+            }
+        }
+        val validDataSetIndex = dataSetIndex.coerceIn(0, (chart.data?.dataSets?.size ?: 1) - 1)
+        val highlight = Highlight(entry.x, entry.y, validDataSetIndex)
+
+        smartMarker.refreshContent(entry, highlight)
+        
+        try {
+            val pointTypeField = smartMarker.javaClass.getDeclaredField("pointType")
+            pointTypeField.isAccessible = true
+            pointTypeField.set(smartMarker, pointType)
+
+            val isOnSpecialPointField = smartMarker.javaClass.getDeclaredField("isOnSpecialPoint")
+            isOnSpecialPointField.isAccessible = true
+            isOnSpecialPointField.set(smartMarker, true)
+
+            val actualValueField = smartMarker.javaClass.getDeclaredField("actualValue")
+            actualValueField.isAccessible = true
+            actualValueField.set(smartMarker, entry.y)
+
+            val exactTimeField = smartMarker.javaClass.getDeclaredField("exactTime")
+            exactTimeField.isAccessible = true
+            exactTimeField.set(smartMarker, exactTime)
+
+            val isOnCurrentLineField = smartMarker.javaClass.getDeclaredField("isOnCurrentLine")
+            isOnCurrentLineField.isAccessible = true
+            isOnCurrentLineField.set(smartMarker, isCurrentAttempt)
+
+            val modeField = smartMarker.javaClass.getDeclaredField("mode")
+            modeField.isAccessible = true
+            modeField.set(smartMarker, currentMode)
+
+            val attemptField = smartMarker.javaClass.getDeclaredField("currentAttempt")
+            attemptField.isAccessible = true
+            attemptField.set(smartMarker, currentAttempt)
+
+            val compareAttemptField = smartMarker.javaClass.getDeclaredField("compareAttempt")
+            compareAttemptField.isAccessible = true
+            compareAttemptField.set(smartMarker, compareAttempt)
+
+            // КРИТИЧНО: Активираме маркера за показване
+            val shouldShowField = smartMarker.javaClass.getDeclaredField("shouldShow")
+            shouldShowField.isAccessible = true
+            shouldShowField.set(smartMarker, true)
+        } catch (ex: Exception) {
+            // Reflection failed
+        }
+
+        chart.highlightValues(arrayOf(highlight))
+        chart.invalidate()
     }
     
     private fun addKeyPointMarkersToData(lineData: LineData) {
@@ -936,9 +1280,12 @@ class CompareAttemptsActivity : AppCompatActivity() {
                     setDrawCircles(true)
                     setDrawFilled(false)
                     lineWidth = 0f
+                    isHighlightEnabled = true // ВРЪЩАМЕ TRUE, за да работи tap върху кръгчето
                     setCircleColor(ContextCompat.getColor(this@CompareAttemptsActivity, R.color.accent_green)) // 100 km/h - зелена
                     circleRadius = 8f
                     circleHoleRadius = 4f
+                    // Скриваме от легендата
+                    form = com.github.mikephil.charting.components.Legend.LegendForm.NONE
                 }
                 dataSet100.color = android.graphics.Color.parseColor("#3c4040")
                 lineData.addDataSet(dataSet100)
@@ -960,9 +1307,12 @@ class CompareAttemptsActivity : AppCompatActivity() {
                     setDrawCircles(true)
                     setDrawFilled(false)
                     lineWidth = 0f
+                    isHighlightEnabled = true // ВРЪЩАМЕ TRUE, за да работи tap върху кръгчето
                     setCircleColor(ContextCompat.getColor(this@CompareAttemptsActivity, R.color.accent_blue)) // 200 km/h - синя
                     circleRadius = 8f
                     circleHoleRadius = 4f
+                    // Скриваме от легендата
+                    form = com.github.mikephil.charting.components.Legend.LegendForm.NONE
                 }
                 dataSet200.color = android.graphics.Color.parseColor("#3c4040")
                 lineData.addDataSet(dataSet200)
@@ -978,9 +1328,12 @@ class CompareAttemptsActivity : AppCompatActivity() {
                 setDrawCircles(true)
                 setDrawFilled(false)
                 lineWidth = 0f
+                isHighlightEnabled = true // ВРЪЩАМЕ TRUE, за да работи tap върху кръгчето
                 setCircleColor(ContextCompat.getColor(this@CompareAttemptsActivity, R.color.accent_red)) // 402m - червена
                 circleRadius = 8f
                 circleHoleRadius = 4f
+                // Скриваме от легендата
+                form = com.github.mikephil.charting.components.Legend.LegendForm.NONE
             }
             dataSet402.color = android.graphics.Color.parseColor("#3c4040")
             lineData.addDataSet(dataSet402)
@@ -1152,14 +1505,17 @@ class CompareAttemptsActivity : AppCompatActivity() {
 // SmartMarker клас за показване на балончета точно като в нормалната графика
 class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.charting.components.MarkerView(context, layoutResource) {
     
+    private val markerContext: Context = context
     private var currentEntry: Entry? = null
     private var isOnSpecialPoint = false
-    private var pointType: PointType = PointType.SPEED_100
+    private var pointType: CompareAttemptsActivity.PointType = CompareAttemptsActivity.PointType.SPEED_100
     private var actualValue: Float = 0f
     private var mode: CompareAttemptsActivity.ChartMode = CompareAttemptsActivity.ChartMode.SPEED
     private var currentAttempt: DragAttempt? = null
     private var compareAttempt: DragAttempt? = null
     private var isOnCurrentLine = true // Дали цъкването е на текущата линия или на сравняващата
+    private var exactTime: Float = 0f // КРИТИЧНО: Точното време от attempt (за да съвпада с Best Times)
+    var shouldShow: Boolean = false // КРИТИЧНО: Флаг за контрол на показването на бъбъла
     
     fun setAttempts(current: DragAttempt?, compare: DragAttempt?) {
         currentAttempt = current
@@ -1172,74 +1528,110 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
     
     override fun refreshContent(e: Entry?, highlight: Highlight?) {
         currentEntry = e
+        // КРИТИЧНО: Активираме маркера само ако има валиден entry
+        shouldShow = e != null
         if (e != null) {
             // Проверяваме дали е на специална точка (цветна)
             val specialPointType = determinePointType(e.x)
             isOnSpecialPoint = specialPointType != null
-            pointType = specialPointType ?: PointType.SPEED_100
+            pointType = specialPointType ?: CompareAttemptsActivity.PointType.SPEED_100
+            
+            // КРИТИЧНО: За специални точки exactTime вече е зададено от snapping логиката чрез reflection
+            // Ако не е зададено (не е специална точка), използваме координатата
+            if (isOnSpecialPoint && exactTime == 0f) {
+                // Fallback: изчисляваме от attempt-ите (само ако не е зададено от snapping)
+                exactTime = when (specialPointType) {
+                    CompareAttemptsActivity.PointType.SPEED_100 -> {
+                        val currentTime100 = currentAttempt?.time0to100?.let { it / 1_000_000_000.0f } ?: 0f
+                        val compareTime100 = compareAttempt?.time0to100?.let { it / 1_000_000_000.0f } ?: 0f
+                        if (kotlin.math.abs(e.x - currentTime100) < kotlin.math.abs(e.x - compareTime100)) {
+                            currentTime100
+                        } else {
+                            compareTime100
+                        }
+                    }
+                    CompareAttemptsActivity.PointType.SPEED_200 -> {
+                        val currentTime200 = currentAttempt?.time0to200?.let { it / 1_000_000_000.0f } ?: 0f
+                        val compareTime200 = compareAttempt?.time0to200?.let { it / 1_000_000_000.0f } ?: 0f
+                        if (kotlin.math.abs(e.x - currentTime200) < kotlin.math.abs(e.x - compareTime200)) {
+                            currentTime200
+                        } else {
+                            compareTime200
+                        }
+                    }
+                    CompareAttemptsActivity.PointType.DISTANCE_402 -> {
+                        val currentTime402 = currentAttempt?.time0to402?.let { it / 1_000_000_000.0f } ?: 0f
+                        val compareTime402 = compareAttempt?.time0to402?.let { it / 1_000_000_000.0f } ?: 0f
+                        if (kotlin.math.abs(e.x - currentTime402) < kotlin.math.abs(e.x - compareTime402)) {
+                            currentTime402
+                        } else {
+                            compareTime402
+                        }
+                    }
+                    null -> e.x
+                }
+            } else if (!isOnSpecialPoint) {
+                exactTime = e.x // За нормални точки използваме координатата
+            }
+            
             actualValue = e.y
             
             // Определяме на коя линия е цъкнато (current или compare)
-            isOnCurrentLine = determineWhichLine(e.x, e.y)
+            // isOnCurrentLine вече е зададено от snapping логиката чрез reflection, ако е специална точка
+            if (!isOnSpecialPoint) {
+                isOnCurrentLine = determineWhichLine(e.x, e.y)
+            }
         }
         super.refreshContent(e, highlight)
     }
     
     override fun draw(canvas: Canvas, posX: Float, posY: Float) {
-        if (currentEntry == null) return
+        if (currentEntry == null || !shouldShow) return
         
         val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
         val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
         
         // Определяме текста и цвета
         val (text, backgroundColor) = if (isOnSpecialPoint) {
-            // На специална точка - показваме типа и времето
+            val timeToShow = exactTime.coerceAtLeast(0f)
             val typeText = when (pointType) {
-                PointType.SPEED_100 -> {
-                    val timeAt100 = currentEntry?.x ?: 0f
-                    "0-100 km/h\n${String.format("%.3f", timeAt100)}s"
-                }
-                PointType.SPEED_200 -> {
-                    val timeAt200 = currentEntry?.x ?: 0f
-                    "0-200 km/h\n${String.format("%.3f", timeAt200)}s"
-                }
-                PointType.DISTANCE_402 -> {
-                    // За 402m показваме скоростта и времето в момента на достигане
-                    val timeAt402 = currentEntry?.x ?: 0f
-                    val speedAt402 = getSpeedAtTime(timeAt402)
-                    "0-402m\n${speedAt402.toInt()} km/h\n${String.format("%.3f", timeAt402)}s"
+                CompareAttemptsActivity.PointType.SPEED_100 -> "0-100 km/h\n${String.format("%.3f", timeToShow)}s"
+                CompareAttemptsActivity.PointType.SPEED_200 -> "0-200 km/h\n${String.format("%.3f", timeToShow)}s"
+                CompareAttemptsActivity.PointType.DISTANCE_402 -> {
+                    // Използваме правилния attempt според линията
+                    val attempt = if (isOnCurrentLine) currentAttempt else compareAttempt
+                    val speedAt402 = if (attempt != null) {
+                        val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
+                        interpolateValueAtTime(speedSamples, timestamps, timeToShow)
+                    } else 0f
+                    "0-402m\n${speedAt402.toInt()} km/h\n${String.format("%.3f", timeToShow)}s"
                 }
             }
+            // ПРАВИЛНИ ЦВЕТОВЕ – използваме същите цветове като в DragSessionDetailsActivity за консистентност
             val bgColor = when (pointType) {
-                PointType.SPEED_100 -> android.graphics.Color.parseColor("#FF4CAF50") // Зелен
-                PointType.SPEED_200 -> android.graphics.Color.parseColor("#FF2196F3") // Син
-                PointType.DISTANCE_402 -> android.graphics.Color.parseColor("#FFF44336") // Червен
+                CompareAttemptsActivity.PointType.SPEED_100 -> ContextCompat.getColor(markerContext, R.color.accent_green)
+                CompareAttemptsActivity.PointType.SPEED_200 -> ContextCompat.getColor(markerContext, R.color.accent_blue) // ЦИАН – точния цвят на кръгчето за 200 km/h
+                CompareAttemptsActivity.PointType.DISTANCE_402 -> ContextCompat.getColor(markerContext, R.color.accent_red)
             }
             Pair(typeText, bgColor)
         } else {
-            // На линията - показваме точната стойност и времето
+            // Нормална точка – цвят според линията
             val timeAtPoint = currentEntry?.x ?: 0f
-            val unit = when (mode) {
-                CompareAttemptsActivity.ChartMode.SPEED -> " km/h"
-                CompareAttemptsActivity.ChartMode.ACCELERATION -> " m/s²"
-                CompareAttemptsActivity.ChartMode.G_FORCE -> " G"
+            val valueFormatted = when (mode) {
+                CompareAttemptsActivity.ChartMode.SPEED -> "${actualValue.toInt()} km/h"
+                CompareAttemptsActivity.ChartMode.ACCELERATION -> String.format("%.1f m/s²", actualValue)
+                CompareAttemptsActivity.ChartMode.G_FORCE -> String.format("%.2f G", actualValue)
             }
-            val valueText = when (mode) {
-                CompareAttemptsActivity.ChartMode.SPEED -> "${actualValue.toInt()}"
-                CompareAttemptsActivity.ChartMode.ACCELERATION -> String.format("%.1f", actualValue)
-                CompareAttemptsActivity.ChartMode.G_FORCE -> String.format("%.2f", actualValue)
-            }
-            // Избираме цвета според линията върху която е цъкнато
             val lineColor = if (isOnCurrentLine) {
                 when (mode) {
-                    CompareAttemptsActivity.ChartMode.SPEED -> android.graphics.Color.parseColor("#FF2196F3") // Син за current
-                    CompareAttemptsActivity.ChartMode.ACCELERATION -> android.graphics.Color.parseColor("#FF4CAF50") // Зелен за current
-                    CompareAttemptsActivity.ChartMode.G_FORCE -> android.graphics.Color.parseColor("#FFF44336") // Червен за current
+                    CompareAttemptsActivity.ChartMode.SPEED -> 0xFFFF6020.toInt() // Оранжев
+                    CompareAttemptsActivity.ChartMode.ACCELERATION -> 0xFF3486A9.toInt()
+                    CompareAttemptsActivity.ChartMode.G_FORCE -> 0xFFE68894.toInt()
                 }
             } else {
-                android.graphics.Color.parseColor("#FFFF9800") // Оранжев за compare
+                0xFFA64CEB.toInt() // Лилаво за Compare
             }
-            Pair("$valueText$unit\n${String.format("%.3f", timeAtPoint)}s", lineColor)
+            Pair("$valueFormatted\n${String.format("%.3f", timeAtPoint)}s", lineColor)
         }
         
         // Настройваме paint-овете
@@ -1264,9 +1656,9 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
         val rectWidth = maxLineWidth + padding * 2
         val rectHeight = (lineHeight * lines.size) + padding * 2
         
-        // Позиционираме балончето над точката
+        // Позиционираме балончето над точката (като в DragSessionDetailsActivity)
         val balloonX = posX - rectWidth / 2
-        val balloonY = posY - rectHeight - 20f
+        val balloonY = posY - rectHeight - 12f // по-малко отстояние, стрелката ще докосва кръгчето почти
         
         // Рисуваме закръглен правоъгълник (балончето)
         val rect = android.graphics.RectF(balloonX, balloonY, balloonX + rectWidth, balloonY + rectHeight)
@@ -1286,7 +1678,7 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
             canvas.drawText(text, posX, balloonY + textBounds.height() + padding / 2, textPaint)
         }
         
-        // Рисуваме малка стрелка надолу към точката
+        // Рисуваме малка стрелка надолу към точката (като в DragSessionDetailsActivity)
         val path = android.graphics.Path()
         path.moveTo(posX - 8f, balloonY + rectHeight)
         path.lineTo(posX + 8f, balloonY + rectHeight)
@@ -1296,24 +1688,25 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
     }
     
     override fun getOffset(): MPPointF {
+        // Използваме същата логика като в DragSessionDetailsActivity за перфектно центриране
         return MPPointF(-width / 2f, -height.toFloat())
     }
     
-    private fun determinePointType(x: Float): PointType? {
+    private fun determinePointType(x: Float): CompareAttemptsActivity.PointType? {
         // Проверяваме за 100 km/h точка в двата опита
         val time100Current = currentAttempt?.time0to100 ?: 0L
         val time100Compare = compareAttempt?.time0to100 ?: 0L
         
         if (time100Current > 0) {
             val time100Seconds = time100Current / 1_000_000_000.0f
-            if (kotlin.math.abs(x - time100Seconds) < 0.05f) {
-                return PointType.SPEED_100
+            if (kotlin.math.abs(x - time100Seconds) < 0.4f) { // Увеличен радиус за по-лесно засичане
+                return CompareAttemptsActivity.PointType.SPEED_100
             }
         }
         if (time100Compare > 0) {
             val time100Seconds = time100Compare / 1_000_000_000.0f
-            if (kotlin.math.abs(x - time100Seconds) < 0.05f) {
-                return PointType.SPEED_100
+            if (kotlin.math.abs(x - time100Seconds) < 0.4f) {
+                return CompareAttemptsActivity.PointType.SPEED_100
             }
         }
         
@@ -1323,14 +1716,14 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
         
         if (time200Current > 0) {
             val time200Seconds = time200Current / 1_000_000_000.0f
-            if (kotlin.math.abs(x - time200Seconds) < 0.05f) {
-                return PointType.SPEED_200
+            if (kotlin.math.abs(x - time200Seconds) < 0.4f) {
+                return CompareAttemptsActivity.PointType.SPEED_200
             }
         }
         if (time200Compare > 0) {
             val time200Seconds = time200Compare / 1_000_000_000.0f
-            if (kotlin.math.abs(x - time200Seconds) < 0.05f) {
-                return PointType.SPEED_200
+            if (kotlin.math.abs(x - time200Seconds) < 0.4f) {
+                return CompareAttemptsActivity.PointType.SPEED_200
             }
         }
         
@@ -1340,14 +1733,14 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
         
         if (time402Current > 0) {
             val time402Seconds = time402Current / 1_000_000_000.0f
-            if (kotlin.math.abs(x - time402Seconds) < 0.05f) {
-                return PointType.DISTANCE_402
+            if (kotlin.math.abs(x - time402Seconds) < 0.4f) {
+                return CompareAttemptsActivity.PointType.DISTANCE_402
             }
         }
         if (time402Compare > 0) {
             val time402Seconds = time402Compare / 1_000_000_000.0f
-            if (kotlin.math.abs(x - time402Seconds) < 0.05f) {
-                return PointType.DISTANCE_402
+            if (kotlin.math.abs(x - time402Seconds) < 0.4f) {
+                return CompareAttemptsActivity.PointType.DISTANCE_402
             }
         }
         
@@ -1417,9 +1810,10 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
     }
     
     private fun getSpeedAtTime(timeSeconds: Float): Float {
-        if (currentAttempt == null) return 0f
+        val attempt = if (isOnCurrentLine) currentAttempt else compareAttempt
+        if (attempt == null) return 0f
         
-        val (speedSamples, timestamps) = getAlignedSpeedData(currentAttempt!!)
+        val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
         return interpolateValueAtTime(speedSamples, timestamps, timeSeconds)
     }
     
@@ -1462,9 +1856,5 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
         }
         
         return values.lastOrNull() ?: 0f
-    }
-    
-    private enum class PointType {
-        SPEED_100, SPEED_200, DISTANCE_402
     }
 }

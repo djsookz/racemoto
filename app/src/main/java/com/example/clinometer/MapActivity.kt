@@ -168,6 +168,7 @@ class MapActivity : AppCompatActivity() {
             findViewById<TextView>(R.id.tvDistanceMoto).apply {
                 visibility = View.VISIBLE
                 val convertedDist = UnitsManager.formatDistance(raceToEdit.distance, this@MapActivity, 2)
+
                 text = convertedDist
             }
             findViewById<TextView>(R.id.tvDistanceCar).visibility = View.GONE
@@ -252,7 +253,7 @@ class MapActivity : AppCompatActivity() {
         val rvPhotos = findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.rvPhotos)
 
         photosContainer?.let {
-            if (raceToEdit.photoPaths.isNotEmpty()) {
+            if (raceToEdit.photoPaths != null && raceToEdit.photoPaths.isNotEmpty()) {
                 it.visibility = View.VISIBLE
                 rvPhotos?.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this, androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL, false)
                 val adapter = PhotosAdapter(raceToEdit.photoPaths)
@@ -1368,7 +1369,9 @@ class MapActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        val intent = Intent(this, RacesActivity::class.java)
+        val intent = Intent(this, MainContainerActivity::class.java).apply {
+            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_RACES)
+        }
         intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         startActivity(intent)
         finish()

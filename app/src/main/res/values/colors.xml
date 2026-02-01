@@ -26,7 +26,7 @@
     <color name="accent_light">#60A5FA</color>
 
     <color name="card_background">#1C2128</color>
-    <color name="card_background_secondary">#3A3A3A</color>
+    <color name="card_background_secondary">#2A323B</color>
     <color name="grid_line">#555555</color>
     <color name="profile_name_text">#212121</color>
     <color name="profile_type_text">#757575</color>
@@ -52,10 +52,10 @@
 
 
     <color name="card_dark">#1E1E2E</color>
-    <color name="accent_blue">#FF6020</color>
+    <color name="accent_blue">#39E4DB</color>
     <color name="accent_purple">#AB47BC</color>
     <color name="accent_green">#66BB6A</color>
-    <color name="accent_orange">#FF6020</color>
+    <color name="accent_orange">#FFEB3B</color>
     <color name="accent_gold">#FFD700</color>
     <color name="background_dark">#0F0F17</color>
     <color name="stat_bg">#2A2A3A</color>

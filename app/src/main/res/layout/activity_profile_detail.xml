@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1C1C1E"
+    android:background="@color/background_primary"
     android:fitsSystemWindows="true">
 
     <!-- Background ImageView -->
@@ -39,13 +39,13 @@
                 app:cardCornerRadius="24dp"
                 app:cardElevation="12dp"
                 android:layout_marginBottom="24dp"
-               app:cardBackgroundColor="#3A3D40">
+               app:cardBackgroundColor="@color/card_background">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:background="#3A3D40">
+                    android:background="@color/card_background">
 
                     <!-- Original Layout (when no image) -->
                     <LinearLayout
@@ -250,6 +250,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="@string/profile_detail_duration_format"
                                 android:textColor="@color/white"
+                                android:textAlignment="center"
                                 android:textSize="18sp"
                                 android:textStyle="bold"
                                 android:layout_marginTop="4dp"/>
@@ -277,7 +278,7 @@
                 app:cardCornerRadius="20dp"
                 app:cardElevation="8dp"
                 android:layout_marginBottom="20dp"
-                android:backgroundTint="#3A3D40"
+                android:backgroundTint="@color/card_background"
                 >
 
                 <LinearLayout
@@ -285,7 +286,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     android:padding="24dp"
-                    android:backgroundTint="#1c1c1c">
+                    android:backgroundTint="@color/card_background">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -376,7 +377,7 @@
                                 android:layout_gravity="center_vertical"
                                 android:background="?attr/selectableItemBackgroundBorderless"
                                 android:src="@drawable/ic_reset"
-                                android:tint="@color/white"
+                                app:tint="@color/white"
                                 android:alpha="0.7"
                                 android:scaleType="centerInside"
                                 android:padding="4dp"/>

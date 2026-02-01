@@ -91,9 +91,15 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:minWidth="40dp"
             android:text="@string/nav_map_label"
             android:textColor="@color/nav_text_inactive"
-            android:textSize="12sp"/>
+            android:textSize="12sp"
+            android:singleLine="true"
+            android:ellipsize="none"
+            android:maxLines="1"
+            android:gravity="center"
+            android:includeFontPadding="false"/>
     </LinearLayout>
 
     <!-- Навигационен елемент 4 - Гараж -->

@@ -7,37 +7,37 @@
 
     <!-- Дръжка -->
     <path
-        android:fillColor="#654321"
+        android:fillColor="#FFFFFF"
         android:pathData="M20,10 L28,10 L28,190 L20,190 Z"/>
 
     <!-- Топче на върха -->
     <path
-        android:fillColor="#FFD700"
+        android:fillColor="#FFFFFF"
         android:pathData="M24,8 m-6,0 a6,6 0,1,1 12,0 a6,6 0,1,1 -12,0"/>
 
     <!-- Флаг платно - светло зелена ивица 1 (вълнообразна) -->
     <path
-        android:fillColor="#00FF00"
+        android:fillColor="#FFFFFF"
         android:pathData="M28,25 Q70,20 110,25 Q150,30 185,28 L185,39 Q150,41 110,39 Q70,37 28,39 Z"/>
 
     <!-- Тъмно зелена ивица 1 (вълнообразна) -->
     <path
-        android:fillColor="#00FF00"
+        android:fillColor="#FFFFFF"
         android:pathData="M28,39 Q70,37 110,39 Q150,41 185,39 L185,53 Q150,51 110,53 Q70,55 28,53 Z"/>
 
     <!-- Светло зелена ивица 2 (вълнообразна) -->
     <path
-        android:fillColor="#00FF00"
+        android:fillColor="#FFFFFF"
         android:pathData="M28,53 Q70,55 110,53 Q150,51 185,53 L185,67 Q150,69 110,67 Q70,65 28,67 Z"/>
 
     <!-- Тъмно зелена ивица 2 (вълнообразна) -->
     <path
-        android:fillColor="#00FF00"
+        android:fillColor="#FFFFFF"
         android:pathData="M28,67 Q70,65 110,67 Q150,69 185,67 L185,81 Q150,79 110,81 Q70,83 28,81 Z"/>
 
     <!-- Светло зелена ивица 3 (вълнообразна) -->
     <path
-        android:fillColor="#00FF00"
+        android:fillColor="#FFFFFF"
         android:pathData="M28,81 Q70,83 110,81 Q150,79 185,81 L185,95 Q150,97 110,95 Q70,93 28,95 Z"/>
 
     <!-- Светъл блясък отгоре -->

@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1C1C1E"
+    android:background="@color/background_primary"
     android:fitsSystemWindows="true"
     android:id="@+id/settings_container">
 
@@ -51,7 +51,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="0dp"
@@ -82,7 +82,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -116,7 +116,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -150,7 +150,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -163,110 +163,6 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="Добави centerline точки за snapping на official писти"
-                    android:textSize="14sp"
-                    android:textColor="#AAA"
-                    android:layout_marginTop="4dp"/>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Map Provider -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardMapProvider"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            app:cardElevation="2dp"
-            app:cardCornerRadius="8dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp"
-                android:background="#3A3D40">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Map Provider"
-                    android:textSize="16sp"
-                    android:textColor="#FFF"/>
-
-                <TextView
-                    android:id="@+id/tvMapProviderValue"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="OSMDroid (Default)"
-                    android:textSize="14sp"
-                    android:textColor="#AAA"
-                    android:layout_marginTop="4dp"/>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Test Mapbox -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardTestMapbox"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            app:cardElevation="2dp"
-            app:cardCornerRadius="8dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp"
-                android:background="#3A3D40">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Test Mapbox"
-                    android:textSize="16sp"
-                    android:textColor="#FFF"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Open Mapbox test map"
-                    android:textSize="14sp"
-                    android:textColor="#AAA"
-                    android:layout_marginTop="4dp"/>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- New: Test Navigation -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardTestNavigation"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:foreground="?android:attr/selectableItemBackground"
-            app:cardElevation="2dp"
-            app:cardCornerRadius="8dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp"
-                android:background="#3A3D40">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="🚀 Test Navigation"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="#FF6B35"/>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Mapbox v3 Turn-by-Turn Experience"
                     android:textSize="14sp"
                     android:textColor="#AAA"
                     android:layout_marginTop="4dp"/>
@@ -287,7 +183,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -332,7 +228,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -367,7 +263,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -401,7 +297,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="match_parent"
@@ -449,7 +345,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="0dp"
@@ -480,7 +376,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="0dp"
@@ -511,7 +407,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="0dp"
@@ -542,7 +438,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="0dp"
@@ -587,7 +483,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="0dp"
@@ -618,7 +514,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:padding="16dp"
-                android:background="#3A3D40">
+                android:background="@color/card_background">
 
                 <TextView
                     android:layout_width="0dp"

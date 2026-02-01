@@ -27,10 +27,11 @@
 
             <ImageView
                 android:id="@+id/ivProfileIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_gravity="center"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="fill"
                 android:src="@drawable/ic_car"
+                android:scaleType="centerInside"
                 app:tint="@color/primary_color" />
 
         </FrameLayout>

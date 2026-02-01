@@ -68,6 +68,11 @@ class SessionSelectionActivity : AppCompatActivity() {
         }
         
         rvSessions.adapter = sessionsAdapter
+        
+        // Настройваме back бутона
+        findViewById<View>(R.id.btnBack)?.setOnClickListener {
+            finish()
+        }
     }
     
     private fun loadSessions() {
@@ -106,7 +111,6 @@ class SessionSelectionActivity : AppCompatActivity() {
         inner class SessionViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             private val tvSessionName: TextView = itemView.findViewById(R.id.tvSessionName)
             private val tvSessionDate: TextView = itemView.findViewById(R.id.tvSessionDate)
-            private val tvAttemptCount: TextView = itemView.findViewById(R.id.tvAttemptCount)
             private val rvAttempts: RecyclerView = itemView.findViewById(R.id.rvAttempts)
             private val llAttemptsContainer: View = itemView.findViewById(R.id.llAttemptsContainer)
             
@@ -130,7 +134,6 @@ class SessionSelectionActivity : AppCompatActivity() {
                 
                 // Зареждаме опитите за тази сесия
                 val attempts = session.attempts ?: emptyList()
-                tvAttemptCount.text = "${attempts.size} attempts"
                 
                 val attemptsAdapter = AttemptsAdapter(attempts) { attempt ->
                     onAttemptSelected(attempt)

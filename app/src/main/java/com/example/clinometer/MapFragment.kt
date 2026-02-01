@@ -132,6 +132,9 @@ class MapFragment : Fragment() {
     private lateinit var tvTemperature: TextView
     private lateinit var tvAltitude: TextView
     private lateinit var fabMyLocationContainer: FrameLayout
+    private lateinit var tvHeaderModelName: TextView
+    private lateinit var ivHeaderProfileImage: ImageView
+    private lateinit var llActiveProfileHeader: LinearLayout
     
     // Inline route preview (draw routes on the same map, like TestNavigationActivity)
     private lateinit var routeLineApi: MapboxRouteLineApi
@@ -327,6 +330,9 @@ class MapFragment : Fragment() {
         searchInputContainer = view.findViewById(R.id.searchInputContainer)
         etSearch = view.findViewById(R.id.etSearch)
         rvSearchResults = view.findViewById(R.id.rvSearchResults)
+        tvHeaderModelName = view.findViewById(R.id.tvHeaderModelName)
+        ivHeaderProfileImage = view.findViewById(R.id.ivHeaderProfileImage)
+        llActiveProfileHeader = view.findViewById(R.id.llActiveProfileHeader)
 
         routeInfoContainer = view.findViewById(R.id.routeInfoContainer)
         tvDestinationName = view.findViewById(R.id.tvDestinationName)
@@ -641,6 +647,15 @@ class MapFragment : Fragment() {
             etSearch.text?.clear()
             hideInlineSearch()
             
+            // Reset destination placeholder text
+            val tv = destinationSearchContainer.findViewById<TextView>(R.id.tvDestinationPlaceholder)
+            tv.text = getString(R.string.destination_placeholder)
+            
+            // Show profile info again
+            if (::llActiveProfileHeader.isInitialized) {
+                llActiveProfileHeader.visibility = View.VISIBLE
+            }
+            
             // Clear current route data
             currentDestination = null
             currentDestinationName = null
@@ -893,6 +908,8 @@ class MapFragment : Fragment() {
             putExtra("nav_start_from_preview", true)
         }
         startActivity(intent)
+        // Remove transition animation for seamless page change
+        requireActivity().overridePendingTransition(0, 0)
     }
 
     private fun setCompactRouteMode(enabled: Boolean) {
@@ -909,6 +926,9 @@ class MapFragment : Fragment() {
 
         destinationSearchContainer.visibility = if (enabled) View.GONE else View.VISIBLE
         searchContainer.visibility = View.GONE
+        if (::llActiveProfileHeader.isInitialized) {
+            llActiveProfileHeader.visibility = if (enabled) View.GONE else View.VISIBLE
+        }
 
         routeInfoContainer.visibility = if (enabled) View.VISIBLE else View.GONE
         routePreviewBottomContainer.visibility = if (enabled) View.VISIBLE else View.GONE
@@ -1391,7 +1411,10 @@ class MapFragment : Fragment() {
             requireActivity().finish()
         } ?: run {
             Toast.makeText(requireContext(), "Моля изберете профил", Toast.LENGTH_SHORT).show()
-            startActivity(Intent(requireContext(), RacesActivity::class.java))
+            val intent = Intent(requireContext(), MainContainerActivity::class.java).apply {
+                putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_RACES)
+            }
+            startActivity(intent)
         }
     }
     
@@ -1426,6 +1449,7 @@ class MapFragment : Fragment() {
         
         loadCachedWeatherData()
         updateEnvironmentDisplay()
+        loadProfileInfo()
         
         // ВАЖНО: Ако има currentDestination (route preview режим), НЕ приближаваме до локацията
         // Запазваме текущата camera позиция (zoom на маршрута)
@@ -1808,6 +1832,9 @@ class MapFragment : Fragment() {
         val cachedLat = prefs.getFloat("cached_location_lat", Float.NaN)
         val cachedLon = prefs.getFloat("cached_location_lon", Float.NaN)
         val cachedIcon = prefs.getInt("cached_weather_icon", -1)
+        val cachedWindKph = prefs.getFloat("cached_wind_kph", Float.NaN)
+        val cachedHumidity = prefs.getInt("cached_humidity", -1)
+        val cachedPressure = prefs.getFloat("cached_pressure", Float.NaN)
         
         if (!cachedTemp.isNaN() && !cachedLat.isNaN() && !cachedLon.isNaN()) {
             currentTemperature = cachedTemp
@@ -1818,6 +1845,18 @@ class MapFragment : Fragment() {
         
         if (!cachedAlt.isNaN() && !cachedLat.isNaN() && !cachedLon.isNaN()) {
             currentAltitude = cachedAlt
+        }
+        
+        if (!cachedWindKph.isNaN()) {
+            currentWindKph = cachedWindKph.toDouble()
+        }
+        
+        if (cachedHumidity != -1) {
+            currentHumidity = cachedHumidity
+        }
+        
+        if (!cachedPressure.isNaN()) {
+            currentPressure = cachedPressure.toDouble()
         }
     }
     
@@ -1830,6 +1869,9 @@ class MapFragment : Fragment() {
         editor.putFloat("cached_location_lat", location.latitude.toFloat())
         editor.putFloat("cached_location_lon", location.longitude.toFloat())
         editor.putInt("cached_weather_icon", currentWeatherIcon)
+        editor.putFloat("cached_wind_kph", currentWindKph.toFloat())
+        editor.putInt("cached_humidity", currentHumidity)
+        editor.putFloat("cached_pressure", currentPressure.toFloat())
         editor.apply()
     }
     
@@ -2009,5 +2051,66 @@ class MapFragment : Fragment() {
             
             insets
         }
+    }
+    
+    // ЕЛЕМЕНТАРНО: Зареждане на модела и снимката от активния профил
+    private fun loadProfileInfo() {
+        if (!isAdded || view == null) return
+        
+        // Проверка дали view-тата са инициализирани (важно при ротация)
+        if (!::tvHeaderModelName.isInitialized || !::ivHeaderProfileImage.isInitialized) {
+            return
+        }
+        
+        val selectedId = ProfileStorage.getSelectedProfileId(requireContext())
+        val profiles = ProfileStorage.loadProfiles(requireContext())
+        val activeProfile = profiles.find { it.id == selectedId }
+
+        if (activeProfile != null) {
+            // 1. Зареждаме модела: "Audi A6" -> "A6"
+            val fullName = activeProfile.name.trim()
+            val modelName = if (fullName.contains(" ")) {
+                fullName.substringAfterLast(" ")
+            } else {
+                fullName
+            }
+            tvHeaderModelName.text = modelName
+            tvHeaderModelName.setTextColor(android.graphics.Color.WHITE)
+            tvHeaderModelName.visibility = View.VISIBLE
+
+            // 2. Зареждаме снимката или показваме иконка
+            if (!activeProfile.imagePath.isNullOrEmpty()) {
+                val imageFile = java.io.File(requireContext().getExternalFilesDir(null), activeProfile.imagePath)
+                if (imageFile.exists()) {
+                    // Image is already scaled on disk, just load it
+                    val bitmap = android.graphics.BitmapFactory.decodeFile(imageFile.absolutePath)
+                    if (bitmap != null) {
+                        ivHeaderProfileImage.setImageBitmap(bitmap)
+                        ivHeaderProfileImage.scaleType = ImageView.ScaleType.CENTER_CROP
+                        ivHeaderProfileImage.setPadding(0, 0, 0, 0)
+                    } else {
+                        showDefaultIcon(activeProfile.vehicleType)
+                    }
+                } else {
+                    showDefaultIcon(activeProfile.vehicleType)
+                }
+            } else {
+                showDefaultIcon(activeProfile.vehicleType)
+            }
+        } else {
+            tvHeaderModelName.text = ""
+            showDefaultIcon(Profile.VehicleType.CAR)
+        }
+    }
+    
+    private fun showDefaultIcon(type: Profile.VehicleType) {
+        if (!::ivHeaderProfileImage.isInitialized) return
+        
+        val icon = if (type == Profile.VehicleType.CAR) R.drawable.ic_car else R.drawable.ic_motorcycle
+        ivHeaderProfileImage.setImageResource(icon)
+        ivHeaderProfileImage.scaleType = ImageView.ScaleType.CENTER_INSIDE
+        val padding = (6 * resources.displayMetrics.density).toInt()
+        ivHeaderProfileImage.setPadding(padding, padding, padding, padding)
+        ivHeaderProfileImage.visibility = View.VISIBLE
     }
 }

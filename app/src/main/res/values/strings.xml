@@ -56,6 +56,7 @@ Permissions are required for basic functionality!</string>
     <string name="profile_edit_button">Edit</string>
     <string name="profile_save_button">Save</string>
     <string name="profile_delete_button">Delete</string>
+    <string name="profile_details_menu">Details</string>
     <string name="profile_header">Garage</string>
     <string name="profile_add_button">Add new vehicle</string>
     <string name="session_header">Sessions</string>

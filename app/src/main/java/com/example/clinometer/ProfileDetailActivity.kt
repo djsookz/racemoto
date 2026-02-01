@@ -3,6 +3,7 @@
 package com.example.clinometer
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.view.View
@@ -406,6 +407,7 @@ class ProfileDetailActivity : AppCompatActivity() {
         if (!profile.imagePath.isNullOrEmpty()) {
             val imageFile = File(getExternalFilesDir(null), profile.imagePath)
             if (imageFile.exists()) {
+                // Image is already scaled on disk, just load it
                 val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
                 imageView.setImageBitmap(bitmap)
                 imageView.scaleType = ImageView.ScaleType.CENTER_CROP

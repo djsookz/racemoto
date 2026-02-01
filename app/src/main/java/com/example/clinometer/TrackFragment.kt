@@ -822,6 +822,7 @@ class TrackFragment : Fragment(), LocationListener {
             if (!activeProfile.imagePath.isNullOrEmpty()) {
                 val imageFile = java.io.File(requireContext().getExternalFilesDir(null), activeProfile.imagePath)
                 if (imageFile.exists()) {
+                    // Image is already scaled on disk, just load it
                     val bitmap = android.graphics.BitmapFactory.decodeFile(imageFile.absolutePath)
                     if (bitmap != null) {
                         ivHeaderProfileImage.setImageBitmap(bitmap)

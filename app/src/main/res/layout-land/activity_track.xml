@@ -13,7 +13,10 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
         android:background="@color/card_background"
         android:gravity="center_vertical"
         app:layout_constraintTop_toTopOf="parent"
@@ -125,19 +128,21 @@
 
     <!-- Bottom navigation is handled by MainContainerActivity - removed from here -->
 
-    <!-- Start button -->
+    <!-- Start button - По-малък, долу в центъра -->
     <Button
         android:id="@+id/btnStartNewSession"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:text="@string/start_track_session"
-        android:textSize="18sp"
-        android:padding="16dp"
+        android:minWidth="200dp"
+        android:text= "@string/start_track_session"
+        android:textSize="14sp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:layout_marginBottom="6dp"
         android:backgroundTint="@color/primary_color"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"/>
 
     <!-- Sessions list -->
     <androidx.core.widget.NestedScrollView
@@ -176,7 +181,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginTop="20dp"/>
+                android:layout_marginTop="15dp"
+                />
 
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardSofiaRing"

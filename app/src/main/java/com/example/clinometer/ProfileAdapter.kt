@@ -10,6 +10,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
@@ -23,7 +24,8 @@ class ProfileAdapter(
     private val context: Context,
     private val onProfileClick: (Profile) -> Unit,
     private val onEditClick: (Profile) -> Unit,
-    private val onDeleteClick: (Profile) -> Unit
+    private val onDeleteClick: (Profile) -> Unit,
+    private val onDetailsClick: (Profile) -> Unit
 ) : RecyclerView.Adapter<ProfileAdapter.ProfileViewHolder>() {
 
     private val imageCache = mutableMapOf<String, Bitmap?>()
@@ -75,11 +77,12 @@ class ProfileAdapter(
             onProfileClick(profile)
         }
 
-        // Бутон за опции - показва PopupMenu с Edit и Delete
+        // Бутон за опции - показва PopupMenu с Edit, Details и Delete
         holder.btnOptions.setOnClickListener { view ->
             android.widget.PopupMenu(view.context, view).apply {
                 menu.add(0, 1, 0, context.getString(R.string.profile_edit_text))
-                menu.add(0, 2, 0, context.getString(R.string.profile_delete_button))
+                menu.add(0, 2, 0, context.getString(R.string.profile_details_menu))
+                menu.add(0, 3, 0, context.getString(R.string.profile_delete_button))
                 setOnMenuItemClickListener { item ->
                     when (item.itemId) {
                         1 -> {
@@ -87,6 +90,10 @@ class ProfileAdapter(
                             true
                         }
                         2 -> {
+                            onDetailsClick(profile)
+                            true
+                        }
+                        3 -> {
                             onDeleteClick(profile)
                             true
                         }
@@ -117,16 +124,8 @@ class ProfileAdapter(
             val cachedBitmap = imageCache[imagePath]
 
             if (cachedBitmap != null) {
-                // Използваме кеширания bitmap
-                holder.ivProfileIcon.setImageBitmap(cachedBitmap)
-                holder.ivProfileIcon.scaleType = ImageView.ScaleType.CENTER_CROP
-                holder.ivProfileIcon.clipToOutline = true
-                holder.ivProfileIcon.outlineProvider = object : ViewOutlineProvider() {
-                    override fun getOutline(view: View, outline: android.graphics.Outline) {
-                        outline.setOval(0, 0, view.width, view.height)
-                    }
-                }
-                holder.ivProfileIcon.imageTintList = null
+                // Use cached bitmap (already scaled appropriately)
+                setupImageForBitmap(holder.ivProfileIcon, cachedBitmap)
             } else {
                 // Зареждаме асинхронно
                 val imageFile = File(context.getExternalFilesDir(null), imagePath)
@@ -134,26 +133,28 @@ class ProfileAdapter(
                     // Зареждаме в background thread
                     Thread {
                         try {
+                            // Image is already scaled on disk, just load it
                             val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
-                            imageCache[imagePath] = bitmap
-                            imageLoadHandler.post {
-                                // Проверяваме дали holder все още е валиден
-                                if (holder.adapterPosition != RecyclerView.NO_POSITION &&
-                                    profiles.getOrNull(holder.adapterPosition)?.id == profile.id) {
-                                    holder.ivProfileIcon.setImageBitmap(bitmap)
-                                    holder.ivProfileIcon.scaleType = ImageView.ScaleType.CENTER_CROP
-                                    holder.ivProfileIcon.clipToOutline = true
-                                    holder.ivProfileIcon.outlineProvider = object : ViewOutlineProvider() {
-                                        override fun getOutline(view: View, outline: android.graphics.Outline) {
-                                            outline.setOval(0, 0, view.width, view.height)
-                                        }
+                            if (bitmap != null) {
+                                // Remove old bitmap from cache if exists (don't recycle - might still be in use)
+                                imageCache.remove(imagePath)
+                                
+                                imageCache[imagePath] = bitmap
+                                imageLoadHandler.post {
+                                    // Проверяваме дали holder все още е валиден
+                                    if (holder.adapterPosition != RecyclerView.NO_POSITION &&
+                                        profiles.getOrNull(holder.adapterPosition)?.id == profile.id) {
+                                        setupImageForBitmap(holder.ivProfileIcon, bitmap)
                                     }
-                                    holder.ivProfileIcon.imageTintList = null
+                                }
+                            } else {
+                                imageLoadHandler.post {
+                                    showDefaultIcon(holder, profile.vehicleType)
                                 }
                             }
                         } catch (e: Exception) {
                             Log.w("ProfileAdapter", "Error loading profile image", e)
-                            imageCache[imagePath] = null
+                            imageCache.remove(imagePath)
                             imageLoadHandler.post {
                                 showDefaultIcon(holder, profile.vehicleType)
                             }
@@ -170,6 +171,103 @@ class ProfileAdapter(
             showDefaultIcon(holder, profile.vehicleType)
         }
     }
+    
+    private fun setupImageForBitmap(imageView: ImageView, bitmap: Bitmap) {
+        // Validate view is still attached
+        if (imageView.parent == null) {
+            return
+        }
+        
+        // Reset any previous state
+        imageView.clipToOutline = false
+        imageView.outlineProvider = null
+        
+        // Ensure layout params are set correctly - always reset and set
+        val parent = imageView.parent as? FrameLayout
+        if (parent != null) {
+            val layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            ).apply {
+                gravity = android.view.Gravity.FILL
+            }
+            imageView.layoutParams = layoutParams
+        } else {
+            // Fallback if parent is not FrameLayout
+            val existingParams = imageView.layoutParams
+            if (existingParams is FrameLayout.LayoutParams) {
+                existingParams.width = FrameLayout.LayoutParams.MATCH_PARENT
+                existingParams.height = FrameLayout.LayoutParams.MATCH_PARENT
+                existingParams.gravity = android.view.Gravity.FILL
+                imageView.layoutParams = existingParams
+            }
+        }
+        
+        // Set image and scale type
+        imageView.setImageBitmap(bitmap)
+        imageView.scaleType = ImageView.ScaleType.CENTER_CROP
+        imageView.imageTintList = null
+        
+        // Function to apply circular outline with validation
+        fun applyCircularOutline(): Boolean {
+            // Validate view is still attached and has valid dimensions
+            if (imageView.parent == null) {
+                return false
+            }
+            
+            val width = imageView.width
+            val height = imageView.height
+            
+            if (width > 0 && height > 0) {
+                imageView.clipToOutline = true
+                imageView.outlineProvider = object : ViewOutlineProvider() {
+                    override fun getOutline(view: View, outline: android.graphics.Outline) {
+                        // Use actual measured dimensions for perfect circle
+                        val w = view.width
+                        val h = view.height
+                        if (w > 0 && h > 0) {
+                            outline.setOval(0, 0, w, h)
+                        }
+                    }
+                }
+                // Force redraw to apply outline
+                imageView.invalidate()
+                return true
+            }
+            return false
+        }
+        
+        // Try to apply outline immediately if view is already measured
+        if (!applyCircularOutline()) {
+            // Use ViewTreeObserver to wait for layout to be complete
+            val viewTreeObserver = imageView.viewTreeObserver
+            if (viewTreeObserver.isAlive) {
+                viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        // Remove listener to avoid multiple calls
+                        val observer = imageView.viewTreeObserver
+                        if (observer.isAlive) {
+                            observer.removeOnGlobalLayoutListener(this)
+                        }
+                        applyCircularOutline()
+                    }
+                })
+            } else {
+                // Fallback: use post with multiple attempts
+                var attempts = 0
+                val maxAttempts = 10
+                fun tryApply() {
+                    attempts++
+                    if (imageView.parent != null) {
+                        if (!applyCircularOutline() && attempts < maxAttempts) {
+                            imageView.postDelayed({ tryApply() }, 30)
+                        }
+                    }
+                }
+                imageView.post { tryApply() }
+            }
+        }
+    }
 
     private fun showDefaultIcon(holder: ProfileViewHolder, vehicleType: Profile.VehicleType) {
         val iconRes = when (vehicleType) {
@@ -184,13 +282,17 @@ class ProfileAdapter(
     }
 
     fun clearImageCacheForPath(imagePath: String?) {
+        // Just remove from cache, don't recycle - bitmap might still be in use by ImageView
         imagePath?.let {
             imageCache.remove(it)
         }
     }
 
     fun cleanup() {
+        // Recycle all bitmaps before clearing cache
+        imageCache.values.forEach { it?.recycle() }
         imageCache.clear()
     }
+    
 }
 

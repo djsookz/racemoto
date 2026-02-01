@@ -213,7 +213,7 @@ object RouteSnapshotGenerator {
                 overlayCallback = null,
                 resultCallback = { bitmap, error ->
                     if (bitmap != null && error == null) {
-                        val finalBitmap = drawRoute(bitmap, mapboxPoints, cameraOptions, width, height, density)
+                        val finalBitmap = drawRoute(context, bitmap, mapboxPoints, cameraOptions, width, height, density)
                         
                         // Запис и Кеш
                         executor.execute {
@@ -252,6 +252,7 @@ object RouteSnapshotGenerator {
      * Използва чиста Web Mercator математика за прецизно изчисление
      */
     private fun drawRoute(
+        context: Context,
         base: Bitmap, 
         points: List<Point>, 
         camera: CameraOptions, 
@@ -289,7 +290,7 @@ object RouteSnapshotGenerator {
                 val startX = (w / 2) + ((points.first().longitude() + 180.0) / 360.0 * scale - (center.longitude() + 180.0) / 360.0 * scale).toFloat()
                 val startLatRad = points.first().latitude() * PI / 180.0
                 val startY = (h / 2) + ((0.5 - ln(tan(startLatRad) + 1.0/cos(startLatRad)) / (4.0 * PI)) * scale - (0.5 - ln(tan(center.latitude() * PI / 180.0) + 1.0/cos(center.latitude() * PI / 180.0)) / (4.0 * PI)) * scale).toFloat()
-                drawMarker(canvas, startX, startY, density, true)
+                drawMarker(context, canvas, startX, startY, density, true)
             } catch (e: Exception) {
                 android.util.Log.w("RouteSnapshotGenerator", "Error drawing start marker", e)
             }
@@ -298,7 +299,7 @@ object RouteSnapshotGenerator {
                     val endX = (w / 2) + ((points.last().longitude() + 180.0) / 360.0 * scale - (center.longitude() + 180.0) / 360.0 * scale).toFloat()
                     val endLatRad = points.last().latitude() * PI / 180.0
                     val endY = (h / 2) + ((0.5 - ln(tan(endLatRad) + 1.0/cos(endLatRad)) / (4.0 * PI)) * scale - (0.5 - ln(tan(center.latitude() * PI / 180.0) + 1.0/cos(center.latitude() * PI / 180.0)) / (4.0 * PI)) * scale).toFloat()
-                    drawMarker(canvas, endX, endY, density, false)
+                    drawMarker(context, canvas, endX, endY, density, false)
                 } catch (e: Exception) {
                     android.util.Log.w("RouteSnapshotGenerator", "Error drawing finish marker", e)
                 }
@@ -310,21 +311,90 @@ object RouteSnapshotGenerator {
 
     /**
      * Рисува маркер (start/finish flag) на дадена позиция
+     * Малки кръгчета със знаменца вътре, както преди
      */
-    private fun drawMarker(canvas: Canvas, x: Float, y: Float, density: Float, isStart: Boolean) {
-        val radius = 18f * density
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(255, 122, 24)
+    private fun drawMarker(context: Context, canvas: Canvas, x: Float, y: Float, density: Float, isStart: Boolean) {
+        // МАЛКИ кръгчета - 8dp вместо 18dp
+        val radius = 12f * density
+        
+        // Външен кръг - оранжев фон
+        val outerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(255, 122, 24) // #FF7A18
             style = Paint.Style.FILL
         }
+        
+        // Бяла граница - по-тънка
         val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             style = Paint.Style.STROKE
-            strokeWidth = 4f * density
+            strokeWidth = 1.5f * density
         }
-
-        canvas.drawCircle(x, y, radius, paint)
+        
+        // Рисуваме външния кръг
+        canvas.drawCircle(x, y, radius, outerPaint)
         canvas.drawCircle(x, y, radius, borderPaint)
+        
+        // Рисуваме знаменцето вътре - използваме drawable ресурсите
+        // Много малък размер - 8dp за да се побере в кръгчето от 8dp радиус
+        val flagSize = (12f * density).toInt()
+        
+        try {
+            val flagDrawable = if (isStart) {
+                androidx.core.content.ContextCompat.getDrawable(context, R.drawable.ic_flag_start)
+            } else {
+                androidx.core.content.ContextCompat.getDrawable(context, R.drawable.ic_flag_finish)
+            }
+            
+            flagDrawable?.let { drawable ->
+                // Скалираме drawable-а до малък размер - точно вътре в кръгчето
+                drawable.setBounds(
+                    (x - flagSize / 2).toInt(),
+                    (y - flagSize / 2).toInt(),
+                    (x + flagSize / 2).toInt(),
+                    (y + flagSize / 2).toInt()
+                )
+                drawable.draw(canvas)
+            }
+        } catch (e: Exception) {
+            // Fallback - рисуваме прости знаменца ако не можем да заредим drawable
+            val flagSize = 5f * density
+            val flagPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL
+            }
+            
+            if (isStart) {
+                // Старт - зелен кръг с бяла стрелка
+                flagPaint.color = Color.rgb(76, 175, 80) // #4CAF50
+                canvas.drawCircle(x, y, flagSize, flagPaint)
+                // Стрелка надясно
+                val arrowPath = android.graphics.Path().apply {
+                    moveTo(x - flagSize * 0.3f, y)
+                    lineTo(x + flagSize * 0.4f, y - flagSize * 0.5f)
+                    lineTo(x + flagSize * 0.4f, y + flagSize * 0.5f)
+                    close()
+                }
+                flagPaint.color = Color.WHITE
+                canvas.drawPath(arrowPath, flagPaint)
+            } else {
+                // Финиш - червен кръг с бял checkmark
+                flagPaint.color = Color.rgb(244, 67, 54) // #F44336
+                canvas.drawCircle(x, y, flagSize, flagPaint)
+                // Checkmark
+                val checkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.WHITE
+                    style = Paint.Style.STROKE
+                    strokeWidth = 1.2f * density
+                    strokeCap = Paint.Cap.ROUND
+                    strokeJoin = Paint.Join.ROUND
+                }
+                val checkPath = android.graphics.Path().apply {
+                    moveTo(x - flagSize * 0.5f, y)
+                    lineTo(x - flagSize * 0.1f, y + flagSize * 0.4f)
+                    lineTo(x + flagSize * 0.5f, y - flagSize * 0.3f)
+                }
+                canvas.drawPath(checkPath, checkPaint)
+            }
+        }
     }
 
     /**
@@ -449,7 +519,7 @@ object RouteSnapshotGenerator {
                     overlayCallback = null,
                     resultCallback = { bitmap, error ->
                         if (bitmap != null && error == null) {
-                            val finalBitmap = drawRoute(bitmap, mapboxPoints, cameraOptions, width, height, density)
+                            val finalBitmap = drawRoute(context, bitmap, mapboxPoints, cameraOptions, width, height, density)
                             
                             executor.execute {
                                 saveToFile(file, finalBitmap)
