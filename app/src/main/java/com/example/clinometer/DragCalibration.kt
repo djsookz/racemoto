@@ -622,6 +622,58 @@ object DragCalibration {
     }
     
     /**
+     * Изчислява signed lateral acceleration (right/left) използвайки universal калибрация.
+     * Положителна стойност = надясно, отрицателна = наляво.
+     * Работи независимо от ориентацията на телефона.
+     * 
+     * @param rawAccel Raw accelerometer data [x, y, z]
+     * @param liveGravity Live gravity vector (filtered from accelerometer) [x, y, z]
+     * @return Lateral acceleration в m/s² (positive = right, negative = left)
+     */
+    fun getSignedLateralAcceleration(rawAccel: FloatArray, liveGravity: FloatArray): Float {
+        if (!isUniversalCalibrated) return 0f
+        
+        // Изчисляваме linear acceleration (премахваме live gravity, не калибрираната!)
+        val linearAccel = floatArrayOf(
+            rawAccel[0] - liveGravity[0],
+            rawAccel[1] - liveGravity[1],
+            rawAccel[2] - liveGravity[2]
+        )
+        
+        // Проекция върху rightVector (dot product)
+        // Положителна = надясно, отрицателна = наляво
+        return linearAccel[0] * rightVector[0] +
+               linearAccel[1] * rightVector[1] +
+               linearAccel[2] * rightVector[2]
+    }
+    
+    /**
+     * Изчислява signed forward acceleration (forward/backward) използвайки universal калибрация.
+     * Положителна стойност = напред (ускорение), отрицателна = назад (спиране).
+     * Работи независимо от ориентацията на телефона.
+     * 
+     * @param rawAccel Raw accelerometer data [x, y, z]
+     * @param liveGravity Live gravity vector (filtered from accelerometer) [x, y, z]
+     * @return Forward acceleration в m/s² (positive = forward, negative = backward)
+     */
+    fun getSignedForwardAcceleration(rawAccel: FloatArray, liveGravity: FloatArray): Float {
+        if (!isUniversalCalibrated) return 0f
+        
+        // Изчисляваме linear acceleration (премахваме live gravity, не калибрираната!)
+        val linearAccel = floatArrayOf(
+            rawAccel[0] - liveGravity[0],
+            rawAccel[1] - liveGravity[1],
+            rawAccel[2] - liveGravity[2]
+        )
+        
+        // Проекция върху forwardVector (dot product)
+        // Положителна = напред, отрицателна = назад
+        return linearAccel[0] * forwardVector[0] +
+               linearAccel[1] * forwardVector[1] +
+               linearAccel[2] * forwardVector[2]
+    }
+    
+    /**
      * DEPRECATED: Използвай getLinearAcceleration(rawAccel, isLandscape) вместо това!
      */
     @Deprecated("Use getLinearAcceleration(rawAccel, isLandscape)")

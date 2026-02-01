@@ -4,50 +4,36 @@ import android.content.Context
 import androidx.preference.PreferenceManager
 
 /**
- * Manages map provider selection (OSMDroid vs Mapbox)
+ * Manages map provider - now only Mapbox is supported
  */
 object MapProviderManager {
     
     enum class MapProvider {
-        OSMDROID,  // Default - OSMDroid
-        MAPBOX     // Mapbox
+        MAPBOX     // Mapbox only
     }
     
     private const val PREF_MAP_PROVIDER = "map_provider"
-    private const val DEFAULT_PROVIDER = "osmdroid"
+    private const val DEFAULT_PROVIDER = "mapbox"
     
     /**
-     * Get current map provider
+     * Get current map provider (always Mapbox)
      */
     fun getMapProvider(context: Context): MapProvider {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val providerString = prefs.getString(PREF_MAP_PROVIDER, DEFAULT_PROVIDER) ?: DEFAULT_PROVIDER
-        return when (providerString.lowercase()) {
-            "mapbox" -> MapProvider.MAPBOX
-            else -> MapProvider.OSMDROID
-        }
+        return MapProvider.MAPBOX
     }
     
     /**
-     * Set map provider
+     * Set map provider (always Mapbox)
      */
     fun setMapProvider(context: Context, provider: MapProvider) {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val providerString = when (provider) {
-            MapProvider.MAPBOX -> "mapbox"
-            MapProvider.OSMDROID -> "osmdroid"
-        }
-        prefs.edit().putString(PREF_MAP_PROVIDER, providerString).apply()
+        // Always Mapbox, no need to save
     }
     
     /**
      * Get provider display name
      */
     fun getProviderDisplayName(provider: MapProvider): String {
-        return when (provider) {
-            MapProvider.OSMDROID -> "OSMDroid (Default)"
-            MapProvider.MAPBOX -> "Mapbox"
-        }
+        return "Mapbox"
     }
 }
 

@@ -31,8 +31,7 @@ import android.content.res.Configuration
 import com.example.clinometer.settings.SoundManager
 import com.example.clinometer.settings.UnitsManager
 import android.widget.LinearLayout
-import com.example.clinometer.tracking.SmartMapMatcher
-import com.example.clinometer.tracking.TrackSnapper
+import com.example.clinometer.data.ProfileStorage
 
 // Data class for storing lap data
 data class LapData(
@@ -45,7 +44,7 @@ data class LapData(
     val gyroscopeData: MutableList<Float> = mutableListOf(),
     val routePoints: MutableList<RoutePoint> = mutableListOf(),
     val timestamps: MutableList<Long> = mutableListOf(),
-    val sensorData: MutableList<SmartMapMatcher.SensorData> = mutableListOf()
+    val sensorData: MutableList<Any> = mutableListOf() // Placeholder - SDK handles sensor data
 )
 
 class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListener {
@@ -99,7 +98,6 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private val trackPoints = mutableListOf<TrackPoint>()
     private val trackPointTypes = mutableListOf<com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType>() // Types of each point
     private val startFinishLineIndices = mutableListOf<Int>() // Indices of start/finish line points
-    private var customTrackSnapPoints = listOf<org.osmdroid.util.GeoPoint>() // Snap points for SmartMapMatcher
     private var currentTrackPointIndex = 0
     private var lastLocation: Location? = null
     private val accelerationData = mutableListOf<Float>()
@@ -186,6 +184,13 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // ✅ КРИТИЧНО: Инициализираме DragCalibration и задаваме профила
+        // Това е необходимо за да работи калибрацията правилно
+        DragCalibration.init(this)
+        val currentProfileId = ProfileStorage.getSelectedProfileId(this)
+        DragCalibration.setProfile(currentProfileId)
+        android.util.Log.d("TrackSessionActivity", "🔧 DragCalibration initialized for profile $currentProfileId, isUniversalCalibrated=${DragCalibration.isUniversalCalibrated}")
+        
         // Initialize sound manager
         soundManager = SoundManager(this)
         
@@ -236,17 +241,20 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         linearAccelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
         preferLinearAccel = linearAccelSensor != null
-        if (linearAccelSensor == null) {
+        // ВИНАГИ получаваме ACCELEROMETER сензора (за g-сили), дори когато има TYPE_LINEAR_ACCELERATION
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        }
         rotationVector = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        if (accelerometer == null && linearAccelSensor == null) {
-            Log.w("TrackSession", "No accelerometer / linear acceleration sensor available")
+        if (accelerometer == null) {
+            Log.w("TrackSession", "No accelerometer sensor available")
         }
         if (rotationVector == null) {
             Log.w("TrackSession", "Rotation vector not available")
         }
+        
+        // Регистрираме ACCELEROMETER сензора ВИНАГИ (не само когато записваме)
+        // за да може g-силите да се обновяват винаги (както в drag сесиите)
+        accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
     }
     
     private fun setupLocation() {
@@ -342,8 +350,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                         }
                         android.util.Log.d("TrackSessionActivity", "📊 SNAP points for map matching: ${snapPoints.size} (NOT in trackPoints!)")
                         
-                        // Store snap points for SmartMapMatcher
-                        customTrackSnapPoints = snapPoints.map { it.geoPoint }
+                        // SDK handles snapping - no need to store custom snap points
                         
                         android.util.Log.d("TrackSessionActivity", "📊 FINAL: trackPoints.size=${trackPoints.size} (start/finish line + duplicate for lap detection)")
                     }
@@ -423,7 +430,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         btnStartStop.text = getString(R.string.track_button_stop)
         btnStartStop.setBackgroundColor(ContextCompat.getColor(this, R.color.red))
         linearAccelSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
-        accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        // ACCELEROMETER вече е регистриран в setupSensors() (винаги активен за g-сили)
         rotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
         handler.post(updateRunnable)
@@ -474,7 +481,10 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         btnStartStop.text = getString(R.string.track_button_start)
         btnStartStop.setBackgroundColor(ContextCompat.getColor(this, R.color.green))
         handler.removeCallbacks(countdownRunnable)
-        sensorManager.unregisterListener(this)
+        // Не премахваме ACCELEROMETER сензора, защото се нуждаем от него за g-сили
+        linearAccelSensor?.let { sensorManager.unregisterListener(this, it) }
+        rotationVector?.let { sensorManager.unregisterListener(this, it) }
+        gyroscope?.let { sensorManager.unregisterListener(this, it) }
         handler.removeCallbacks(updateRunnable)
         locationManager.removeUpdates(this)
         createOuting()
@@ -490,7 +500,10 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         btnStartStop.text = getString(R.string.track_button_start)
         btnStartStop.setBackgroundColor(ContextCompat.getColor(this, R.color.green))
         handler.removeCallbacks(countdownRunnable)
-        sensorManager.unregisterListener(this)
+        // Не премахваме ACCELEROMETER сензора, защото се нуждаем от него за g-сили
+        linearAccelSensor?.let { sensorManager.unregisterListener(this, it) }
+        rotationVector?.let { sensorManager.unregisterListener(this, it) }
+        gyroscope?.let { sensorManager.unregisterListener(this, it) }
         handler.removeCallbacks(updateRunnable)
         locationManager.removeUpdates(this)
         clearActiveSession()
@@ -560,10 +573,13 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             val currentSpeed = location.speed * 3.6f
             maxSpeed = max(maxSpeed, currentSpeed)
         }
-        // Max G updates use processed, smoothed signals from sensor pipeline
-        maxAcceleration = max(maxAcceleration, max(0f, forwardGSmooth))
-        maxBraking = max(maxBraking, max(0f, -forwardGSmooth))
-        maxCorneringG = max(maxCorneringG, abs(lateralGSmooth))
+        // Max G updates use gForceX and gForceY (инерционна сила)
+        val gForceX = speedGauge.gForceX
+        val gForceY = speedGauge.gForceY
+        // За инерционна сила: gForceY > 0 = backward force (acceleration), gForceY < 0 = forward force (braking)
+        maxAcceleration = max(maxAcceleration, max(0f, gForceY))
+        maxBraking = max(maxBraking, max(0f, -gForceY))
+        maxCorneringG = max(maxCorneringG, abs(gForceX))
         // Lean angle UI is updated in the sensor pipeline; maintain only max here
         if (isMotorcycle) {
             maxLeanAngle = max(maxLeanAngle, kotlin.math.abs(currentCalibratedLean))
@@ -577,8 +593,84 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         return String.format("%02d:%02d.%02d", minutes, seconds, milliseconds)
     }
     override fun onSensorChanged(event: SensorEvent?) {
-        if (!isRecording || awaitingStart || lapStartTime == 0L) return
         event?.let { ev ->
+            // Използваме същата логика като в ForegroundService.kt за g-сили
+            // Това трябва да работи винаги, не само когато записваме
+            if (ev.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+                // Update live gravity filter (за lean angle и др.)
+                gravity[0] = alphaGravity * gravity[0] + (1 - alphaGravity) * ev.values[0]
+                gravity[1] = alphaGravity * gravity[1] + (1 - alphaGravity) * ev.values[1]
+                gravity[2] = alphaGravity * gravity[2] + (1 - alphaGravity) * ev.values[2]
+                
+                // ✅ КРИТИЧНО: Thread-safe проверка и валидация на калибрацията
+                // Взимаме локални копия за да избегнем race conditions
+                val isCalibrated = DragCalibration.isUniversalCalibrated
+                val calibratedGravity = if (isCalibrated) {
+                    val gravity = DragCalibration.gravityVector
+                    // Валидация: gravity трябва да е валиден вектор (не нулев)
+                    val gravityMagnitude = sqrt(gravity[0] * gravity[0] + gravity[1] * gravity[1] + gravity[2] * gravity[2])
+                    if (gravityMagnitude > 0.1f && gravityMagnitude < 20f) { // 0.1g до 20g е разумен диапазон
+                        gravity.clone() // Клонираме за thread safety
+                    } else {
+                        null // Невалидна gravity
+                    }
+                } else {
+                    null
+                }
+                
+                if (isCalibrated && calibratedGravity != null) {
+                    // ✅ КРИТИЧНО: Използваме КАЛИБРИРАНАТА gravity, НЕ live gravity!
+                    // Това заключва посоките спрямо момента на калибрацията
+                    val rawAccel = floatArrayOf(ev.values[0], ev.values[1], ev.values[2])
+                    
+                    val forwardAccel = DragCalibration.getSignedForwardAcceleration(rawAccel, calibratedGravity)
+                    val lateralAccel = DragCalibration.getSignedLateralAcceleration(rawAccel, calibratedGravity)
+                    
+                    // Конвертираме в g-сили и показваме ИНЕРЦИОННАТА СИЛА
+                    // Инерционна сила = обратна на ускорението:
+                    // - Ускорение напред → сила назад (gForceY положителна = точка надолу)
+                    // - Спиране → сила напред (gForceY отрицателна = точка нагоре)
+                    // - Завой надясно → сила наляво (gForceX отрицателна = точка наляво)
+                    // - Завой наляво → сила надясно (gForceX положителна = точка надясно)
+                    val rawGForceX = -lateralAccel / 9.81f  // Обръщаме за инерционна сила
+                    val rawGForceY = -forwardAccel / 9.81f  // Обръщаме за инерционна сила
+                    
+                    // ✅ ПРОФЕСИОНАЛЕН LOW-PASS FILTER за track sessions (заради тресене на пистата)
+                    // Адаптивна константа: бързи промени = по-бавен филтър, малки промени = по-бърз филтър
+                    val deltaX = abs(rawGForceX - displayLX)
+                    val deltaY = abs(rawGForceY - displayLY)
+                    
+                    // За track: alpha 0.3-0.5 (по-силно филтриране от drag за да премахне тресенията)
+                    val alphaX = if (deltaX > 0.5f) 0.3f else 0.5f  // Бързи промени = по-бавен филтър
+                    val alphaY = if (deltaY > 0.5f) 0.3f else 0.5f
+                    
+                    displayLX = alphaX * rawGForceX + (1f - alphaX) * displayLX
+                    displayLY = alphaY * rawGForceY + (1f - alphaY) * displayLY
+                    
+                    speedGauge.gForceX = displayLX
+                    speedGauge.gForceY = displayLY
+                } else {
+                    // Fallback към старата логика (device frame) ако няма калибрация
+                    val rawGForceX = (ev.values[0] - gravity[0]) / 9.81f
+                    val rawGForceY = (ev.values[1] - gravity[1]) / 9.81f
+                    
+                    // Същият филтър и за fallback режим
+                    val deltaX = abs(rawGForceX - displayLX)
+                    val deltaY = abs(rawGForceY - displayLY)
+                    val alphaX = if (deltaX > 0.5f) 0.3f else 0.5f
+                    val alphaY = if (deltaY > 0.5f) 0.3f else 0.5f
+                    
+                    displayLX = alphaX * rawGForceX + (1f - alphaX) * displayLX
+                    displayLY = alphaY * rawGForceY + (1f - alphaY) * displayLY
+                    
+                    speedGauge.gForceX = displayLX
+                    speedGauge.gForceY = displayLY
+                }
+            }
+            
+            // Останалата логика работи само когато записваме
+            // TODO: Върни тази проверка след тестване на g-силите!
+            // if (!isRecording || awaitingStart || lapStartTime == 0L) return@let
             when (ev.sensor.type) {
                 Sensor.TYPE_ROTATION_VECTOR -> {
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, ev.values)
@@ -591,39 +683,24 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                         processLinearAccelerationAndUpdate(linearAccel)
                     }
                     
-                    // Collect sensor data for SmartMapMatcher
-                    if (isRecording && lapStartTime > 0L) {
-                        val sensorData = SmartMapMatcher.SensorData(
-                            accelerometer = ev.values.clone(),
-                            gyroscope = floatArrayOf(0f, 0f, 0f), // Will be filled by gyroscope sensor
-                            magneticField = floatArrayOf(0f, 0f, 0f), // Will be filled by magnetic sensor
-                            timestamp = System.currentTimeMillis()
-                        )
-                        currentLapData.sensorData.add(sensorData)
-                    }
+                    // G-силите вече са зададени в началото на onSensorChanged (винаги, не само когато записваме)
+                    // За TYPE_LINEAR_ACCELERATION не можем да използваме калибрация (трябва raw accel + gravity)
+                    
+                    // SDK handles sensor data - no need to collect
                 }
                 Sensor.TYPE_ACCELEROMETER -> {
-                    // Fallback path when no dedicated linear acceleration
+                    // Fallback path when no dedicated linear acceleration (за processLinearAccelerationAndUpdate)
                     if (!preferLinearAccel) {
-                    gravity[0] = alphaGravity * gravity[0] + (1 - alphaGravity) * ev.values[0]
-                    gravity[1] = alphaGravity * gravity[1] + (1 - alphaGravity) * ev.values[1]
-                    gravity[2] = alphaGravity * gravity[2] + (1 - alphaGravity) * ev.values[2]
                     linearAccel[0] = ev.values[0] - gravity[0]
                     linearAccel[1] = ev.values[1] - gravity[1]
                     linearAccel[2] = ev.values[2] - gravity[2]
                     processLinearAccelerationAndUpdate(linearAccel)
                     }
                     
-                    // Collect sensor data for SmartMapMatcher
-                    if (isRecording && lapStartTime > 0L) {
-                        val sensorData = SmartMapMatcher.SensorData(
-                            accelerometer = ev.values.clone(),
-                            gyroscope = floatArrayOf(0f, 0f, 0f), // Will be filled by gyroscope sensor
-                            magneticField = floatArrayOf(0f, 0f, 0f), // Will be filled by magnetic sensor
-                            timestamp = System.currentTimeMillis()
-                        )
-                        currentLapData.sensorData.add(sensorData)
-                    }
+                    // G-силите вече са зададени в началото на onSensorChanged (винаги, не само когато записваме)
+                    // Не задаваме g-сили тук, защото калибрацията се нуждае от live gravity която се обновява в първия блок
+                    
+                    // SDK handles sensor data - no need to collect
                 }
                 Sensor.TYPE_GYROSCOPE -> {
                     gyroscopeData.addAll(ev.values.sliceArray(0..2).toList())
@@ -635,14 +712,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                         currentLapData.gyroscopeData.addAll(ev.values.sliceArray(0..2).toList())
                         android.util.Log.d("TrackSessionActivity", "Added gyro data to lap: ${ev.values.size} values")
                         
-                        // Collect sensor data for SmartMapMatcher
-                        val sensorData = SmartMapMatcher.SensorData(
-                            accelerometer = floatArrayOf(0f, 0f, 0f), // Will be filled by accelerometer sensor
-                            gyroscope = ev.values.clone(),
-                            magneticField = floatArrayOf(0f, 0f, 0f), // Will be filled by magnetic sensor
-                            timestamp = System.currentTimeMillis()
-                        )
-                        currentLapData.sensorData.add(sensorData)
+                        // SDK handles sensor data - no need to collect
                     }
                 }
             }
@@ -664,17 +734,15 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         }
 
         // Project ENU acceleration into vehicle frame using smoothed bearing
-        // Bearing from GPS if available; otherwise derive yaw from rotation matrix (device yaw to world)
         var bearingRad = if (hasSmoothedBearing) smoothedBearingRad else 0f
         if (!hasSmoothedBearing && !rotationMatrix.all { it == 0f }) {
-            // Extract yaw (azimuth) from rotation matrix
             val yaw = atan2(rotationMatrix[1].toDouble(), rotationMatrix[4].toDouble()).toFloat()
             bearingRad = yaw
         }
         val east = worldAccel[0]
         val north = worldAccel[1]
 
-        // Stationary detection on world accel magnitude (exclude gravity – using linear accel already)
+        // Stationary detection on world accel magnitude
         val worldMag = kotlin.math.sqrt((east * east + north * north + worldAccel[2] * worldAccel[2]).toDouble()).toFloat()
         if (worldMag < stationaryAccThreshold) {
             stationaryCounter = (stationaryCounter + 1).coerceAtMost(1000)
@@ -682,50 +750,21 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             stationaryCounter = (stationaryCounter - 2).coerceAtLeast(0)
         }
         isStationary = stationaryCounter >= stationaryCountToLock
-        // Forward along heading; Right is positive lateral (so Left is negative)
-        val forwardAcc = (east * sin(bearingRad)) + (north * cos(bearingRad))
-        val lateralRightAcc = (east * cos(bearingRad)) - (north * sin(bearingRad))
+        
+        // ✅ G-силите се задават директно в onSensorChanged (с калибрация)
+        // Изчисляваме само статистики на базата на вече зададените стойности
+        val currentGForceX = speedGauge.gForceX
+        val currentGForceY = speedGauge.gForceY
+        
+        // За инерционна сила: gForceY > 0 = backward force (acceleration), gForceY < 0 = forward force (braking)
+        val accelerationG = max(0f, currentGForceY)
+        val brakingG = max(0f, -currentGForceY)
+        val corneringG = abs(currentGForceX)
 
-        var forwardG = forwardAcc / 9.81f
-        var lateralG = lateralRightAcc / 9.81f
-
-        // Adaptive bias: slowly pull towards zero when near-zero motion
-        val currentBiasAlpha = if (isStationary) biasAlpha * 5f else biasAlpha
-        forwardBiasG = forwardBiasG + currentBiasAlpha * (forwardG - forwardBiasG)
-        lateralBiasG = lateralBiasG + currentBiasAlpha * (lateralG - lateralBiasG)
-        forwardG -= forwardBiasG
-        lateralG -= lateralBiasG
-
-        // Deadband to avoid jumps around zero
-        if (kotlin.math.abs(forwardG) < deadbandG) forwardG = 0f
-        if (kotlin.math.abs(lateralG) < deadbandG) lateralG = 0f
-
-        // If stationary, force display easing to center
-        if (isStationary) {
-            displayLX *= 0.85f
-            displayLY *= 0.85f
-        }
-
-        // Smooth G signals first
-        forwardGSmooth = gSmoothAlpha * forwardGSmooth + (1 - gSmoothAlpha) * forwardG
-        lateralGSmooth = gSmoothAlpha * lateralGSmooth + (1 - gSmoothAlpha) * lateralG
-        // Then clamp for display
-        val desiredDisplayY = clamp(forwardGSmooth, -maxDisplayG, maxDisplayG)
-        val desiredDisplayX = clamp(lateralGSmooth, -maxDisplayG, maxDisplayG)
-        displayLX = displaySmoothAlpha * displayLX + (1 - displaySmoothAlpha) * desiredDisplayX
-        displayLY = displaySmoothAlpha * displayLY + (1 - displaySmoothAlpha) * desiredDisplayY
-        val normX = (displayLX / maxDisplayG).coerceIn(-1f, 1f)
-        val normY = (displayLY / maxDisplayG).coerceIn(-1f, 1f)
-
-        // Positive forward is acceleration, negative forward is braking
-        val accelerationG = max(0f, forwardGSmooth)
-        val brakingG = max(0f, -forwardGSmooth)
-        val corneringG = lateralGSmooth // keep sign; right +, left -
-
-        // Update maxima
+        // Update maxima (use gForceX and gForceY for statistics)
         maxAcceleration = max(maxAcceleration, accelerationG)
         maxBraking = max(maxBraking, brakingG)
-        maxCorneringG = max(maxCorneringG, abs(corneringG))
+        maxCorneringG = max(maxCorneringG, corneringG)
 
         // Lean angle calculation (ForegroundService logic)
         if (isMotorcycle) {
@@ -737,10 +776,8 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
             val rawTilt = if (totalGravity > 0f) {
                 if (isLandscape) {
-                    // Landscape: negative for tilt up, positive for tilt down (as in service)
                     (-Math.toDegrees(Math.asin((y / totalGravity).toDouble().coerceIn(-1.0, 1.0)))).toFloat()
                 } else {
-                    // Portrait: LEFT should be NEGATIVE, RIGHT positive
                     (-Math.toDegrees(Math.asin((x / totalGravity).toDouble().coerceIn(-1.0, 1.0)))).toFloat()
                 }
             } else 0f
@@ -751,8 +788,8 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         }
 
         runOnUiThread {
-            speedGauge.setGForces(accelerationG, brakingG, corneringG)
-            speedGauge.setDotByNormalizedG(normX, normY)
+            // НЕ извикваме setGForces тук защото те вече са зададени в onSensorChanged!
+            // Само обновяваме lean angle ако е мотор
             if (isMotorcycle) {
                 speedGauge.setLeanAngle(currentCalibratedLean)
             }
@@ -812,7 +849,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             android.util.Log.d("TrackSessionActivity", "   Total GPS points so far: ${currentLapData.routePoints.size + 1}")
             
             currentLapData.routePoints.add(RoutePoint(
-                geoPoint = org.osmdroid.util.GeoPoint(location.latitude, location.longitude),
+                geoPoint = com.example.clinometer.GeoPoint(location.latitude, location.longitude),
                 speed = speedKmh,
                 angle = currentCalibratedLean,
                 timestamp = relativeTimestamp, // Използваме относително време!
@@ -855,8 +892,8 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     ): Boolean {
         // Use PROXIMITY to line (not intersection) because GPS updates are slow
         val currentPos = org.osmdroid.util.GeoPoint(location.latitude, location.longitude)
-        val linePoint1 = point1.geoPoint
-        val linePoint2 = point2.geoPoint
+        val linePoint1 = org.osmdroid.util.GeoPoint(point1.geoPoint.latitude, point1.geoPoint.longitude)
+        val linePoint2 = org.osmdroid.util.GeoPoint(point2.geoPoint.latitude, point2.geoPoint.longitude)
         
         // Calculate distance from current position to the line
         val distanceToLine = calculateDistanceToLine(currentPos, linePoint1, linePoint2)
@@ -989,7 +1026,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                         val currentSpeedKmh = currentLocation.speed * 3.6f
                         currentLapData.speedData.add(currentSpeedKmh)
                         currentLapData.routePoints.add(RoutePoint(
-                            geoPoint = org.osmdroid.util.GeoPoint(currentLocation.latitude, currentLocation.longitude),
+                            geoPoint = com.example.clinometer.GeoPoint(currentLocation.latitude, currentLocation.longitude),
                             speed = currentSpeedKmh,
                             angle = currentCalibratedLean,
                             timestamp = 0L, // Start with timestamp 0 to eliminate gap
@@ -1112,7 +1149,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                         val currentSpeedKmh = currentLocation.speed * 3.6f
                         currentLapData.speedData.add(currentSpeedKmh)
                         currentLapData.routePoints.add(RoutePoint(
-                            geoPoint = org.osmdroid.util.GeoPoint(currentLocation.latitude, currentLocation.longitude),
+                            geoPoint = com.example.clinometer.GeoPoint(currentLocation.latitude, currentLocation.longitude),
                             speed = currentSpeedKmh,
                             angle = currentCalibratedLean,
                             timestamp = 0L, // Start with timestamp 0 to eliminate gap
@@ -1203,16 +1240,19 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     }
     override fun onResume() {
         super.onResume()
+        // ACCELEROMETER вече е регистриран в setupSensors() (винаги активен за g-сили)
         if (isRecording) {
             linearAccelSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
-            accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
             rotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
             gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
         }
     }
     override fun onPause() {
         super.onPause()
-        sensorManager.unregisterListener(this)
+        // Не премахваме ACCELEROMETER сензора, защото се нуждаем от него за g-сили
+        linearAccelSensor?.let { sensorManager.unregisterListener(this, it) }
+        rotationVector?.let { sensorManager.unregisterListener(this, it) }
+        gyroscope?.let { sensorManager.unregisterListener(this, it) }
     }
     override fun onDestroy() {
         super.onDestroy()
@@ -1389,8 +1429,11 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             } catch (e: Exception) {
                 runOnUiThread {
                     showToast(getString(R.string.track_save_error, e.message ?: "Unknown"))
-                    val intent = Intent(this@TrackSessionActivity, TrackActivity::class.java)
+                    val intent = Intent(this@TrackSessionActivity, MainContainerActivity::class.java).apply {
+                        putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_TRACK)
+                    }
                     startActivity(intent)
+                    overridePendingTransition(0, 0)
                     finish()
                 }
             }
@@ -1436,55 +1479,11 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                     // Convert RoutePoint to GeoPoint
                     val gpsPoints = mutableListOf<org.osmdroid.util.GeoPoint>()
                     for (routePoint in lap.routePoints) {
-                        gpsPoints.add(routePoint.geoPoint)
+                        gpsPoints.add(org.osmdroid.util.GeoPoint(routePoint.geoPoint.latitude, routePoint.geoPoint.longitude))
                     }
                     
-                    // Process with SmartMapMatcher (include snap points for better map matching)
-                    val processedPoints = SmartMapMatcher.processTrackSession(
-                        gpsPoints = gpsPoints,
-                        sensorData = lap.sensorData,
-                        trackId = trackId,
-                        speedData = lap.speedData,
-                        snapPoints = customTrackSnapPoints, // Pass snap points for map matching
-                        context = this@TrackSessionActivity
-                    )
-                    
-                    // Apply TrackSnapper with lateral offset preservation
-                    // TrackSnapper will automatically load user-defined centerline points from OfficialTrackCenterlineStorage
-                    // If no user-defined points exist, it will use fallback (waypoints from TrackGeometry or interpolate from sectors)
-                    val processedGeoPoints = processedPoints.map { it.geoPoint }
-                    val snappedPoints = TrackSnapper.snapPoints(
-                        gpsPoints = processedGeoPoints,
-                        trackId = trackId,
-                        context = this@TrackSessionActivity,
-                        centerlinePoints = null // Let TrackSnapper load from storage automatically
-                    )
-                    
-                    android.util.Log.d("TrackSessionActivity", "📌 TrackSnapper: ${snappedPoints.count { it.isSnapped }} points snapped out of ${snappedPoints.size}")
-                    
-                    // Convert back to RoutePoint
-                    val updatedRoutePoints = mutableListOf<RoutePoint>()
-                    for (i in processedPoints.indices) {
-                        val processedPoint = processedPoints[i]
-                        val snappedPoint = snappedPoints.getOrNull(i)
-                        val originalRoutePoint = lap.routePoints.getOrNull(i)
-                        if (originalRoutePoint != null) {
-                            // Use snapped point if available, otherwise use processed point
-                            val finalGeoPoint = snappedPoint?.geoPoint ?: processedPoint.geoPoint
-                            updatedRoutePoints.add(
-                                RoutePoint(
-                                    geoPoint = finalGeoPoint,
-                                    speed = processedPoint.speed,
-                                    angle = originalRoutePoint.angle, // Keep original lean angle
-                                    timestamp = originalRoutePoint.timestamp,
-                                    absoluteTime = originalRoutePoint.absoluteTime
-                                )
-                            )
-                        }
-                    }
-                    
-                    // Add processed lap
-                    processedLapData.add(lap.copy(routePoints = updatedRoutePoints))
+                    // SDK handles map matching - use raw route points directly
+                    processedLapData.add(lap)
                 } catch (e: Exception) {
                     android.util.Log.e("TrackSessionActivity", "Error in smart map matching: ${e.message}")
                     processedLapData.add(lap)

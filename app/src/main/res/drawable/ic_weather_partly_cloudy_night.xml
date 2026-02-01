@@ -14,7 +14,7 @@
     <!-- Cloud (долу-дясно от луната, докосва я, много по-голям) -->
     <path
         android:fillColor="#000000"
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="#000"
         android:strokeWidth="0.3"
         android:pathData="M20.5,13c0,-2 -1.6,-3.6 -3.6,-3.6 -1.3,0 -2.5,0.7 -3.1,1.8 -0.2,-0.03 -0.4,-0.04 -0.6,-0.04 -1.7,0 -3,1.3 -3,3s1.3,3 3,3h7.2c1.3,0 2.4,-1.1 2.4,-2.4s-1.1,-2.4 -2.3,-2.4z"/>
 </vector>

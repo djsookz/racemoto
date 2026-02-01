@@ -7,6 +7,7 @@ import android.view.LayoutInflater
 import android.widget.ArrayAdapter
 import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
+import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.data.VehicleData
 import com.example.clinometer.settings.LanguageManager
 import com.google.android.material.button.MaterialButton

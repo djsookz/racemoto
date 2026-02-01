@@ -1,31 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Screen and Layout Dimensions -->
+    <!-- ============================================ -->
+    <!-- HUD ELEMENTS - PORTRAIT (Default) -->
+    <!-- ============================================ -->
+    
+    <!-- Left alignment margin (all top elements align to this) -->
+    <dimen name="hud_left_margin_portrait">8dp</dimen>
+    
+    <!-- Maneuver container -->
+    <dimen name="hud_maneuver_margin_start_portrait">8dp</dimen>
+    <dimen name="hud_maneuver_margin_top_portrait">40dp</dimen>
+    <dimen name="hud_maneuver_margin_end_portrait">8dp</dimen>
+    <dimen name="hud_maneuver_max_width_portrait">300dp</dimen>
+    
+    <!-- Car stats overlay (landscape only, but defined here for consistency) -->
+    <dimen name="hud_car_stats_margin_start_portrait">24dp</dimen>
+    <dimen name="hud_car_stats_margin_top_portrait">120dp</dimen>
+    
+    <!-- Bottom HUD row -->
+    <dimen name="hud_bottom_row_margin_start_portrait">16dp</dimen>
+    <dimen name="hud_bottom_row_margin_bottom_portrait">25dp</dimen>
+    <dimen name="hud_bottom_row_padding_end_portrait">12dp</dimen>
+    
+    <!-- Trip progress pills -->
+    <dimen name="hud_trip_padding_h_portrait">12dp</dimen>
+    <dimen name="hud_trip_padding_v_portrait">8dp</dimen>
+    <dimen name="hud_trip_separator_margin_h_portrait">12dp</dimen>
+    <dimen name="hud_trip_value_min_width_portrait">64dp</dimen>
+    <dimen name="hud_trip_value_text_size_portrait">16sp</dimen>
+    <dimen name="hud_trip_label_text_size_portrait">10sp</dimen>
+    
+    <!-- Action buttons -->
+    <dimen name="hud_action_btn_size_portrait">64dp</dimen>
+    <dimen name="hud_action_btn_margin_end_portrait">16dp</dimen>
+    <dimen name="hud_action_btn_padding_portrait">14dp</dimen>
+    
+    <!-- Angle gauge (portrait motorcycle) -->
+    <dimen name="hud_angle_gauge_width_portrait">140dp</dimen>
+    
+    <!-- Speed display -->
+    <dimen name="hud_speed_min_width_portrait">72dp</dimen>
+    
+    <!-- ============================================ -->
+    <!-- HUD ELEMENTS - LANDSCAPE -->
+    <!-- ============================================ -->
+    
+    <!-- Left alignment margin (all top elements align to this) -->
+    <dimen name="hud_left_margin_landscape">16dp</dimen>
+    
+    <!-- Maneuver container -->
+    <dimen name="hud_maneuver_margin_start_landscape">16dp</dimen>
+    <dimen name="hud_maneuver_margin_top_landscape">16dp</dimen>
+    <dimen name="hud_maneuver_margin_end_landscape">8dp</dimen>
+    <dimen name="hud_maneuver_max_width_landscape">300dp</dimen>
+    
+    <!-- Car stats overlay -->
+    <dimen name="hud_car_stats_margin_start_landscape">16dp</dimen>
+    <dimen name="hud_car_stats_margin_top_landscape">120dp</dimen>
+    
+    <!-- Bottom HUD row -->
+    <dimen name="hud_bottom_row_margin_start_landscape">16dp</dimen>
+    <dimen name="hud_bottom_row_margin_bottom_landscape">25dp</dimen>
+    <dimen name="hud_bottom_row_padding_end_landscape">12dp</dimen>
+    
+    <!-- Trip progress pills -->
+    <dimen name="hud_trip_padding_h_landscape">8dp</dimen>
+    <dimen name="hud_trip_padding_v_landscape">6dp</dimen>
+    <dimen name="hud_trip_separator_margin_h_landscape">8dp</dimen>
+    <dimen name="hud_trip_value_min_width_landscape">44dp</dimen>
+    <dimen name="hud_trip_value_text_size_landscape">15sp</dimen>
+    <dimen name="hud_trip_label_text_size_landscape">10sp</dimen>
+    
+    <!-- Action buttons -->
+    <dimen name="hud_action_btn_size_landscape">56dp</dimen>
+    <dimen name="hud_action_btn_margin_end_landscape">10dp</dimen>
+    <dimen name="hud_action_btn_padding_landscape">12dp</dimen>
+    
+    <!-- Angle gauge (landscape motorcycle) -->
+    <dimen name="hud_angle_gauge_width_landscape">110dp</dimen>
+    <dimen name="hud_angle_block_width_landscape">120dp</dimen>
+    <dimen name="hud_angle_margin_start_landscape">4dp</dimen>
+    
+    <!-- Speed display -->
+    <dimen name="hud_speed_width_landscape">88dp</dimen>
+    <dimen name="hud_trip_gap_landscape">24dp</dimen>
+    
+    <!-- ============================================ -->
+    <!-- SHARED APP DIMENSIONS -->
+    <!-- ============================================ -->
     <dimen name="screen_padding">16dp</dimen>
     <dimen name="card_margin">8dp</dimen>
     <dimen name="card_corner_radius">12dp</dimen>
     <dimen name="card_elevation">4dp</dimen>
     <dimen name="card_inner_padding">16dp</dimen>
-
-    <!-- Header Dimensions -->
     <dimen name="header_padding">8dp</dimen>
     <dimen name="header_text_size">18sp</dimen>
-
-    <!-- Stats Dimensions -->
     <dimen name="stats_padding">12dp</dimen>
     <dimen name="stat_item_padding">4dp</dimen>
     <dimen name="stat_dot_margin">8dp</dimen>
     <dimen name="stat_text_size">13sp</dimen>
     <dimen name="column_separator_padding">8dp</dimen>
-
-    <!-- Text Dimensions -->
     <dimen name="text_padding">8dp</dimen>
     <dimen name="small_text_size">12sp</dimen>
-
-    <!-- Chart Dimensions -->
     <dimen name="chart_height">200dp</dimen>
-
-    <!-- Button Dimensions -->
     <dimen name="button_margin">16dp</dimen>
     <dimen name="button_text_size">16sp</dimen>
     <dimen name="button_elevation">6dp</dimen>

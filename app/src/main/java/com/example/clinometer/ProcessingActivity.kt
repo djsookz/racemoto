@@ -11,7 +11,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.clinometer.RoutePoint
 import kotlinx.coroutines.*
-import org.osmdroid.util.GeoPoint
 
 class ProcessingActivity : AppCompatActivity() {
     
@@ -108,80 +107,10 @@ class ProcessingActivity : AppCompatActivity() {
                         updateProgress(50, "")
                     }
                     
-                    // Return raw points without any filtering
-                    gpsPoints.mapIndexed { index, geoPoint ->
-                        com.example.clinometer.tracking.SmartMapMatcher.ProcessedPoint(
-                            geoPoint = geoPoint,
-                            confidence = 0.5f,
-                            speed = speedData.getOrNull(index) ?: 0f,
-                            bearing = 0f,
-                            acceleration = 0f,
-                            isSnapped = false,
-                            originalPoint = geoPoint
-                        )
-                    }
+                    // Return raw points - SDK handles map matching
+                    rawRoutePoints
                 }
                     
-                /* ORIGINAL CODE - COMMENTED OUT
-                try {
-                    val result = com.example.clinometer.tracking.HMMMapMatcher.processWithHMM(
-                        gpsPoints = gpsPoints,
-                        speedData = speedData,
-                        context = this@ProcessingActivity
-                    )
-                    
-                    val hmmTime = (System.currentTimeMillis() - hmmStartTime) / 1000
-                    android.util.Log.d("ProcessingActivity", "✅ HMM completed in ${hmmTime}s, returned ${result.size} points")
-                    
-                    withContext(Dispatchers.Main) {
-                        updateProgress(50, "")
-                    }
-                    
-                    result
-                } catch (e: OutOfMemoryError) {
-                    android.util.Log.e("ProcessingActivity", "❌ OutOfMemoryError during processing!")
-                    android.util.Log.w("ProcessingActivity", "⚠️ Using fallback: raw points WITHOUT snapping")
-                    
-                    withContext(Dispatchers.Main) {
-                        updateProgress(50, "")
-                    }
-                    
-                    // Fallback: use raw points without processing
-                    // ВАЖНО: Използваме rawRoutePoints за да запазим angle данните!
-                    rawRoutePoints.map { routePoint ->
-                        com.example.clinometer.tracking.SmartMapMatcher.ProcessedPoint(
-                            geoPoint = routePoint.geoPoint,
-                            confidence = 0.5f,
-                            speed = routePoint.speed,
-                            bearing = 0f,
-                            acceleration = 0f,
-                            isSnapped = false,
-                            originalPoint = routePoint.geoPoint
-                        )
-                    }
-                } catch (e: Exception) {
-                    android.util.Log.e("ProcessingActivity", "❌ HMM Error: ${e.message}", e)
-                    android.util.Log.w("ProcessingActivity", "⚠️ Using fallback: raw points WITHOUT snapping")
-                    
-                    withContext(Dispatchers.Main) {
-                        updateProgress(50, "")
-                    }
-                    
-                    // Fallback: use raw points
-                    // ВАЖНО: Използваме rawRoutePoints за да запазим angle данните!
-                    rawRoutePoints.map { routePoint ->
-                        com.example.clinometer.tracking.SmartMapMatcher.ProcessedPoint(
-                            geoPoint = routePoint.geoPoint,
-                            confidence = 0.5f,
-                            speed = routePoint.speed,
-                            bearing = 0f,
-                            acceleration = 0f,
-                            isSnapped = false,
-                            originalPoint = routePoint.geoPoint
-                        )
-                    }
-                }
-                */
                 
                 // Step 3: Convert back to RoutePoint
                 updateProgress(60, "")
@@ -192,35 +121,9 @@ class ProcessingActivity : AppCompatActivity() {
                 
                 val enhancedRoutePoints = mutableListOf<RoutePoint>()
                 
-                // ВАЖНА ПРОВЕРКА: Ако HMM върна различен брой точки, използвай директно raw данните!
-                if (processedPoints.size != rawRoutePoints.size) {
-                    android.util.Log.w("ProcessingActivity", "⚠️ SIZE MISMATCH! Processed: ${processedPoints.size}, Raw: ${rawRoutePoints.size}")
-                    android.util.Log.w("ProcessingActivity", "   Using RAW data to preserve angle information!")
-                    enhancedRoutePoints.addAll(rawRoutePoints)
-                } else {
-                    // Sizes match - merge processed GPS with original sensor data
-                    for (i in processedPoints.indices) {
-                        val processedPoint = processedPoints[i]
-                        val originalRoutePoint = rawRoutePoints[i]
-                        enhancedRoutePoints.add(
-                            RoutePoint(
-                                geoPoint = processedPoint.geoPoint, // Snap-нат GPS
-                                speed = originalRoutePoint.speed,   // Оригинална скорост
-                                angle = originalRoutePoint.angle,   // Оригинален ъгъл
-                                timestamp = originalRoutePoint.timestamp,
-                                absoluteTime = originalRoutePoint.absoluteTime
-                            )
-                        )
-                    }
-                    android.util.Log.d("ProcessingActivity", "✅ Merged ${enhancedRoutePoints.size} points with preserved angle data")
-                    
-                    // КРИТИЧНА ПРОВЕРКА: Angle данните са ли запазени?
-                    val mergedAngles = enhancedRoutePoints.map { it.angle }
-                    val mergedNonZero = mergedAngles.count { it != 0f }
-                    android.util.Log.d("ProcessingActivity", "📐 MERGED ANGLE CHECK:")
-                    android.util.Log.d("ProcessingActivity", "   Non-zero angles AFTER merge: $mergedNonZero")
-                    android.util.Log.d("ProcessingActivity", "   Min: ${mergedAngles.minOrNull()}°, Max: ${mergedAngles.maxOrNull()}°")
-                }
+                // SDK handles map matching - use raw route points directly
+                enhancedRoutePoints.addAll(processedPoints)
+                android.util.Log.d("ProcessingActivity", "✅ Using ${enhancedRoutePoints.size} raw route points (SDK handles map matching)")
                 
                 // ФАЛБЕК: Ако enhancedRoutePoints е празен, използвай RAW данните!
                 if (enhancedRoutePoints.isEmpty() && rawRoutePoints.isNotEmpty()) {
@@ -318,6 +221,21 @@ class ProcessingActivity : AppCompatActivity() {
                 allRaces[raceIndex] = allRaces[raceIndex].copy(routePoints = routePoints)
                 RouteStorage.saveRaces(this, allRaces)
                 android.util.Log.d("ProcessingActivity", "✅ Updated race metadata for raceId=$raceId")
+                
+                // 🔥 Генерирай snapshot ВЕДНАГА след запис (background task)
+                java.util.concurrent.Executors.newSingleThreadExecutor().execute {
+                    try {
+                        RouteSnapshotGenerator.generateAndSaveSnapshot(
+                            context = this@ProcessingActivity,
+                            raceId = raceId,
+                            routePoints = routePoints
+                        ) { success ->
+                            android.util.Log.d("ProcessingActivity", if (success) "✅ Snapshot generated for race $raceId" else "❌ Failed to generate snapshot for race $raceId")
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("ProcessingActivity", "Error generating snapshot", e)
+                    }
+                }
             } else {
                 android.util.Log.w("ProcessingActivity", "⚠️ Race not found in storage for raceId=$raceId")
             }

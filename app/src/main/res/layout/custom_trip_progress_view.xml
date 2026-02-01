@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="@android:color/transparent"
+    android:gravity="center"
+    android:paddingHorizontal="4dp"
+    android:paddingVertical="8dp">
+
+    <!-- ETA -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingHorizontal="4dp">
+
+        <TextView
+            android:id="@+id/tvTripEta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:maxLines="1"
+            android:ellipsize="none"
+            android:scrollHorizontally="false"
+            android:text="--:--"
+            android:textColor="#FFFFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="ETA"
+            android:textColor="#E0E0E0"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="1dp"
+        android:layout_height="32dp"
+        android:layout_marginHorizontal="8dp"
+        android:background="#33FFFFFF" />
+
+    <!-- Remaining time -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingHorizontal="8dp"
+        >
+
+        <TextView
+            android:id="@+id/tvTripRemainingTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:maxLines="1"
+            android:ellipsize="none"
+            android:scrollHorizontally="false"
+            android:text="--:--"
+            android:textColor="#FFFFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="time"
+            android:textColor="#E0E0E0"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="1dp"
+        android:layout_height="32dp"
+        android:layout_marginHorizontal="8dp"
+        android:background="#33FFFFFF" />
+
+    <!-- Remaining distance -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingHorizontal="4dp">
+
+        <TextView
+            android:id="@+id/tvTripRemainingDistance"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:maxLines="1"
+            android:ellipsize="none"
+            android:text="--"
+            android:textColor="#FFFFFFFF"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="km"
+            android:textColor="#E0E0E0"
+            android:textSize="10sp" />
+    </LinearLayout>
+</LinearLayout>

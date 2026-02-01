@@ -28,12 +28,14 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.clinometer.data.ProfileStorage
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.clinometer.drag.DragRunPageActivity
+import com.example.clinometer.drag.MeasurementMode
 import com.example.clinometer.settings.SoundManager
 import com.example.clinometer.settings.UnitsManager
 import com.example.clinometer.network.WeatherApiService
@@ -54,6 +56,8 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
     private lateinit var tvNoData: TextView
     private lateinit var recyclerView: RecyclerView
     private lateinit var btnStartSession: Button
+    private lateinit var tvHeaderModelName: TextView
+    private lateinit var ivHeaderProfileImage: android.widget.ImageView
     
     private lateinit var sensorManager: SensorManager
     private lateinit var locationManager: LocationManager
@@ -79,6 +83,16 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
     private var countdownDialog: AlertDialog? = null
     private var countdownTimer: CountDownTimer? = null
     private lateinit var soundManager: SoundManager
+    
+    // Професионално решение: lazy initialization на SharedPreferences
+    private val profilePrefs by lazy { requireContext().getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE) }
+    
+    // Създаваме слушателя като променлива на класа (ВАЖНО, за да не бъде изтрит от Garbage Collector)
+    private val profileChangeListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "selected_profile_id") {
+            loadProfileInfo()
+        }
+    }
     
     private val sessionUpdateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -116,6 +130,14 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         loadSessions()
         setupRecyclerView()
         checkLocationPermission()
+        
+        // Регистрираме слушателя за промени в профила
+        profilePrefs.registerOnSharedPreferenceChangeListener(profileChangeListener)
+        
+        // Първоначално зареждане на профила
+        view.post {
+            loadProfileInfo()
+        }
     }
     
     private fun initializeViews(view: View) {
@@ -124,6 +146,8 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         tvNoData = view.findViewById(R.id.tvNoData)
         recyclerView = view.findViewById(R.id.rvDragSessions)
         btnStartSession = view.findViewById(R.id.btnStartDragSession)
+        tvHeaderModelName = view.findViewById(R.id.tvHeaderModelName)
+        ivHeaderProfileImage = view.findViewById(R.id.ivHeaderProfileImage)
         
         btnStartSession.setOnClickListener {
             if (checkLocationPermission()) {
@@ -585,6 +609,9 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         loadCachedWeatherData()
         updateEnvironmentDisplay()
         
+        // Обновяваме профила при връщане на екрана
+        loadProfileInfo()
+        
         temperatureSensor?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
@@ -629,6 +656,9 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         countdownTimer?.cancel()
         countdownDialog?.dismiss()
         soundManager.release()
+        
+        // Важно: отписваме се, за да няма memory leaks
+        profilePrefs.unregisterOnSharedPreferenceChangeListener(profileChangeListener)
     }
     
     override fun onSensorChanged(event: SensorEvent) {
@@ -669,4 +699,58 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
     override fun onProviderEnabled(provider: String) {}
     override fun onProviderDisabled(provider: String) {}
+    
+    // ЕЛЕМЕНТАРНО: Зареждане на модела и снимката от активния профил
+    private fun loadProfileInfo() {
+        if (!isAdded || view == null) return
+        
+        val selectedId = ProfileStorage.getSelectedProfileId(requireContext())
+        val profiles = ProfileStorage.loadProfiles(requireContext())
+        val activeProfile = profiles.find { it.id == selectedId }
+
+        if (activeProfile != null) {
+            // 1. Зареждаме модела: "Audi A6" -> "A6"
+            val fullName = activeProfile.name.trim()
+            val modelName = if (fullName.contains(" ")) {
+                fullName.substringAfterLast(" ")
+            } else {
+                fullName
+            }
+            tvHeaderModelName.text = modelName
+            tvHeaderModelName.setTextColor(android.graphics.Color.WHITE)
+            tvHeaderModelName.visibility = View.VISIBLE
+
+            // 2. Зареждаме снимката или показваме иконка
+            if (!activeProfile.imagePath.isNullOrEmpty()) {
+                val imageFile = java.io.File(requireContext().getExternalFilesDir(null), activeProfile.imagePath)
+                if (imageFile.exists()) {
+                    // Image is already scaled on disk, just load it
+                    val bitmap = android.graphics.BitmapFactory.decodeFile(imageFile.absolutePath)
+                    if (bitmap != null) {
+                        ivHeaderProfileImage.setImageBitmap(bitmap)
+                        ivHeaderProfileImage.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                        ivHeaderProfileImage.setPadding(0, 0, 0, 0)
+                    } else {
+                        showDefaultIcon(activeProfile.vehicleType)
+                    }
+                } else {
+                    showDefaultIcon(activeProfile.vehicleType)
+                }
+            } else {
+                showDefaultIcon(activeProfile.vehicleType)
+            }
+        } else {
+            tvHeaderModelName.text = ""
+            showDefaultIcon(Profile.VehicleType.CAR)
+        }
+    }
+    
+    private fun showDefaultIcon(type: Profile.VehicleType) {
+        val icon = if (type == Profile.VehicleType.CAR) R.drawable.ic_car else R.drawable.ic_motorcycle
+        ivHeaderProfileImage.setImageResource(icon)
+        ivHeaderProfileImage.scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
+        val padding = (6 * resources.displayMetrics.density).toInt()
+        ivHeaderProfileImage.setPadding(padding, padding, padding, padding)
+        ivHeaderProfileImage.visibility = View.VISIBLE
+    }
 }

@@ -16,19 +16,24 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.settings.LanguageManager
 import com.google.android.material.button.MaterialButton
 
 /**
  * Fragment за страницата с сесии от нормалното каране
- * Конвертиран от RacesActivity за instant navigation без презареждане
+ * Използва се в MainContainerActivity за instant navigation без презареждане
  */
 class RacesFragment : Fragment() {
+    
+    fun isSelectionModeEnabled(): Boolean {
+        return ::adapter.isInitialized && adapter.isSelectionModeEnabled()
+    }
 
     private lateinit var adapter: RaceAdapter
     private lateinit var recyclerView: RecyclerView
     private lateinit var emptyView: TextView
-    private lateinit var btnBack: MaterialButton
+    private lateinit var btnBack: android.widget.ImageView
     private lateinit var btnAll: MaterialButton
     private lateinit var btnFavorites: MaterialButton
     private lateinit var btnDeleteSelected: MaterialButton
@@ -42,13 +47,15 @@ class RacesFragment : Fragment() {
     private val saveExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     
     private val longPressHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var longPressListener: androidx.recyclerview.widget.RecyclerView.OnItemTouchListener? = null
+    private var backPressedCallback: androidx.activity.OnBackPressedCallback? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        return inflater.inflate(R.layout.activity_races, container, false)
+        return inflater.inflate(R.layout.fragment_races, container, false)
     }
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -63,8 +70,6 @@ class RacesFragment : Fragment() {
 
         // Настройка на бутоните за табове
         setupTabButtons()
-
-        loadRaces()
 
         adapter = RaceAdapter(
             races = racesList,
@@ -139,21 +144,28 @@ class RacesFragment : Fragment() {
                 // Ако сме в "Favorites" таб, обновяваме списъка веднага (без да чакаме storage)
                 if (isShowingFavorites) {
                     refreshRacesListFromCache()
+                    adapter.preloadProfiles(requireContext())
+                    adapter.preloadDateFormats(requireContext(), racesList)
                     adapter.updateRaces(racesList)
                     checkEmptyList()
                 }
+            },
+            onLongClick = { race, position ->
+                // Long press на целия контейнер - влизаме в режим на избор
+                enterSelectionMode(position)
             }
         )
 
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
 
-        // Настройка на бутона за назад
+        // Настройка на бутона за назад - винаги видим
         btnBack.setOnClickListener {
             if (adapter.isSelectionModeEnabled()) {
                 // Ако сме в режим на избор, деактивираме го
                 exitSelectionMode()
             } else {
+                // Иначе навигираме към Map
                 navigateToMap()
             }
         }
@@ -166,8 +178,8 @@ class RacesFragment : Fragment() {
             }
         }
         
-        // Long press listener за активиране на режим на избор
-        recyclerView.addOnItemTouchListener(object : androidx.recyclerview.widget.RecyclerView.SimpleOnItemTouchListener() {
+        // Long press listener за активиране на режим на избор (старият подход - може да се премахне)
+        longPressListener = object : androidx.recyclerview.widget.RecyclerView.SimpleOnItemTouchListener() {
             override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
                 if (e.action == MotionEvent.ACTION_DOWN) {
                     val view = rv.findChildViewUnder(e.x, e.y)
@@ -177,7 +189,8 @@ class RacesFragment : Fragment() {
                             val holder = rv.findViewHolderForAdapterPosition(position) as? RaceAdapter.RaceViewHolder
                             if (holder != null) {
                                 longPressHandler.postDelayed({
-                                    if (!adapter.isSelectionModeEnabled() && 
+                                    // Проверяваме дали fragment-ът все още е активен
+                                    if (isAdded && view.isAttachedToWindow && !adapter.isSelectionModeEnabled() && 
                                         rv.findChildViewUnder(e.x, e.y) == view &&
                                         rv.getChildAdapterPosition(view) == position) {
                                         // Активираме режим на избор
@@ -192,15 +205,43 @@ class RacesFragment : Fragment() {
                 }
                 return false
             }
-        })
+        }
+        recyclerView.addOnItemTouchListener(longPressListener!!)
 
         checkEmptyList()
+        
+        // Зареждаме данните в background след като adapter-ът е готов
+        loadRaces()
+        
+        // Обработка на back бутона - ако сме в selection mode, излизаме от него
+        // Регистрираме callback-а тук, но ще го активираме/деактивираме в enterSelectionMode/exitSelectionMode
+        if (backPressedCallback == null) {
+            backPressedCallback = object : androidx.activity.OnBackPressedCallback(false) {
+                override fun handleOnBackPressed() {
+                    // Ако сме в режим на избор, излизаме от него
+                    exitSelectionMode()
+                }
+            }
+            requireActivity().onBackPressedDispatcher.addCallback(this, backPressedCallback!!)
+        }
     }
     
     private fun enterSelectionMode(initialPosition: Int) {
         adapter.setSelectionMode(true)
         adapter.toggleSelection(racesList[initialPosition].id)
         btnDeleteSelected.visibility = View.VISIBLE
+        // Активираме back callback за да излизаме от selection mode с back бутона
+        // Уверяваме се че callback-ът е регистриран (ако не е, го регистрираме)
+        if (backPressedCallback == null && view != null) {
+            backPressedCallback = object : androidx.activity.OnBackPressedCallback(false) {
+                override fun handleOnBackPressed() {
+                    // Ако сме в режим на избор, излизаме от него
+                    exitSelectionMode()
+                }
+            }
+            requireActivity().onBackPressedDispatcher.addCallback(this, backPressedCallback!!)
+        }
+        backPressedCallback?.isEnabled = true
         // Вибрация за feedback (опционално - не крашва ако няма разрешение)
         try {
             val vibrator = requireContext().getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator
@@ -222,6 +263,13 @@ class RacesFragment : Fragment() {
         adapter.setSelectionMode(false)
         adapter.clearSelection()
         btnDeleteSelected.visibility = View.GONE
+        // Деактивираме back callback - back бутонът работи нормално
+        backPressedCallback?.isEnabled = false
+    }
+    
+    // Публичен метод за извикване от Activity callback-а
+    fun exitSelectionModeDirectly() {
+        exitSelectionMode()
     }
 
     private fun setupTabButtons() {
@@ -232,8 +280,9 @@ class RacesFragment : Fragment() {
             if (isShowingFavorites) {
                 isShowingFavorites = false
                 updateTabButtons(false)
-                // Използваме локалния списък вместо да зареждаме от storage - много по-бързо!
                 refreshRacesListFromCache()
+                adapter.preloadProfiles(requireContext())
+                adapter.preloadDateFormats(requireContext(), racesList)
                 adapter.updateRaces(racesList)
                 checkEmptyList()
             }
@@ -243,8 +292,9 @@ class RacesFragment : Fragment() {
             if (!isShowingFavorites) {
                 isShowingFavorites = true
                 updateTabButtons(true)
-                // Използваме локалния списък вместо да зареждаме от storage - много по-бързо!
                 refreshRacesListFromCache()
+                adapter.preloadProfiles(requireContext())
+                adapter.preloadDateFormats(requireContext(), racesList)
                 adapter.updateRaces(racesList)
                 checkEmptyList()
             }
@@ -269,12 +319,27 @@ class RacesFragment : Fragment() {
     }
 
     private fun loadRaces() {
-        // Зареждаме всички сесии от storage и ги кешираме
-        allRacesCache.clear()
-        allRacesCache.addAll(RouteStorage.loadRaces(requireContext()))
-        
-        // Филтрираме и показваме само тези за текущия профил
-        refreshRacesListFromCache()
+        // КРИТИЧНО: Зареждаме в background thread за да не блокираме UI!
+        java.util.concurrent.Executors.newSingleThreadExecutor().execute {
+            val startTime = System.currentTimeMillis()
+            val races = RouteStorage.loadRaces(requireContext())
+            val loadTime = System.currentTimeMillis() - startTime
+            android.util.Log.d("RacesFragment", "📂 Loaded ${races.size} races in ${loadTime}ms")
+            
+            // Обновяваме UI на main thread
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                allRacesCache.clear()
+                allRacesCache.addAll(races)
+                refreshRacesListFromCache()
+                
+                // КРИТИЧНО: Предварително зареждаме profilesCache и dateFormatCache ПРЕДИ notifyDataSetChanged
+                adapter.preloadProfiles(requireContext())
+                adapter.preloadDateFormats(requireContext(), racesList)
+                
+                adapter.updateRaces(racesList)
+                checkEmptyList()
+            }
+        }
     }
     
     /**
@@ -301,10 +366,43 @@ class RacesFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // Обновяваме данните само ако е необходимо (при завръщане от друга страница)
-        loadRaces()
-        adapter.updateRaces(racesList)
-        checkEmptyList()
+        // Изчистваме всички pending callbacks при resume
+        longPressHandler.removeCallbacksAndMessages(null)
+        
+        // Уверяваме се че back callback-ът е регистриран (ако view-то вече съществува, onViewCreated не се извиква отново)
+        if (backPressedCallback == null && view != null) {
+            backPressedCallback = object : androidx.activity.OnBackPressedCallback(false) {
+                override fun handleOnBackPressed() {
+                    // Ако сме в режим на избор, излизаме от него
+                    exitSelectionMode()
+                }
+            }
+            requireActivity().onBackPressedDispatcher.addCallback(this, backPressedCallback!!)
+        }
+        
+        // Уверяваме се че long press listener е добавен
+        if (longPressListener != null && ::recyclerView.isInitialized) {
+            try {
+                recyclerView.removeOnItemTouchListener(longPressListener!!)
+            } catch (e: Exception) {
+                // Игнорираме ако listener-ът не е бил добавен
+            }
+            recyclerView.addOnItemTouchListener(longPressListener!!)
+        }
+        
+        if (allRacesCache.isNotEmpty()) {
+            refreshRacesListFromCache()
+            adapter.preloadProfiles(requireContext())
+            adapter.preloadDateFormats(requireContext(), racesList)
+            adapter.updateRaces(racesList)
+            checkEmptyList()
+        }
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // Изчистваме всички pending callbacks при pause
+        longPressHandler.removeCallbacksAndMessages(null)
     }
 
     private fun checkEmptyList() {
@@ -345,8 +443,6 @@ class RacesFragment : Fragment() {
                 
                 // Презареждаме всичко
                 loadRaces()
-                adapter.updateRaces(racesList)
-                checkEmptyList()
                 
                 Toast.makeText(requireContext(), "✅ Сесията е изтрита", Toast.LENGTH_SHORT).show()
             }
@@ -385,8 +481,6 @@ class RacesFragment : Fragment() {
                 
                 // Презареждаме всичко
                 loadRaces()
-                adapter.updateRaces(racesList)
-                checkEmptyList()
                 
                 Toast.makeText(requireContext(), "✅ $count ${if (count == 1) "сесия е изтрита" else "сесии са изтрити"}", Toast.LENGTH_SHORT).show()
             }
@@ -394,6 +488,19 @@ class RacesFragment : Fragment() {
             .create()
         DialogHelper.styleDialogButtons(deleteDialog)
         deleteDialog.show()
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // Премахваме listener при destroy на view
+        if (longPressListener != null && ::recyclerView.isInitialized) {
+            try {
+                recyclerView.removeOnItemTouchListener(longPressListener!!)
+            } catch (e: Exception) {
+                // Игнорираме ако listener-ът не е бил добавен
+            }
+        }
+        longPressHandler.removeCallbacksAndMessages(null)
     }
     
     override fun onDestroy() {

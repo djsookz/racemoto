@@ -15,9 +15,9 @@ import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceManager
 import com.example.clinometer.settings.LanguageManager
 import com.example.clinometer.DialogHelper
+import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.settings.SoundManager
 import com.example.clinometer.settings.UnitsManager
-import com.example.clinometer.settings.MapProviderManager
 import com.google.android.material.card.MaterialCardView
 
 /**
@@ -43,8 +43,6 @@ class SettingsFragment : Fragment() {
     private lateinit var cardDragCalibration: MaterialCardView
     private lateinit var cardTrackEditor: MaterialCardView
     private lateinit var cardBatteryOptimization: MaterialCardView
-    private lateinit var cardMapProvider: MaterialCardView
-    private lateinit var cardTestMapbox: MaterialCardView
     
     private lateinit var tvLanguageValue: TextView
     private lateinit var tvSpeedUnitValue: TextView
@@ -52,7 +50,6 @@ class SettingsFragment : Fragment() {
     private lateinit var tvTemperatureUnitValue: TextView
     private lateinit var tvDragCalibrationStatus: TextView
     private lateinit var tvBatteryOptimizationStatus: TextView
-    private lateinit var tvMapProviderValue: TextView
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -89,8 +86,6 @@ class SettingsFragment : Fragment() {
         cardDragCalibration = view.findViewById(R.id.cardDragCalibration)
         cardTrackEditor = view.findViewById(R.id.cardTrackEditor)
         cardBatteryOptimization = view.findViewById(R.id.cardBatteryOptimization)
-        cardMapProvider = view.findViewById(R.id.cardMapProvider)
-        cardTestMapbox = view.findViewById(R.id.cardTestMapbox)
         
         tvLanguageValue = view.findViewById(R.id.tvLanguageValue)
         tvSpeedUnitValue = view.findViewById(R.id.tvSpeedUnitValue)
@@ -98,7 +93,6 @@ class SettingsFragment : Fragment() {
         tvTemperatureUnitValue = view.findViewById(R.id.tvTemperatureUnitValue)
         tvDragCalibrationStatus = view.findViewById(R.id.tvDragCalibrationStatus)
         tvBatteryOptimizationStatus = view.findViewById(R.id.tvBatteryOptimizationStatus)
-        tvMapProviderValue = view.findViewById(R.id.tvMapProviderValue)
     }
     
     private fun setupListeners() {
@@ -147,16 +141,8 @@ class SettingsFragment : Fragment() {
         
         cardLanguage.setOnClickListener { showLanguageDialog() }
         
-        cardTrackEditor.setOnClickListener {
-            showOfficialTrackSelection()
-        }
-        
-        cardMapProvider.setOnClickListener { showMapProviderDialog() }
-        
-        cardTestMapbox.setOnClickListener {
-            val intent = Intent(requireContext(), MapboxTestActivity::class.java)
-            startActivity(intent)
-        }
+        // Track editor removed - SDK handles map matching
+        cardTrackEditor.visibility = View.GONE
         
         cardSpeedUnit.setOnClickListener { showSpeedUnitDialog() }
         cardTemperatureUnit.setOnClickListener { showTemperatureUnitDialog() }
@@ -175,9 +161,6 @@ class SettingsFragment : Fragment() {
         tvSpeedUnitValue.text = getString(UnitsManager.getSpeedUnit(requireContext()).displayNameResId)
         tvDistanceUnitValue.text = getString(UnitsManager.getDistanceUnit(requireContext()).displayNameResId)
         tvTemperatureUnitValue.text = getString(UnitsManager.getTemperatureUnit(requireContext()).displayNameResId)
-        
-        val currentProvider = MapProviderManager.getMapProvider(requireContext())
-        tvMapProviderValue.text = MapProviderManager.getProviderDisplayName(currentProvider)
         
         updateDragCalibrationStatus()
         updateBatteryOptimizationStatus()
@@ -235,7 +218,7 @@ class SettingsFragment : Fragment() {
         val title = when (currentLanguage) {
             LanguageManager.Language.ENGLISH -> "Select Language"
             LanguageManager.Language.BULGARIAN -> "Изберете език"
-            LanguageManager.Language.GREEK -> "Επιλέξτε γλώσσα"
+            LanguageManager.Language.GREEK -> "Εпиλέξτε γλώσσα"
         }
         
         val cancelButton = when (currentLanguage) {
@@ -315,30 +298,6 @@ class SettingsFragment : Fragment() {
         DialogHelper.styleDialogButtons(speedDialog)
     }
     
-    private fun showOfficialTrackSelection() {
-        val tracks = arrayOf("Серес", "Sofia Ring", "Отмени")
-        AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
-            .setTitle("Избери писта")
-            .setItems(tracks) { _, which ->
-                when (which) {
-                    0 -> {
-                        val intent = Intent(requireContext(), OfficialTrackCenterlineEditorActivity::class.java).apply {
-                            putExtra("track_id", "serres_circuit")
-                            putExtra("track_name", getString(R.string.track_name_serres))
-                        }
-                        startActivity(intent)
-                    }
-                    1 -> {
-                        val intent = Intent(requireContext(), OfficialTrackCenterlineEditorActivity::class.java).apply {
-                            putExtra("track_id", "sofia_ring")
-                            putExtra("track_name", "Sofia Ring")
-                        }
-                        startActivity(intent)
-                    }
-                }
-            }
-            .show()
-    }
     
     private fun showTemperatureUnitDialog() {
         val units = UnitsManager.TemperatureUnit.values()
@@ -374,39 +333,4 @@ class SettingsFragment : Fragment() {
         DialogHelper.styleDialogButtons(tempDialog)
     }
     
-    private fun showMapProviderDialog() {
-        val providers = MapProviderManager.MapProvider.values()
-        val providerNames = providers.map { MapProviderManager.getProviderDisplayName(it) }
-        val currentProvider = MapProviderManager.getMapProvider(requireContext())
-        val selectedIndex = providers.indexOf(currentProvider)
-        
-        val adapter = object : android.widget.ArrayAdapter<String>(
-            requireContext(),
-            android.R.layout.simple_list_item_single_choice,
-            providerNames
-        ) {
-            override fun getView(position: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
-                val view = super.getView(position, convertView, parent)
-                val textView = view.findViewById<android.widget.TextView>(android.R.id.text1)
-                textView?.setTextColor(android.graphics.Color.WHITE)
-                return view
-            }
-        }
-        
-        val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
-            .setTitle("Map Provider")
-            .setSingleChoiceItems(adapter, selectedIndex) { d, which ->
-                val selectedProvider = providers[which]
-                MapProviderManager.setMapProvider(requireContext(), selectedProvider)
-                tvMapProviderValue.text = MapProviderManager.getProviderDisplayName(selectedProvider)
-                d.dismiss()
-                
-                Toast.makeText(requireContext(), "Map provider променен на: ${MapProviderManager.getProviderDisplayName(selectedProvider)}", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Отказ", null)
-            .create()
-        
-        dialog.show()
-        DialogHelper.styleDialogButtons(dialog)
-    }
 }

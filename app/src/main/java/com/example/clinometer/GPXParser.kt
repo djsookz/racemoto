@@ -1,7 +1,6 @@
 package com.example.clinometer
 
 import android.content.Context
-import org.osmdroid.util.GeoPoint
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 import org.w3c.dom.NodeList
@@ -15,8 +14,8 @@ data class TrackPoint(
     val name: String? = null,
     val description: String? = null
 ) {
-    val geoPoint: GeoPoint
-        get() = GeoPoint(latitude, longitude)
+    val geoPoint: com.example.clinometer.GeoPoint
+        get() = com.example.clinometer.GeoPoint(latitude, longitude)
 }
 
 data class TrackSector(

@@ -8,6 +8,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.PreferenceManager
+import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.settings.LanguageManager
 import com.google.android.material.button.MaterialButton
 
@@ -456,7 +457,10 @@ class TrackSessionDetailActivity : AppCompatActivity() {
     }
 
     override fun onBackPressed() {
-        val intent = Intent(this, TrackActivity::class.java)
+        // ✅ Връщаме се към MainContainerActivity с правилния fragment (Track)
+        val intent = Intent(this, MainContainerActivity::class.java).apply {
+            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_TRACK)
+        }
         startActivity(intent)
         overridePendingTransition(0, 0)
         finish()

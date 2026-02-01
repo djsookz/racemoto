@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.ArrayAdapter
+import com.example.clinometer.data.ProfileStorage
 import android.widget.LinearLayout
 import android.widget.Toast
 import android.view.LayoutInflater

@@ -24,10 +24,21 @@ class SpeedGaugeView @JvmOverloads constructor(
     private var currentSpeed = 0f
     private var maxSpeed = 280f
 
-    // G-force data
+    // G-force data (keep old fields for compatibility, but add direct access like GGaugeView)
     private var accelerationG = 0f
     private var brakingG = 0f
     private var corneringG = 0f
+    // Direct g-force values (like GGaugeView) - use these instead of accelerationG - brakingG
+    var gForceX: Float = 0f
+        set(value) {
+            field = value
+            invalidate()
+        }
+    var gForceY: Float = 0f
+        set(value) {
+            field = value
+            invalidate()
+        }
     private val gForceHistory = mutableListOf<PointF>()
     private val maxGForcePoints = 50
 
@@ -264,16 +275,23 @@ class SpeedGaugeView @JvmOverloads constructor(
         // Axis labels removed per request
 
         // Draw current G-force point with proper scaling
-        // Scale G-forces to fit within the graph (max 2.0-2.5g)
+        // Scale G-forces to fit within the graph (max 2.5g)
+        // NOTE: Използваме директно gForceX и gForceY (как в drag сесиите)
+        // Service-ът вече ни подава инерционната сила (знаците са обърнати там)
+        // - gForceY > 0 (backward force) → точка надолу (positive Y в координатната система)
+        // - gForceY < 0 (forward force) → точка нагоре (negative Y в координатната система)
+        // - gForceX > 0 (left force) → точка надясно (positive X)
+        // - gForceX < 0 (right force) → точка наляво (negative X)
         val maxG = 2.5f
         val threshold = 0.10f // align with deadband to eliminate rest jumps
         
-        val rawCorner = corneringG
-        val rawLong = accelerationG - brakingG
+        val rawCorner = gForceX
+        val rawLong = gForceY
         val scaledCorneringG = if (abs(rawCorner) <= threshold) 0f else (rawCorner / maxG).coerceIn(-1f, 1f)
         val scaledAccelG = if (abs(rawLong) <= threshold) 0f else (rawLong / maxG).coerceIn(-1f, 1f)
         
-        val gX = centerX + scaledCorneringG * graphRadius
+        // Директна визуализация (без обръщане, знаците вече са правилни от Service-а)
+        val gX = centerX - scaledCorneringG * graphRadius
         val gY = centerY - scaledAccelG * graphRadius
 
         // Draw trail
@@ -367,13 +385,18 @@ class SpeedGaugeView @JvmOverloads constructor(
         corneringG = cornering
 
         // Add to history with proper scaling and noise filtering
+        // Използваме директно gForceX и gForceY (ако са зададени), иначе fallback към старата логика
         val maxG = 2.0f
         val threshold = 0.1f // Ignore small values (noise)
         
-        val scaledCorneringG = if (abs(corneringG) < threshold) 0f else (corneringG / maxG).coerceIn(-1f, 1f)
-        val scaledAccelG = if (abs(accelerationG - brakingG) < threshold) 0f else ((accelerationG - brakingG) / maxG).coerceIn(-1f, 1f)
+        val rawCorner = if (gForceX != 0f || gForceY != 0f) gForceX else corneringG
+        val rawLong = if (gForceX != 0f || gForceY != 0f) gForceY else (accelerationG - brakingG)
         
-        val gX = centerX + scaledCorneringG * (radius * 0.6f)
+        val scaledCorneringG = if (abs(rawCorner) < threshold) 0f else (rawCorner / maxG).coerceIn(-1f, 1f)
+        val scaledAccelG = if (abs(rawLong) < threshold) 0f else (rawLong / maxG).coerceIn(-1f, 1f)
+        
+        // Обръщаме знаците за canvas координати (как в drawGForceGraph)
+        val gX = centerX - scaledCorneringG * (radius * 0.6f)
         val gY = centerY - scaledAccelG * (radius * 0.6f)
         gForceHistory.add(PointF(gX, gY))
 

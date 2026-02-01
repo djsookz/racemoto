@@ -29,6 +29,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.data.VehicleData
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
@@ -53,9 +54,12 @@ class GarageFragment : Fragment() {
     private lateinit var tvActiveProfileType: TextView
     private lateinit var ivActiveProfileIcon: ImageView
     private lateinit var flProfileImageContainer: FrameLayout
-    private lateinit var vFadeOverlay: View
-    private lateinit var vOrangeDivider: View
-    private lateinit var btnChangeProfile: MaterialButton
+    private var llProfileTextContainer: LinearLayout? = null
+    // Overlay views for profile info (landscape and portrait)
+    private var llLandscapeProfileInfo: LinearLayout? = null
+    private var llPortraitProfileInfo: LinearLayout? = null
+    private var tvActiveProfileNameOverlay: TextView? = null
+    private var tvActiveProfileTypeOverlay: TextView? = null
     private lateinit var tvProfileCount: TextView
     private lateinit var recyclerView: RecyclerView
     
@@ -99,11 +103,14 @@ class GarageFragment : Fragment() {
         tvActiveProfileType = view.findViewById(R.id.tvActiveProfileType)
         ivActiveProfileIcon = view.findViewById(R.id.ivActiveProfileIcon)
         flProfileImageContainer = view.findViewById(R.id.flProfileImageContainer)
-        vFadeOverlay = view.findViewById(R.id.vFadeOverlay)
-        vOrangeDivider = view.findViewById(R.id.vOrangeDivider)
-        btnChangeProfile = view.findViewById(R.id.btnChangeProfile)
+        llProfileTextContainer = view.findViewById(R.id.llProfileTextContainer)
         tvProfileCount = view.findViewById(R.id.tvProfileCount)
         recyclerView = view.findViewById(R.id.rvProfiles)
+        // Overlay views for profile info (landscape and portrait)
+        llLandscapeProfileInfo = view.findViewById(R.id.llLandscapeProfileInfo)
+        llPortraitProfileInfo = view.findViewById(R.id.llPortraitProfileInfo)
+        tvActiveProfileNameOverlay = view.findViewById(R.id.tvActiveProfileNameOverlay)
+        tvActiveProfileTypeOverlay = view.findViewById(R.id.tvActiveProfileTypeOverlay)
     }
     
     private fun setupRecyclerView() {
@@ -112,20 +119,22 @@ class GarageFragment : Fragment() {
             profiles,
             requireContext(),
             onProfileClick = { profile ->
+                showChangeProfileConfirmation(profile)
+            },
+            onEditClick = { profile -> showEditProfileDialog(profile) },
+            onDeleteClick = { profile -> deleteProfileWithAnimation(profile) },
+            onDetailsClick = { profile ->
                 val intent = Intent(requireContext(), ProfileDetailActivity::class.java).apply {
                     putExtra("profile_id", profile.id)
                 }
                 startActivity(intent)
-            },
-            onEditClick = { profile -> showEditProfileDialog(profile) },
-            onDeleteClick = { profile -> deleteProfileWithAnimation(profile) }
+            }
         )
         recyclerView.adapter = adapter
     }
     
     private fun setupClickListeners() {
         btnAddProfile.setOnClickListener { showCreateProfileDialog() }
-        btnChangeProfile.setOnClickListener { showQuickProfileSelection() }
         flProfileImageContainer.setOnClickListener { showImageSelectionDialog() }
     }
     
@@ -180,6 +189,10 @@ class GarageFragment : Fragment() {
             
             tvActiveProfileType.text = typeText
             
+            // Update landscape overlay if exists
+            tvActiveProfileNameOverlay?.text = profile.name
+            tvActiveProfileTypeOverlay?.text = typeText
+            
             val imagePath = profile.imagePath
             if (!imagePath.isNullOrEmpty()) {
                 val imageFile = File(requireContext().getExternalFilesDir(null), imagePath)
@@ -191,7 +204,8 @@ class GarageFragment : Fragment() {
                         val currentProfileId = profile.id
                         imageLoadExecutor.execute {
                             try {
-                                val bitmap = decodeSampledBitmapFromFile(imageFile.absolutePath, 800, 800)
+                                // Image is already scaled on disk, just load it
+                                val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath)
                                 if (bitmap != null) {
                                     imageCache[imagePath] = bitmap
                                     requireActivity().runOnUiThread {
@@ -225,7 +239,6 @@ class GarageFragment : Fragment() {
             }
             
             cardActiveProfile.visibility = View.VISIBLE
-            btnChangeProfile.visibility = if (profiles.size > 1) View.VISIBLE else View.GONE
             
             cardActiveProfile.animate()
                 .scaleX(1.02f)
@@ -299,6 +312,29 @@ class GarageFragment : Fragment() {
         deleteDialog.show()
     }
     
+    private fun showChangeProfileConfirmation(profile: Profile) {
+        val currentProfileId = ProfileStorage.getSelectedProfileId(requireContext())
+        if (profile.id == currentProfileId) {
+            // Already selected, no need to show confirmation
+            return
+        }
+        
+        val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
+            .setTitle(getString(R.string.garage_change_button))
+            .setMessage("Сигурни ли сте, че искате да смените превозното средство на \"${profile.name}\"?")
+            .setPositiveButton(getString(R.string.yes)) { _, _ ->
+                ProfileStorage.saveSelectedProfile(requireContext(), profile.id)
+                updateActiveProfileCard()
+                adapter.notifyDataSetChanged()
+                Toast.makeText(requireContext(), "✅ Сега караш: ${profile.name}", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(getString(R.string.no), null)
+            .create()
+        
+        DialogHelper.styleDialogButtons(dialog)
+        dialog.show()
+    }
+    
     private fun showQuickProfileSelection() {
         if (profiles.size <= 1) {
             Toast.makeText(requireContext(), "ℹ️ Няма други профили за избор", Toast.LENGTH_SHORT).show()
@@ -308,26 +344,53 @@ class GarageFragment : Fragment() {
         val selectedId = ProfileStorage.getSelectedProfileId(requireContext())
         val otherProfiles = profiles.filter { it.id != selectedId }
         
-        val options = otherProfiles.map { profile ->
-            val emoji = when (profile.vehicleType) {
-                Profile.VehicleType.CAR -> "🚗"
-                Profile.VehicleType.MOTORCYCLE -> "🏍️"
-            }
-            "$emoji ${profile.name}"
-        }.toTypedArray()
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_change_vehicle, null)
+        val rvProfileOptions = dialogView.findViewById<RecyclerView>(R.id.rvProfileOptions)
+        val btnCancel = dialogView.findViewById<android.widget.Button>(R.id.btnCancel)
         
-        AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
-            .setTitle("🔄 Смени превозното средство")
-            .setItems(options) { _, which ->
-                val newProfile = otherProfiles[which]
-                ProfileStorage.saveSelectedProfile(requireContext(), newProfile.id)
-                updateActiveProfileCard()
-                adapter.notifyDataSetChanged()
-                
-                Toast.makeText(requireContext(), "✅ Сега караш: ${newProfile.name}", Toast.LENGTH_SHORT).show()
+        val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
+            .setView(dialogView)
+            .create()
+        
+        rvProfileOptions.layoutManager = LinearLayoutManager(requireContext())
+        val profileOptionsAdapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+                val view = LayoutInflater.from(parent.context)
+                    .inflate(R.layout.item_profile_option, parent, false)
+                return object : RecyclerView.ViewHolder(view) {}
             }
-            .setNegativeButton(getString(R.string.garage_cancel_button), null)
-            .show()
+            
+            override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+                val profile = otherProfiles[position]
+                val ivVehicleIcon = holder.itemView.findViewById<ImageView>(R.id.ivVehicleIcon)
+                val tvProfileName = holder.itemView.findViewById<TextView>(R.id.tvProfileName)
+                
+                val iconRes = when (profile.vehicleType) {
+                    Profile.VehicleType.CAR -> R.drawable.ic_car
+                    Profile.VehicleType.MOTORCYCLE -> R.drawable.ic_motorcycle
+                }
+                ivVehicleIcon.setImageResource(iconRes)
+                tvProfileName.text = profile.name
+                
+                holder.itemView.setOnClickListener {
+                    dialog.dismiss()
+                    val newProfile = otherProfiles[position]
+                    ProfileStorage.saveSelectedProfile(requireContext(), newProfile.id)
+                    updateActiveProfileCard()
+                    adapter.notifyDataSetChanged()
+                    Toast.makeText(requireContext(), "✅ Сега караш: ${newProfile.name}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            
+            override fun getItemCount(): Int = otherProfiles.size
+        }
+        rvProfileOptions.adapter = profileOptionsAdapter
+        
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
+        }
+        
+        dialog.show()
     }
     
     private fun showCreateProfileDialog() {
@@ -581,26 +644,7 @@ class GarageFragment : Fragment() {
                 
                 val correctedBitmap = correctImageOrientation(uri, bitmap)
                 
-                val imagesDir = File(requireContext().getExternalFilesDir(null), "profile_images")
-                if (!imagesDir.exists()) {
-                    imagesDir.mkdirs()
-                }
-                
-                val imageFile = File(imagesDir, "profile_${profile.id}.jpg")
-                val outputStream = FileOutputStream(imageFile)
-                correctedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, outputStream)
-                outputStream.flush()
-                outputStream.close()
-                
-                val newImagePath = "profile_images/profile_${profile.id}.jpg"
-                val oldImagePath = profile.imagePath
-                profile.imagePath = newImagePath
-                ProfileStorage.saveProfiles(requireContext(), profiles)
-                
-                if (!oldImagePath.isNullOrEmpty()) {
-                    imageCache.remove(oldImagePath)
-                }
-                
+                // Scale bitmap before saving to disk (max 800px for memory efficiency)
                 val maxSize = 800
                 val resizedBitmap = if (correctedBitmap.width > maxSize || correctedBitmap.height > maxSize) {
                     val scale = minOf(maxSize.toFloat() / correctedBitmap.width, maxSize.toFloat() / correctedBitmap.height)
@@ -610,18 +654,46 @@ class GarageFragment : Fragment() {
                 } else {
                     correctedBitmap
                 }
-                imageCache[newImagePath] = resizedBitmap
                 
+                // Recycle original if it was scaled
+                if (resizedBitmap != correctedBitmap) {
+                    correctedBitmap.recycle()
+                }
+                
+                val imagesDir = File(requireContext().getExternalFilesDir(null), "profile_images")
+                if (!imagesDir.exists()) {
+                    imagesDir.mkdirs()
+                }
+                
+                val imageFile = File(imagesDir, "profile_${profile.id}.jpg")
+                val outputStream = FileOutputStream(imageFile)
+                resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 90, outputStream)
+                outputStream.flush()
+                outputStream.close()
+                
+                val newImagePath = "profile_images/profile_${profile.id}.jpg"
+                val oldImagePath = profile.imagePath
+                
+                // Remove old bitmap from cache (don't recycle - might still be in use)
                 if (!oldImagePath.isNullOrEmpty()) {
                     imageCache.remove(oldImagePath)
                 }
                 
+                profile.imagePath = newImagePath
+                ProfileStorage.saveProfiles(requireContext(), profiles)
+                
+                // Remove any existing bitmap for new path (in case of re-upload)
+                imageCache.remove(newImagePath)
+                
+                // Store scaled bitmap in cache for active profile card
+                imageCache[newImagePath] = resizedBitmap
+                
                 withContext(Dispatchers.Main) {
-                    imageCache.remove(newImagePath)
-                    updateActiveProfileCard()
-                    
+                    // Clear adapter cache for old and new paths (adapter will reload from disk with proper scaling)
                     adapter.clearImageCacheForPath(oldImagePath)
                     adapter.clearImageCacheForPath(newImagePath)
+                    
+                    updateActiveProfileCard()
                     
                     val profileIndex = profiles.indexOfFirst { it.id == profile.id }
                     if (profileIndex != -1) {
@@ -723,9 +795,14 @@ class GarageFragment : Fragment() {
             if (imageFile.exists()) {
                 imageFile.delete()
             }
+            // Remove bitmap from cache (don't recycle - might still be in use)
             imageCache.remove(oldImagePath)
+            
             profile.imagePath = null
             ProfileStorage.saveProfiles(requireContext(), profiles)
+            
+            // Clear adapter cache
+            adapter.clearImageCacheForPath(oldImagePath)
             
             val (iconRes, emoji, typeText) = when (profile.vehicleType) {
                 Profile.VehicleType.CAR -> Triple(R.drawable.ic_car, "🚗", getString(R.string.garage_vehicle_car))
@@ -735,19 +812,39 @@ class GarageFragment : Fragment() {
             tvActiveProfileName.text = profile.name
             tvActiveProfileType.text = typeText
             
+            // Update overlay text if exists (for both landscape and portrait)
+            tvActiveProfileNameOverlay?.text = profile.name
+            tvActiveProfileTypeOverlay?.text = typeText
+            
             adapter.notifyDataSetChanged()
             Toast.makeText(requireContext(), "✅ Снимката е премахната", Toast.LENGTH_SHORT).show()
         }
     }
     
     private fun showIcon(iconRes: Int) {
-        val containerLayoutParams = flProfileImageContainer.layoutParams as LinearLayout.LayoutParams
+        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val containerSizeInPx = (48 * resources.displayMetrics.density).toInt()
-        containerLayoutParams.width = containerSizeInPx
-        containerLayoutParams.height = containerSizeInPx
-        containerLayoutParams.topMargin = (30 * resources.displayMetrics.density).toInt()
-        containerLayoutParams.gravity = android.view.Gravity.CENTER_HORIZONTAL
-        flProfileImageContainer.layoutParams = containerLayoutParams
+        
+        (flProfileImageContainer.parent as? LinearLayout)?.let { parent ->
+            val containerLayoutParams = flProfileImageContainer.layoutParams as LinearLayout.LayoutParams
+            containerLayoutParams.width = containerSizeInPx
+            containerLayoutParams.height = containerSizeInPx
+            containerLayoutParams.weight = 0f // No weight when showing icon
+            containerLayoutParams.topMargin = (30 * resources.displayMetrics.density).toInt()
+            containerLayoutParams.gravity = android.view.Gravity.CENTER_HORIZONTAL
+            containerLayoutParams.bottomMargin = 0
+            containerLayoutParams.marginStart = 0
+            containerLayoutParams.marginEnd = 0
+            flProfileImageContainer.layoutParams = containerLayoutParams
+        } ?: run {
+            // Fallback if parent is not LinearLayout
+            val containerLayoutParams = flProfileImageContainer.layoutParams as ViewGroup.MarginLayoutParams
+            containerLayoutParams.width = containerSizeInPx
+            containerLayoutParams.height = containerSizeInPx
+            containerLayoutParams.topMargin = (30 * resources.displayMetrics.density).toInt()
+            flProfileImageContainer.layoutParams = containerLayoutParams
+        }
+        
         flProfileImageContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.profile_icon_background)
         
         val layoutParams = ivActiveProfileIcon.layoutParams as FrameLayout.LayoutParams
@@ -761,74 +858,103 @@ class GarageFragment : Fragment() {
         ivActiveProfileIcon.imageTintList = ContextCompat.getColorStateList(requireContext(), R.color.primary_color)
         ivActiveProfileIcon.clipToOutline = false
         ivActiveProfileIcon.outlineProvider = null
-        vFadeOverlay.visibility = View.GONE
-        vOrangeDivider.visibility = View.GONE
-    }
-    
-    private fun decodeSampledBitmapFromFile(path: String, reqWidth: Int, reqHeight: Int): Bitmap? {
-        return try {
-            val options = BitmapFactory.Options()
-            options.inJustDecodeBounds = true
-            BitmapFactory.decodeFile(path, options)
-            
-            options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
-            
-            options.inJustDecodeBounds = false
-            options.inPreferredConfig = Bitmap.Config.RGB_565
-            BitmapFactory.decodeFile(path, options)
-        } catch (e: Exception) {
-            Log.e("GarageFragment", "Error decoding bitmap", e)
-            null
-        }
-    }
-    
-    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
-        val height = options.outHeight
-        val width = options.outWidth
-        var inSampleSize = 1
         
-        if (height > reqHeight || width > reqWidth) {
-            val halfHeight = height / 2
-            val halfWidth = width / 2
-            
-            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
-                inSampleSize *= 2
-            }
+        // Hide all overlays when showing icon (no image)
+        llLandscapeProfileInfo?.visibility = View.GONE
+        llPortraitProfileInfo?.visibility = View.GONE
+        // Show original text views and container, restore height
+        llProfileTextContainer?.let { container ->
+            container.visibility = View.VISIBLE
+            val params = container.layoutParams as? ViewGroup.MarginLayoutParams
+            params?.height = ViewGroup.LayoutParams.WRAP_CONTENT
+            container.layoutParams = params
         }
-        
-        return inSampleSize
+        tvActiveProfileName.visibility = View.VISIBLE
+        tvActiveProfileType.visibility = View.VISIBLE
     }
     
     private fun setImageBitmap(bitmap: Bitmap) {
         ivActiveProfileIcon.setImageBitmap(bitmap)
-        val containerLayoutParams = flProfileImageContainer.layoutParams as ViewGroup.MarginLayoutParams
-        containerLayoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
-        containerLayoutParams.height = (130 * resources.displayMetrics.density).toInt()
-        containerLayoutParams.topMargin = 0
-        containerLayoutParams.bottomMargin = 0
-        containerLayoutParams.marginStart = 0
-        containerLayoutParams.marginEnd = 0
-        flProfileImageContainer.layoutParams = containerLayoutParams
+        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
         
         (flProfileImageContainer.parent as? LinearLayout)?.let { parent ->
-            val parentLayoutParams = flProfileImageContainer.layoutParams as LinearLayout.LayoutParams
-            parentLayoutParams.gravity = android.view.Gravity.FILL_HORIZONTAL
-            flProfileImageContainer.layoutParams = parentLayoutParams
+            val containerLayoutParams = flProfileImageContainer.layoutParams as LinearLayout.LayoutParams
+            containerLayoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
+            
+            if (isLandscape) {
+                // Landscape: Image takes most of the card height (use weight=1)
+                containerLayoutParams.height = 0 // Will be set by weight
+                containerLayoutParams.weight = 1f
+                containerLayoutParams.gravity = android.view.Gravity.FILL
+            } else {
+                // Portrait: Fixed height to maintain original container size
+                containerLayoutParams.height = (200 * resources.displayMetrics.density).toInt()
+                containerLayoutParams.weight = 0f
+                containerLayoutParams.gravity = android.view.Gravity.FILL_HORIZONTAL
+            }
+            
+            containerLayoutParams.topMargin = 0
+            containerLayoutParams.bottomMargin = 0
+            containerLayoutParams.marginStart = 0
+            containerLayoutParams.marginEnd = 0
+            flProfileImageContainer.layoutParams = containerLayoutParams
+        } ?: run {
+            // Fallback if parent is not LinearLayout
+            val containerLayoutParams = flProfileImageContainer.layoutParams as ViewGroup.MarginLayoutParams
+            containerLayoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
+            // Use match_parent height to fill available space
+            containerLayoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
+            containerLayoutParams.topMargin = 0
+            containerLayoutParams.bottomMargin = 0
+            containerLayoutParams.marginStart = 0
+            containerLayoutParams.marginEnd = 0
+            flProfileImageContainer.layoutParams = containerLayoutParams
         }
         
         flProfileImageContainer.background = null
+        flProfileImageContainer.setPadding(0, 0, 0, 0)
+        flProfileImageContainer.clipToPadding = false
+        flProfileImageContainer.clipChildren = false
         
         val layoutParams = ivActiveProfileIcon.layoutParams as FrameLayout.LayoutParams
         layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
         layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
         layoutParams.gravity = android.view.Gravity.FILL
+        layoutParams.setMargins(0, 0, 0, 0)
         ivActiveProfileIcon.layoutParams = layoutParams
         ivActiveProfileIcon.scaleType = ImageView.ScaleType.CENTER_CROP
         ivActiveProfileIcon.imageTintList = null
-        ivActiveProfileIcon.clipToOutline = false
+        ivActiveProfileIcon.clipToOutline = true
+        ivActiveProfileIcon.adjustViewBounds = false
         ivActiveProfileIcon.outlineProvider = null
-        vFadeOverlay.visibility = View.VISIBLE
-        vOrangeDivider.visibility = View.VISIBLE
+        
+        // Show overlay in bottom left corner when image is present, hide original text views and container
+        if (isLandscape) {
+            llLandscapeProfileInfo?.visibility = View.VISIBLE
+            llPortraitProfileInfo?.visibility = View.GONE
+            // Hide text container and set height to 0 to not take space
+            llProfileTextContainer?.let { container ->
+                container.visibility = View.GONE
+                val params = container.layoutParams as? ViewGroup.MarginLayoutParams
+                params?.height = 0
+                container.layoutParams = params
+            }
+            tvActiveProfileName.visibility = View.GONE
+            tvActiveProfileType.visibility = View.GONE
+        } else {
+            // Portrait: Show portrait overlay, hide landscape overlay, text container and original text views
+            llLandscapeProfileInfo?.visibility = View.GONE
+            llPortraitProfileInfo?.visibility = View.VISIBLE
+            // Hide text container and set height to 0 to not take space
+            llProfileTextContainer?.let { container ->
+                container.visibility = View.GONE
+                val params = container.layoutParams as? ViewGroup.MarginLayoutParams
+                params?.height = 0
+                container.layoutParams = params
+            }
+            tvActiveProfileName.visibility = View.GONE
+            tvActiveProfileType.visibility = View.GONE
+        }
     }
     
     private fun showEditProfileDialog(profile: Profile) {

@@ -60,7 +60,10 @@ class TrackManager(private val context: Context) {
         // Add track layout
         if (trackData.trackPoints.isNotEmpty()) {
             val trackPolyline = Polyline().apply {
-                setPoints(trackData.trackPoints.map { it.geoPoint })
+                val osmdroidPoints = trackData.trackPoints.map { 
+                    org.osmdroid.util.GeoPoint(it.geoPoint.latitude, it.geoPoint.longitude)
+                }
+                setPoints(osmdroidPoints)
                 color = android.graphics.Color.parseColor("#1976D2")
                 outlinePaint.strokeWidth = 8f
             }
@@ -69,8 +72,9 @@ class TrackManager(private val context: Context) {
         
         // Add sector markers
         trackData.sectors.forEachIndexed { index, sector ->
+            val sectorPoint = sector.startPoint.geoPoint
             val sectorMarker = Marker(map).apply {
-                position = sector.startPoint.geoPoint
+                position = org.osmdroid.util.GeoPoint(sectorPoint.latitude, sectorPoint.longitude)
                 title = "Sector ${sector.sectorNumber}"
                 snippet = "Sector ${sector.sectorNumber} Start"
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
@@ -80,8 +84,9 @@ class TrackManager(private val context: Context) {
         
         // Add corner markers
         trackData.corners.forEach { corner ->
+            val cornerPoint = corner.geoPoint
             val cornerMarker = Marker(map).apply {
-                position = corner.geoPoint
+                position = org.osmdroid.util.GeoPoint(cornerPoint.latitude, cornerPoint.longitude)
                 title = corner.name ?: "Corner"
                 snippet = corner.description ?: ""
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
@@ -92,7 +97,10 @@ class TrackManager(private val context: Context) {
         // Add pit lane
         if (trackData.pitLane.isNotEmpty()) {
             val pitLanePolyline = Polyline().apply {
-                setPoints(trackData.pitLane.map { it.geoPoint })
+                val osmdroidPoints = trackData.pitLane.map { 
+                    org.osmdroid.util.GeoPoint(it.geoPoint.latitude, it.geoPoint.longitude)
+                }
+                setPoints(osmdroidPoints)
                 color = android.graphics.Color.parseColor("#FF9800")
                 outlinePaint.strokeWidth = 4f
             }
@@ -101,8 +109,9 @@ class TrackManager(private val context: Context) {
         
         // Add start/finish line marker
         if (trackData.trackPoints.isNotEmpty()) {
+            val firstPoint = trackData.trackPoints.first().geoPoint
             val startFinishMarker = Marker(map).apply {
-                position = trackData.trackPoints.first().geoPoint
+                position = org.osmdroid.util.GeoPoint(firstPoint.latitude, firstPoint.longitude)
                 title = "Start/Finish Line"
                 snippet = "Start and finish of the lap"
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
@@ -120,9 +129,12 @@ class TrackManager(private val context: Context) {
         if (trackData.trackPoints.isEmpty()) return
         
         val allPoints = trackData.trackPoints.map { it.geoPoint }
+        val osmdroidPoints = allPoints.map { 
+            org.osmdroid.util.GeoPoint(it.latitude, it.longitude)
+        }
         
-        if (allPoints.size >= 2) {
-            val boundingBox = BoundingBox.fromGeoPointsSafe(allPoints)
+        if (osmdroidPoints.size >= 2) {
+            val boundingBox = BoundingBox.fromGeoPointsSafe(osmdroidPoints)
             
             val latDiff = boundingBox.latNorth - boundingBox.latSouth
             val lonDiff = boundingBox.lonEast - boundingBox.lonWest
@@ -141,7 +153,8 @@ class TrackManager(private val context: Context) {
             }
         } else {
             val point = allPoints[0]
-            map.controller.setCenter(point)
+            val osmdroidPoint = org.osmdroid.util.GeoPoint(point.latitude, point.longitude)
+            map.controller.setCenter(osmdroidPoint)
             map.controller.setZoom(15.0)
         }
     }

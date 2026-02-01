@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
+import com.example.clinometer.data.ProfileStorage
 import com.google.android.material.button.MaterialButton
 import com.example.clinometer.settings.UnitsManager
 import com.example.clinometer.network.WeatherApiService
@@ -39,7 +40,19 @@ class TrackFragment : Fragment(), LocationListener {
     private lateinit var llEnvironment: LinearLayout
     private lateinit var tvTemperature: TextView
     private lateinit var tvAltitude: TextView
+    private lateinit var tvHeaderModelName: TextView
+    private lateinit var ivHeaderProfileImage: android.widget.ImageView
     private lateinit var locationManager: LocationManager
+    
+    // Професионално решение: lazy initialization на SharedPreferences
+    private val profilePrefs by lazy { requireContext().getSharedPreferences("ProfilePrefs", Context.MODE_PRIVATE) }
+    
+    // Създаваме слушателя като променлива на класа (ВАЖНО, за да не бъде изтрит от Garbage Collector)
+    private val profileChangeListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "selected_profile_id") {
+            loadProfileInfo()
+        }
+    }
     private var currentTemperature: Float? = null
     private var currentAltitude: Float? = null
     private lateinit var headerSofiaRing: LinearLayout
@@ -86,6 +99,15 @@ class TrackFragment : Fragment(), LocationListener {
         trackManager = TrackManager(requireContext())
         initializeViews(view)
         setupClickListeners()
+        
+        // Регистрираме слушателя
+        profilePrefs.registerOnSharedPreferenceChangeListener(profileChangeListener)
+        
+        // Първоначално зареждане
+        view.post {
+            loadProfileInfo()
+        }
+        
         loadCachedWeatherData()
         updateEnvironmentDisplay()
         setupLocation()
@@ -99,6 +121,8 @@ class TrackFragment : Fragment(), LocationListener {
         llEnvironment = view.findViewById(R.id.llEnvironment)
         tvTemperature = view.findViewById(R.id.tvTemperature)
         tvAltitude = view.findViewById(R.id.tvAltitude)
+        tvHeaderModelName = view.findViewById(R.id.tvHeaderModelName)
+        ivHeaderProfileImage = view.findViewById(R.id.ivHeaderProfileImage)
         headerSofiaRing = view.findViewById(R.id.headerSofiaRing)
         contentSofiaRing = view.findViewById(R.id.contentSofiaRing)
         arrowSofiaRing = view.findViewById(R.id.arrowSofiaRing)
@@ -608,6 +632,10 @@ class TrackFragment : Fragment(), LocationListener {
     }
     
     override fun onLocationChanged(location: Location) {
+        // Check if fragment is attached before accessing context
+        if (!isAdded || context == null) {
+            return
+        }
         val shouldFetch = shouldFetchWeatherData(location)
         if (shouldFetch) {
             fetchWeatherFromAPI(location)
@@ -620,9 +648,16 @@ class TrackFragment : Fragment(), LocationListener {
     
     override fun onResume() {
         super.onResume()
+        loadProfileInfo()
         loadCachedWeatherData()
         updateEnvironmentDisplay()
         checkActiveSessions()
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // Важно: отписваме се, за да няма memory leaks
+        profilePrefs.unregisterOnSharedPreferenceChangeListener(profileChangeListener)
     }
     
     override fun onPause() {
@@ -631,10 +666,11 @@ class TrackFragment : Fragment(), LocationListener {
     }
     
     private fun updateEnvironmentDisplay() {
+        val context = context ?: return
         val tempText = if (currentTemperature != null) {
-            UnitsManager.formatTemperature(currentTemperature!!, requireContext(), decimals = 0)
+            UnitsManager.formatTemperature(currentTemperature!!, context, decimals = 0)
         } else {
-            val unit = UnitsManager.getTemperatureUnit(requireContext())
+            val unit = UnitsManager.getTemperatureUnit(context)
             "--${unit.symbol}"
         }
         
@@ -653,6 +689,10 @@ class TrackFragment : Fragment(), LocationListener {
     }
     
     private fun fetchWeatherFromAPI(location: Location) {
+        // Check if fragment is attached before starting coroutine
+        if (!isAdded || context == null) {
+            return
+        }
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 val weatherRetrofit = Retrofit.Builder()
@@ -689,10 +729,16 @@ class TrackFragment : Fragment(), LocationListener {
                     currentAltitude = elevation.elevation.firstOrNull()?.toFloat() ?: 0f
                 }
                 
-                cacheWeatherData(location)
-                
-                withContext(Dispatchers.Main) {
-                    updateEnvironmentDisplay()
+                // Check again before accessing context in cacheWeatherData
+                if (isAdded && context != null) {
+                    cacheWeatherData(location)
+                    
+                    withContext(Dispatchers.Main) {
+                        // Check again before updating UI
+                        if (isAdded && view != null) {
+                            updateEnvironmentDisplay()
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("TrackFragment", "Error fetching weather data", e)
@@ -717,7 +763,8 @@ class TrackFragment : Fragment(), LocationListener {
     }
     
     private fun cacheWeatherData(location: Location) {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val context = context ?: return
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val editor = prefs.edit()
         
         currentTemperature?.let { editor.putFloat("cached_temperature", it) }
@@ -728,7 +775,9 @@ class TrackFragment : Fragment(), LocationListener {
     }
     
     private fun shouldFetchWeatherData(location: Location): Boolean {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        // Check if fragment is attached before accessing context
+        val context = context ?: return false
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val cachedLat = prefs.getFloat("cached_location_lat", Float.NaN)
         val cachedLon = prefs.getFloat("cached_location_lon", Float.NaN)
         
@@ -747,5 +796,59 @@ class TrackFragment : Fragment(), LocationListener {
     
     private fun showToast(message: String) {
         android.widget.Toast.makeText(requireContext(), message, android.widget.Toast.LENGTH_SHORT).show()
+    }
+    
+    // ЕЛЕМЕНТАРНО: Зареждане на модела и снимката от активния профил
+    private fun loadProfileInfo() {
+        if (!isAdded || view == null) return
+        
+        val selectedId = ProfileStorage.getSelectedProfileId(requireContext())
+        val profiles = ProfileStorage.loadProfiles(requireContext())
+        val activeProfile = profiles.find { it.id == selectedId }
+
+        if (activeProfile != null) {
+            // 1. Зареждаме модела: "Audi A6" -> "A6"
+            val fullName = activeProfile.name.trim()
+            val modelName = if (fullName.contains(" ")) {
+                fullName.substringAfterLast(" ")
+            } else {
+                fullName
+            }
+            tvHeaderModelName.text = modelName
+            tvHeaderModelName.setTextColor(android.graphics.Color.WHITE)
+            tvHeaderModelName.visibility = View.VISIBLE
+
+            // 2. Зареждаме снимката или показваме иконка
+            if (!activeProfile.imagePath.isNullOrEmpty()) {
+                val imageFile = java.io.File(requireContext().getExternalFilesDir(null), activeProfile.imagePath)
+                if (imageFile.exists()) {
+                    // Image is already scaled on disk, just load it
+                    val bitmap = android.graphics.BitmapFactory.decodeFile(imageFile.absolutePath)
+                    if (bitmap != null) {
+                        ivHeaderProfileImage.setImageBitmap(bitmap)
+                        ivHeaderProfileImage.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                        ivHeaderProfileImage.setPadding(0, 0, 0, 0)
+                    } else {
+                        showDefaultIcon(activeProfile.vehicleType)
+                    }
+                } else {
+                    showDefaultIcon(activeProfile.vehicleType)
+                }
+            } else {
+                showDefaultIcon(activeProfile.vehicleType)
+            }
+        } else {
+            tvHeaderModelName.text = ""
+            showDefaultIcon(Profile.VehicleType.CAR)
+        }
+    }
+    
+    private fun showDefaultIcon(type: Profile.VehicleType) {
+        val icon = if (type == Profile.VehicleType.CAR) R.drawable.ic_car else R.drawable.ic_motorcycle
+        ivHeaderProfileImage.setImageResource(icon)
+        ivHeaderProfileImage.scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
+        val padding = (6 * resources.displayMetrics.density).toInt()
+        ivHeaderProfileImage.setPadding(padding, padding, padding, padding)
+        ivHeaderProfileImage.visibility = View.VISIBLE
     }
 }

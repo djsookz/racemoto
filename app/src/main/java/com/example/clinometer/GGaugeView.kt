@@ -98,6 +98,11 @@ class GGaugeView @JvmOverloads constructor(
 
         // Draw current G-force point with proper scaling
         // Scale G-forces to fit within the graph (max 2.5g)
+        // NOTE: Service-ът вече ни подава инерционната сила (знаците са обърнати там)
+        // - gForceY > 0 (backward force) → точка надолу (positive Y в координатната система)
+        // - gForceY < 0 (forward force) → точка нагоре (negative Y в координатната система)
+        // - gForceX > 0 (left force) → точка надясно (positive X)
+        // - gForceX < 0 (right force) → точка наляво (negative X)
         val maxG = 2.5f
         val threshold = 0.10f // align with deadband to eliminate rest jumps
         
@@ -106,7 +111,8 @@ class GGaugeView @JvmOverloads constructor(
         val scaledCorneringG = if (abs(rawCorner) <= threshold) 0f else (rawCorner / maxG).coerceIn(-1f, 1f)
         val scaledAccelG = if (abs(rawLong) <= threshold) 0f else (rawLong / maxG).coerceIn(-1f, 1f)
         
-        val gX = centerX + scaledCorneringG * graphRadius
+        // Директна визуализация (без обръщане, знаците вече са правилни от Service-а)
+        val gX = centerX - scaledCorneringG * graphRadius
         val gY = centerY - scaledAccelG * graphRadius
 
         // Draw current position

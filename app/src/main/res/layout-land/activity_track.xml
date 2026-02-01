@@ -1,0 +1,429 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:background="@color/background_primary">
+
+    <!-- Environment bar -->
+    <LinearLayout
+        android:id="@+id/llEnvironment"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:background="@color/card_background"
+        android:gravity="center_vertical"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Left side: Temperature and Altitude -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_thermometer"
+                android:layout_marginEnd="8dp"/>
+
+            <TextView
+                android:id="@+id/tvTemperature"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/drag_temperature_placeholder"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:layout_marginEnd="16dp" />
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_altitude"
+                android:layout_marginEnd="8dp"/>
+
+            <TextView
+                android:id="@+id/tvAltitude"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/drag_altitude_placeholder"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary" />
+        </LinearLayout>
+
+        <!-- Right side: Profile model name and image -->
+        <LinearLayout
+            android:id="@+id/llActiveProfileHeader"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="5dp"
+            android:layout_marginStart="12dp">
+
+            <TextView
+                android:id="@+id/tvHeaderModelName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="8dp"
+                android:text=""
+                android:minWidth="30dp"
+                android:visibility="visible" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardProfileImage"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                app:cardCornerRadius="19dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="1.5dp"
+                app:strokeColor="#4DFFFFFF"
+                android:visibility="visible">
+
+                <ImageView
+                    android:id="@+id/ivHeaderProfileImage"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_car"
+                    android:visibility="visible"
+                    android:contentDescription="Profile image" />
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnViewTrack"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:minHeight="0dp"
+            android:text="@string/track_button_view"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:paddingHorizontal="16dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:layout_marginStart="12dp"
+            android:visibility="gone"
+            app:cornerRadius="18dp"
+            app:icon="@drawable/ic_map"
+            app:iconGravity="textStart"
+            app:iconPadding="6dp"
+            app:iconSize="16dp"
+            app:backgroundTint="@color/accent_blue" />
+    </LinearLayout>
+
+    <!-- Bottom navigation is handled by MainContainerActivity - removed from here -->
+
+    <!-- Start button - По-малък, долу в центъра -->
+    <Button
+        android:id="@+id/btnStartNewSession"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minWidth="200dp"
+        android:text= "@string/start_track_session"
+        android:textSize="14sp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:layout_marginBottom="6dp"
+        android:backgroundTint="@color/primary_color"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"/>
+
+    <!-- Sessions list -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollSessions"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        android:clipToPadding="false"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        app:layout_constraintTop_toBottomOf="@id/llEnvironment"
+        app:layout_constraintBottom_toTopOf="@id/btnStartNewSession"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="24dp">
+
+            <TextView
+                android:id="@+id/tvNoSessions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/track_no_sessions"
+                android:textSize="18sp"
+                android:textColor="@color/text_secondary"
+                android:gravity="center"
+                android:paddingTop="48dp"
+                android:paddingBottom="48dp"
+                android:visibility="visible" />
+
+            <LinearLayout
+                android:id="@+id/llSessionsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="15dp"
+                />
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardSofiaRing"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="#2A2D30"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:id="@+id/headerSofiaRing"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="20dp"
+                        android:background="?android:attr/selectableItemBackground">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text=""
+                                android:textColor="#FFFFFF"
+                                android:textSize="18sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="3.2km • 12 завоя • Гърция"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp"
+                                android:layout_marginTop="4dp" />
+
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/arrowSofiaRing"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="▼"
+                            android:textColor="#4CAF50"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/contentSofiaRing"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvNoSessionsSofia"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/track_no_sessions_today"
+                            android:textColor="#9E9E9E"
+                            android:textSize="14sp"
+                            android:gravity="center"
+                            android:padding="32dp"
+                            android:visibility="gone" />
+
+                        <LinearLayout
+                            android:id="@+id/session1SofiaRing"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp"
+                            android:layout_margin="8dp"
+                            android:layout_marginTop="0dp"
+                            android:background="?android:attr/selectableItemBackground"
+                            android:visibility="gone">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical"
+                                android:layout_marginBottom="12dp">
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="@string/track_session_title"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="14:30"
+                                    android:textColor="#4CAF50"
+                                    android:textSize="18sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/session2SofiaRing"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp"
+                            android:layout_margin="8dp"
+                            android:layout_marginTop="0dp"
+                            android:background="?android:attr/selectableItemBackground"
+                            android:visibility="gone" />
+
+                        <LinearLayout
+                            android:id="@+id/session3SofiaRing"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp"
+                            android:layout_margin="8dp"
+                            android:layout_marginTop="0dp"
+                            android:background="?android:attr/selectableItemBackground"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardCustomTrack"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="#2A2D30"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:id="@+id/headerCustomTrack"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="20dp"
+                        android:background="?android:attr/selectableItemBackground">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Custom Track"
+                                android:textColor="#FFFFFF"
+                                android:textSize="18sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="22.12.2024 • 2 излизания"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp"
+                                android:layout_marginTop="4dp" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/arrowCustomTrack"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="▼"
+                            android:textColor="#FF9800"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/contentCustomTrack"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tvNoSessionsCustom"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/track_no_sessions_today"
+                            android:textColor="#9E9E9E"
+                            android:textSize="14sp"
+                            android:gravity="center"
+                            android:padding="32dp"
+                            android:visibility="gone" />
+
+                        <LinearLayout
+                            android:id="@+id/session1CustomTrack"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp"
+                            android:layout_margin="8dp"
+                            android:layout_marginTop="0dp"
+                            android:background="?android:attr/selectableItemBackground"
+                            android:visibility="gone" />
+
+                        <LinearLayout
+                            android:id="@+id/session2CustomTrack"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="16dp"
+                            android:layout_margin="8dp"
+                            android:layout_marginTop="0dp"
+                            android:background="?android:attr/selectableItemBackground"
+                            android:visibility="gone" />
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+

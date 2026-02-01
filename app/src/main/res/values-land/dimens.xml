@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ============================================ -->
+    <!-- HUD ELEMENTS - LANDSCAPE OVERRIDES -->
+    <!-- ============================================ -->
+    <!-- These override the portrait values in values/dimens.xml -->
+    
+    <!-- Left alignment margin (all top elements align to this) -->
+    <dimen name="hud_left_margin_landscape">16dp</dimen>
+    
+    <!-- Maneuver container -->
+    <dimen name="hud_maneuver_margin_start_landscape">16dp</dimen>
+    <dimen name="hud_maneuver_margin_end_landscape">8dp</dimen>
+    <dimen name="hud_maneuver_margin_top_landscape">16dp</dimen>
+    <dimen name="hud_maneuver_max_width_landscape">200dp</dimen>
+    
+    <!-- Car stats overlay -->
+    <dimen name="hud_car_stats_margin_start_landscape">16dp</dimen>
+    <dimen name="hud_car_stats_margin_top_landscape">120dp</dimen>
+    
+    <!-- Bottom HUD row -->
+    <dimen name="hud_bottom_row_margin_start_landscape">16dp</dimen>
+    <dimen name="hud_bottom_row_margin_bottom_landscape">25dp</dimen>
+    <dimen name="hud_bottom_row_padding_end_landscape">12dp</dimen>
+    
+    <!-- Trip progress pills -->
+    <dimen name="hud_trip_padding_h_landscape">8dp</dimen>
+    <dimen name="hud_trip_padding_v_landscape">6dp</dimen>
+    <dimen name="hud_trip_separator_margin_h_landscape">8dp</dimen>
+    <dimen name="hud_trip_value_min_width_landscape">44dp</dimen>
+    <dimen name="hud_trip_value_text_size_landscape">15sp</dimen>
+    <dimen name="hud_trip_label_text_size_landscape">10sp</dimen>
+    
+    <!-- Action buttons -->
+    <dimen name="hud_action_btn_size_landscape">56dp</dimen>
+    <dimen name="hud_action_btn_margin_end_landscape">10dp</dimen>
+    <dimen name="hud_action_btn_padding_landscape">12dp</dimen>
+    
+    <!-- Angle gauge (landscape motorcycle) -->
+    <dimen name="hud_angle_gauge_width_landscape">110dp</dimen>
+    <dimen name="hud_angle_block_width_landscape">120dp</dimen>
+    <dimen name="hud_angle_margin_start_landscape">4dp</dimen>
+    
+    <!-- Speed display -->
+    <dimen name="hud_speed_width_landscape">88dp</dimen>
+    <dimen name="hud_trip_gap_landscape">24dp</dimen>
+    <!-- When angleLandscapeContainer is GONE (car mode), this margin is used (space from speed to trip progress) -->
+    <dimen name="hud_trip_gap_car_landscape">24dp</dimen>
+</resources>

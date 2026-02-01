@@ -150,8 +150,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="30dp"
                         android:background="#3A3D40"
-                        app:tabIndicatorColor="#1976D2"
-                        app:tabSelectedTextColor="#1976D2"
+                        app:tabIndicatorColor="#FF6020"
+                        app:tabSelectedTextColor="#FFFFFF"
                         app:tabTextColor="@color/white"
                         app:tabMode="fixed"
                         app:tabGravity="fill" />

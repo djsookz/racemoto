@@ -31,5 +31,13 @@ interface MapboxGeocodingService {
         @Query("proximity") proximity: String? = null,
         @Query("limit") limit: Int = 10
     ): Response<GeocodingResponse>
+    
+    @GET("geocoding/v5/mapbox.places/{lng},{lat}.json")
+    suspend fun reverseGeocode(
+        @retrofit2.http.Path("lng") longitude: Double,
+        @retrofit2.http.Path("lat") latitude: Double,
+        @Query("access_token") accessToken: String,
+        @Query("limit") limit: Int = 1
+    ): Response<GeocodingResponse>
 }
 
