@@ -3,15 +3,15 @@ package com.example.clinometer
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.widget.ArrayAdapter
 import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
+import androidx.core.widget.addTextChangedListener
 import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.data.VehicleData
 import com.example.clinometer.settings.LanguageManager
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.textfield.MaterialAutoCompleteTextView
+import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 
 class VehicleSelectionActivity : AppCompatActivity() {
@@ -35,8 +35,8 @@ class VehicleSelectionActivity : AppCompatActivity() {
     private fun setupUi() {
         val brandInput = findViewById<TextInputLayout>(R.id.brandInput)
         val modelInput = findViewById<TextInputLayout>(R.id.modelInput)
-        val brandDropdown = findViewById<MaterialAutoCompleteTextView>(R.id.brandDropdown)
-        val modelDropdown = findViewById<MaterialAutoCompleteTextView>(R.id.modelDropdown)
+        val brandDropdown = findViewById<TextInputEditText>(R.id.brandDropdown)
+        val modelDropdown = findViewById<TextInputEditText>(R.id.modelDropdown)
         val btnReady = findViewById<MaterialButton>(R.id.btnReady)
         val carCard = findViewById<LinearLayout>(R.id.carCard)
         val motorcycleCard = findViewById<LinearLayout>(R.id.motorcycleCard)
@@ -45,60 +45,72 @@ class VehicleSelectionActivity : AppCompatActivity() {
         var selectedBrand = ""
         var selectedModel = ""
 
-        val carBrands = VehicleData.carBrands
-        val carModels = VehicleData.carModels
-        val motorcycleBrands = VehicleData.motorcycleBrands
-        val motorcycleModels = VehicleData.motorcycleModels
+        fun clearBrandAndModel() {
+            selectedBrand = ""
+            selectedModel = ""
+            brandDropdown.setText("")
+            modelDropdown.setText("")
+            modelInput.isEnabled = false
+            modelDropdown.isEnabled = false
+            brandInput.error = null
+            modelInput.error = null
+        }
+
+        fun updateModelEnabled() {
+            val enabled = selectedBrand.isNotEmpty()
+            modelInput.isEnabled = enabled
+            modelDropdown.isEnabled = enabled
+        }
 
         // Vehicle type selection
         carCard.setOnClickListener {
             selectedVehicleType = Profile.VehicleType.CAR
             updateSelection(carCard, motorcycleCard)
-            updateBrandDropdown(brandDropdown, carBrands)
-            updateVehicleIcon(brandInput, selectedVehicleType)
-            clearModelDropdown(modelDropdown)
+            clearBrandAndModel()
         }
 
         motorcycleCard.setOnClickListener {
             selectedVehicleType = Profile.VehicleType.MOTORCYCLE
             updateSelection(motorcycleCard, carCard)
-            updateBrandDropdown(brandDropdown, motorcycleBrands)
-            updateVehicleIcon(brandInput, selectedVehicleType)
-            clearModelDropdown(modelDropdown)
+            clearBrandAndModel()
         }
 
-        // Brand dropdown
-        brandDropdown.setOnItemClickListener { _, _, position, _ ->
-            val brands = if (selectedVehicleType == Profile.VehicleType.CAR) {
-                carBrands
+        brandDropdown.setOnClickListener {
+            val brandsRaw = if (selectedVehicleType == Profile.VehicleType.CAR) {
+                VehicleData.carBrands.toList()
             } else {
-                motorcycleBrands
+                VehicleData.motorcycleBrands.toList()
             }
-            
-            if (brands[position] == getString(R.string.popular_brands_header)) {
-                return@setOnItemClickListener
+            val brands = brandsRaw.filterNot {
+                it.equals(getString(R.string.popular_brands_header), true) || it.contains("Най", true)
             }
-            
-            selectedBrand = brands[position]
-            updateModelDropdown(modelDropdown, selectedBrand, if (selectedVehicleType == Profile.VehicleType.CAR) carModels else motorcycleModels)
+            showSearchPicker(getString(R.string.garage_brand_label), brands) { selected ->
+                selectedBrand = selected
+                brandDropdown.setText(selected)
+                selectedModel = ""
+                modelDropdown.setText("")
+                updateModelEnabled()
+            }
         }
 
-        // Model dropdown
-        modelDropdown.setOnItemClickListener { _, _, position, _ ->
+        modelDropdown.setOnClickListener {
+            if (selectedBrand.isEmpty()) {
+                brandInput.error = getString(R.string.garage_select_brand)
+                return@setOnClickListener
+            }
             val models = if (selectedVehicleType == Profile.VehicleType.CAR) {
-                carModels[selectedBrand] ?: emptyArray()
+                VehicleData.carModels[selectedBrand]?.toList() ?: emptyList()
             } else {
-                motorcycleModels[selectedBrand] ?: emptyArray()
+                VehicleData.motorcycleModels[selectedBrand]?.toList() ?: emptyList()
             }
-            if (position < models.size) {
-                selectedModel = models[position]
+            showSearchPicker(getString(R.string.garage_model_label), models) { selected ->
+                selectedModel = selected
+                modelDropdown.setText(selected)
             }
         }
 
-        // Initial selection
         updateSelection(carCard, motorcycleCard)
-        updateBrandDropdown(brandDropdown, carBrands)
-        updateVehicleIcon(brandInput, selectedVehicleType)
+        updateModelEnabled()
 
         // READY button
         btnReady.setOnClickListener {
@@ -123,10 +135,10 @@ class VehicleSelectionActivity : AppCompatActivity() {
                 finish()
             } else {
                 if (selectedBrand.isEmpty()) {
-                    brandInput.error = "Please select a brand"
+                    brandInput.error = getString(R.string.garage_select_brand)
                 }
                 if (selectedModel.isEmpty()) {
-                    modelInput.error = "Please select a model"
+                    modelInput.error = getString(R.string.garage_select_model)
                 }
             }
         }
@@ -137,88 +149,36 @@ class VehicleSelectionActivity : AppCompatActivity() {
         unselectedCard.background = getDrawable(R.drawable.vehicle_option_background)
     }
 
-    private fun updateBrandDropdown(dropdown: MaterialAutoCompleteTextView, brands: Array<String>) {
-        val popularIndex = brands.indexOf(getString(R.string.popular_brands_header))
-        val firstRegularBrandIndex = if (popularIndex >= 0) popularIndex + 8 else 0
-        
-        val adapter = object : ArrayAdapter<String>(this, 0, brands) {
-            override fun getView(position: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
-                val layoutInflater = LayoutInflater.from(context)
-                val view: android.view.View
-                
-                when {
-                    brands[position] == getString(R.string.popular_brands_header) -> {
-                        view = layoutInflater.inflate(R.layout.dropdown_item_popular, parent, false)
-                        val textView = view.findViewById<android.widget.TextView>(R.id.text1)
-                        textView.text = getString(R.string.popular_brands_header)
-                    }
-                    position == firstRegularBrandIndex && popularIndex >= 0 -> {
-                        view = layoutInflater.inflate(R.layout.dropdown_item_separator, parent, false)
-                    }
-                    else -> {
-                        view = layoutInflater.inflate(R.layout.dropdown_item_normal, parent, false)
-                        val textView = view.findViewById<android.widget.TextView>(R.id.text1)
-                        textView.text = brands[position]
-                    }
-                }
-                
-                return view
-            }
-            
-            override fun getDropDownView(position: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
-                return getView(position, convertView, parent)
-            }
-            
-            override fun getItemViewType(position: Int): Int {
-                return when {
-                    brands[position] == getString(R.string.popular_brands_header) -> 0
-                    position == firstRegularBrandIndex && popularIndex >= 0 -> 1
-                    else -> 2
-                }
-            }
-            
-            override fun getViewTypeCount(): Int = 3
-        }
-        dropdown.setAdapter(adapter)
-        dropdown.setText("", false)
-    }
+    private fun showSearchPicker(title: String, options: List<String>, onSelect: (String) -> Unit) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_search_picker, null)
+        val tvTitle = dialogView.findViewById<android.widget.TextView>(R.id.tvPickerTitle)
+        val btnClose = dialogView.findViewById<android.widget.ImageButton>(R.id.btnClosePicker)
+        val etSearch = dialogView.findViewById<TextInputEditText>(R.id.etSearch)
+        val listView = dialogView.findViewById<android.widget.ListView>(R.id.lvOptions)
+        val tvEmpty = dialogView.findViewById<android.widget.TextView>(R.id.tvEmpty)
 
-    private fun updateModelDropdown(dropdown: MaterialAutoCompleteTextView, brand: String, modelsMap: Map<String, Array<String>>) {
-        val models = modelsMap[brand] ?: emptyArray()
-        
-        val adapter = object : ArrayAdapter<String>(this, 0, models) {
-            override fun getView(position: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
-                val layoutInflater = LayoutInflater.from(context)
-                val view = layoutInflater.inflate(R.layout.dropdown_item_normal, parent, false)
-                val textView = view.findViewById<android.widget.TextView>(R.id.text1)
-                textView.text = models[position]
-                
-                return view
-            }
-            
-            override fun getDropDownView(position: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
-                return getView(position, convertView, parent)
-            }
-        }
-        
-        dropdown.setAdapter(adapter)
-        dropdown.setText("", false)
-    }
+        tvTitle.text = title
 
-    private fun clearModelDropdown(dropdown: MaterialAutoCompleteTextView) {
-        dropdown.setText("", false)
-        dropdown.setAdapter(null)
-    }
-    
-    private fun updateVehicleIcon(brandInput: TextInputLayout, vehicleType: Profile.VehicleType) {
-        when (vehicleType) {
-            Profile.VehicleType.CAR -> {
-                brandInput.startIconDrawable = getDrawable(R.drawable.ic_car)
-            }
-            Profile.VehicleType.MOTORCYCLE -> {
-                brandInput.startIconDrawable = getDrawable(R.drawable.ic_motorcycle)
-            }
+        val adapter = android.widget.ArrayAdapter<String>(this, R.layout.dropdown_item_normal, R.id.text1, options)
+        listView.adapter = adapter
+        listView.emptyView = tvEmpty
+
+        etSearch.addTextChangedListener { text ->
+            adapter.filter.filter(text?.toString() ?: "")
         }
+
+        val dialog = AlertDialog.Builder(this, R.style.CustomAlertDialog)
+            .setView(dialogView)
+            .create()
+
+        btnClose.setOnClickListener { dialog.dismiss() }
+
+        listView.setOnItemClickListener { _, _, position, _ ->
+            adapter.getItem(position)?.let { onSelect(it) }
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
     
     @Deprecated("Deprecated in Java")

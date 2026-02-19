@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/cardProfile"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="12dp"
-    app:cardCornerRadius="16dp"
-    app:cardElevation="4dp"
-    app:strokeWidth="0dp"
+    app:cardCornerRadius="20dp"
+    app:cardElevation="3dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="#14FFFFFF"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?android:attr/selectableItemBackground"
@@ -19,7 +21,6 @@
         android:padding="16dp"
         android:gravity="center_vertical">
 
-        <!-- Икона за превозно средство -->
         <FrameLayout
             android:layout_width="48dp"
             android:layout_height="48dp"
@@ -59,53 +60,66 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/garage_vehicle_car"
-                android:textSize="14sp"
-                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:textColor="@color/text_tertiary"
                 android:layout_marginTop="2dp" />
 
-            <!-- Статистики -->
-            <LinearLayout
+            <TextView
+                android:id="@+id/tvSessionCount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="4dp">
+                android:text="@string/garage_sessions_template"
+                android:textSize="12sp"
+                android:textColor="@color/text_tertiary"
+                android:layout_marginTop="4dp" />
 
-                <TextView
-                    android:id="@+id/tvSessionCount"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/garage_sessions_template"
-                    android:textSize="10sp"
-                    android:textColor="@color/accent_color"
-                    android:background="@drawable/stat_chip_background"
-                    android:paddingHorizontal="6dp"
-                    android:paddingVertical="2dp" />
-
-                <TextView
-                    android:id="@+id/tvMaxSpeed"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/garage_max_speed_template"
-                    android:textSize="10sp"
-                    android:textColor="@color/success_color"
-                    android:background="@drawable/stat_chip_background"
-                    android:paddingHorizontal="6dp"
-                    android:paddingVertical="2dp"
-                    android:layout_marginStart="6dp" />
-
-            </LinearLayout>
+            <TextView
+                android:id="@+id/tvCalibrationStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/garage_not_calibrated"
+                android:textSize="11sp"
+                android:textColor="#A7B0BA"
+                android:layout_marginTop="2dp" />
 
         </LinearLayout>
 
-        <!-- Бутон за опции -->
-        <ImageButton
-            android:id="@+id/btnOptions"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:src="@drawable/ic_more_vert"
-            android:background="@drawable/options_button_background"
-            app:tint="@color/text_secondary"
-            android:padding="8dp" />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <ImageButton
+                android:id="@+id/btnDetails"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_info"
+                android:background="@drawable/bg_icon_button"
+                app:tint="@android:color/white"
+                android:padding="10dp" />
+
+            <ImageButton
+                android:id="@+id/btnEdit"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:src="@drawable/ic_edit"
+                android:background="@drawable/bg_icon_button"
+                app:tint="@android:color/white"
+                android:padding="10dp" />
+
+            <ImageButton
+                android:id="@+id/btnDelete"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:src="@drawable/ic_delete"
+                android:background="@drawable/bg_icon_button_danger"
+                app:tint="#FF6B6B"
+                android:padding="10dp" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

@@ -213,6 +213,7 @@
     <string name="drag_temperature_placeholder">--°C</string>
     <string name="drag_altitude_placeholder">--m</string>
     <string name="weather_until">до</string>
+    <string name="weather_from">от</string>
     
     <!-- Drag Session Details Labels -->
     <string name="drag_best_0to100_label">0-100:</string>

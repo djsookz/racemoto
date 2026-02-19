@@ -24,9 +24,9 @@
     <dimen name="hud_bottom_row_padding_end_landscape">12dp</dimen>
     
     <!-- Trip progress pills -->
-    <dimen name="hud_trip_padding_h_landscape">8dp</dimen>
-    <dimen name="hud_trip_padding_v_landscape">6dp</dimen>
-    <dimen name="hud_trip_separator_margin_h_landscape">8dp</dimen>
+    <dimen name="hud_trip_padding_h_landscape">6dp</dimen>
+    <dimen name="hud_trip_padding_v_landscape">4dp</dimen>
+    <dimen name="hud_trip_separator_margin_h_landscape">6dp</dimen>
     <dimen name="hud_trip_value_min_width_landscape">44dp</dimen>
     <dimen name="hud_trip_value_text_size_landscape">15sp</dimen>
     <dimen name="hud_trip_label_text_size_landscape">10sp</dimen>
@@ -44,6 +44,16 @@
     <!-- Speed display -->
     <dimen name="hud_speed_width_landscape">88dp</dimen>
     <dimen name="hud_trip_gap_landscape">24dp</dimen>
+    <dimen name="map_controls_margin_top_landscape">90dp</dimen>
     <!-- When angleLandscapeContainer is GONE (car mode), this margin is used (space from speed to trip progress) -->
     <dimen name="hud_trip_gap_car_landscape">24dp</dimen>
+    <!-- Mapbox camera padding (landscape) -->
+    <dimen name="mapbox_overview_padding_top">24dp</dimen>
+    <dimen name="mapbox_overview_padding_left">24dp</dimen>
+    <dimen name="mapbox_overview_padding_bottom">120dp</dimen>
+    <dimen name="mapbox_overview_padding_right">24dp</dimen>
+    <dimen name="mapbox_following_padding_top">64dp</dimen>
+    <dimen name="mapbox_following_padding_left">24dp</dimen>
+    <dimen name="mapbox_following_padding_bottom">140dp</dimen>
+    <dimen name="mapbox_following_padding_right">24dp</dimen>
 </resources>

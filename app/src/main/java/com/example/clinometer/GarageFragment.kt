@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.drawable.ColorDrawable
 import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
@@ -15,26 +17,26 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.ListView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.data.VehicleData
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-import com.google.android.material.textfield.MaterialAutoCompleteTextView
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -48,23 +50,25 @@ import java.io.FileOutputStream
 class GarageFragment : Fragment() {
     
     private lateinit var adapter: ProfileAdapter
-    private lateinit var btnAddProfile: ExtendedFloatingActionButton
+    private lateinit var btnAddProfile: MaterialButton
+    private var btnViewSessions: MaterialButton? = null
+    private var btnEmptyAddProfile: MaterialButton? = null
+    private var emptyStateContainer: LinearLayout? = null
     private lateinit var cardActiveProfile: MaterialCardView
-    private lateinit var tvActiveProfileName: TextView
-    private lateinit var tvActiveProfileType: TextView
     private lateinit var ivActiveProfileIcon: ImageView
+    private lateinit var ivActivePlaceholderIcon: ImageView
+    private lateinit var llEmptyPhoto: LinearLayout
     private lateinit var flProfileImageContainer: FrameLayout
-    private var llProfileTextContainer: LinearLayout? = null
-    // Overlay views for profile info (landscape and portrait)
-    private var llLandscapeProfileInfo: LinearLayout? = null
-    private var llPortraitProfileInfo: LinearLayout? = null
     private var tvActiveProfileNameOverlay: TextView? = null
-    private var tvActiveProfileTypeOverlay: TextView? = null
+    private var tvActiveProfileMetaOverlay: TextView? = null
+    private var tvActiveProfileBadge: TextView? = null
     private lateinit var tvProfileCount: TextView
-    private lateinit var recyclerView: RecyclerView
+    private var recyclerView: RecyclerView? = null
     
     private val profiles = mutableListOf<Profile>()
     private var currentSelectedProfile: Profile? = null
+    private val sessionCounts = mutableMapOf<Long, Int>()
+    private val calibrationStatuses = mutableMapOf<Long, Boolean>()
     
     private val imageLoadExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private val imageCache = mutableMapOf<String, Bitmap>()
@@ -94,27 +98,29 @@ class GarageFragment : Fragment() {
         updateAddButtonState()
         updateActiveProfileCard()
         updateProfileCount()
+        loadProfileStatsAsync()
     }
     
     private fun initializeViews(view: View) {
         btnAddProfile = view.findViewById(R.id.btnAddProfile)
+        btnViewSessions = view.findViewById(R.id.btnViewSessions)
+        btnEmptyAddProfile = view.findViewById(R.id.btnEmptyAddProfile)
+        emptyStateContainer = view.findViewById(R.id.emptyStateContainer)
         cardActiveProfile = view.findViewById(R.id.cardActiveProfile)
-        tvActiveProfileName = view.findViewById(R.id.tvActiveProfileName)
-        tvActiveProfileType = view.findViewById(R.id.tvActiveProfileType)
         ivActiveProfileIcon = view.findViewById(R.id.ivActiveProfileIcon)
+        ivActivePlaceholderIcon = view.findViewById(R.id.ivActivePlaceholderIcon)
+        llEmptyPhoto = view.findViewById(R.id.llEmptyPhoto)
         flProfileImageContainer = view.findViewById(R.id.flProfileImageContainer)
-        llProfileTextContainer = view.findViewById(R.id.llProfileTextContainer)
         tvProfileCount = view.findViewById(R.id.tvProfileCount)
         recyclerView = view.findViewById(R.id.rvProfiles)
-        // Overlay views for profile info (landscape and portrait)
-        llLandscapeProfileInfo = view.findViewById(R.id.llLandscapeProfileInfo)
-        llPortraitProfileInfo = view.findViewById(R.id.llPortraitProfileInfo)
         tvActiveProfileNameOverlay = view.findViewById(R.id.tvActiveProfileNameOverlay)
-        tvActiveProfileTypeOverlay = view.findViewById(R.id.tvActiveProfileTypeOverlay)
+        tvActiveProfileMetaOverlay = view.findViewById(R.id.tvActiveProfileMetaOverlay)
+        tvActiveProfileBadge = view.findViewById(R.id.tvActiveProfileBadge)
     }
     
     private fun setupRecyclerView() {
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        val rv = recyclerView ?: return
+        rv.layoutManager = LinearLayoutManager(requireContext())
         adapter = ProfileAdapter(
             profiles,
             requireContext(),
@@ -123,18 +129,25 @@ class GarageFragment : Fragment() {
             },
             onEditClick = { profile -> showEditProfileDialog(profile) },
             onDeleteClick = { profile -> deleteProfileWithAnimation(profile) },
-            onDetailsClick = { profile ->
-                val intent = Intent(requireContext(), ProfileDetailActivity::class.java).apply {
-                    putExtra("profile_id", profile.id)
-                }
-                startActivity(intent)
-            }
+            onDetailsClick = { profile -> showProfileDetailsDialog(profile) }
         )
-        recyclerView.adapter = adapter
+        rv.adapter = adapter
     }
     
     private fun setupClickListeners() {
         btnAddProfile.setOnClickListener { showCreateProfileDialog() }
+        btnEmptyAddProfile?.setOnClickListener { showCreateProfileDialog() }
+        btnViewSessions?.setOnClickListener {
+            val activity = requireActivity()
+            if (activity is MainContainerActivity) {
+                activity.navigateToPage(MainContainerActivity.PAGE_RACES)
+            } else {
+                val intent = Intent(requireContext(), MainContainerActivity::class.java).apply {
+                    putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_RACES)
+                }
+                startActivity(intent)
+            }
+        }
         flProfileImageContainer.setOnClickListener { showImageSelectionDialog() }
     }
     
@@ -142,31 +155,64 @@ class GarageFragment : Fragment() {
         profiles.clear()
         profiles.addAll(ProfileStorage.loadProfiles(requireContext()))
         adapter.notifyDataSetChanged()
+        updateEmptyState()
+    }
+
+    private fun loadProfileStatsAsync() {
+        val appContext = requireContext().applicationContext
+        val profilesSnapshot = profiles.toList()
+        lifecycleScope.launch {
+            val counts = withContext(Dispatchers.IO) {
+                val allRaces = RouteStorage.loadRaces(appContext)
+                val map = mutableMapOf<Long, Int>()
+                profilesSnapshot.forEach { profile ->
+                    map[profile.id] = allRaces.count { it.profileId == profile.id }
+                }
+                map
+            }
+
+            val calibrations = withContext(Dispatchers.IO) {
+                profilesSnapshot.associate { profile ->
+                    profile.id to DragCalibration.isProfileCalibrated(appContext, profile.id)
+                }
+            }
+
+            sessionCounts.clear()
+            sessionCounts.putAll(counts)
+            calibrationStatuses.clear()
+            calibrationStatuses.putAll(calibrations)
+            adapter.setSessionCounts(sessionCounts)
+            adapter.setCalibrationStatuses(calibrationStatuses)
+            updateActiveProfileCard()
+            adapter.notifyDataSetChanged()
+        }
+    }
+
+    private fun updateEmptyState() {
+        val isEmpty = profiles.isEmpty()
+        emptyStateContainer?.visibility = if (isEmpty) View.VISIBLE else View.GONE
+        recyclerView?.visibility = if (isEmpty) View.GONE else View.VISIBLE
     }
     
     private fun updateAddButtonState() {
         if (profiles.size >= 5) {
-            btnAddProfile.text = getString(R.string.garage_add_button)
+            btnAddProfile.text = ""
             btnAddProfile.isEnabled = false
             btnAddProfile.alpha = 0.6f
             btnAddProfile.setIconResource(R.drawable.ic_block)
+            btnAddProfile.backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.card_background)
         } else {
-            btnAddProfile.text = getString(R.string.garage_add_button)
+            btnAddProfile.text = ""
             btnAddProfile.isEnabled = true
             btnAddProfile.alpha = 1f
             btnAddProfile.setIconResource(R.drawable.ic_add)
+            btnAddProfile.backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.accent_color)
         }
     }
     
     private fun updateProfileCount() {
         tvProfileCount.text = "${profiles.size}/5"
-        
-        val color = when {
-            profiles.size >= 5 -> ContextCompat.getColor(requireContext(), R.color.warning_color)
-            profiles.size >= 3 -> ContextCompat.getColor(requireContext(), R.color.success_color)
-            else -> ContextCompat.getColor(requireContext(), R.color.accent_color)
-        }
-        tvProfileCount.setTextColor(color)
+        tvProfileCount.setTextColor(ContextCompat.getColor(requireContext(), R.color.accent_color))
     }
     
     private fun updateActiveProfileCard() {
@@ -180,18 +226,21 @@ class GarageFragment : Fragment() {
         
         selectedProfile?.let { profile ->
             currentSelectedProfile = profile
-            tvActiveProfileName.text = profile.name
-            
-            val (iconRes, emoji, typeText) = when (profile.vehicleType) {
-                Profile.VehicleType.CAR -> Triple(R.drawable.ic_car, "🚗", getString(R.string.garage_vehicle_car))
-                Profile.VehicleType.MOTORCYCLE -> Triple(R.drawable.ic_motorcycle, "🏍️", getString(R.string.garage_vehicle_motorcycle))
+            val (iconRes, typeText) = when (profile.vehicleType) {
+                Profile.VehicleType.CAR -> Pair(R.drawable.ic_car, getString(R.string.garage_vehicle_car))
+                Profile.VehicleType.MOTORCYCLE -> Pair(R.drawable.ic_motorcycle, getString(R.string.garage_vehicle_motorcycle))
             }
-            
-            tvActiveProfileType.text = typeText
-            
-            // Update landscape overlay if exists
-            tvActiveProfileNameOverlay?.text = profile.name
-            tvActiveProfileTypeOverlay?.text = typeText
+
+            val sessions = sessionCounts[profile.id]
+            val sessionsText = if (sessions != null) {
+                getString(R.string.garage_sessions_template, sessions)
+            } else {
+                "…"
+            }
+
+            tvActiveProfileNameOverlay?.text = getGarageDisplayName(profile)
+            tvActiveProfileMetaOverlay?.text = "$typeText • $sessionsText"
+            tvActiveProfileBadge?.visibility = View.VISIBLE
             
             val imagePath = profile.imagePath
             if (!imagePath.isNullOrEmpty()) {
@@ -239,19 +288,6 @@ class GarageFragment : Fragment() {
             }
             
             cardActiveProfile.visibility = View.VISIBLE
-            
-            cardActiveProfile.animate()
-                .scaleX(1.02f)
-                .scaleY(1.02f)
-                .setDuration(100)
-                .withEndAction {
-                    cardActiveProfile.animate()
-                        .scaleX(1f)
-                        .scaleY(1f)
-                        .setDuration(100)
-                        .start()
-                }
-                .start()
         } ?: run {
             cardActiveProfile.visibility = View.GONE
         }
@@ -291,7 +327,9 @@ class GarageFragment : Fragment() {
                 adapter.notifyDataSetChanged()
                 updateAddButtonState()
                 updateProfileCount()
+                updateEmptyState()
                 updateActiveProfileCard()
+                loadProfileStatsAsync()
                 
                 val successMessage = if (sessionCount > 0) {
                     "✅ Профилът и всички негови $sessionCount сесии са изтрити"
@@ -326,6 +364,7 @@ class GarageFragment : Fragment() {
                 ProfileStorage.saveSelectedProfile(requireContext(), profile.id)
                 updateActiveProfileCard()
                 adapter.notifyDataSetChanged()
+                loadProfileStatsAsync()
                 Toast.makeText(requireContext(), "✅ Сега караш: ${profile.name}", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton(getString(R.string.no), null)
@@ -351,6 +390,8 @@ class GarageFragment : Fragment() {
         val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
             .setView(dialogView)
             .create()
+
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         
         rvProfileOptions.layoutManager = LinearLayoutManager(requireContext())
         val profileOptionsAdapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
@@ -401,111 +442,124 @@ class GarageFragment : Fragment() {
         
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_create_profile, null)
         
+        val btnClose = dialogView.findViewById<ImageButton>(R.id.btnCloseCreate)
         val carCard = dialogView.findViewById<LinearLayout>(R.id.carCard)
         val motorcycleCard = dialogView.findViewById<LinearLayout>(R.id.motorcycleCard)
         val brandInput = dialogView.findViewById<TextInputLayout>(R.id.brandInput)
         val modelInput = dialogView.findViewById<TextInputLayout>(R.id.modelInput)
-        val brandDropdown = dialogView.findViewById<MaterialAutoCompleteTextView>(R.id.brandDropdown)
-        val modelDropdown = dialogView.findViewById<MaterialAutoCompleteTextView>(R.id.modelDropdown)
+        val brandDropdown = dialogView.findViewById<TextInputEditText>(R.id.brandDropdown)
+        val modelDropdown = dialogView.findViewById<TextInputEditText>(R.id.modelDropdown)
+        val btnCreate = dialogView.findViewById<MaterialButton>(R.id.btnCreateProfile)
         
         var selectedVehicleType = Profile.VehicleType.CAR
         var selectedBrand = ""
         var selectedModel = ""
         
-        val carBrands = VehicleData.carBrands
-        val carModels = VehicleData.carModels
-        val motorcycleBrands = VehicleData.motorcycleBrands
-        val motorcycleModels = VehicleData.motorcycleModels
+        fun clearBrandAndModel() {
+            selectedBrand = ""
+            selectedModel = ""
+            brandDropdown.setText("")
+            modelDropdown.setText("")
+            modelInput.isEnabled = false
+            modelDropdown.isEnabled = false
+            brandInput.error = null
+            modelInput.error = null
+        }
+        
+        fun updateModelEnabled() {
+            val enabled = selectedBrand.isNotEmpty()
+            modelInput.isEnabled = enabled
+            modelDropdown.isEnabled = enabled
+        }
         
         carCard.setOnClickListener {
             selectedVehicleType = Profile.VehicleType.CAR
             updateSelection(carCard, motorcycleCard)
-            updateBrandDropdown(brandDropdown, carBrands)
-            updateVehicleIcon(brandInput, selectedVehicleType)
-            clearModelDropdown(modelDropdown)
+            clearBrandAndModel()
         }
         
         motorcycleCard.setOnClickListener {
             selectedVehicleType = Profile.VehicleType.MOTORCYCLE
             updateSelection(motorcycleCard, carCard)
-            updateBrandDropdown(brandDropdown, motorcycleBrands)
-            updateVehicleIcon(brandInput, selectedVehicleType)
-            clearModelDropdown(modelDropdown)
+            clearBrandAndModel()
         }
         
-        brandDropdown.setOnItemClickListener { _, _, position, _ ->
-            val brands = if (selectedVehicleType == Profile.VehicleType.CAR) {
-                carBrands
+        brandDropdown.setOnClickListener {
+            val brandsRaw = if (selectedVehicleType == Profile.VehicleType.CAR) {
+                VehicleData.carBrands.toList()
             } else {
-                motorcycleBrands
+                VehicleData.motorcycleBrands.toList()
             }
-            
-            if (brands[position] == getString(R.string.garage_most_popular)) {
-                return@setOnItemClickListener
+            val brands = brandsRaw.filterNot {
+                it.equals(getString(R.string.garage_most_popular), true) || it.contains("Най", true)
             }
-            
-            selectedBrand = brands[position]
-            updateModelDropdown(modelDropdown, selectedBrand, if (selectedVehicleType == Profile.VehicleType.CAR) carModels else motorcycleModels)
+            showSearchPicker(getString(R.string.garage_brand_label), brands) { selected ->
+                selectedBrand = selected
+                brandDropdown.setText(selected)
+                selectedModel = ""
+                modelDropdown.setText("")
+                updateModelEnabled()
+            }
         }
         
-        modelDropdown.setOnItemClickListener { _, _, position, _ ->
+        modelDropdown.setOnClickListener {
+            if (selectedBrand.isEmpty()) {
+                Toast.makeText(requireContext(), getString(R.string.garage_select_brand), Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             val models = if (selectedVehicleType == Profile.VehicleType.CAR) {
-                carModels[selectedBrand] ?: emptyArray()
+                VehicleData.carModels[selectedBrand]?.toList() ?: emptyList()
             } else {
-                motorcycleModels[selectedBrand] ?: emptyArray()
+                VehicleData.motorcycleModels[selectedBrand]?.toList() ?: emptyList()
             }
-            if (position < models.size) {
-                selectedModel = models[position]
+            showSearchPicker(getString(R.string.garage_model_label), models) { selected ->
+                selectedModel = selected
+                modelDropdown.setText(selected)
             }
         }
         
         updateSelection(carCard, motorcycleCard)
-        updateBrandDropdown(brandDropdown, carBrands)
-        updateVehicleIcon(brandInput, selectedVehicleType)
+        updateModelEnabled()
         
         val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
             .setView(dialogView)
-            .setNegativeButton(getString(R.string.garage_cancel_button), null)
-            .setPositiveButton(getString(R.string.garage_create_button), null)
             .create()
         
-        DialogHelper.styleDialogButtons(dialog)
+        btnClose.setOnClickListener { dialog.dismiss() }
         
-        dialog.setOnShowListener {
-            val btnSave = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            
-            btnSave.setOnClickListener {
-                if (selectedBrand.isEmpty()) {
-                    brandInput.error = getString(R.string.garage_select_brand)
-                    return@setOnClickListener
-                }
-                if (selectedModel.isEmpty()) {
-                    modelInput.error = getString(R.string.garage_select_model)
-                    return@setOnClickListener
-                }
-                
-                val vehicleName = "$selectedBrand $selectedModel"
-                val newProfile = Profile(name = vehicleName, vehicleType = selectedVehicleType)
-                profiles.add(newProfile)
-                ProfileStorage.saveProfiles(requireContext(), profiles)
-                adapter.notifyDataSetChanged()
-                updateAddButtonState()
-                updateProfileCount()
-                
-                if (profiles.size == 1) {
-                    ProfileStorage.saveSelectedProfile(requireContext(), newProfile.id)
-                }
-                
-                updateActiveProfileCard()
-                dialog.dismiss()
-                
-                val intent = Intent(requireContext(), DragCalibrationActivity::class.java).apply {
-                    putExtra("PROFILE_ID", newProfile.id)
-                    putExtra("IS_NEW_PROFILE", true)
-                }
-                startActivity(intent)
+        btnCreate.setOnClickListener {
+            if (selectedBrand.isEmpty()) {
+                brandInput.error = getString(R.string.garage_select_brand)
+                return@setOnClickListener
             }
+            if (selectedModel.isEmpty()) {
+                modelInput.error = getString(R.string.garage_select_model)
+                return@setOnClickListener
+            }
+            
+            val vehicleName = "$selectedBrand $selectedModel"
+            val newProfile = Profile(name = vehicleName, vehicleType = selectedVehicleType)
+            profiles.add(newProfile)
+            ProfileStorage.saveProfiles(requireContext(), profiles)
+            adapter.notifyDataSetChanged()
+            updateAddButtonState()
+            updateProfileCount()
+            updateEmptyState()
+            
+            if (profiles.size == 1) {
+                ProfileStorage.saveSelectedProfile(requireContext(), newProfile.id)
+            }
+            
+            updateActiveProfileCard()
+            dialog.dismiss()
+            
+            val intent = Intent(requireContext(), DragCalibrationActivity::class.java).apply {
+                putExtra("PROFILE_ID", newProfile.id)
+                putExtra("IS_NEW_PROFILE", true)
+            }
+            startActivity(intent)
         }
+        
         dialog.show()
     }
     
@@ -513,88 +567,44 @@ class GarageFragment : Fragment() {
         selectedCard.background = ContextCompat.getDrawable(requireContext(), R.drawable.vehicle_option_selected_background)
         unselectedCard.background = ContextCompat.getDrawable(requireContext(), R.drawable.vehicle_option_background)
     }
-    
-    private fun updateBrandDropdown(dropdown: MaterialAutoCompleteTextView, brands: Array<String>) {
-        val popularIndex = brands.indexOf(getString(R.string.garage_most_popular))
-        val firstRegularBrandIndex = if (popularIndex >= 0) popularIndex + 8 else 0
-        
-        val adapter = object : ArrayAdapter<String>(requireContext(), 0, brands) {
+
+    private fun showSearchPicker(title: String, options: List<String>, onSelect: (String) -> Unit) {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_search_picker, null)
+        val tvTitle = dialogView.findViewById<TextView>(R.id.tvPickerTitle)
+        val btnClose = dialogView.findViewById<ImageButton>(R.id.btnClosePicker)
+        val etSearch = dialogView.findViewById<TextInputEditText>(R.id.etSearch)
+        val listView = dialogView.findViewById<ListView>(R.id.lvOptions)
+        val tvEmpty = dialogView.findViewById<TextView>(R.id.tvEmpty)
+
+        tvTitle.text = title
+
+        val adapter = object : ArrayAdapter<String>(requireContext(), R.layout.dropdown_item_normal, R.id.text1, options) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val layoutInflater = LayoutInflater.from(context)
-                val view: View
-                
-                when {
-                    brands[position] == getString(R.string.garage_most_popular) -> {
-                        view = layoutInflater.inflate(R.layout.dropdown_item_popular, parent, false)
-                        val textView = view.findViewById<TextView>(R.id.text1)
-                        textView.text = getString(R.string.garage_most_popular)
-                    }
-                    position == firstRegularBrandIndex && popularIndex >= 0 -> {
-                        view = layoutInflater.inflate(R.layout.dropdown_item_separator, parent, false)
-                    }
-                    else -> {
-                        view = layoutInflater.inflate(R.layout.dropdown_item_normal, parent, false)
-                        val textView = view.findViewById<TextView>(R.id.text1)
-                        textView.text = brands[position]
-                    }
-                }
-                
-                return view
-            }
-            
-            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
-                return getView(position, convertView, parent)
-            }
-            
-            override fun getItemViewType(position: Int): Int {
-                return when {
-                    brands[position] == getString(R.string.garage_most_popular) -> 0
-                    position == firstRegularBrandIndex && popularIndex >= 0 -> 1
-                    else -> 2
-                }
-            }
-            
-            override fun getViewTypeCount(): Int = 3
-        }
-        dropdown.setAdapter(adapter)
-        dropdown.setText("", false)
-    }
-    
-    private fun updateModelDropdown(dropdown: MaterialAutoCompleteTextView, brand: String, modelsMap: Map<String, Array<String>>) {
-        val models = modelsMap[brand] ?: emptyArray()
-        
-        val adapter = object : ArrayAdapter<String>(requireContext(), 0, models) {
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val layoutInflater = LayoutInflater.from(context)
-                val view = layoutInflater.inflate(R.layout.dropdown_item_normal, parent, false)
-                val textView = view.findViewById<TextView>(R.id.text1)
-                textView.text = models[position]
-                return view
-            }
-            
-            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
-                return getView(position, convertView, parent)
+                return super.getView(position, convertView, parent)
             }
         }
-        
-        dropdown.setAdapter(adapter)
-        dropdown.setText("", false)
-    }
-    
-    private fun clearModelDropdown(dropdown: MaterialAutoCompleteTextView) {
-        dropdown.setText("", false)
-        dropdown.setAdapter(null)
-    }
-    
-    private fun updateVehicleIcon(brandInput: TextInputLayout, vehicleType: Profile.VehicleType) {
-        when (vehicleType) {
-            Profile.VehicleType.CAR -> {
-                brandInput.startIconDrawable = ContextCompat.getDrawable(requireContext(), R.drawable.ic_car)
-            }
-            Profile.VehicleType.MOTORCYCLE -> {
-                brandInput.startIconDrawable = ContextCompat.getDrawable(requireContext(), R.drawable.ic_motorcycle)
-            }
+        listView.adapter = adapter
+        listView.emptyView = tvEmpty
+
+        etSearch.addTextChangedListener { text ->
+            adapter.filter.filter(text?.toString() ?: "")
         }
+
+        val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
+            .setView(dialogView)
+            .create()
+
+        btnClose.setOnClickListener { dialog.dismiss() }
+
+        listView.setOnItemClickListener { _, _, position, _ ->
+            val item = adapter.getItem(position)
+            if (item != null) {
+                onSelect(item)
+            }
+            dialog.dismiss()
+        }
+
+        dialog.show()
     }
     
     private fun showImageSelectionDialog() {
@@ -602,9 +612,9 @@ class GarageFragment : Fragment() {
         
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_image_selection, null)
         
-        val llSelectImage = dialogView.findViewById<LinearLayout>(R.id.llSelectImage)
-        val llRemoveImage = dialogView.findViewById<LinearLayout>(R.id.llRemoveImage)
-        val btnCancel = dialogView.findViewById<android.widget.Button>(R.id.btnCancel)
+        val llSelectImage = dialogView.findViewById<MaterialButton>(R.id.llSelectImage)
+        val llRemoveImage = dialogView.findViewById<MaterialButton>(R.id.llRemoveImage)
+        val btnClose = dialogView.findViewById<ImageButton>(R.id.btnCloseImageDialog)
         
         if (!profile.imagePath.isNullOrEmpty()) {
             llRemoveImage.visibility = View.VISIBLE
@@ -626,9 +636,7 @@ class GarageFragment : Fragment() {
             removeProfileImage(profile)
         }
         
-        btnCancel.setOnClickListener {
-            dialog.dismiss()
-        }
+        btnClose.setOnClickListener { dialog.dismiss() }
         
         dialog.show()
     }
@@ -804,17 +812,15 @@ class GarageFragment : Fragment() {
             // Clear adapter cache
             adapter.clearImageCacheForPath(oldImagePath)
             
-            val (iconRes, emoji, typeText) = when (profile.vehicleType) {
-                Profile.VehicleType.CAR -> Triple(R.drawable.ic_car, "🚗", getString(R.string.garage_vehicle_car))
-                Profile.VehicleType.MOTORCYCLE -> Triple(R.drawable.ic_motorcycle, "🏍️", getString(R.string.garage_vehicle_motorcycle))
+            val (iconRes, typeText) = when (profile.vehicleType) {
+                Profile.VehicleType.CAR -> Pair(R.drawable.ic_car, getString(R.string.garage_vehicle_car))
+                Profile.VehicleType.MOTORCYCLE -> Pair(R.drawable.ic_motorcycle, getString(R.string.garage_vehicle_motorcycle))
             }
             showIcon(iconRes)
-            tvActiveProfileName.text = profile.name
-            tvActiveProfileType.text = typeText
-            
-            // Update overlay text if exists (for both landscape and portrait)
+            val sessions = getProfileSessionCount(profile.id)
+            val sessionsText = getString(R.string.garage_sessions_template, sessions)
             tvActiveProfileNameOverlay?.text = profile.name
-            tvActiveProfileTypeOverlay?.text = typeText
+            tvActiveProfileMetaOverlay?.text = "$typeText • $sessionsText"
             
             adapter.notifyDataSetChanged()
             Toast.makeText(requireContext(), "✅ Снимката е премахната", Toast.LENGTH_SHORT).show()
@@ -822,205 +828,355 @@ class GarageFragment : Fragment() {
     }
     
     private fun showIcon(iconRes: Int) {
-        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val containerSizeInPx = (48 * resources.displayMetrics.density).toInt()
-        
-        (flProfileImageContainer.parent as? LinearLayout)?.let { parent ->
-            val containerLayoutParams = flProfileImageContainer.layoutParams as LinearLayout.LayoutParams
-            containerLayoutParams.width = containerSizeInPx
-            containerLayoutParams.height = containerSizeInPx
-            containerLayoutParams.weight = 0f // No weight when showing icon
-            containerLayoutParams.topMargin = (30 * resources.displayMetrics.density).toInt()
-            containerLayoutParams.gravity = android.view.Gravity.CENTER_HORIZONTAL
-            containerLayoutParams.bottomMargin = 0
-            containerLayoutParams.marginStart = 0
-            containerLayoutParams.marginEnd = 0
-            flProfileImageContainer.layoutParams = containerLayoutParams
-        } ?: run {
-            // Fallback if parent is not LinearLayout
-            val containerLayoutParams = flProfileImageContainer.layoutParams as ViewGroup.MarginLayoutParams
-            containerLayoutParams.width = containerSizeInPx
-            containerLayoutParams.height = containerSizeInPx
-            containerLayoutParams.topMargin = (30 * resources.displayMetrics.density).toInt()
-            flProfileImageContainer.layoutParams = containerLayoutParams
-        }
-        
-        flProfileImageContainer.background = ContextCompat.getDrawable(requireContext(), R.drawable.profile_icon_background)
-        
-        val layoutParams = ivActiveProfileIcon.layoutParams as FrameLayout.LayoutParams
-        val sizeInPx = (24 * resources.displayMetrics.density).toInt()
-        layoutParams.width = sizeInPx
-        layoutParams.height = sizeInPx
-        layoutParams.gravity = android.view.Gravity.CENTER
-        ivActiveProfileIcon.layoutParams = layoutParams
-        ivActiveProfileIcon.setImageResource(iconRes)
-        ivActiveProfileIcon.scaleType = ImageView.ScaleType.CENTER_INSIDE
-        ivActiveProfileIcon.imageTintList = ContextCompat.getColorStateList(requireContext(), R.color.primary_color)
-        ivActiveProfileIcon.clipToOutline = false
-        ivActiveProfileIcon.outlineProvider = null
-        
-        // Hide all overlays when showing icon (no image)
-        llLandscapeProfileInfo?.visibility = View.GONE
-        llPortraitProfileInfo?.visibility = View.GONE
-        // Show original text views and container, restore height
-        llProfileTextContainer?.let { container ->
-            container.visibility = View.VISIBLE
-            val params = container.layoutParams as? ViewGroup.MarginLayoutParams
-            params?.height = ViewGroup.LayoutParams.WRAP_CONTENT
-            container.layoutParams = params
-        }
-        tvActiveProfileName.visibility = View.VISIBLE
-        tvActiveProfileType.visibility = View.VISIBLE
+        ivActiveProfileIcon.visibility = View.GONE
+        llEmptyPhoto.visibility = View.VISIBLE
+        ivActivePlaceholderIcon.setImageResource(iconRes)
+        ivActivePlaceholderIcon.imageTintList = ContextCompat.getColorStateList(requireContext(), R.color.accent_color)
     }
     
     private fun setImageBitmap(bitmap: Bitmap) {
+        ivActiveProfileIcon.visibility = View.VISIBLE
         ivActiveProfileIcon.setImageBitmap(bitmap)
-        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        
-        (flProfileImageContainer.parent as? LinearLayout)?.let { parent ->
-            val containerLayoutParams = flProfileImageContainer.layoutParams as LinearLayout.LayoutParams
-            containerLayoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
-            
-            if (isLandscape) {
-                // Landscape: Image takes most of the card height (use weight=1)
-                containerLayoutParams.height = 0 // Will be set by weight
-                containerLayoutParams.weight = 1f
-                containerLayoutParams.gravity = android.view.Gravity.FILL
-            } else {
-                // Portrait: Fixed height to maintain original container size
-                containerLayoutParams.height = (200 * resources.displayMetrics.density).toInt()
-                containerLayoutParams.weight = 0f
-                containerLayoutParams.gravity = android.view.Gravity.FILL_HORIZONTAL
-            }
-            
-            containerLayoutParams.topMargin = 0
-            containerLayoutParams.bottomMargin = 0
-            containerLayoutParams.marginStart = 0
-            containerLayoutParams.marginEnd = 0
-            flProfileImageContainer.layoutParams = containerLayoutParams
-        } ?: run {
-            // Fallback if parent is not LinearLayout
-            val containerLayoutParams = flProfileImageContainer.layoutParams as ViewGroup.MarginLayoutParams
-            containerLayoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
-            // Use match_parent height to fill available space
-            containerLayoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-            containerLayoutParams.topMargin = 0
-            containerLayoutParams.bottomMargin = 0
-            containerLayoutParams.marginStart = 0
-            containerLayoutParams.marginEnd = 0
-            flProfileImageContainer.layoutParams = containerLayoutParams
-        }
-        
-        flProfileImageContainer.background = null
-        flProfileImageContainer.setPadding(0, 0, 0, 0)
-        flProfileImageContainer.clipToPadding = false
-        flProfileImageContainer.clipChildren = false
-        
-        val layoutParams = ivActiveProfileIcon.layoutParams as FrameLayout.LayoutParams
-        layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
-        layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT
-        layoutParams.gravity = android.view.Gravity.FILL
-        layoutParams.setMargins(0, 0, 0, 0)
-        ivActiveProfileIcon.layoutParams = layoutParams
         ivActiveProfileIcon.scaleType = ImageView.ScaleType.CENTER_CROP
         ivActiveProfileIcon.imageTintList = null
-        ivActiveProfileIcon.clipToOutline = true
-        ivActiveProfileIcon.adjustViewBounds = false
-        ivActiveProfileIcon.outlineProvider = null
-        
-        // Show overlay in bottom left corner when image is present, hide original text views and container
-        if (isLandscape) {
-            llLandscapeProfileInfo?.visibility = View.VISIBLE
-            llPortraitProfileInfo?.visibility = View.GONE
-            // Hide text container and set height to 0 to not take space
-            llProfileTextContainer?.let { container ->
-                container.visibility = View.GONE
-                val params = container.layoutParams as? ViewGroup.MarginLayoutParams
-                params?.height = 0
-                container.layoutParams = params
-            }
-            tvActiveProfileName.visibility = View.GONE
-            tvActiveProfileType.visibility = View.GONE
-        } else {
-            // Portrait: Show portrait overlay, hide landscape overlay, text container and original text views
-            llLandscapeProfileInfo?.visibility = View.GONE
-            llPortraitProfileInfo?.visibility = View.VISIBLE
-            // Hide text container and set height to 0 to not take space
-            llProfileTextContainer?.let { container ->
-                container.visibility = View.GONE
-                val params = container.layoutParams as? ViewGroup.MarginLayoutParams
-                params?.height = 0
-                container.layoutParams = params
-            }
-            tvActiveProfileName.visibility = View.GONE
-            tvActiveProfileType.visibility = View.GONE
-        }
+        llEmptyPhoto.visibility = View.GONE
     }
     
     private fun showEditProfileDialog(profile: Profile) {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_profile, null)
-        val etName = dialogView.findViewById<EditText>(R.id.etProfileName)
-        val spinnerType = dialogView.findViewById<Spinner>(R.id.spinnerVehicleType)
+        val etName = dialogView.findViewById<TextInputEditText>(R.id.etProfileName)
+        val btnClose = dialogView.findViewById<ImageButton>(R.id.btnCloseEdit)
+        val btnCar = dialogView.findViewById<LinearLayout>(R.id.btnEditTypeCar)
+        val btnMotorcycle = dialogView.findViewById<LinearLayout>(R.id.btnEditTypeMotorcycle)
+        val brandInput = dialogView.findViewById<TextInputLayout>(R.id.brandInput)
+        val modelInput = dialogView.findViewById<TextInputLayout>(R.id.modelInput)
+        val brandDropdown = dialogView.findViewById<TextInputEditText>(R.id.brandDropdown)
+        val modelDropdown = dialogView.findViewById<TextInputEditText>(R.id.modelDropdown)
+        val btnSave = dialogView.findViewById<MaterialButton>(R.id.btnSaveEdit)
         
-        etName.setText(profile.name)
-        val adapter = object : ArrayAdapter<String>(
-            requireContext(),
-            android.R.layout.simple_spinner_item,
-            resources.getStringArray(R.array.vehicle_types)
-        ) {
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val view = super.getView(position, convertView, parent)
-                val textView = view.findViewById<TextView>(android.R.id.text1)
-                textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                return view
+        var selectedType = profile.vehicleType
+        var selectedBrand = ""
+        var selectedModel = ""
+        etName.setText(getGarageDisplayName(profile))
+        if (selectedType == Profile.VehicleType.CAR) {
+            updateSelection(btnCar, btnMotorcycle)
+        } else {
+            updateSelection(btnMotorcycle, btnCar)
+        }
+
+        fun updateModelEnabled() {
+            val enabled = selectedBrand.isNotEmpty()
+            modelInput.isEnabled = enabled
+            modelDropdown.isEnabled = enabled
+        }
+
+        fun clearBrandAndModel() {
+            selectedBrand = ""
+            selectedModel = ""
+            brandDropdown.setText("")
+            modelDropdown.setText("")
+            brandInput.error = null
+            modelInput.error = null
+            updateModelEnabled()
+        }
+
+        fun resolveBrandModelFromName(name: String, vehicleType: Profile.VehicleType): Pair<String, String> {
+            val brands = if (vehicleType == Profile.VehicleType.CAR) {
+                VehicleData.carBrands.toList()
+            } else {
+                VehicleData.motorcycleBrands.toList()
             }
-            
-            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val view = super.getDropDownView(position, convertView, parent)
-                val textView = view.findViewById<TextView>(android.R.id.text1)
-                textView.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
-                return view
+            val sortedBrands = brands.sortedByDescending { it.length }
+            val trimmedName = name.trim()
+            val match = sortedBrands.firstOrNull { brand ->
+                trimmedName.equals(brand, true) || trimmedName.startsWith("$brand ", true)
+            }
+            return if (match != null) {
+                val model = trimmedName.removePrefix(match).trim()
+                match to model
+            } else {
+                "" to ""
             }
         }
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerType.adapter = adapter
-        spinnerType.setSelection(if (profile.vehicleType == Profile.VehicleType.CAR) 0 else 1)
+        
+        btnCar.setOnClickListener {
+            selectedType = Profile.VehicleType.CAR
+            updateSelection(btnCar, btnMotorcycle)
+            clearBrandAndModel()
+        }
+        
+        btnMotorcycle.setOnClickListener {
+            selectedType = Profile.VehicleType.MOTORCYCLE
+            updateSelection(btnMotorcycle, btnCar)
+            clearBrandAndModel()
+        }
+
+        brandDropdown.setOnClickListener {
+            val brandsRaw = if (selectedType == Profile.VehicleType.CAR) {
+                VehicleData.carBrands.toList()
+            } else {
+                VehicleData.motorcycleBrands.toList()
+            }
+            val brands = brandsRaw.filterNot {
+                it.equals(getString(R.string.garage_most_popular), true) || it.contains("Най", true)
+            }
+            showSearchPicker(getString(R.string.garage_brand_label), brands) { selected ->
+                selectedBrand = selected
+                brandDropdown.setText(selected)
+                selectedModel = ""
+                modelDropdown.setText("")
+                updateModelEnabled()
+            }
+        }
+
+        modelDropdown.setOnClickListener {
+            if (selectedBrand.isEmpty()) {
+                Toast.makeText(requireContext(), getString(R.string.garage_select_brand), Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val models = if (selectedType == Profile.VehicleType.CAR) {
+                VehicleData.carModels[selectedBrand]?.toList() ?: emptyList()
+            } else {
+                VehicleData.motorcycleModels[selectedBrand]?.toList() ?: emptyList()
+            }
+            showSearchPicker(getString(R.string.garage_model_label), models) { selected ->
+                selectedModel = selected
+                modelDropdown.setText(selected)
+            }
+        }
+
+        val (initialBrand, initialModel) = resolveBrandModelFromName(profile.name, selectedType)
+        if (initialBrand.isNotEmpty()) {
+            selectedBrand = initialBrand
+            brandDropdown.setText(initialBrand)
+        }
+        if (initialModel.isNotEmpty()) {
+            selectedModel = initialModel
+            modelDropdown.setText(initialModel)
+        }
+        updateModelEnabled()
         
         val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
-            .setTitle(getString(R.string.profile_edit_text))
             .setView(dialogView)
-            .setNegativeButton(getString(R.string.dialog_cancel_button), null)
-            .setPositiveButton(getString(R.string.profile_save_button), null)
             .create()
         
-        DialogHelper.styleDialogButtons(dialog)
+        btnClose.setOnClickListener { dialog.dismiss() }
         
-        dialog.setOnShowListener {
-            val btnSave = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            btnSave.setOnClickListener {
-                val name = etName.text.toString().trim()
-                if (name.isEmpty()) {
-                    etName.error = getString(R.string.error_empty_name)
-                    return@setOnClickListener
-                }
-                val type = if (spinnerType.selectedItemPosition == 0)
-                    Profile.VehicleType.CAR else Profile.VehicleType.MOTORCYCLE
-                
-                profile.name = name
-                profile.vehicleType = type
-                ProfileStorage.saveProfiles(requireContext(), profiles)
-                adapter.notifyDataSetChanged()
-                
-                val selectedId = ProfileStorage.getSelectedProfileId(requireContext())
-                if (profile.id == selectedId) {
-                    updateActiveProfileCard()
-                }
-                
-                dialog.dismiss()
+        btnSave.setOnClickListener {
+            val displayName = etName.text?.toString()?.trim().orEmpty()
+            if (selectedBrand.isEmpty()) {
+                brandInput.error = getString(R.string.garage_select_brand)
+                return@setOnClickListener
             }
+            if (selectedModel.isEmpty()) {
+                modelInput.error = getString(R.string.garage_select_model)
+                return@setOnClickListener
+            }
+            val prefs = requireContext().getSharedPreferences("garage_display_names", Context.MODE_PRIVATE)
+            val key = "profile_${profile.id}_display_name"
+            if (displayName.isBlank()) {
+                prefs.edit().remove(key).apply()
+            } else {
+                prefs.edit().putString(key, displayName).apply()
+            }
+            profile.name = "$selectedBrand $selectedModel"
+            profile.vehicleType = selectedType
+            ProfileStorage.saveProfiles(requireContext(), profiles)
+            adapter.notifyDataSetChanged()
+            
+            val selectedId = ProfileStorage.getSelectedProfileId(requireContext())
+            if (profile.id == selectedId) {
+                updateActiveProfileCard()
+            }
+            
+            dialog.dismiss()
         }
+        
         dialog.show()
     }
+
+    private fun getGarageDisplayName(profile: Profile): String {
+        val prefs = requireContext().getSharedPreferences("garage_display_names", Context.MODE_PRIVATE)
+        val key = "profile_${profile.id}_display_name"
+        return prefs.getString(key, null).orEmpty().ifBlank { profile.name }
+    }
+
+    private fun showProfileDetailsDialog(profile: Profile) {
+        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_profile_details, null)
+        val btnClose = dialogView.findViewById<ImageButton>(R.id.btnCloseDetails)
+        val tvName = dialogView.findViewById<TextView>(R.id.tvDetailsName)
+        val tvMeta = dialogView.findViewById<TextView>(R.id.tvDetailsMeta)
+        val tvCalibration = dialogView.findViewById<TextView>(R.id.tvDetailsCalibrationStatus)
+        val btnOpenCalibration = dialogView.findViewById<MaterialButton>(R.id.btnOpenCalibration)
+        val btnSetActive = dialogView.findViewById<MaterialButton>(R.id.btnSetActive)
+        val tvSessionCount = dialogView.findViewById<TextView>(R.id.tvSessionCount)
+        val tvTotalDistance = dialogView.findViewById<TextView>(R.id.tvTotalDistance)
+        val tvTotalDuration = dialogView.findViewById<TextView>(R.id.tvTotalDuration)
+        val tvBest0to100 = dialogView.findViewById<TextView>(R.id.tvBest0to100)
+        val tvBest0to200 = dialogView.findViewById<TextView>(R.id.tvBest0to200)
+        val tvBest100to200 = dialogView.findViewById<TextView>(R.id.tvBest100to200)
+        val tvBest0to402 = dialogView.findViewById<TextView>(R.id.tvBest0to402)
+        val tvMaxSpeed = dialogView.findViewById<TextView>(R.id.tvMaxSpeed)
+
+        val typeText = when (profile.vehicleType) {
+            Profile.VehicleType.CAR -> getString(R.string.garage_vehicle_car)
+            Profile.VehicleType.MOTORCYCLE -> getString(R.string.garage_vehicle_motorcycle)
+        }
+        tvName.text = profile.name
+        tvMeta.text = typeText
+
+        val isCalibrated = DragCalibration.isProfileCalibrated(requireContext(), profile.id)
+        tvCalibration.text = if (isCalibrated) {
+            getString(R.string.garage_calibrated)
+        } else {
+            getString(R.string.garage_not_calibrated)
+        }
+
+        val bestTimes = getBestTimesFromAllRaces(profile.id)
+        tvBest0to100.text = formatBestTime(bestTimes.best0to100)
+        tvBest0to200.text = formatBestTime(bestTimes.best0to200)
+        tvBest100to200.text = formatBestTime(bestTimes.best100to200)
+        tvBest0to402.text = formatBestTime(bestTimes.best0to402)
+        tvMaxSpeed.text = if (bestTimes.maxSpeed > 0f) {
+            getString(R.string.max_speed_format, bestTimes.maxSpeed)
+        } else {
+            "--"
+        }
+
+        val allRaces = RouteStorage.loadRaces(requireContext())
+        val profileRaces = allRaces.filter { it.profileId == profile.id }
+        val allDragSessions = DragStorage.loadDragSessions(requireContext())
+        val profileDragSessions = allDragSessions.filter { it.profileId == profile.id }
+
+        val totalSessions = profileRaces.size + profileDragSessions.size
+        tvSessionCount.text = totalSessions.toString()
+        val sessionsText = getString(R.string.garage_sessions_template, totalSessions)
+        tvMeta.text = "$typeText • $sessionsText"
+
+        val totalDist = profileRaces.sumOf { it.distance }
+        tvTotalDistance.text = String.format("%.1f km", totalDist)
+
+        val racesTimeMs = profileRaces.sumOf { race ->
+            if (race.duration > 0) {
+                race.duration.toLong()
+            } else {
+                val points = if (race.routePoints.isNotEmpty()) {
+                    race.routePoints
+                } else {
+                    val allPoints = RouteStorage.loadRoutePoints(requireContext(), race.id)
+                    if (allPoints.size >= 2) listOf(allPoints.first(), allPoints.last()) else allPoints
+                }
+
+                if (points.isNotEmpty()) {
+                    val firstPoint = points.first()
+                    val lastPoint = points.last()
+                    val firstTime = firstPoint.absoluteTime
+                    val lastTime = lastPoint.absoluteTime
+
+                    if (firstTime > 0 && lastTime > 0 && lastTime > firstTime) {
+                        (lastTime - firstTime).coerceAtLeast(0L)
+                    } else {
+                        val firstTimestamp = firstPoint.timestamp
+                        val lastTimestamp = lastPoint.timestamp
+                        if (lastTimestamp > firstTimestamp) {
+                            (lastTimestamp - firstTimestamp).coerceAtLeast(0L)
+                        } else {
+                            0L
+                        }
+                    }
+                } else {
+                    0L
+                }
+            }
+        }
+
+        val dragTimeMs = profileDragSessions.sumOf { session ->
+            session.attempts.sumOf { attempt ->
+                attempt.duration / 1_000_000
+            }
+        }
+
+        val totalTimeMs = racesTimeMs + dragTimeMs
+        val totalSeconds = totalTimeMs / 1000
+        val totalHours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        tvTotalDuration.text = getString(R.string.profile_detail_duration_format, totalHours, minutes)
+
+        val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
+            .setView(dialogView)
+            .create()
+
+        btnClose.setOnClickListener { dialog.dismiss() }
+
+        btnOpenCalibration.setOnClickListener {
+            dialog.dismiss()
+            val intent = Intent(requireContext(), DragCalibrationActivity::class.java).apply {
+                putExtra("PROFILE_ID", profile.id)
+            }
+            startActivity(intent)
+        }
+
+        btnSetActive.setOnClickListener {
+            ProfileStorage.saveSelectedProfile(requireContext(), profile.id)
+            updateActiveProfileCard()
+            adapter.notifyDataSetChanged()
+            Toast.makeText(requireContext(), "✅ Active profile updated", Toast.LENGTH_SHORT).show()
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    private fun getBestTimesFromAllRaces(profileId: Long): BestTimes {
+        val allRaces = RouteStorage.loadRaces(requireContext())
+        val profileRaces = allRaces.filter { it.profileId == profileId }
+
+        val allDragSessions = DragStorage.loadDragSessions(requireContext())
+        val profileDragSessions = allDragSessions.filter { it.profileId == profileId }
+
+        var best0to100 = Long.MAX_VALUE
+        var best0to200 = Long.MAX_VALUE
+        var best100to200 = Long.MAX_VALUE
+        var maxSpeed = 0f
+        var best0to402 = Long.MAX_VALUE
+
+        profileRaces.forEach { race ->
+            if (race.time0to100 > 0 && race.time0to100 < best0to100) best0to100 = race.time0to100
+            if (race.time0to200 > 0 && race.time0to200 < best0to200) best0to200 = race.time0to200
+            if (race.time100to200 > 0 && race.time100to200 < best100to200) best100to200 = race.time100to200
+            if (race.maxSpeed > maxSpeed) maxSpeed = race.maxSpeed
+        }
+
+        profileDragSessions.forEach { session ->
+            if (session.best0to100 > 0 && session.best0to100 < best0to100) best0to100 = session.best0to100
+            if (session.best0to200 > 0 && session.best0to200 < best0to200) best0to200 = session.best0to200
+            if (session.best100to200 > 0 && session.best100to200 < best100to200) best100to200 = session.best100to200
+            if (session.best0to402 > 0 && session.best0to402 < best0to402) best0to402 = session.best0to402
+
+            session.attempts.forEach { attempt ->
+                if (attempt.maxSpeed > maxSpeed) maxSpeed = attempt.maxSpeed
+            }
+        }
+
+        return BestTimes(
+            best0to100 = if (best0to100 == Long.MAX_VALUE) 0L else best0to100,
+            best0to200 = if (best0to200 == Long.MAX_VALUE) 0L else best0to200,
+            best100to200 = if (best100to200 == Long.MAX_VALUE) 0L else best100to200,
+            maxSpeed = maxSpeed,
+            best0to402 = if (best0to402 == Long.MAX_VALUE) 0L else best0to402
+        )
+    }
+
+    private fun formatBestTime(nanos: Long): String =
+        if (nanos > 0) String.format("%.3f", nanos / 1_000_000_000.0) else "--"
+
+    private data class BestTimes(
+        val best0to100: Long,
+        val best0to200: Long,
+        val best100to200: Long,
+        val best0to402: Long,
+        val maxSpeed: Float,
+    )
     
     override fun onResume() {
         super.onResume()
@@ -1031,6 +1187,8 @@ class GarageFragment : Fragment() {
         } else {
             updateProfileCount()
         }
+
+        updateEmptyState()
         
         adapter.notifyDataSetChanged()
     }

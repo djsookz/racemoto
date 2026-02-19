@@ -124,7 +124,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="top|end"
             android:layout_marginEnd="12dp"
-            android:layout_marginTop="70dp"
+            android:layout_marginTop="100dp"
             android:background="@drawable/bg_map_controls_pill"
             android:orientation="vertical"
             android:paddingHorizontal="8dp"

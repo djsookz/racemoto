@@ -4,120 +4,58 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@color/dark_surface"
-    android:padding="0dp">
+    android:background="@color/card_background"
+    android:padding="20dp">
 
-    <!-- Title -->
-    <TextView
-        android:id="@+id/tvDialogTitle"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/garage_profile_image"
-        android:textColor="@color/white"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp"
-        android:paddingTop="24dp"
-        android:paddingBottom="16dp" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
-    <!-- Divider -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/text_secondary"
-        android:alpha="0.3" />
+        <TextView
+            android:id="@+id/tvDialogTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/garage_profile_image"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
-    <!-- Select Image Option -->
-    <LinearLayout
+        <ImageButton
+            android:id="@+id/btnCloseImageDialog"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_icon_button"
+            android:src="@drawable/ic_close"
+            app:tint="@android:color/white"
+            android:padding="8dp" />
+
+    </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/llSelectImage"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="16dp"
-        android:gravity="center_vertical"
-        android:background="?android:attr/selectableItemBackground"
-        android:clickable="true"
-        android:focusable="true">
+        android:layout_height="55dp"
+        android:layout_marginTop="14dp"
+        android:text="@string/garage_choose_from_library"
+        android:textColor="@android:color/white"
+        app:cornerRadius="18dp"
+        app:backgroundTint="@color/accent_color" />
 
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_add"
-            app:tint="@color/primary_color"
-            android:layout_marginEnd="16dp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/garage_select_image"
-            android:textColor="@color/white"
-            android:textSize="16sp" />
-    </LinearLayout>
-
-    <!-- Divider -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/text_secondary"
-        android:alpha="0.3" />
-
-    <!-- Remove Image Option -->
-    <LinearLayout
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/llRemoveImage"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="16dp"
-        android:gravity="center_vertical"
-        android:background="?android:attr/selectableItemBackground"
-        android:clickable="true"
-        android:focusable="true"
-        android:visibility="gone">
-
-        <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_delete"
-            app:tint="@android:color/holo_red_dark"
-            android:layout_marginEnd="16dp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/garage_remove_image"
-            android:textColor="@color/white"
-            android:textSize="16sp" />
-    </LinearLayout>
-
-    <!-- Bottom Divider -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/text_secondary"
-        android:alpha="0.3" />
-
-    <!-- Cancel Button -->
-    <Button
-        android:id="@+id/btnCancel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/garage_cancel_button"
-        android:textColor="@android:color/holo_red_dark"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:background="@android:color/transparent"
-        android:padding="16dp"
-        android:layout_marginTop="8dp"
-        style="@style/Widget.MaterialComponents.Button.TextButton" />
+        android:layout_height="55dp"
+        android:layout_marginTop="10dp"
+        android:text="@string/garage_remove_photo"
+        android:textColor="@android:color/white"
+        app:cornerRadius="18dp"
+        app:strokeColor="#40FF3C3C"
+        app:strokeWidth="1dp"
+        app:backgroundTint="#12FF3C3C"
+        android:visibility="gone" />
 
 </LinearLayout>
 

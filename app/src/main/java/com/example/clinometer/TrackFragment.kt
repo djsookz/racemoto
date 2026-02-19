@@ -8,6 +8,8 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -55,6 +57,8 @@ class TrackFragment : Fragment(), LocationListener {
     }
     private var currentTemperature: Float? = null
     private var currentAltitude: Float? = null
+    private val weatherRefreshHandler = Handler(Looper.getMainLooper())
+    private var weatherRefreshRunnable: Runnable? = null
     private lateinit var headerSofiaRing: LinearLayout
     private lateinit var contentSofiaRing: LinearLayout
     private lateinit var arrowSofiaRing: TextView
@@ -83,6 +87,7 @@ class TrackFragment : Fragment(), LocationListener {
     companion object {
         private const val LOCATION_PERMISSION_REQUEST = 1001
         private const val CACHE_LOCATION_THRESHOLD_KM = 5.0
+        private const val WEATHER_REFRESH_INTERVAL_MS = 15 * 60 * 1000L
     }
     
     override fun onCreateView(
@@ -687,6 +692,42 @@ class TrackFragment : Fragment(), LocationListener {
             llEnvironment.visibility = LinearLayout.VISIBLE
         }
     }
+
+    private fun isWeatherCacheStale(): Boolean {
+        val context = context ?: return false
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        val cachedTime = prefs.getLong("cached_weather_time", 0L)
+        if (cachedTime == 0L) return true
+        val now = System.currentTimeMillis()
+        return now - cachedTime > WEATHER_REFRESH_INTERVAL_MS
+    }
+
+    private fun startWeatherRefreshTimer() {
+        stopWeatherRefreshTimer()
+        weatherRefreshRunnable = object : Runnable {
+            override fun run() {
+                if (!isAdded || context == null) return
+                if (isWeatherCacheStale()) {
+                    val lastKnown = try {
+                        locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                            ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                    } catch (_: SecurityException) {
+                        null
+                    }
+                    if (lastKnown != null) {
+                        fetchWeatherFromAPI(lastKnown)
+                    }
+                }
+                weatherRefreshHandler.postDelayed(this, WEATHER_REFRESH_INTERVAL_MS)
+            }
+        }
+        weatherRefreshHandler.post(weatherRefreshRunnable!!)
+    }
+
+    private fun stopWeatherRefreshTimer() {
+        weatherRefreshRunnable?.let { weatherRefreshHandler.removeCallbacks(it) }
+        weatherRefreshRunnable = null
+    }
     
     private fun fetchWeatherFromAPI(location: Location) {
         // Check if fragment is attached before starting coroutine
@@ -769,6 +810,7 @@ class TrackFragment : Fragment(), LocationListener {
         
         currentTemperature?.let { editor.putFloat("cached_temperature", it) }
         currentAltitude?.let { editor.putFloat("cached_altitude", it) }
+        editor.putLong("cached_weather_time", System.currentTimeMillis())
         editor.putFloat("cached_location_lat", location.latitude.toFloat())
         editor.putFloat("cached_location_lon", location.longitude.toFloat())
         editor.apply()
@@ -780,6 +822,10 @@ class TrackFragment : Fragment(), LocationListener {
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         val cachedLat = prefs.getFloat("cached_location_lat", Float.NaN)
         val cachedLon = prefs.getFloat("cached_location_lon", Float.NaN)
+
+        if (isWeatherCacheStale()) {
+            return true
+        }
         
         if (cachedLat.isNaN() || cachedLon.isNaN()) {
             return true

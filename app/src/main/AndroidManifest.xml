@@ -116,7 +116,7 @@
         <activity
             android:name=".DragCalibrationActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar"/>
+            android:theme="@style/Theme.DragMe.Calibration"/>
         <activity
             android:name=".TrackSessionDetailActivity"
             android:exported="false" />

@@ -6,83 +6,106 @@
     android:background="@color/background_primary"
     android:fitsSystemWindows="true">
 
-    <RelativeLayout
+    <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="0dp"
-        android:layout_height="75dp"
-        android:background="@color/card_background"
-        android:paddingHorizontal="5dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <ImageView
-            android:id="@+id/iconGarage"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:src="@drawable/ic_garage"
-            app:tint="@android:color/white"
-            android:layout_centerVertical="true"
-            android:layout_marginStart="16dp" />
-
         <TextView
             android:id="@+id/titleGarage"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:text="@string/garage_title"
-            android:textSize="20sp"
+            android:textSize="24sp"
             android:textStyle="bold"
-            android:textColor="@android:color/white"
-            android:layout_toEndOf="@id/iconGarage"
-            android:layout_marginStart="8dp"
-            android:layout_centerVertical="true" />
-
-        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-            android:id="@+id/btnAddProfile"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true"
-            android:layout_marginEnd="16dp"
-            android:elevation="6dp"
-            android:text="@string/garage_add_button"
-            android:textColor="@android:color/white"
-            app:backgroundTint="@color/accent_color"
-            app:cornerRadius="20dp"
-            app:icon="@drawable/ic_add"
-            app:iconTint="@android:color/white" />
-
-    </RelativeLayout>
-
-    <androidx.core.widget.NestedScrollView
-        android:id="@+id/garageScroll"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:clipToPadding="false"
-        android:paddingBottom="16dp"
-        app:layout_constraintTop_toBottomOf="@id/topBar"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+            android:textColor="@android:color/white" />
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardActiveProfile"
-                android:layout_width="match_parent"
+            <TextView
+                android:id="@+id/tvProfileCount"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="16dp"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="8dp"
-                app:strokeWidth="0dp"
-                app:cardBackgroundColor="@color/card_background"
-                app:contentPadding="0dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?android:attr/selectableItemBackground">
+                android:text="0/5"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/accent_color"
+                android:background="@drawable/bg_badge_accent"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="6dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnAddProfile"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="12dp"
+                android:insetLeft="0dp"
+                android:insetTop="0dp"
+                android:insetRight="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                app:cornerRadius="16dp"
+                app:backgroundTint="@color/accent_color"
+
+                app:icon="@drawable/ic_add"
+                app:iconTint="@android:color/white"
+                app:iconSize="24dp"
+
+                app:iconGravity="textStart"
+                android:text=""
+                app:iconPadding="0dp"
+                android:paddingLeft="0dp"
+                android:paddingRight="0dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <TextView
+                android:id="@+id/tvActiveVehicleLabel"
+            android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/garage_active_vehicle"
+                android:textColor="@android:color/white"
+            android:textStyle="bold"
+            app:layout_constraintTop_toBottomOf="@id/topBar"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardActiveProfile"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginTop="10dp"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="6dp"
+            app:strokeWidth="1dp"
+            app:strokeColor="#14FFFFFF"
+            app:cardBackgroundColor="@color/card_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?android:attr/selectableItemBackground"
+            app:layout_constraintTop_toBottomOf="@id/tvActiveVehicleLabel"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -94,14 +117,10 @@
                     <FrameLayout
                         android:id="@+id/flProfileImageContainer"
                         android:layout_width="match_parent"
-                        android:layout_height="130dp"
+                        android:layout_height="190dp"
                         android:layout_gravity="fill_horizontal"
-                        android:layout_marginStart="0dp"
-                        android:layout_marginEnd="0dp"
-                        android:layout_marginTop="0dp"
-                        android:layout_marginBottom="0dp"
                         android:padding="0dp"
-                        android:background="@drawable/profile_icon_background"
+                        android:background="@color/card_background"
                         android:clickable="true"
                         android:focusable="true"
                         android:foreground="?android:attr/selectableItemBackground"
@@ -114,144 +133,214 @@
                             android:layout_height="match_parent"
                             android:layout_gravity="fill"
                             android:src="@drawable/ic_car"
-                            android:scaleType="centerInside"
+                            android:scaleType="centerCrop"
                             android:contentDescription="@string/garage_profile_image"
-                            app:tint="@color/primary_color" />
+                            app:tint="@null" />
 
-                        <!-- Fade градиент в долната част -->
-                        <View
-                            android:id="@+id/vFadeOverlay"
-                            android:layout_width="match_parent"
-                            android:layout_height="50dp"
-                            android:layout_gravity="bottom"
-                            android:background="@drawable/gradient_fade_bottom"
-                            android:visibility="gone" />
-
-                        <!-- Portrait: Profile name and type overlay in bottom left corner when image is shown -->
                         <LinearLayout
-                            android:id="@+id/llPortraitProfileInfo"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="bottom|start"
+                            android:id="@+id/llEmptyPhoto"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
                             android:orientation="vertical"
-                            android:layout_marginStart="12dp"
-                            android:layout_marginBottom="12dp"
-                            android:background="@drawable/profile_info_background"
-                            android:paddingStart="12dp"
-                            android:paddingEnd="12dp"
-                            android:paddingTop="8dp"
-                            android:paddingBottom="8dp"
+                            android:gravity="center"
                             android:visibility="gone">
 
-                            <TextView
-                                android:id="@+id/tvActiveProfileNameOverlay"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="@string/garage_my_profile"
-                                android:textSize="16sp"
-                                android:textStyle="bold"
-                                android:textColor="@android:color/white" />
+                            <FrameLayout
+                                android:layout_width="56dp"
+                                android:layout_height="56dp"
+                                android:background="@drawable/bg_photo_placeholder_icon">
+
+                                <ImageView
+                                    android:id="@+id/ivActivePlaceholderIcon"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:padding="12dp"
+                                    android:src="@drawable/ic_add_photo"
+                                    app:tint="@color/accent_color" />
+
+                            </FrameLayout>
 
                             <TextView
-                                android:id="@+id/tvActiveProfileTypeOverlay"
+                                android:id="@+id/tvAddPhotoHint"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="@string/garage_vehicle_car"
-                                android:textSize="12sp"
-                                android:textColor="@android:color/white"
-                                android:alpha="0.9"
-                                android:layout_marginTop="2dp" />
+                                android:layout_marginTop="10dp"
+                                android:text="@string/garage_tap_to_add_photo"
+                                android:textColor="@color/text_tertiary" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/llActiveProfileOverlay"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="bottom"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:paddingStart="14dp"
+                            android:paddingEnd="14dp"
+                            android:paddingTop="5dp"
+                            android:paddingBottom="10dp"
+                            android:background="@drawable/bg_active_overlay">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvActiveProfileNameOverlay"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/garage_my_profile"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold"
+                                    android:textColor="@android:color/white" />
+
+                                <TextView
+                                    android:id="@+id/tvActiveProfileMetaOverlay"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/garage_vehicle_car"
+                                    android:textSize="10sp"
+                                    android:textColor="#D1D5DB"
+                                    android:layout_marginTop="2dp" />
+
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/tvActiveProfileBadge"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/garage_active_badge"
+                                android:textSize="11sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/accent_color"
+                                android:background="@drawable/bg_badge_accent"
+                                android:paddingHorizontal="8dp"
+                                android:paddingVertical="4dp" />
 
                         </LinearLayout>
 
                     </FrameLayout>
 
-                    <!-- Orange divider -->
-                    <View
-                        android:id="@+id/vOrangeDivider"
-                        android:layout_width="match_parent"
-                        android:layout_height="4dp"
-                        android:background="@color/primary_color"
-                        android:visibility="gone"/>
-
-                    <LinearLayout
-                        android:id="@+id/llProfileTextContainer"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="10dp"
-                        android:gravity="center">
-
-                        <TextView
-                            android:id="@+id/tvActiveProfileName"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/garage_my_profile"
-                            android:textSize="20sp"
-                            android:textStyle="bold"
-                            android:textColor="@android:color/white"
-                            android:layout_marginTop="8dp" />
-
-                        <TextView
-                            android:id="@+id/tvActiveProfileType"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="@string/garage_vehicle_car"
-                            android:textSize="14sp"
-                            android:textColor="@android:color/white"
-                            android:alpha="0.85"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>
 
-            <LinearLayout
-                android:id="@+id/profilesHeaderLayout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginHorizontal="16dp"
-                android:paddingVertical="8dp"
-                android:paddingHorizontal="10dp"
-                android:gravity="center_vertical"
-                android:background="@drawable/rounded_corners">
+    <LinearLayout
+        android:id="@+id/profilesHeaderLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginTop="18dp"
+        android:gravity="center_vertical"
+        app:layout_constraintTop_toBottomOf="@id/cardActiveProfile"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="@string/garage_my_collection"
-                    android:textSize="16sp"
+                    android:text="@string/garage_all_profiles"
+                    android:textSize="15sp"
                     android:textStyle="bold"
                     android:textColor="@color/text_primary" />
 
-                <TextView
-                    android:id="@+id/tvProfileCount"
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnViewSessions"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0/5"
-                    android:textSize="13sp"
-                    android:textColor="@color/text_secondary"
-                    android:background="@drawable/profile_count_background"
-                    android:paddingHorizontal="10dp"
-                    android:paddingVertical="4dp" />
+                    android:layout_height="36dp"
+                    android:minHeight="36dp"
+                    android:text="@string/garage_view_sessions"
+                    android:textSize="12sp"
+                    android:textColor="@android:color/white"
+                    android:insetLeft="0dp"
+                    android:insetRight="0dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    app:cornerRadius="16dp"
+                    app:strokeColor="#14FFFFFF"
+                    app:strokeWidth="1dp"
+                    app:backgroundTint="#10FFFFFF" />
 
-            </LinearLayout>
+    </LinearLayout>
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvProfiles"
-                android:layout_width="match_parent"
+    <FrameLayout
+        android:id="@+id/profilesContent"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="16dp"
+        app:layout_constraintTop_toBottomOf="@id/profilesHeaderLayout"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:id="@+id/emptyStateContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+
+            <FrameLayout
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:background="@drawable/bg_photo_placeholder_icon">
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="14dp"
+                    android:src="@drawable/ic_car"
+                    app:tint="@color/accent_color" />
+
+            </FrameLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginHorizontal="16dp"
-                android:layout_marginTop="10dp"
-                android:clipToPadding="false"
-                android:paddingBottom="16dp" />
+                android:layout_marginTop="14dp"
+                android:text="@string/garage_empty_title"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="@string/garage_empty_subtitle"
+                android:textSize="13sp"
+                android:textColor="@color/text_tertiary" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEmptyAddProfile"
+                android:layout_width="wrap_content"
+                android:layout_height="46dp"
+                android:layout_marginTop="16dp"
+                android:text="@string/garage_add_first_vehicle"
+                android:textColor="@android:color/white"
+                app:cornerRadius="18dp"
+                app:backgroundTint="@color/accent_color" />
 
         </LinearLayout>
 
-    </androidx.core.widget.NestedScrollView>
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvProfiles"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="16dp" />
+
+    </FrameLayout>
 
     <!-- Bottom navigation is handled by MainContainerActivity - removed from here -->
 

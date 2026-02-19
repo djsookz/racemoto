@@ -2,6 +2,7 @@ package com.example.clinometer
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.ColorDrawable
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -105,6 +106,8 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_drag_calibration)
+
+        window.statusBarColor = ContextCompat.getColor(this, R.color.dark_background)
         
         // Вземаме profileId от intent
         profileId = intent.getLongExtra("PROFILE_ID", -1L)
@@ -117,6 +120,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
         
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = "Calibration"
+        supportActionBar?.setBackgroundDrawable(ColorDrawable(ContextCompat.getColor(this, R.color.dark_background)))
         
         // Ако е първи профил или нов профил от Garage - скриваме Back бутона
         if (isFirstProfile || isNewProfile) {

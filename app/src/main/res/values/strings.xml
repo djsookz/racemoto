@@ -291,7 +291,7 @@ Permissions are required for basic functionality!</string>
     
     <!-- Drag Calibration -->
     <string name="calibration_title">Calibration</string>
-    <string name="calibration_description">Calibrate forward/backward direction for both orientations</string>
+    <string name="calibration_description">Calibrate your device in both portrait and landscape orientations for accurate drag measurements.</string>
     <string name="calibration_portrait">📱 PORTRAIT</string>
     <string name="calibration_landscape">🔄 LANDSCAPE</string>
     <string name="calibration_status_calibrated">Calibrated</string>
@@ -357,6 +357,7 @@ Permissions are required for basic functionality!</string>
     <string name="drag_temperature_placeholder">--°C</string>
     <string name="drag_altitude_placeholder">--m</string>
     <string name="weather_until">до</string>
+    <string name="weather_from">from</string>
     
     <!-- Drag Session Details Labels -->
     <string name="drag_best_0to100_label">0-100:</string>
@@ -457,14 +458,14 @@ Permissions are required for basic functionality!</string>
     <string name="garage_title">Garage</string>
     <string name="garage_add_button">Add</string>
     <string name="garage_my_profile">My Profile</string>
-    <string name="garage_vehicle_car">🚗 Car</string>
-    <string name="garage_vehicle_motorcycle">🏍️ Motorcycle</string>
+    <string name="garage_vehicle_car">Car</string>
+    <string name="garage_vehicle_motorcycle">Motorcycle</string>
     <string name="garage_change_button">Change</string>
     <string name="garage_profile_image">Profile image</string>
     <string name="garage_select_image">Select image</string>
     <string name="garage_remove_image">Remove image</string>
     <string name="garage_my_collection">My Collection</string>
-    <string name="garage_sessions_template">⚡ %d sessions</string>
+    <string name="garage_sessions_template">%d sessions</string>
     <string name="garage_max_speed_template">🏁 %s km/h max</string>
     <string name="garage_confirm_delete">Are you sure you want to delete "%s"?\n\nAll %d sessions for this profile will also be deleted.</string>
     <string name="garage_confirm_delete_simple">Are you sure you want to delete "%s"?</string>
@@ -474,6 +475,32 @@ Permissions are required for basic functionality!</string>
     <string name="garage_select_brand">Please select a brand</string>
     <string name="garage_select_model">Please select a model</string>
     <string name="garage_most_popular">Most Popular</string>
+    <string name="garage_active_vehicle">Active vehicle</string>
+    <string name="garage_all_profiles">All vehicles</string>
+    <string name="garage_view_sessions">View sessions</string>
+    <string name="garage_empty_title">No profiles yet</string>
+    <string name="garage_empty_subtitle">Add a vehicle to start recording sessions.</string>
+    <string name="garage_add_first_vehicle">Add first vehicle</string>
+    <string name="garage_tap_to_add_photo">Tap to add a photo</string>
+    <string name="garage_active_badge">ACTIVE</string>
+    <string name="garage_add_vehicle_title">Add vehicle</string>
+    <string name="garage_add_vehicle_subtitle">Pick a type, then choose brand + model.</string>
+    <string name="garage_brand_label">Brand</string>
+    <string name="garage_model_label">Model</string>
+    <string name="garage_brand_placeholder">Select brand...</string>
+    <string name="garage_model_placeholder">Select model...</string>
+    <string name="garage_vehicle_car_plain">Car</string>
+    <string name="garage_vehicle_motorcycle_plain">Motorcycle</string>
+    <string name="garage_choose_from_library">Choose from library</string>
+    <string name="garage_remove_photo">Remove photo</string>
+    <string name="garage_profile_details">Profile details</string>
+    <string name="garage_open_calibration">Open calibration</string>
+    <string name="garage_set_active">Set as active</string>
+    <string name="garage_calibration">Calibration</string>
+    <string name="garage_not_calibrated">⚠️ Not calibrated</string>
+    <string name="garage_calibrated">✅ Calibrated</string>
+    <string name="garage_search_placeholder">Search...</string>
+    <string name="garage_no_results">No results</string>
     <string name="garage_back_press">Press again to exit</string>
     
     <!-- Profile Details -->
@@ -528,4 +555,6 @@ Permissions are required for basic functionality!</string>
 
     <string name="destination_placeholder">Търси дестинация...</string>
     <string name="route_preview_title">Преглед на маршрут</string>
+
+
 </resources>

@@ -15,8 +15,10 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 import androidx.recyclerview.widget.RecyclerView
 import com.example.clinometer.data.ProfileStorage
+import com.google.android.material.card.MaterialCardView
 import java.io.File
 
 class ProfileAdapter(
@@ -30,14 +32,19 @@ class ProfileAdapter(
 
     private val imageCache = mutableMapOf<String, Bitmap?>()
     private val imageLoadHandler = Handler(Looper.getMainLooper())
+    private var sessionCounts: Map<Long, Int> = emptyMap()
+    private var calibrationStatuses: Map<Long, Boolean> = emptyMap()
 
     inner class ProfileViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val cardProfile: MaterialCardView = itemView.findViewById(R.id.cardProfile)
         val ivProfileIcon: ImageView = itemView.findViewById(R.id.ivProfileIcon)
         val tvProfileName: TextView = itemView.findViewById(R.id.tvProfileName)
         val tvVehicleType: TextView = itemView.findViewById(R.id.tvVehicleType)
         val tvSessionCount: TextView = itemView.findViewById(R.id.tvSessionCount)
-        val tvMaxSpeed: TextView = itemView.findViewById(R.id.tvMaxSpeed)
-        val btnOptions: ImageButton = itemView.findViewById(R.id.btnOptions)
+        val tvCalibrationStatus: TextView = itemView.findViewById(R.id.tvCalibrationStatus)
+        val btnDetails: ImageButton = itemView.findViewById(R.id.btnDetails)
+        val btnEdit: ImageButton = itemView.findViewById(R.id.btnEdit)
+        val btnDelete: ImageButton = itemView.findViewById(R.id.btnDelete)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProfileViewHolder {
@@ -51,7 +58,7 @@ class ProfileAdapter(
         val selectedProfileId = ProfileStorage.getSelectedProfileId(context)
 
         // Име и тип
-        holder.tvProfileName.text = profile.name
+        holder.tvProfileName.text = getGarageDisplayName(profile)
         val typeText = when (profile.vehicleType) {
             Profile.VehicleType.CAR -> context.getString(R.string.garage_vehicle_car)
             Profile.VehicleType.MOTORCYCLE -> context.getString(R.string.garage_vehicle_motorcycle)
@@ -59,15 +66,22 @@ class ProfileAdapter(
         holder.tvVehicleType.text = typeText
 
         // Статистики
-        val sessionCount = getProfileSessionCount(profile.id)
-        holder.tvSessionCount.text = context.getString(R.string.garage_sessions_template, sessionCount)
-
-        val maxSpeedText = if (profile.maxSpeed > 0) {
-            String.format("%.0f km/h", profile.maxSpeed)
+        val sessionCount = sessionCounts[profile.id]
+        holder.tvSessionCount.text = if (sessionCount != null) {
+            context.getString(R.string.garage_sessions_template, sessionCount)
         } else {
-            "-- km/h"
+            "…"
         }
-        holder.tvMaxSpeed.text = maxSpeedText
+
+        val isCalibrated = calibrationStatuses[profile.id]
+        if (isCalibrated == null) {
+            holder.tvCalibrationStatus.visibility = View.GONE
+        } else if (isCalibrated) {
+            holder.tvCalibrationStatus.visibility = View.GONE
+        } else {
+            holder.tvCalibrationStatus.visibility = View.VISIBLE
+            holder.tvCalibrationStatus.text = context.getString(R.string.garage_not_calibrated)
+        }
 
         // Зареждане на снимка или икона
         loadProfileImage(holder, profile)
@@ -77,45 +91,36 @@ class ProfileAdapter(
             onProfileClick(profile)
         }
 
-        // Бутон за опции - показва PopupMenu с Edit, Details и Delete
-        holder.btnOptions.setOnClickListener { view ->
-            android.widget.PopupMenu(view.context, view).apply {
-                menu.add(0, 1, 0, context.getString(R.string.profile_edit_text))
-                menu.add(0, 2, 0, context.getString(R.string.profile_details_menu))
-                menu.add(0, 3, 0, context.getString(R.string.profile_delete_button))
-                setOnMenuItemClickListener { item ->
-                    when (item.itemId) {
-                        1 -> {
-                            onEditClick(profile)
-                            true
-                        }
-                        2 -> {
-                            onDetailsClick(profile)
-                            true
-                        }
-                        3 -> {
-                            onDeleteClick(profile)
-                            true
-                        }
-                        else -> false
-                    }
-                }
-            }.show()
-        }
+        holder.btnDetails.setOnClickListener { onDetailsClick(profile) }
+        holder.btnEdit.setOnClickListener { onEditClick(profile) }
+        holder.btnDelete.setOnClickListener { onDeleteClick(profile) }
 
         // Визуална индикация за активния профил
         if (profile.id == selectedProfileId) {
-            holder.itemView.alpha = 1.0f
+            val accent = ContextCompat.getColor(context, R.color.accent_color)
+            holder.cardProfile.setCardBackgroundColor(ColorUtils.setAlphaComponent(accent, 20))
+            holder.cardProfile.strokeColor = ColorUtils.setAlphaComponent(accent, 120)
         } else {
-            holder.itemView.alpha = 0.7f
+            holder.cardProfile.setCardBackgroundColor(ContextCompat.getColor(context, R.color.card_background))
+            val white = ContextCompat.getColor(context, android.R.color.white)
+            holder.cardProfile.strokeColor = ColorUtils.setAlphaComponent(white, 20)
         }
     }
 
     override fun getItemCount(): Int = profiles.size
 
-    private fun getProfileSessionCount(profileId: Long): Int {
-        val allRaces = RouteStorage.loadRaces(context)
-        return allRaces.count { it.profileId == profileId }
+    private fun getGarageDisplayName(profile: Profile): String {
+        val prefs = context.getSharedPreferences("garage_display_names", Context.MODE_PRIVATE)
+        val key = "profile_${profile.id}_display_name"
+        return prefs.getString(key, null).orEmpty().ifBlank { profile.name }
+    }
+
+    fun setSessionCounts(counts: Map<Long, Int>) {
+        sessionCounts = counts
+    }
+
+    fun setCalibrationStatuses(statuses: Map<Long, Boolean>) {
+        calibrationStatuses = statuses
     }
 
     private fun loadProfileImage(holder: ProfileViewHolder, profile: Profile) {

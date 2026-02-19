@@ -193,9 +193,9 @@ private fun reduceManeuverTextSize(view: View, isLandscape: Boolean = false) {
         val alreadyScaled = (view.getTag(R.id.tag_maneuver_scaled_text) as? Boolean) == true
         if (alreadyScaled) return
         val currentSize = view.textSize / view.resources.displayMetrics.scaledDensity
-        // Reduce text size much more aggressively in landscape (0.5 vs 0.8)
-        val reductionFactor = if (isLandscape) 0.5f else 0.8f
-        val newSize = currentSize * reductionFactor
+        // Increase text size in landscape, keep slight reduction in portrait
+        val scaleFactor = if (isLandscape) 1.2f else 0.8f
+        val newSize = currentSize * scaleFactor
         view.textSize = newSize
         // Add maxLines and ellipsize for landscape to prevent text overflow
         if (isLandscape) {
@@ -203,7 +203,7 @@ private fun reduceManeuverTextSize(view: View, isLandscape: Boolean = false) {
             view.ellipsize = android.text.TextUtils.TruncateAt.END
             // Set max width to prevent text from overflowing container
             val density = view.resources.displayMetrics.density
-            view.maxWidth = (280 * density).toInt() // Max 280dp width for text
+            view.maxWidth = (360 * density).toInt() // Max 360dp width for text
         }
         view.setTag(R.id.tag_maneuver_scaled_text, true)
     }
@@ -220,8 +220,8 @@ private fun reduceManeuverIconSize(view: View, isLandscape: Boolean = false) {
         if (alreadyScaled) return
         val layoutParams = view.layoutParams
         if (layoutParams != null) {
-            // Reduce icon size more aggressively in landscape (0.5 vs 0.7)
-            val reductionFactor = if (isLandscape) 0.5f else 0.7f
+            // Reduce icon size less in landscape to keep it readable
+            val reductionFactor = if (isLandscape) 0.8f else 0.7f
             val currentWidth = layoutParams.width
             val currentHeight = layoutParams.height
 
@@ -231,7 +231,7 @@ private fun reduceManeuverIconSize(view: View, isLandscape: Boolean = false) {
                 view.layoutParams = layoutParams
             } else {
                 // If width/height are wrap_content or match_parent, set fixed smaller size
-                val sizeInDp = if (isLandscape) 24 else 32 // Smaller in landscape
+                val sizeInDp = if (isLandscape) 36 else 32 // Larger in landscape
                 val sizeInPx = (sizeInDp * view.resources.displayMetrics.density).toInt()
                 layoutParams.width = sizeInPx
                 layoutParams.height = sizeInPx

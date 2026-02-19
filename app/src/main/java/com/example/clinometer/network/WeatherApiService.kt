@@ -40,7 +40,9 @@ data class WeatherApiCurrent(
     val cloud: Int, // Cloud cover in %
     val feelslike_c: Double,
     val uv: Double,
-    val is_day: Int  // 1 = day, 0 = night
+    val is_day: Int,  // 1 = day, 0 = night
+    val precip_mm: Double? = null,
+    val precip_in: Double? = null
 )
 
 data class WeatherApiCondition(

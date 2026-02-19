@@ -64,6 +64,20 @@ object DragCalibration {
     fun init(context: Context) {
         prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
+
+    /**
+     * Бърза проверка дали профилът има калибрация (universal, portrait или landscape).
+     */
+    fun isProfileCalibrated(context: Context, profileId: Long): Boolean {
+        if (prefs == null) {
+            init(context)
+        }
+        val p = prefs ?: return false
+        val keyPrefix = "profile_${profileId}_"
+        return p.getBoolean(keyPrefix + "universal_isCalibrated", false) ||
+            p.getBoolean(keyPrefix + "portrait_isCalibrated", false) ||
+            p.getBoolean(keyPrefix + "landscape_isCalibrated", false)
+    }
     
     /**
      * Сменя профила и зарежда неговата калибрация

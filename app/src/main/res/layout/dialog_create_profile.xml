@@ -9,92 +9,101 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp"
-        android:background="@color/dark_surface">
-
-        <!-- Заглавие -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Добави в гаража"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:textColor="@color/white"
-            android:gravity="center"
-            android:layout_marginBottom="32dp" />
-
-        <!-- Избор на тип превозно средство -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Избери тип превозно средство"
-            android:textSize="16sp"
-            android:textColor="@color/white"
-            android:layout_marginBottom="16dp" />
+        android:padding="20dp"
+        android:background="@drawable/bg_modal_card">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="32dp">
+            android:gravity="center_vertical">
 
-            <!-- Кола опция -->
-            <LinearLayout
-                android:id="@+id/carCard"
+            <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:orientation="vertical"
-                android:padding="20dp"
+                android:text="@string/garage_add_vehicle_title"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/white" />
+
+            <ImageButton
+                android:id="@+id/btnCloseCreate"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:background="@drawable/bg_icon_button"
+                android:src="@drawable/ic_close"
+                app:tint="@android:color/white"
+                android:padding="8dp" />
+
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/garage_add_vehicle_subtitle"
+            android:textColor="@color/text_tertiary" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp">
+
+            <LinearLayout
+                android:id="@+id/carCard"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center"
                 android:background="@drawable/vehicle_option_background"
                 android:layout_marginEnd="8dp"
-                android:gravity="center"
                 android:clickable="true"
                 android:focusable="true">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🚗"
-                    android:textSize="32sp"
-                    android:layout_marginBottom="8dp" />
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_car"
+                    app:tint="@android:color/white" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Кола"
-                    android:textSize="16sp"
+                    android:text="@string/garage_vehicle_car_plain"
+                    android:layout_marginStart="8dp"
+                    android:textSize="14sp"
                     android:textColor="@color/white"
                     android:textStyle="bold" />
 
             </LinearLayout>
 
-            <!-- Мотоциклет опция -->
             <LinearLayout
                 android:id="@+id/motorcycleCard"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="56dp"
                 android:layout_weight="1"
-                android:orientation="vertical"
-                android:padding="20dp"
+                android:orientation="horizontal"
+                android:gravity="center"
                 android:background="@drawable/vehicle_option_background"
                 android:layout_marginStart="8dp"
-                android:gravity="center"
                 android:clickable="true"
                 android:focusable="true">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🏍️"
-                    android:textSize="32sp"
-                    android:layout_marginBottom="8dp" />
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_motorcycle"
+                    app:tint="@android:color/white" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Мотоциклет"
-                    android:textSize="16sp"
+                    android:text="@string/garage_vehicle_motorcycle_plain"
+                    android:layout_marginStart="8dp"
+                    android:textSize="14sp"
                     android:textColor="@color/white"
                     android:textStyle="bold" />
 
@@ -102,71 +111,95 @@
 
         </LinearLayout>
 
-        <!-- Избор на марка -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/brandInput"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            android:hint="Select Brand"
-            android:textColorHint="@color/white"
-            app:boxStrokeColor="@color/primary_color"
-            app:boxStrokeWidth="1dp"
-            app:boxStrokeWidthFocused="2dp"
-            app:endIconTint="@color/primary_color"
-            app:boxBackgroundMode="outline"
-            app:boxBackgroundColor="@color/dark_surface"
-            app:startIconDrawable="@drawable/ic_car"
-            app:startIconTint="@color/primary_color">
+            android:layout_marginTop="18dp"
+            android:text="@string/garage_brand_label"
+            android:textColor="@color/white" />
 
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/brandInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            app:boxBackgroundMode="outline"
+            app:boxStrokeColor="#40FF6020"
+            app:boxCornerRadiusBottomEnd="22dp"
+            app:boxCornerRadiusBottomStart="22dp"
+            app:boxCornerRadiusTopEnd="22dp"
+            app:boxCornerRadiusTopStart="22dp"
+            app:boxStrokeWidth="1dp"
+            app:boxBackgroundColor="@color/background_primary"
+            app:endIconMode="clear_text">
+
+            <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/brandDropdown"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="none"
+                android:minHeight="48dp"
+                android:focusable="false"
+                android:clickable="true"
+                android:hint="@string/garage_brand_placeholder"
                 android:textColor="@color/white"
-                android:textSize="16sp"
-                android:background="@null"
-                android:popupBackground="@color/white"
-                android:dropDownSelector="@color/primary_color"
-                android:dropDownVerticalOffset="8dp"
-                android:dropDownWidth="match_parent" />
+                android:textColorHint="@color/text_tertiary"
+
+                android:gravity="center_vertical|start"
+                android:includeFontPadding="false"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Избор на модел -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/modelInput"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="32dp"
-            android:hint="Select Model"
-            android:textColorHint="@color/white"
-            app:boxStrokeColor="@color/primary_color"
-            app:boxStrokeWidth="1dp"
-            app:boxStrokeWidthFocused="2dp"
-            app:endIconTint="@color/primary_color"
-            app:boxBackgroundMode="outline"
-            app:boxBackgroundColor="@color/dark_surface"
-            app:startIconDrawable="@drawable/ic_settings"
-            app:startIconTint="@color/primary_color">
+            android:layout_marginTop="12dp"
+            android:text="@string/garage_model_label"
+            android:textColor="@color/white" />
 
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/modelInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            app:boxBackgroundMode="outline"
+            app:boxStrokeColor="#40FF6020"
+            app:boxCornerRadiusBottomEnd="22dp"
+            app:boxCornerRadiusBottomStart="22dp"
+            app:boxCornerRadiusTopEnd="22dp"
+            app:boxCornerRadiusTopStart="22dp"
+            app:boxStrokeWidth="1dp"
+            app:boxBackgroundColor="@color/background_primary"
+            app:endIconMode="clear_text">
+
+            <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/modelDropdown"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="none"
+                android:minHeight="48dp"
+                android:focusable="false"
+                android:clickable="true"
+                android:hint="@string/garage_model_placeholder"
                 android:textColor="@color/white"
-                android:textSize="16sp"
-                android:background="@null"
-                android:popupBackground="@color/white"
-                android:dropDownSelector="@color/primary_color"
-                android:dropDownVerticalOffset="8dp"
-                android:dropDownWidth="match_parent" />
+                android:textColorHint="@color/text_tertiary"
+
+                android:gravity="center_vertical|start"
+                android:includeFontPadding="false"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp" />
 
         </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCreateProfile"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:layout_marginTop="20dp"
+            android:text="@string/garage_create_button"
+            android:textColor="@android:color/white"
+            app:cornerRadius="18dp"
+            app:backgroundTint="@color/accent_color" />
 
     </LinearLayout>
 

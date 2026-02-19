@@ -17,6 +17,8 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.CountDownTimer
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -72,6 +74,8 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
     private var pressureSensor: Sensor? = null
     private var currentTemperature: Float? = null
     private var currentAltitude: Float? = null
+    private val weatherRefreshHandler = Handler(Looper.getMainLooper())
+    private var weatherRefreshRunnable: Runnable? = null
     private var sessions: MutableList<DragSession> = mutableListOf()
     private lateinit var dragAdapter: DragSessionAdapter
     
@@ -108,6 +112,7 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         private const val REQUEST_DRAG_RUN = 1001
         private const val PERMISSION_REQUEST_LOCATION = 1003
         private const val CACHE_LOCATION_THRESHOLD_KM = 5.0
+        private const val WEATHER_REFRESH_INTERVAL_MS = 15 * 60 * 1000L
     }
     
     override fun onCreateView(
@@ -266,6 +271,33 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         tvTemperature.text = tempText
         tvAltitude.text = altText
     }
+
+    private fun isWeatherCacheStale(): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val cachedTime = prefs.getLong("cached_weather_time", 0L)
+        if (cachedTime == 0L) return true
+        val now = System.currentTimeMillis()
+        return now - cachedTime > WEATHER_REFRESH_INTERVAL_MS
+    }
+
+    private fun startWeatherRefreshTimer() {
+        stopWeatherRefreshTimer()
+        weatherRefreshRunnable = object : Runnable {
+            override fun run() {
+                if (!isAdded) return
+                if (isWeatherCacheStale()) {
+                    fetchWeatherAndElevation()
+                }
+                weatherRefreshHandler.postDelayed(this, WEATHER_REFRESH_INTERVAL_MS)
+            }
+        }
+        weatherRefreshHandler.post(weatherRefreshRunnable!!)
+    }
+
+    private fun stopWeatherRefreshTimer() {
+        weatherRefreshRunnable?.let { weatherRefreshHandler.removeCallbacks(it) }
+        weatherRefreshRunnable = null
+    }
     
     private fun loadCachedWeatherData() {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
@@ -289,6 +321,7 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         
         currentTemperature?.let { editor.putFloat("cached_temperature", it) }
         currentAltitude?.let { editor.putFloat("cached_altitude", it) }
+        editor.putLong("cached_weather_time", System.currentTimeMillis())
         editor.putFloat("cached_location_lat", location.latitude.toFloat())
         editor.putFloat("cached_location_lon", location.longitude.toFloat())
         editor.apply()
@@ -298,6 +331,10 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
         val cachedLat = prefs.getFloat("cached_location_lat", Float.NaN)
         val cachedLon = prefs.getFloat("cached_location_lon", Float.NaN)
+
+        if (isWeatherCacheStale()) {
+            return true
+        }
         
         if (cachedLat.isNaN() || cachedLon.isNaN()) {
             return true

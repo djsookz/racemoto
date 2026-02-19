@@ -12,7 +12,7 @@
 
 
     <!-- Основни цветове за фона -->
-    <color name="background_primary">#0D1117</color>
+    <color name="background_primary">#0A0A0A</color>
     <color name="background_secondary">#F5F7FA</color>
     <color name="surface_color">#FFFFFF</color>
 
@@ -130,5 +130,8 @@
     <color name="green">#4CAF50</color>
     <color name="red">#F44336</color>
     <color name="orange">#FF9800</color>
+
+    <color name="background_transparent_80">#F2000000</color>
+
 
 </resources>

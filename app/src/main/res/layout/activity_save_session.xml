@@ -42,7 +42,7 @@
                     android:layout_width="48dp"
                     android:layout_height="48dp"
                     android:layout_gravity="center"
-                    android:indeterminateTint="@color/accent_orange" />
+                    android:indeterminateTint="@color/primary_color" />
             </FrameLayout>
 
             <androidx.appcompat.widget.Toolbar
@@ -104,7 +104,7 @@
                         android:layout_marginBottom="10dp"
                         android:fontFamily="sans-serif-medium"
                         android:text="DISTANCE"
-                        android:textColor="@color/accent_orange"
+                        android:textColor="@color/primary_color"
                         android:textSize="10sp"
                         android:letterSpacing="0.1" />
 
@@ -135,7 +135,7 @@
                         android:layout_marginBottom="10dp"
                         android:fontFamily="sans-serif-medium"
                         android:text="TIME"
-                        android:textColor="@color/accent_orange"
+                        android:textColor="@color/primary_color"
                         android:textSize="10sp"
                         android:letterSpacing="0.1" />
 
@@ -166,7 +166,7 @@
                         android:layout_marginBottom="10dp"
                         android:fontFamily="sans-serif-medium"
                         android:text="MAX SPEED"
-                        android:textColor="@color/accent_orange"
+                        android:textColor="@color/primary_color"
                         android:textSize="10sp"
                         android:letterSpacing="0.1" />
 
@@ -199,7 +199,7 @@
                 android:layout_marginBottom="8dp"
                 android:fontFamily="sans-serif-medium"
                 android:text="SESSION NAME"
-                android:textColor="@color/accent_orange"
+                android:textColor="@color/primary_color"
                 android:textSize="11sp"
                 android:letterSpacing="0.05" />
 
@@ -224,7 +224,7 @@
                 android:layout_marginBottom="8dp"
                 android:fontFamily="sans-serif-medium"
                 android:text="DESCRIPTION"
-                android:textColor="@color/accent_orange"
+                android:textColor="@color/primary_color"
                 android:textSize="11sp"
                 android:letterSpacing="0.05" />
 
@@ -251,7 +251,7 @@
                 android:layout_marginBottom="12dp"
                 android:fontFamily="sans-serif-medium"
                 android:text="PHOTOS"
-                android:textColor="@color/accent_orange"
+                android:textColor="@color/primary_color"
                 android:textSize="11sp"
                 android:letterSpacing="0.05" />
 
@@ -280,7 +280,7 @@
                             android:layout_width="24dp"
                             android:layout_height="24dp"
                             android:src="@drawable/ic_add_photo"
-                            app:tint="@color/accent_orange" />
+                            app:tint="@color/primary_color"/>
 
                         <TextView
                             android:layout_width="wrap_content"
@@ -308,7 +308,7 @@
                 android:layout_height="60dp"
                 android:layout_marginTop="40dp"
                 android:layout_marginBottom="40dp"
-                android:backgroundTint="@color/accent_orange"
+                android:backgroundTint="@color/primary_color"
                 android:fontFamily="sans-serif-black"
                 android:text="SAVE SESSION"
                 android:textColor="@color/white"

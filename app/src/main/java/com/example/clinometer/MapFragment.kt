@@ -1,7 +1,10 @@
 package com.example.clinometer
 
 import android.Manifest
+import android.app.ActivityManager
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.content.res.Resources
 import android.graphics.Bitmap
@@ -12,6 +15,7 @@ import android.location.Location
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -27,6 +31,8 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
+import androidx.appcompat.app.AlertDialog
+import androidx.activity.OnBackPressedCallback
 import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -43,8 +49,9 @@ import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.compass.compass
 import com.mapbox.maps.plugin.scalebar.scalebar
 import com.mapbox.maps.plugin.attribution.attribution
+import com.mapbox.maps.plugin.Plugin
+import com.mapbox.maps.plugin.locationcomponent.LocationComponentPlugin
 import com.mapbox.maps.plugin.locationcomponent.OnIndicatorPositionChangedListener
-import com.mapbox.maps.plugin.locationcomponent.location
 import com.mapbox.maps.plugin.gestures.addOnMapClickListener
 import com.mapbox.maps.plugin.gestures.addOnMapLongClickListener
 import com.mapbox.api.directions.v5.models.RouteOptions
@@ -57,11 +64,19 @@ import com.mapbox.navigation.base.route.NavigationRoute
 import com.mapbox.navigation.base.route.NavigationRouterCallback
 import com.mapbox.navigation.base.route.RouterFailure
 import com.mapbox.navigation.core.MapboxNavigation
+import com.mapbox.navigation.core.arrival.ArrivalObserver
+import com.mapbox.navigation.core.directions.session.RoutesObserver
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationApp
 import com.mapbox.navigation.core.lifecycle.MapboxNavigationObserver
 import com.mapbox.navigation.core.lifecycle.requireMapboxNavigation
 import com.mapbox.navigation.core.trip.session.LocationMatcherResult
 import com.mapbox.navigation.core.trip.session.LocationObserver
+import com.mapbox.navigation.core.trip.session.RouteProgressObserver
+import com.mapbox.navigation.core.formatter.MapboxDistanceFormatter
+import com.mapbox.navigation.base.formatter.DistanceFormatterOptions
+import com.mapbox.navigation.base.formatter.UnitType
+import com.mapbox.navigation.tripdata.maneuver.api.MapboxManeuverApi
+import com.mapbox.navigation.ui.components.maneuver.view.MapboxManeuverView
 import com.mapbox.navigation.ui.maps.camera.NavigationCamera
 import com.mapbox.navigation.ui.maps.camera.data.MapboxNavigationViewportDataSource
 import com.mapbox.navigation.ui.maps.camera.lifecycle.NavigationBasicGesturesHandler
@@ -71,6 +86,9 @@ import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineView
 import com.mapbox.navigation.ui.maps.route.line.model.RouteLineColorResources
 import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineApiOptions
 import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineViewOptions
+import com.mapbox.navigation.ui.maps.route.arrow.api.MapboxRouteArrowApi
+import com.mapbox.navigation.ui.maps.route.arrow.api.MapboxRouteArrowView
+import com.mapbox.navigation.ui.maps.route.arrow.model.RouteArrowOptions
 import com.mapbox.navigation.base.trip.model.RouteProgress
 import com.example.clinometer.navigation.MapboxGeocodingService
 import com.example.clinometer.navigation.GeocodingFeature
@@ -83,11 +101,22 @@ import retrofit2.converter.gson.GsonConverterFactory
 import com.example.clinometer.settings.UnitsManager
 import com.example.clinometer.network.OpenMeteoService
 import com.example.clinometer.network.WeatherApiService
+import com.example.clinometer.network.WeatherApiHour
+import com.example.clinometer.preview.RouteWeatherPreviewOverlay
 import com.example.clinometer.utils.WeatherIconMapper
 import com.mapbox.geojson.LineString
 import com.mapbox.maps.plugin.animation.easeTo
 import com.mapbox.common.location.Location as MapboxLocation
 import com.example.clinometer.MainContainerActivity
+import kotlin.math.abs
+import com.example.clinometer.RouteStorage
+import com.example.clinometer.RouteSnapshotGenerator
+import com.example.clinometer.SaveSessionActivity
+import com.example.clinometer.Race
+import org.osmdroid.util.GeoPoint
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
 
 @OptIn(ExperimentalPreviewMapboxNavigationAPI::class)
 class MapFragment : Fragment() {
@@ -119,8 +148,17 @@ class MapFragment : Fragment() {
     private lateinit var motorwayOptionsContainer: LinearLayout
     private lateinit var btnWithMotorways: ImageButton
     private lateinit var btnWithoutMotorways: ImageButton
+    private var btnPreviewOverview: ImageButton? = null
+    private var btnPreviewRecenter: ImageButton? = null
     private var btnOverview: ImageButton? = null
     private var btnRecenter: ImageButton? = null
+    private var mapControlsContainer: LinearLayout? = null
+    private var btnOrientationToggle: ImageButton? = null
+    private var btnCameraNorthMode: ImageButton? = null
+    private var isOrientationLocked: Boolean = false
+    private var isNorthUpMode: Boolean = false
+    private var enforcePitchZero: Boolean = true
+    private var isApplyingPitchZero: Boolean = false
     private var allowMotorways: Boolean = false
     private lateinit var llTemperature: LinearLayout
     private lateinit var llWeatherExpanded: TextView
@@ -142,50 +180,109 @@ class MapFragment : Fragment() {
     private var currentMapboxStyle: Style? = null
     private var currentDestination: Point? = null
     private var currentDestinationName: String? = null
-
-    // Route cache: exactly 1 request for allowMotorways=true and 1 for allowMotorways=false per (fixedOrigin,destination)
+    private val overviewPadding: EdgeInsets by lazy {
+        val top = resources.getDimension(R.dimen.mapbox_overview_padding_top).toDouble()
+        val left = resources.getDimension(R.dimen.mapbox_overview_padding_left).toDouble()
+        val bottom = resources.getDimension(R.dimen.mapbox_overview_padding_bottom).toDouble()
+        val right = resources.getDimension(R.dimen.mapbox_overview_padding_right).toDouble()
+        EdgeInsets(top, left, bottom, right)
+    }
+    private val followingPadding: EdgeInsets by lazy {
+        val top = resources.getDimension(R.dimen.mapbox_following_padding_top).toDouble()
+        val left = resources.getDimension(R.dimen.mapbox_following_padding_left).toDouble()
+        val bottom = resources.getDimension(R.dimen.mapbox_following_padding_bottom).toDouble()
+        val right = resources.getDimension(R.dimen.mapbox_following_padding_right).toDouble()
+        EdgeInsets(top, left, bottom, right)
+    }
     private var fixedOriginForRoute: Point? = null
     private var routeCacheKey: String? = null
     private var cachedRoutesAllowMotorways: List<NavigationRoute>? = null
     private var cachedRoutesNoMotorways: List<NavigationRoute>? = null
     private var routeRequestInFlightForAllowMotorways: Boolean? = null
-
-    // Alternative route selection (like TestNavigationActivity)
-    // Keep original order stable so route numbering (1..N) stays consistent even after we reorder for rendering.
     private var currentRoutesOriginal: List<NavigationRoute> = emptyList()
     private var selectedRouteIndex: Int = 0
-
-    // NavigationCamera overview animation (same behaviour as TestNavigationActivity)
-    private lateinit var navigationCamera: NavigationCamera
     private lateinit var viewportDataSource: MapboxNavigationViewportDataSource
-    private val pixelDensity = Resources.getSystem().displayMetrics.density
-    // Adjust padding based on orientation - smaller padding for landscape to prevent zooming too far
-    private val overviewPadding: EdgeInsets by lazy {
-        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        if (isLandscape) {
-            EdgeInsets(80.0 * pixelDensity, 40.0 * pixelDensity, 80.0 * pixelDensity, 40.0 * pixelDensity)
-        } else {
-            EdgeInsets(140.0 * pixelDensity, 40.0 * pixelDensity, 120.0 * pixelDensity, 40.0 * pixelDensity)
-        }
-    }
-    private val followingPadding = EdgeInsets(180.0 * pixelDensity, 40.0 * pixelDensity, 150.0 * pixelDensity, 40.0 * pixelDensity)
-    
-    // Mapbox location component (SDK)
+    private lateinit var navigationCamera: NavigationCamera
+
+    // Navigation UI/state (inline navigation)
+    private var isNavigationActive: Boolean = false
+    private var hasReachedDestination: Boolean = false
+    private lateinit var maneuverApi: MapboxManeuverApi
+    private var maneuverContainer: View? = null
+    private var maneuverView: MapboxManeuverView? = null
+    private var tripProgressContainer: LinearLayout? = null
+    private var tvTripEta: TextView? = null
+    private var tvTripRemainingTime: TextView? = null
+    private var tvTripRemainingDistance: TextView? = null
+    private val routeArrowApi: MapboxRouteArrowApi by lazy { MapboxRouteArrowApi() }
+    private var routeArrowView: MapboxRouteArrowView? = null
+    private var onIndicatorPositionChangedListener: OnIndicatorPositionChangedListener? = null
+    private val leanUpdateHandler = Handler(Looper.getMainLooper())
+    private var leanUpdateRunnable: Runnable? = null
+    private var leanUpdatesActive: Boolean = false
+    private var smoothedLeanAngle: Float = 0f
+    private val leanAngleAlpha: Float = 0.15f
+    private val leanAngleDeadband: Float = 1.5f
+    private var navigationObserversRegistered: Boolean = false
+    private var bottomHudRow: ViewGroup? = null
+    private var speedTextCar: TextView? = null
+    private var navSessionContainer: LinearLayout? = null
+    private var carModeContainer: LinearLayout? = null
+    private var distanceTextCar: TextView? = null
+    private var chronometerCar: Chronometer? = null
+    private var buttonContainer: LinearLayout? = null
+    private var btnReset: View? = null
+    private var btnZero: View? = null
+    private var btnStop: View? = null
+    private var angleContainerMoto: LinearLayout? = null
+    private var angleTextMoto: TextView? = null
+    private var linearGaugeView: LinearGaugeView? = null
+    private var navSessionActive: Boolean = false
+    private var navSessionStartTime: Long = 0L
+    private var navSessionDistanceMeters: Double = 0.0
+    private var navSessionLastLocation: Location? = null
+    private val kalmanFilter = KalmanLocationFilter()
+    private var mapboxTargetPosition: GeoPoint? = null
+    private var mapboxSmoothedTargetPosition: GeoPoint? = null
+    private var mapboxTargetBearing: Float = 0f
+    private var mapboxCurrentPosition: GeoPoint? = null
+    private var mapboxCurrentBearing: Float = 0f
+    private var mapboxLastUpdateTime: Long = 0L
+    private var mapboxRenderRunnable: Runnable? = null
+    private var targetMapOrientation: Float = 0f
+    private var currentMapOrientation: Float = 0f
+    private var lastCalculatedBearing: Float = 0f
+    private var lastProcessedLocation: Location? = null
+    private var isFirstLocation: Boolean = true
+    private var lastSpeedKmh: Float = 0f
+    private var targetZoom: Double = 17.5
+    private var currentZoom: Double = 17.5
+    private var lastZoomChangeTime: Long = 0L
     private var isMapboxLocationComponentEnabled: Boolean = false
     private var isUsingNavigationLocationProvider: Boolean = false
-
-    // Mapbox Navigation SDK (used for map-matched "enhancedLocation" snapping, like TestNavigationActivity)
     private val navigationLocationProvider = NavigationLocationProvider()
     // (Turn-by-turn UI is handled in MainActivity; MapFragment stays as search + route preview)
     private val mapboxNavigation: MapboxNavigation by requireMapboxNavigation(
         onResumedObserver = object : MapboxNavigationObserver {
             override fun onAttached(mapboxNavigation: MapboxNavigation) {
                 mapboxNavigation.registerLocationObserver(navigationLocationObserver)
+                if (isNavigationActive && !navigationObserversRegistered) {
+                    mapboxNavigation.registerRoutesObserver(sdkRoutesObserver)
+                    mapboxNavigation.registerRouteProgressObserver(sdkRouteProgressObserver)
+                    mapboxNavigation.registerArrivalObserver(sdkArrivalObserver)
+                    navigationObserversRegistered = true
+                }
                 mapboxNavigation.startTripSession()
             }
 
             override fun onDetached(mapboxNavigation: MapboxNavigation) {
                 mapboxNavigation.unregisterLocationObserver(navigationLocationObserver)
+                if (navigationObserversRegistered) {
+                    mapboxNavigation.unregisterRoutesObserver(sdkRoutesObserver)
+                    mapboxNavigation.unregisterRouteProgressObserver(sdkRouteProgressObserver)
+                    mapboxNavigation.unregisterArrivalObserver(sdkArrivalObserver)
+                    navigationObserversRegistered = false
+                }
                 mapboxNavigation.stopTripSession()
             }
         },
@@ -203,7 +300,11 @@ class MapFragment : Fragment() {
             // Switch the map's location provider to the navigation provider on first enhanced update.
             // Until then, we keep the default provider so the user still sees a raw GPS puck quickly.
             if (!isUsingNavigationLocationProvider) {
-                mapboxMapView?.location?.setLocationProvider(navigationLocationProvider)
+                val mapView = mapboxMapView
+                if (mapView != null) {
+                    val locationPlugin = mapView.getPlugin(Plugin.MAPBOX_LOCATION_COMPONENT_PLUGIN_ID) as? LocationComponentPlugin
+                    locationPlugin?.setLocationProvider(navigationLocationProvider)
+                }
                 isUsingNavigationLocationProvider = true
                 Log.d("MapFragment", "✅ Switched puck to NavigationLocationProvider (snapped)")
             }
@@ -221,6 +322,25 @@ class MapFragment : Fragment() {
 
             currentLocation = androidLoc
             mapStateViewModel.saveLastLocation(androidLoc)
+
+            if (pendingFirstWeatherFetch && !isWeatherFirstOpenDone()) {
+                fetchWeatherFromAPI(androidLoc)
+                markWeatherFirstOpenDone()
+                pendingFirstWeatherFetch = false
+            }
+
+            if (this@MapFragment::viewportDataSource.isInitialized) {
+                viewportDataSource.onLocationChanged(enhanced)
+                viewportDataSource.evaluate()
+            }
+
+            if (isNavigationActive || navSessionActive) {
+                updateNavSessionMetrics(androidLoc)
+            }
+
+            if (navSessionActive && !isNavigationActive) {
+                processNormalDrivingLocation(androidLoc)
+            }
 
             // (Turn-by-turn UI is handled in MainActivity)
 
@@ -254,6 +374,126 @@ class MapFragment : Fragment() {
             }
         }
     }
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: android.content.ComponentName?, service: android.os.IBinder?) {
+            val binder = service as ForegroundService.LocalBinder
+            foregroundService = binder.getService()
+            serviceBound = true
+
+            if (shouldResetOnConnect) {
+                shouldResetOnConnect = false
+                resetSessionData()
+            }
+
+            val startTime = foregroundService?.getStartTime() ?: SystemClock.elapsedRealtime()
+            chronometerCar?.base = startTime
+            chronometerCar?.start()
+        }
+
+        override fun onServiceDisconnected(name: android.content.ComponentName?) {
+            serviceBound = false
+            foregroundService = null
+        }
+    }
+
+    private val sdkRoutesObserver = RoutesObserver { result ->
+        if (!isNavigationActive) return@RoutesObserver
+        if (!this::routeLineApi.isInitialized || !this::routeLineView.isInitialized) return@RoutesObserver
+
+        val routes = result.navigationRoutes
+        val style = mapboxMapView?.mapboxMap?.style ?: return@RoutesObserver
+        val rla = routeLineApi
+        val rlv = routeLineView
+
+        if (routes.isEmpty()) {
+            rla.clearRouteLine { value -> rlv.renderClearRouteLineValue(style, value) }
+            routeArrowView?.render(style, routeArrowApi.clearArrows())
+            maneuverContainer?.visibility = View.GONE
+            tripProgressContainer?.visibility = View.GONE
+            return@RoutesObserver
+        }
+
+        val primaryOnly = listOf(routes.first())
+        rla.setNavigationRoutes(primaryOnly, emptyList()) { value ->
+            rlv.renderRouteDrawData(style, value)
+            if (this::viewportDataSource.isInitialized) {
+                viewportDataSource.onRouteChanged(primaryOnly.first())
+                viewportDataSource.evaluate()
+            }
+        }
+    }
+
+    private val sdkRouteProgressObserver = RouteProgressObserver { routeProgress: RouteProgress ->
+        if (!isNavigationActive) return@RouteProgressObserver
+
+        if (this::viewportDataSource.isInitialized) {
+            viewportDataSource.onRouteProgressChanged(routeProgress)
+            viewportDataSource.evaluate()
+        }
+
+        val style = mapboxMapView?.mapboxMap?.style
+        if (style != null && this::routeLineApi.isInitialized && this::routeLineView.isInitialized) {
+            routeLineApi.updateWithRouteProgress(routeProgress) { value ->
+                routeLineView.renderRouteLineUpdate(style, value)
+            }
+            val arrowUpdate = routeArrowApi.addUpcomingManeuverArrow(routeProgress)
+            routeArrowView?.renderManeuverUpdate(style, arrowUpdate)
+        }
+
+        if (isNavigationActive && this::maneuverApi.isInitialized) {
+            try {
+                val maneuversExpected = maneuverApi.getManeuvers(routeProgress)
+                maneuverView?.renderManeuvers(maneuversExpected)
+                maneuverContainer?.visibility = View.VISIBLE
+
+                val orangeColor = Color.parseColor("#FF6020")
+                val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                maneuverView?.post {
+                    val mv = maneuverView ?: return@post
+                    setManeuverViewColors(mv, orangeColor, Color.TRANSPARENT)
+                    reduceManeuverTextSize(mv, isLandscape)
+                    reduceManeuverIconSize(mv, isLandscape)
+                    centerManeuverText(mv)
+                    reduceManeuverSpacing(mv, isLandscape)
+                }
+            } catch (_: Throwable) {
+                // ignore
+            }
+        } else {
+            maneuverContainer?.visibility = View.GONE
+        }
+
+        val distanceRemaining = routeProgress.distanceRemaining ?: 0f
+        val durationRemainingSeconds = (routeProgress.durationRemaining ?: 0.0).toLong()
+
+        val distanceKm = (distanceRemaining / 1000f).toInt().coerceAtLeast(0)
+        val distanceRemainingText = distanceKm.toString()
+
+        val totalMinutes = (durationRemainingSeconds / 60).toInt()
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+        val timeRemainingText = if (hours > 0) "${hours}ч ${minutes}м" else "${minutes}м"
+
+        val calendar = java.util.Calendar.getInstance()
+        calendar.add(java.util.Calendar.SECOND, durationRemainingSeconds.toInt())
+        val etaText = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(calendar.time)
+
+        tvTripEta?.text = etaText
+        tvTripRemainingTime?.text = timeRemainingText
+        tvTripRemainingDistance?.text = distanceRemainingText
+    }
+
+    private val sdkArrivalObserver = object : ArrivalObserver {
+        override fun onWaypointArrival(routeProgress: RouteProgress) {}
+        override fun onNextRouteLegStart(routeLegProgress: com.mapbox.navigation.base.trip.model.RouteLegProgress) {}
+
+        override fun onFinalDestinationArrival(routeProgress: RouteProgress) {
+            if (!isNavigationActive) return
+            mapboxNavigation.setNavigationRoutes(emptyList())
+            onDestinationReached()
+        }
+    }
     
     // State
     private var isWeatherExpanded = false
@@ -264,6 +504,13 @@ class MapFragment : Fragment() {
     private var currentAltitude: Float? = null
     private lateinit var mapStateViewModel: MapStateViewModel
     private var currentWeatherIcon: Int = R.drawable.ic_thermometer
+    private var foregroundService: ForegroundService? = null
+    private var serviceBound: Boolean = false
+    private var shouldResetOnConnect: Boolean = false
+    private var shouldRestoreNavigationAfterRecreate: Boolean = false
+    private var shouldRestoreNormalSessionAfterRecreate: Boolean = false
+    private var navBackPressedCallback: OnBackPressedCallback? = null
+    private var pendingExitAfterSave: Boolean = false
     
     // Weather details
     private var currentWindKph: Double = 0.0
@@ -272,16 +519,28 @@ class MapFragment : Fragment() {
     private var currentCloudCover: Int = 0
     private var rainChance3h: Int = 0
     private var rainTimeText: String = ""
+    private var rainTimePrefix: String = ""
+    private var summaryIsRain: Boolean = true
     private var currentPressure: Double = 0.0
     
     private val handler = Handler(Looper.getMainLooper())
+    private val weatherRefreshHandler = Handler(Looper.getMainLooper())
+    private var weatherRefreshRunnable: Runnable? = null
+    private var pendingFirstWeatherFetch = false
+    private var pendingRoutePreviewRestore = false
+    private var routeWeatherPreviewOverlay: RouteWeatherPreviewOverlay? = null
     
-    companion object {
-        private const val LOCATION_PERMISSION_REQUEST_CODE = 1001
-        private const val LOCATION_UPDATE_INTERVAL = 100L
-        private const val LOCATION_FASTEST_UPDATE_INTERVAL = 100L
-        private const val MY_LOCATION_ZOOM = 17.0
-        private const val CACHE_LOCATION_THRESHOLD_KM = 5.0
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(KEY_NAV_ACTIVE, isNavigationActive)
+        outState.putBoolean(KEY_SESSION_ACTIVE, navSessionActive && !isNavigationActive)
+        val hasPreview = currentDestination != null && !isNavigationActive
+        outState.putBoolean(KEY_PREVIEW_ACTIVE, hasPreview)
+        currentDestination?.let { dest ->
+            outState.putDouble(KEY_PREVIEW_DEST_LAT, dest.latitude())
+            outState.putDouble(KEY_PREVIEW_DEST_LON, dest.longitude())
+        }
+        currentDestinationName?.let { outState.putString(KEY_PREVIEW_DEST_NAME, it) }
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -309,6 +568,43 @@ class MapFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        shouldRestoreNavigationAfterRecreate = savedInstanceState?.getBoolean(KEY_NAV_ACTIVE) == true
+        shouldRestoreNormalSessionAfterRecreate = savedInstanceState?.getBoolean(KEY_SESSION_ACTIVE) == true
+        pendingRoutePreviewRestore = savedInstanceState?.getBoolean(KEY_PREVIEW_ACTIVE) == true
+        if (pendingRoutePreviewRestore) {
+            val lat = savedInstanceState?.getDouble(KEY_PREVIEW_DEST_LAT)
+            val lon = savedInstanceState?.getDouble(KEY_PREVIEW_DEST_LON)
+            if (lat != null && lon != null) {
+                currentDestination = Point.fromLngLat(lon, lat)
+                currentDestinationName = savedInstanceState?.getString(KEY_PREVIEW_DEST_NAME)
+            } else {
+                pendingRoutePreviewRestore = false
+            }
+        }
+
+        navBackPressedCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                if (navSessionActive) {
+                    showExitNormalSessionDialog()
+                    return
+                }
+                if (isNavigationActive) {
+                    showExitNavigationDialog()
+                    return
+                }
+                if (searchContainer.visibility == View.VISIBLE) {
+                    restoreInitialMapUi()
+                    return
+                }
+                if (currentDestination != null) {
+                    cancelRoutePreview()
+                    return
+                }
+                isEnabled = false
+                requireActivity().onBackPressedDispatcher.onBackPressed()
+            }
+        }
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, navBackPressedCallback!!)
         
         // Hide any OSMDroid mapView if it exists (legacy support)
         val osmdroidMapView = view.findViewById<android.view.View>(R.id.mapView)
@@ -320,6 +616,15 @@ class MapFragment : Fragment() {
         }
         
         setupMapboxMap(view)
+
+        mapboxMapView?.let { mapView ->
+            routeWeatherPreviewOverlay = RouteWeatherPreviewOverlay(
+                context = requireContext(),
+                mapView = mapView,
+                weatherApiKey = WEATHER_API_KEY,
+                coroutineScope = viewLifecycleOwner.lifecycleScope
+            )
+        }
         
         // Initialize UI elements
         btnStartSession = view.findViewById(R.id.btnStartNavigationNoDestination)
@@ -347,10 +652,74 @@ class MapFragment : Fragment() {
         motorwayOptionsContainer = view.findViewById(R.id.motorwayOptionsContainer)
         btnWithMotorways = view.findViewById(R.id.btnWithMotorways)
         btnWithoutMotorways = view.findViewById(R.id.btnWithoutMotorways)
+
+        // Route preview controls (left-side)
+        btnPreviewOverview = view.findViewById(R.id.btnPreviewOverview)
+        btnPreviewRecenter = view.findViewById(R.id.btnPreviewRecenter)
         
-        // Initialize camera control buttons
+        // Initialize map control buttons
         btnOverview = view.findViewById(R.id.btnOverview)
         btnRecenter = view.findViewById(R.id.btnRecenter)
+        mapControlsContainer = view.findViewById(R.id.mapControlsContainer)
+        btnOrientationToggle = view.findViewById(R.id.btnOrientationToggle)
+        btnCameraNorthMode = view.findViewById(R.id.btnCameraNorthMode)
+
+        // Navigation UI (maneuvers + trip progress)
+        maneuverContainer = view.findViewById(R.id.maneuverContainer)
+        maneuverView = view.findViewById(R.id.maneuverView)
+        tripProgressContainer = view.findViewById(R.id.tripProgressContainer)
+        tvTripEta = view.findViewById(R.id.tvTripEta)
+        tvTripRemainingTime = view.findViewById(R.id.tvTripRemainingTime)
+        tvTripRemainingDistance = view.findViewById(R.id.tvTripRemainingDistance)
+
+        // Navigation HUD + session controls
+        bottomHudRow = view.findViewById(R.id.bottomHudRow)
+        speedTextCar = view.findViewById(R.id.speedTextCar)
+        navSessionContainer = view.findViewById(R.id.navSessionContainer)
+        carModeContainer = view.findViewById(R.id.carModeContainer)
+        distanceTextCar = view.findViewById(R.id.distanceTextCar)
+        chronometerCar = view.findViewById(R.id.chronometerCar)
+        buttonContainer = view.findViewById(R.id.buttonContainer)
+        btnReset = view.findViewById(R.id.btnReset)
+        btnZero = view.findViewById(R.id.btnZero)
+        btnStop = view.findViewById(R.id.btnStop)
+        angleContainerMoto = view.findViewById(R.id.angleContainerMoto)
+        angleTextMoto = view.findViewById(R.id.angleTextMoto)
+        linearGaugeView = view.findViewById(R.id.linearGaugeView)
+
+        val distanceFormatterOptions = DistanceFormatterOptions.Builder(requireContext())
+            .unitType(UnitType.METRIC)
+            .build()
+        maneuverApi = MapboxManeuverApi(MapboxDistanceFormatter(distanceFormatterOptions))
+
+        btnReset?.setOnClickListener {
+            if (checkLocationPermission()) {
+                if (serviceBound && foregroundService != null) {
+                    resetSessionData()
+                } else {
+                    shouldResetOnConnect = true
+                    startAndBindServiceIfNeeded()
+                }
+            }
+        }
+        btnZero?.setOnClickListener {
+            val profile = getActiveProfile()
+            if (profile?.vehicleType == Profile.VehicleType.MOTORCYCLE) {
+                foregroundService?.calibrateZero()
+            }
+        }
+        btnStop?.setOnClickListener {
+            if (serviceBound) {
+                saveAndFinishSession()
+            } else {
+                stopNavigationInline()
+            }
+        }
+
+        // Ensure camera buttons are wired after views are bound
+        setupNavigationCameraButtons()
+        setupOrientationToggle()
+        setupCameraModeToggle()
 
         // Load motorway preference
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
@@ -359,6 +728,7 @@ class MapFragment : Fragment() {
 
         setupInlineSearchUI()
         setupRoutePreviewUi()
+        setupDismissSearchOnOutsideTap(view)
         
         llTemperature = view.findViewById(R.id.llTemperature)
         llWeatherExpanded = view.findViewById(R.id.llWeatherExpanded)
@@ -407,7 +777,7 @@ class MapFragment : Fragment() {
 
         routeLineApi = MapboxRouteLineApi(
             MapboxRouteLineApiOptions.Builder()
-                .vanishingRouteLineEnabled(false)
+                .vanishingRouteLineEnabled(true)
                 .isRouteCalloutsEnabled(false)
                 .build()
         )
@@ -469,6 +839,12 @@ class MapFragment : Fragment() {
                 }
             }
         })
+
+        etSearch.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus && currentDestination == null) {
+                restoreInitialMapUi()
+            }
+        }
     }
 
     private fun showInlineSearch() {
@@ -484,6 +860,48 @@ class MapFragment : Fragment() {
         imm.hideSoftInputFromWindow(etSearch.windowToken, 0)
         rvSearchResults.visibility = View.GONE
         searchContainer.visibility = View.GONE
+        destinationSearchContainer.visibility = View.VISIBLE
+        etSearch.clearFocus()
+    }
+
+    private fun setupDismissSearchOnOutsideTap(root: View) {
+        val dismissListener = View.OnTouchListener { _, _ ->
+            if (searchContainer.visibility == View.VISIBLE && currentDestination == null) {
+                restoreInitialMapUi()
+                return@OnTouchListener true
+            }
+            false
+        }
+        mapboxMapView?.setOnTouchListener(dismissListener)
+        routeInfoContainer.setOnTouchListener(dismissListener)
+        routePreviewBottomContainer.setOnTouchListener(dismissListener)
+        bottomHudRow?.setOnTouchListener(dismissListener)
+        navSessionContainer?.setOnTouchListener(dismissListener)
+        root.setOnTouchListener(dismissListener)
+    }
+
+    private fun restoreInitialMapUi() {
+        hideInlineSearch()
+        if (currentDestination == null) {
+            val tv = destinationSearchContainer.findViewById<TextView>(R.id.tvDestinationPlaceholder)
+            tv.text = getString(R.string.destination_placeholder)
+        }
+        routeInfoContainer.visibility = View.GONE
+        routePreviewBottomContainer.visibility = View.GONE
+        btnMotorwayOptions.visibility = View.GONE
+        btnSearchRoute.visibility = View.GONE
+        motorwayOptionsContainer.visibility = View.GONE
+        mapControlsContainer?.visibility = View.GONE
+        btnPreviewOverview?.visibility = View.GONE
+        btnPreviewRecenter?.visibility = View.GONE
+        if (::llActiveProfileHeader.isInitialized) {
+            llActiveProfileHeader.visibility = View.VISIBLE
+        }
+        llTemperature.visibility = View.VISIBLE
+        llAltitude.visibility = View.VISIBLE
+        fabMyLocationContainer.visibility = View.VISIBLE
+        view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = View.VISIBLE
+        requireActivity().findViewById<View>(R.id.bottomNavigationContainer)?.visibility = View.VISIBLE
         destinationSearchContainer.visibility = View.VISIBLE
     }
 
@@ -535,7 +953,8 @@ class MapFragment : Fragment() {
 
         // Fix origin for this destination selection (so caches remain valid when GPS updates).
         // If currentLocation is not available yet, we'll fall back to currentLocation inside findRouteInline().
-        fixedOriginForRoute = currentLocation?.let { loc ->
+        val originLocation = currentLocation ?: mapStateViewModel.lastKnownLocation
+        fixedOriginForRoute = originLocation?.let { loc ->
             Point.fromLngLat(loc.longitude, loc.latitude)
         }
         resetRouteCacheForNewSelection()
@@ -637,12 +1056,13 @@ class MapFragment : Fragment() {
 
     private fun setupRoutePreviewUi() {
         // Navigate button: start turn-by-turn navigation
-        btnNavigateRoute.setOnClickListener { 
-            startNavigationInMainActivityWithTransfer() 
+        btnNavigateRoute.setOnClickListener {
+            startNavigationInline()
         }
         
         // Cancel button: clear route and return to initial state (like first time entering the page)
         btnCancelRoute.setOnClickListener {
+            routeWeatherPreviewOverlay?.clear()
             // Clear search input and hide search container
             etSearch.text?.clear()
             hideInlineSearch()
@@ -667,6 +1087,9 @@ class MapFragment : Fragment() {
             btnMotorwayOptions.visibility = View.GONE
             btnSearchRoute.visibility = View.GONE
             motorwayOptionsContainer.visibility = View.GONE
+            mapControlsContainer?.visibility = View.GONE
+            btnPreviewOverview?.visibility = View.GONE
+            btnPreviewRecenter?.visibility = View.GONE
             
             // Clear route line from map
             if (::routeLineApi.isInitialized && ::routeLineView.isInitialized && currentMapboxStyle != null) {
@@ -711,14 +1134,24 @@ class MapFragment : Fragment() {
 
         // Search button: return to search to find new destination
         btnSearchRoute.setOnClickListener {
+            routeWeatherPreviewOverlay?.clear()
             // Clear current route and show search interface
             currentDestination = null
             currentDestinationName = null
+            if (this::viewportDataSource.isInitialized) {
+                viewportDataSource.clearRouteData()
+                viewportDataSource.evaluate()
+            }
+            if (this::navigationCamera.isInitialized) {
+                navigationCamera.requestNavigationCameraToIdle()
+            }
+            mapboxNavigation.setNavigationRoutes(emptyList())
             routeInfoContainer.visibility = View.GONE
             routePreviewBottomContainer.visibility = View.GONE
             btnMotorwayOptions.visibility = View.GONE
             btnSearchRoute.visibility = View.GONE
             motorwayOptionsContainer.visibility = View.GONE
+            mapControlsContainer?.visibility = View.GONE
             // Clear route line
             if (::routeLineApi.isInitialized && ::routeLineView.isInitialized && currentMapboxStyle != null) {
                 routeLineApi.clearRouteLine { value ->
@@ -727,17 +1160,17 @@ class MapFragment : Fragment() {
             }
             // Reset route cache
             resetRouteCacheForNewSelection()
-            // Show search interface
+            restoreInitialMapUi()
             showInlineSearch()
-            // Show initial bottom container
-            view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = View.VISIBLE
-            // Show bottom navigation
-            requireActivity().findViewById<View>(R.id.bottomNavigationContainer)?.visibility = View.VISIBLE
         }
 
         btnMotorwayOptions.setOnClickListener {
-            val isVisible = motorwayOptionsContainer.visibility == View.VISIBLE
-            motorwayOptionsContainer.visibility = if (isVisible) View.GONE else View.VISIBLE
+            allowMotorways = !allowMotorways
+            PreferenceManager.getDefaultSharedPreferences(requireContext())
+                .edit().putBoolean("allow_motorways", allowMotorways).apply()
+            updateMotorwayButtonIcon()
+            motorwayOptionsContainer.visibility = View.GONE
+            currentDestination?.let { findRouteInline(it) }
         }
 
         btnWithMotorways.setOnClickListener {
@@ -763,153 +1196,899 @@ class MapFragment : Fragment() {
         }
     }
 
+    private fun cancelRoutePreview() {
+        // Clear search input and hide search container
+        etSearch.text?.clear()
+        hideInlineSearch()
+
+        // Reset destination placeholder text
+        val tv = destinationSearchContainer.findViewById<TextView>(R.id.tvDestinationPlaceholder)
+        tv.text = getString(R.string.destination_placeholder)
+
+        // Show profile info again
+        if (::llActiveProfileHeader.isInitialized) {
+            llActiveProfileHeader.visibility = View.VISIBLE
+        }
+
+        // Clear current route data
+        currentDestination = null
+        currentDestinationName = null
+        resetRouteCacheForNewSelection()
+
+        // Hide route preview UI
+        routeInfoContainer.visibility = View.GONE
+        routePreviewBottomContainer.visibility = View.GONE
+        btnMotorwayOptions.visibility = View.GONE
+        btnSearchRoute.visibility = View.GONE
+        motorwayOptionsContainer.visibility = View.GONE
+        mapControlsContainer?.visibility = View.GONE
+        btnPreviewOverview?.visibility = View.GONE
+        btnPreviewRecenter?.visibility = View.GONE
+        routeWeatherPreviewOverlay?.clear()
+
+        // Clear route line from map
+        if (::routeLineApi.isInitialized && ::routeLineView.isInitialized && currentMapboxStyle != null) {
+            routeLineApi.clearRouteLine { value ->
+                routeLineView.renderClearRouteLineValue(currentMapboxStyle!!, value)
+            }
+        }
+
+        // Animate camera back to current location using NavigationCamera (like SDK does)
+        currentLocation?.let {
+            if (this::viewportDataSource.isInitialized && this::navigationCamera.isInitialized) {
+                // Clear route data from viewport data source
+                viewportDataSource.clearRouteData()
+                currentLocation?.let { location ->
+                    val currentCameraState = mapboxMapView?.mapboxMap?.cameraState
+                    currentCameraState?.let { state ->
+                        val cameraOptions = CameraOptions.Builder()
+                            .center(MapboxPoint.fromLngLat(location.longitude, location.latitude))
+                            .zoom(if (state.zoom in 15.0..18.0) state.zoom else 17.0)
+                            .bearing(state.bearing)
+                            .pitch(0.0)
+                            .build()
+                        mapboxMapView?.mapboxMap?.let { mapboxMap ->
+                            mapboxMap.easeTo(cameraOptions)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Show initial state UI (like first time entering)
+        restoreInitialMapUi()
+    }
+
+    companion object {
+        private const val KEY_NAV_ACTIVE = "nav_active"
+        private const val KEY_SESSION_ACTIVE = "session_active"
+        private const val KEY_PREVIEW_ACTIVE = "preview_active"
+        private const val KEY_PREVIEW_DEST_LAT = "preview_dest_lat"
+        private const val KEY_PREVIEW_DEST_LON = "preview_dest_lon"
+        private const val KEY_PREVIEW_DEST_NAME = "preview_dest_name"
+        private const val WEATHER_API_KEY = "547cc84c36a447ab8fe131642251808"
+        private const val WEATHER_REFRESH_INTERVAL_MS = 15 * 60 * 1000L
+        private const val CACHE_WEATHER_MAX_AGE_MS = 15 * 60 * 1000L
+        private const val CACHE_LOCATION_THRESHOLD_KM = 5.0
+        private const val PREF_WEATHER_FIRST_OPEN_DONE = "weather_first_open_done"
+        private const val LOCATION_PERMISSION_REQUEST_CODE = 1001
+        private const val ZOOM_CHANGE_DELAY = 3000L
+    }
+
     private fun updateMotorwayButtonIcon() {
         val iconRes = if (allowMotorways) R.drawable.ic_motorway else R.drawable.ic_road
         btnMotorwayOptions.setImageResource(iconRes)
     }
     
     private fun setupNavigationCameraButtons() {
-        // Show camera control buttons when route is displayed
-        btnOverview?.setOnClickListener {
+        fun requestOverview() {
             if (this::viewportDataSource.isInitialized && this::navigationCamera.isInitialized) {
-                // Request overview state to show entire route
                 mapboxMapView?.post {
                     navigationCamera.requestNavigationCameraToOverview()
                 }
             }
         }
-        
-        btnRecenter?.setOnClickListener {
-            // Use easeTo to animate camera to current location with pitch 0
-            currentLocation?.let { location ->
-                val currentCameraState = mapboxMapView?.mapboxMap?.cameraState
-                currentCameraState?.let { state ->
-                    val cameraOptions = CameraOptions.Builder()
-                        .center(MapboxPoint.fromLngLat(location.longitude, location.latitude))
-                        .zoom(if (state.zoom in 15.0..18.0) state.zoom else 17.0)
-                        .bearing(state.bearing)
-                        .pitch(0.0)
-                        .build()
-                    mapboxMapView?.mapboxMap?.easeTo(cameraOptions)
+
+        fun requestFollowing() {
+            if (this::viewportDataSource.isInitialized && this::navigationCamera.isInitialized) {
+                mapboxMapView?.post {
+                    navigationCamera.requestNavigationCameraToFollowing()
                 }
             }
         }
+
+        // Show camera control buttons when route is displayed
+        btnOverview?.setOnClickListener {
+            requestOverview()
+        }
+        
+        btnRecenter?.setOnClickListener {
+            requestFollowing()
+        }
+
+        // Route preview left-side buttons
+        btnPreviewOverview?.setOnClickListener { requestOverview() }
+        btnPreviewRecenter?.setOnClickListener { requestFollowing() }
         
         // Initially hide buttons - they will be shown when route is displayed
         btnOverview?.visibility = View.GONE
         btnRecenter?.visibility = View.GONE
+        mapControlsContainer?.visibility = View.GONE
+        btnPreviewOverview?.visibility = View.GONE
+        btnPreviewRecenter?.visibility = View.GONE
     }
 
-    private fun startNavigationInMainActivityWithTransfer() {
-        // Always Mapbox mode
+    private fun setupOrientationToggle() {
+        btnOrientationToggle?.setOnClickListener {
+            isOrientationLocked = !isOrientationLocked
+            val activity = requireActivity()
+            activity.requestedOrientation = if (isOrientationLocked) {
+                val orientation = resources.configuration.orientation
+                if (orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+                    android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                } else {
+                    android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                }
+            } else {
+                android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+            updateOrientationToggleUi()
+        }
+        updateOrientationToggleUi()
+    }
 
+    private fun updateOrientationToggleUi() {
+        val isLocked = isOrientationLocked
+        btnOrientationToggle?.setImageResource(if (isLocked) R.drawable.ic_lock else R.drawable.ic_unlock)
+        val tintColor = if (isLocked) Color.WHITE else Color.parseColor("#B3FFFFFF")
+        btnOrientationToggle?.setColorFilter(tintColor)
+    }
+
+    private fun setupCameraModeToggle() {
+        btnCameraNorthMode?.setOnClickListener {
+            isNorthUpMode = !isNorthUpMode
+            if (isNorthUpMode) {
+                mapboxMapView?.mapboxMap?.setCamera(CameraOptions.Builder().bearing(0.0).build())
+                enforcePitchZero = true
+                applyPitchZero()
+            } else {
+                enforcePitchZero = false
+                mapboxMapView?.mapboxMap?.setCamera(
+                    CameraOptions.Builder()
+                        .pitch(getNormalDrivingPitch())
+                        .build()
+                )
+            }
+            updateCameraModeUi()
+        }
+        updateCameraModeUi()
+    }
+
+    private fun updateCameraModeUi() {
+        btnCameraNorthMode?.setImageResource(R.drawable.ic_map_heading)
+        val tintColor = if (isNorthUpMode) Color.WHITE else Color.parseColor("#B3FFFFFF")
+        btnCameraNorthMode?.setColorFilter(tintColor)
+    }
+
+    private fun applyPitchZero() {
+        mapboxMapView?.mapboxMap?.setCamera(
+            CameraOptions.Builder()
+                .pitch(0.0)
+                .build()
+        )
+    }
+
+    private fun enforcePitchZeroIfNeeded() {
+        if (!enforcePitchZero || isApplyingPitchZero) return
+        val pitch = mapboxMapView?.mapboxMap?.cameraState?.pitch ?: return
+        if (abs(pitch) > 0.5) {
+            isApplyingPitchZero = true
+            mapboxMapView?.mapboxMap?.setCamera(
+                CameraOptions.Builder()
+                    .pitch(0.0)
+                    .build()
+            )
+            mapboxMapView?.post { isApplyingPitchZero = false }
+        }
+    }
+
+    private fun setManeuverViewColors(view: View, textColor: Int, backgroundColor: Int) {
+        if (view.background != null) {
+            view.setBackgroundColor(backgroundColor)
+        }
+        if (view is TextView) {
+            view.setTextColor(textColor)
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                setManeuverViewColors(view.getChildAt(i), textColor, backgroundColor)
+            }
+        }
+    }
+
+    private fun reduceManeuverTextSize(view: View, isLandscape: Boolean = false) {
+        if (view is TextView) {
+            val alreadyScaled = (view.getTag(R.id.tag_maneuver_scaled_text) as? Boolean) == true
+            if (alreadyScaled) return
+            val currentSize = view.textSize / view.resources.displayMetrics.scaledDensity
+            val scaleFactor = if (isLandscape) 0.7f else 0.8f
+            val newSize = currentSize * scaleFactor
+            view.textSize = newSize
+            if (isLandscape) {
+                view.maxLines = 2
+                view.ellipsize = android.text.TextUtils.TruncateAt.END
+                val density = view.resources.displayMetrics.density
+                view.maxWidth = (360 * density).toInt()
+            }
+            view.setTag(R.id.tag_maneuver_scaled_text, true)
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                reduceManeuverTextSize(view.getChildAt(i), isLandscape)
+            }
+        }
+    }
+
+    private fun reduceManeuverIconSize(view: View, isLandscape: Boolean = false) {
+        if (view is ImageView) {
+            val alreadyScaled = (view.getTag(R.id.tag_maneuver_scaled_icon) as? Boolean) == true
+            if (alreadyScaled) return
+            val layoutParams = view.layoutParams
+            if (layoutParams != null) {
+                val reductionFactor = if (isLandscape) 0.8f else 0.7f
+                val currentWidth = layoutParams.width
+                val currentHeight = layoutParams.height
+
+                if (currentWidth > 0 && currentHeight > 0) {
+                    layoutParams.width = (currentWidth * reductionFactor).toInt()
+                    layoutParams.height = (currentHeight * reductionFactor).toInt()
+                    view.layoutParams = layoutParams
+                } else {
+                    val sizeInDp = if (isLandscape) 36 else 32
+                    val sizeInPx = (sizeInDp * view.resources.displayMetrics.density).toInt()
+                    layoutParams.width = sizeInPx
+                    layoutParams.height = sizeInPx
+                    view.layoutParams = layoutParams
+                }
+            }
+            view.setTag(R.id.tag_maneuver_scaled_icon, true)
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                reduceManeuverIconSize(view.getChildAt(i), isLandscape)
+            }
+        }
+    }
+
+    private fun centerManeuverText(view: View) {
+        if (view is TextView) {
+            view.textAlignment = View.TEXT_ALIGNMENT_CENTER
+            view.gravity = android.view.Gravity.CENTER_HORIZONTAL
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                centerManeuverText(view.getChildAt(i))
+            }
+        }
+    }
+
+    private fun reduceManeuverSpacing(view: View, isLandscape: Boolean = false) {
+        if (view is ViewGroup) {
+            val alreadyAdjusted = (view.getTag(R.id.tag_maneuver_spacing_adjusted) as? Boolean) == true
+            if (!alreadyAdjusted) {
+                if (view is LinearLayout && view.orientation == LinearLayout.HORIZONTAL) {
+                    val currentPaddingStart = view.paddingStart
+                    val currentPaddingEnd = view.paddingEnd
+                    val maxPadding = if (isLandscape) 2 else 8
+                    val reductionFactor = if (isLandscape) 0.1f else 0.4f
+                    if (currentPaddingStart > 4 || currentPaddingEnd > 4) {
+                        view.setPaddingRelative(
+                            (currentPaddingStart * reductionFactor).toInt().coerceAtMost(maxPadding),
+                            view.paddingTop,
+                            (currentPaddingEnd * reductionFactor).toInt().coerceAtMost(maxPadding),
+                            view.paddingBottom
+                        )
+                    }
+                }
+                view.setTag(R.id.tag_maneuver_spacing_adjusted, true)
+            }
+
+            for (i in 0 until view.childCount) {
+                val child = view.getChildAt(i)
+                val childAlreadyAdjusted = (child.getTag(R.id.tag_maneuver_spacing_adjusted) as? Boolean) == true
+                if (!childAlreadyAdjusted && (child is ImageView || child is TextView)) {
+                    val childParams = child.layoutParams as? ViewGroup.MarginLayoutParams
+                    if (childParams != null) {
+                        val density = child.resources.displayMetrics.density
+                        val marginDp = if (isLandscape) 0 else 4
+                        if (childParams.marginStart > (6 * density).toInt()) {
+                            childParams.marginStart = (marginDp * density).toInt()
+                        }
+                        if (childParams.marginEnd > (6 * density).toInt()) {
+                            childParams.marginEnd = (marginDp * density).toInt()
+                        }
+                        child.layoutParams = childParams
+                        child.setTag(R.id.tag_maneuver_spacing_adjusted, true)
+                    }
+                }
+            }
+
+            for (i in 0 until view.childCount) {
+                reduceManeuverSpacing(view.getChildAt(i), isLandscape)
+            }
+        }
+    }
+
+    private fun startNavigationInline() {
         val dest = currentDestination
         if (dest == null) {
             Toast.makeText(requireContext(), "Няма избрана дестинация", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val origin = fixedOriginForRoute ?: currentLocation?.let { loc ->
-            Point.fromLngLat(loc.longitude, loc.latitude)
-        }
-        if (origin == null) {
-            Toast.makeText(requireContext(), "Няма текуща локация", Toast.LENGTH_SHORT).show()
-            return
-        }
-        
-        // Animate camera to current location before starting navigation (like SDK does)
-        // Use easeTo for smooth animation to current location
-        currentLocation?.let { location ->
-            val currentCameraState = mapboxMapView?.mapboxMap?.cameraState
-            currentCameraState?.let { state ->
-                val cameraOptions = CameraOptions.Builder()
-                    .center(MapboxPoint.fromLngLat(location.longitude, location.latitude))
-                    .zoom(if (state.zoom in 15.0..18.0) state.zoom else 17.0)
-                    .bearing(state.bearing)
-                    .pitch(0.0)
-                    .build()
-                mapboxMapView?.mapboxMap?.easeTo(cameraOptions)
-            }
-        }
-
-        // Use the route the user selected (from the original list), not always the current SDK primary.
-        // MainActivity re-requests routes, so we also pass a "preferred" route signature (polyline) for re-selection.
         val selectedRoute = currentRoutesOriginal.getOrNull(selectedRouteIndex)
             ?: mapboxNavigation.getNavigationRoutes().firstOrNull()
-        val routeGeometryJson: String? = try {
-            val geometry = selectedRoute?.directionsRoute?.geometry().orEmpty()
-            if (geometry.isBlank()) null else {
-                // polyline6 is default; fallback to 5
-                try {
-                    com.mapbox.geojson.LineString.fromPolyline(geometry, 6).toJson()
-                } catch (_: Throwable) {
-                    com.mapbox.geojson.LineString.fromPolyline(geometry, 5).toJson()
-                }
-            }
-        } catch (_: Throwable) {
-            null
+        if (selectedRoute == null) {
+            Toast.makeText(requireContext(), "Няма маршрут", Toast.LENGTH_SHORT).show()
+            return
         }
-        val preferredRoutePolyline: String? = selectedRoute?.directionsRoute?.geometry()
 
-        val cameraState = mapboxMapView?.mapboxMap?.cameraState
+        enforcePitchZero = false
 
-        // Pass selected profile so MainActivity preserves CAR/MOTO UI logic and saves the session under the correct profile.
-        val selectedProfileId = ProfileStorage.getSelectedProfileId(requireContext())
-        val selectedProfile = ProfileStorage.loadProfiles(requireContext())
-            .firstOrNull { it.id == selectedProfileId }
-            ?: ProfileStorage.loadProfiles(requireContext()).firstOrNull()
-
-        val intent = Intent(requireContext(), MainActivity::class.java).apply {
-            selectedProfile?.let { putExtra("SELECTED_PROFILE", it) }
-            putExtra("navigation_active", true)
-            putExtra("destination_latitude", dest.latitude())
-            putExtra("destination_longitude", dest.longitude())
-            putExtra("destination_name", currentDestinationName ?: tvDestinationName.text?.toString().orEmpty())
-            putExtra("origin_latitude", origin.latitude())
-            putExtra("origin_longitude", origin.longitude())
-            putExtra("origin_bearing", currentLocation?.bearing ?: 0f)
-            putExtra("allow_motorways", allowMotorways)
-
-            // Transfer current preview camera so MainActivity doesn't do a jumpy zoom-out.
-            cameraState?.let {
-                putExtra("nav_camera_center_lat", it.center.latitude())
-                putExtra("nav_camera_center_lon", it.center.longitude())
-                putExtra("nav_camera_zoom", it.zoom)
-                putExtra("nav_camera_bearing", it.bearing)
-                putExtra("nav_camera_pitch", it.pitch)
+        // Apply selected route to SDK and switch to following camera
+        mapboxNavigation.setNavigationRoutes(listOf(selectedRoute))
+        setNavigationActive(true)
+        if (this::viewportDataSource.isInitialized && this::navigationCamera.isInitialized) {
+            mapboxMapView?.post {
+                navigationCamera.requestNavigationCameraToFollowing()
             }
+        }
 
-            // ВАЖНО: Запази големите данни във файлове вместо в Intent за да избегнем TransactionTooLargeException
-            val geometryInCache = if (routeGeometryJson != null && routeGeometryJson.length > 50_000) {
-                // Голям маршрут - запази във файл
-                try {
-                    NavigationDataCache.saveRouteGeometry(requireContext(), routeGeometryJson)
-                    true
-                } catch (e: Exception) {
-                    android.util.Log.e("MapFragment", "Failed to cache route geometry", e)
-                    false
+        // Hide preview UI
+        routeInfoContainer.visibility = View.GONE
+        routePreviewBottomContainer.visibility = View.GONE
+        btnSearchRoute.visibility = View.GONE
+        btnMotorwayOptions.visibility = View.GONE
+        motorwayOptionsContainer.visibility = View.GONE
+        destinationSearchContainer.visibility = View.GONE
+        searchContainer.visibility = View.GONE
+        if (::llActiveProfileHeader.isInitialized) {
+            llActiveProfileHeader.visibility = View.GONE
+        }
+        mapControlsContainer?.visibility = View.VISIBLE
+        btnPreviewOverview?.visibility = View.GONE
+        btnPreviewRecenter?.visibility = View.GONE
+
+        // Hide bottom container (sessions/start) while navigating
+        view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = View.GONE
+    }
+
+    private fun setNavigationActive(active: Boolean) {
+        if (active == isNavigationActive) return
+        isNavigationActive = active
+        hasReachedDestination = false
+        navBackPressedCallback?.isEnabled = active
+
+        if (active) {
+            routeWeatherPreviewOverlay?.clear()
+            if (!navigationObserversRegistered) {
+                mapboxNavigation.registerRoutesObserver(sdkRoutesObserver)
+                mapboxNavigation.registerRouteProgressObserver(sdkRouteProgressObserver)
+                mapboxNavigation.registerArrivalObserver(sdkArrivalObserver)
+                navigationObserversRegistered = true
+            }
+            destinationSearchContainer.visibility = View.GONE
+            searchContainer.visibility = View.GONE
+            if (::llActiveProfileHeader.isInitialized) {
+                llActiveProfileHeader.visibility = View.GONE
+            }
+            tripProgressContainer?.visibility = View.VISIBLE
+            bottomHudRow?.visibility = View.VISIBLE
+            navSessionContainer?.visibility = View.VISIBLE
+            carModeContainer?.visibility = View.VISIBLE
+            buttonContainer?.visibility = View.VISIBLE
+            mapControlsContainer?.visibility = View.VISIBLE
+            btnCameraNorthMode?.visibility = View.GONE
+            if (resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+                mapControlsContainer?.let { controls ->
+                    val params = controls.layoutParams as? android.widget.RelativeLayout.LayoutParams
+                    params?.topMargin = resources.getDimensionPixelSize(R.dimen.map_controls_margin_top_landscape)
+                    controls.layoutParams = params
                 }
+            }
+            btnOverview?.visibility = View.VISIBLE
+            btnRecenter?.visibility = View.VISIBLE
+            btnPreviewOverview?.visibility = View.GONE
+            btnPreviewRecenter?.visibility = View.GONE
+            bottomHudRow?.bringToFront()
+            shouldResetOnConnect = true
+            if (serviceBound && foregroundService != null) {
+                shouldResetOnConnect = false
+                resetSessionData()
+            }
+            startNavSessionTracking()
+            startAndBindServiceIfNeeded()
+            llTemperature.visibility = View.GONE
+            llAltitude.visibility = View.GONE
+            fabMyLocationContainer.visibility = View.GONE
+            view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = View.GONE
+            requireActivity().findViewById<View>(R.id.bottomNavigationContainer)?.visibility = View.GONE
+
+            val mapView = mapboxMapView
+            if (mapView != null) {
+                val locationPlugin = mapView.getPlugin(Plugin.MAPBOX_LOCATION_COMPONENT_PLUGIN_ID) as? LocationComponentPlugin
+                if (locationPlugin != null) {
+                    onIndicatorPositionChangedListener?.let { locationPlugin.removeOnIndicatorPositionChangedListener(it) }
+                    onIndicatorPositionChangedListener = OnIndicatorPositionChangedListener { point ->
+                        if (!this::routeLineApi.isInitialized || !this::routeLineView.isInitialized) return@OnIndicatorPositionChangedListener
+                        val style = mapboxMapView?.mapboxMap?.style ?: return@OnIndicatorPositionChangedListener
+                        if (mapboxNavigation.getNavigationRoutes().isEmpty()) return@OnIndicatorPositionChangedListener
+                        val update = routeLineApi.updateTraveledRouteLine(point)
+                        routeLineView.renderRouteLineUpdate(style, update)
+                    }
+                    onIndicatorPositionChangedListener?.let { locationPlugin.addOnIndicatorPositionChangedListener(it) }
+                }
+            }
         } else {
-                // Малък маршрут - може да се предаде директно
-                false
+            if (navigationObserversRegistered) {
+                mapboxNavigation.unregisterRoutesObserver(sdkRoutesObserver)
+                mapboxNavigation.unregisterRouteProgressObserver(sdkRouteProgressObserver)
+                mapboxNavigation.unregisterArrivalObserver(sdkArrivalObserver)
+                navigationObserversRegistered = false
             }
-            
-            // Предай route geometry само ако е малък, иначе използвай флаг за файл
-            if (geometryInCache) {
-                putExtra("route_geometry_in_cache", true)
-            } else {
-                routeGeometryJson?.let { putExtra("route_geometry", it) }
-            }
-            
-            // Also transfer the selected route's polyline so MainActivity can re-select that alternative after re-requesting routes.
-            preferredRoutePolyline?.let { putExtra("preferred_route_polyline", it) }
+            maneuverContainer?.visibility = View.GONE
+            tripProgressContainer?.visibility = View.GONE
+            bottomHudRow?.visibility = View.GONE
+            navSessionContainer?.visibility = View.GONE
+            carModeContainer?.visibility = View.GONE
+            buttonContainer?.visibility = View.GONE
+            mapControlsContainer?.visibility = View.GONE
+            btnCameraNorthMode?.visibility = View.GONE
+            btnOverview?.visibility = View.GONE
+            btnRecenter?.visibility = View.GONE
+            btnPreviewOverview?.visibility = View.GONE
+            btnPreviewRecenter?.visibility = View.GONE
+            stopNavSessionTracking()
+            cleanupForegroundService()
+            llTemperature.visibility = View.VISIBLE
+            llAltitude.visibility = View.VISIBLE
+            fabMyLocationContainer.visibility = View.VISIBLE
+            view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = View.VISIBLE
+            requireActivity().findViewById<View>(R.id.bottomNavigationContainer)?.visibility = View.VISIBLE
 
-            // Tell MainActivity it is coming from the preview screen (skip initial overview).
-            putExtra("nav_start_from_preview", true)
+            val mapView = mapboxMapView
+            if (mapView != null) {
+                val locationPlugin = mapView.getPlugin(Plugin.MAPBOX_LOCATION_COMPONENT_PLUGIN_ID) as? LocationComponentPlugin
+                if (locationPlugin != null) {
+                    onIndicatorPositionChangedListener?.let { locationPlugin.removeOnIndicatorPositionChangedListener(it) }
+                }
+            }
         }
-        startActivity(intent)
-        // Remove transition animation for seamless page change
-        requireActivity().overridePendingTransition(0, 0)
+    }
+
+    private fun showExitNavigationDialog() {
+        val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
+            .setTitle("Изход от навигация?")
+            .setMessage("Ако излезете, сесията няма да бъде записана.")
+            .setPositiveButton("Да") { _, _ ->
+                stopNavigationInline()
+            }
+            .setNegativeButton("Не", null)
+            .create()
+        DialogHelper.styleDialogButtons(dialog)
+        dialog.show()
+    }
+
+    private fun showExitNormalSessionDialog() {
+        val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
+            .setTitle("Изход от сесия?")
+            .setMessage("Ако излезете, сесията няма да бъде записана.")
+            .setPositiveButton("Да") { _, _ ->
+                stopNormalSessionWithoutSave()
+            }
+            .setNegativeButton("Не", null)
+            .create()
+        DialogHelper.styleDialogButtons(dialog)
+        dialog.show()
+    }
+
+    private fun stopNormalSessionWithoutSave() {
+        if (isNavigationActive) {
+            mapboxNavigation.setNavigationRoutes(emptyList())
+            setNavigationActive(false)
+            resetNavigationUiAfterStop()
+        }
+        stopNavSessionTracking()
+        cleanupForegroundService()
+        setNormalSessionUiActive(false)
+        resetNormalDrivingCameraState()
+        resetNavSessionMetrics(resetTime = true)
+        enforcePitchZero = true
+    }
+
+    private fun startNavSessionTracking() {
+        navSessionActive = true
+        navBackPressedCallback?.isEnabled = true
+        navSessionStartTime = SystemClock.elapsedRealtime()
+        navSessionDistanceMeters = 0.0
+        navSessionLastLocation = null
+        chronometerCar?.apply {
+            base = navSessionStartTime
+            start()
+        }
+        distanceTextCar?.text = "0.00"
+        speedTextCar?.text = "0"
+        updateLeanAngleVisibility()
+        updateZeroButtonVisibility()
+        startLeanAngleUpdates()
+        startMapboxRenderLoop()
+        if (!isNavigationActive) {
+            mapboxMapView?.mapboxMap?.setCamera(
+                CameraOptions.Builder()
+                    .pitch(getNormalDrivingPitch())
+                    .build()
+            )
+        }
+    }
+
+    private fun stopNavSessionTracking() {
+        navSessionActive = false
+        navBackPressedCallback?.isEnabled = false
+        chronometerCar?.stop()
+        stopLeanAngleUpdates()
+        stopMapboxRenderLoop()
+    }
+
+    private fun resetNavSessionMetrics(resetTime: Boolean) {
+        navSessionDistanceMeters = 0.0
+        navSessionLastLocation = null
+        distanceTextCar?.text = "0.00"
+        if (resetTime) {
+            navSessionStartTime = SystemClock.elapsedRealtime()
+            chronometerCar?.base = navSessionStartTime
+        }
+        resetAngleUi()
+    }
+
+    private fun updateNavSessionMetrics(location: Location) {
+        if (!navSessionActive) return
+
+        val speedKmh = (location.speed * 3.6f).coerceAtLeast(0f)
+        speedTextCar?.text = speedKmh.toInt().toString()
+
+        navSessionLastLocation?.let { prev ->
+            if (location.accuracy <= 25f && prev.accuracy <= 25f) {
+                val dist = prev.distanceTo(location)
+                val dt = (location.time - prev.time) / 1000.0
+                if (dist in 0.3f..150f && dt in 0.2..5.0 && (dist / dt) < 35f) {
+                    navSessionDistanceMeters += dist
+                }
+            }
+        }
+        navSessionLastLocation = location
+
+        val km = navSessionDistanceMeters / 1000.0
+        distanceTextCar?.text = String.format(java.util.Locale.getDefault(), "%.2f", km)
+
+        updateLeanAngleUi()
+    }
+
+    private fun updateLeanAngleVisibility() {
+        val profile = getActiveProfile()
+        val isMotorcycle = profile?.vehicleType == Profile.VehicleType.MOTORCYCLE
+        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        angleContainerMoto?.visibility = if (isMotorcycle) View.VISIBLE else View.GONE
+        linearGaugeView?.visibility = if (isMotorcycle && !isLandscape) View.VISIBLE else View.GONE
+        angleTextMoto?.visibility = if (isMotorcycle) View.VISIBLE else View.GONE
+        if (!isMotorcycle) {
+            stopLeanAngleUpdates()
+        }
+    }
+
+    private fun updateZeroButtonVisibility() {
+        val profile = getActiveProfile()
+        val isMotorcycle = profile?.vehicleType == Profile.VehicleType.MOTORCYCLE
+        btnZero?.visibility = if (isMotorcycle) View.VISIBLE else View.GONE
+    }
+
+    private fun startLeanAngleUpdates() {
+        val profile = getActiveProfile()
+        if (profile?.vehicleType != Profile.VehicleType.MOTORCYCLE) return
+        if (leanUpdatesActive) return
+        leanUpdatesActive = true
+        val runnable = object : Runnable {
+            override fun run() {
+                if (!leanUpdatesActive) return
+                updateLeanAngleUi()
+                leanUpdateHandler.postDelayed(this, 50L)
+            }
+        }
+        leanUpdateRunnable = runnable
+        leanUpdateHandler.post(runnable)
+    }
+
+    private fun stopLeanAngleUpdates() {
+        leanUpdatesActive = false
+        leanUpdateRunnable?.let { leanUpdateHandler.removeCallbacks(it) }
+        leanUpdateRunnable = null
+    }
+
+    private fun updateLeanAngleUi() {
+        val profile = getActiveProfile()
+        if (profile?.vehicleType != Profile.VehicleType.MOTORCYCLE) return
+        val service = foregroundService ?: return
+
+        var targetAngle = service.getCurrentAngle()
+        if (kotlin.math.abs(targetAngle) < leanAngleDeadband) {
+            targetAngle = 0f
+        }
+        smoothedLeanAngle += (targetAngle - smoothedLeanAngle) * leanAngleAlpha
+
+        val displayAngle = smoothedLeanAngle
+        val text = "${displayAngle.toInt()}°"
+        if (angleTextMoto?.text != text) {
+            angleTextMoto?.text = text
+        }
+
+        linearGaugeView?.apply {
+            angle = displayAngle
+            maxLeftAngle = service.getMaxLeftAngle()
+            maxRightAngle = service.getMaxRightAngle()
+            invalidate()
+        }
+    }
+
+    private fun resetAngleUi() {
+        angleTextMoto?.text = "0°"
+        smoothedLeanAngle = 0f
+        linearGaugeView?.apply {
+            angle = 0f
+            maxLeftAngle = 0f
+            maxRightAngle = 0f
+            resetMaxima()
+            invalidate()
+        }
+    }
+
+    private fun stopNavigationInline() {
+        mapboxNavigation.setNavigationRoutes(emptyList())
+        setNavigationActive(false)
+        resetNavigationUiAfterStop()
+    }
+
+    private fun resetNavigationUiAfterStop() {
+        enforcePitchZero = true
+        maneuverContainer?.visibility = View.GONE
+        tripProgressContainer?.visibility = View.GONE
+
+        if (this::viewportDataSource.isInitialized) {
+            viewportDataSource.clearRouteData()
+            viewportDataSource.evaluate()
+        }
+        if (this::navigationCamera.isInitialized) {
+            navigationCamera.requestNavigationCameraToIdle()
+        }
+        mapboxMapView?.mapboxMap?.easeTo(
+            CameraOptions.Builder()
+                .bearing(0.0)
+                .pitch(0.0)
+                .build()
+        )
+
+        if (this::routeLineApi.isInitialized && this::routeLineView.isInitialized && currentMapboxStyle != null) {
+            routeLineApi.clearRouteLine { value ->
+                routeLineView.renderClearRouteLineValue(currentMapboxStyle!!, value)
+            }
+        }
+        currentMapboxStyle?.let { style ->
+            routeArrowView?.render(style, routeArrowApi.clearArrows())
+        }
+
+        currentDestination = null
+        currentDestinationName = null
+        resetRouteCacheForNewSelection()
+
+        val placeholderView = destinationSearchContainer.findViewById<TextView>(R.id.tvDestinationPlaceholder)
+        placeholderView.text = getString(R.string.destination_placeholder)
+
+        routeInfoContainer.visibility = View.GONE
+        routePreviewBottomContainer.visibility = View.GONE
+        btnSearchRoute.visibility = View.GONE
+        btnMotorwayOptions.visibility = View.GONE
+        motorwayOptionsContainer.visibility = View.GONE
+        destinationSearchContainer.visibility = View.VISIBLE
+        searchContainer.visibility = View.GONE
+
+        if (::llActiveProfileHeader.isInitialized) {
+            llActiveProfileHeader.visibility = View.VISIBLE
+        }
+
+        mapControlsContainer?.visibility = View.GONE
+        view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = View.VISIBLE
+        requireActivity().findViewById<View>(R.id.bottomNavigationContainer)?.visibility = View.VISIBLE
+    }
+
+    private fun startAndBindServiceIfNeeded() {
+        if (isServiceRunning()) {
+            requireActivity().bindService(
+                Intent(requireContext(), ForegroundService::class.java),
+                serviceConnection,
+                Context.BIND_AUTO_CREATE
+            )
+            return
+        }
+
+        val serviceIntent = Intent(requireContext(), ForegroundService::class.java).apply {
+            putExtra("PRE_WARMING_MODE", true)
+        }
+        ContextCompat.startForegroundService(requireContext(), serviceIntent)
+
+        val activateIntent = Intent(requireContext(), ForegroundService::class.java).apply {
+            putExtra("ACTIVATE_NORMAL_MODE", true)
+        }
+        requireContext().startService(activateIntent)
+
+        requireActivity().bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+
+    private fun isServiceRunning(): Boolean {
+        val manager = requireContext().getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        @Suppress("DEPRECATION")
+        val services = manager.getRunningServices(Int.MAX_VALUE)
+        return services.any { it.service.className == ForegroundService::class.java.name }
+    }
+
+    private fun cleanupForegroundService() {
+        try {
+            if (serviceBound) {
+                try {
+                    requireActivity().unbindService(serviceConnection)
+                } catch (_: IllegalArgumentException) {
+                }
+            }
+            try {
+                requireContext().stopService(Intent(requireContext(), ForegroundService::class.java))
+            } catch (_: Exception) {
+            }
+        } finally {
+            serviceBound = false
+        }
+    }
+
+    private fun resetSessionData() {
+        foregroundService?.resetData()
+        resetNavSessionMetrics(resetTime = true)
+        val startTime = foregroundService?.getStartTime() ?: SystemClock.elapsedRealtime()
+        chronometerCar?.base = startTime
+        chronometerCar?.start()
+    }
+
+    private fun saveAndFinishSession() {
+        try {
+            val rawRoutePoints = foregroundService?.getFinalRoutePoints() ?: emptyList()
+            if (rawRoutePoints.isEmpty()) {
+                handleEmptySession()
+                return
+            }
+            if (rawRoutePoints.size < 3) {
+                cleanupForegroundService()
+                Toast.makeText(requireContext(), getString(R.string.error_no_route_data), Toast.LENGTH_LONG).show()
+                startActivity(Intent(requireContext(), MainContainerActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_MAP)
+                })
+                return
+            }
+
+            val race = createRaceFromSession()
+            RouteStorage.saveRoutePoints(requireContext(), race.id, rawRoutePoints)
+            val allRaces = RouteStorage.loadRaces(requireContext()).toMutableList()
+            allRaces.add(race)
+            RouteStorage.saveRaces(requireContext(), allRaces)
+
+            if (rawRoutePoints.isNotEmpty()) {
+                java.util.concurrent.Executors.newSingleThreadExecutor().execute {
+                    try {
+                        RouteSnapshotGenerator.generateAndSaveSnapshot(
+                            context = requireContext(),
+                            raceId = race.id,
+                            routePoints = rawRoutePoints
+                        ) { success ->
+                            android.util.Log.d("MapFragment", if (success) "✅ Snapshot generated for race ${race.id}" else "❌ Failed to generate snapshot for race ${race.id}")
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("MapFragment", "Error generating snapshot", e)
+                    }
+                }
+            }
+
+            cleanupForegroundService()
+
+            pendingExitAfterSave = true
+
+            val intent = Intent(requireContext(), SaveSessionActivity::class.java).apply {
+                putExtra("raceId", race.id)
+                putExtra("isNewSession", true)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            showError("Error saving the race: ${e.message}")
+        }
+    }
+
+    private fun createRaceFromSession(): Race {
+        val routePoints = foregroundService?.getFinalRoutePoints() ?: emptyList()
+        val activeProfile = getActiveProfile()
+        val sessionNumber = getNextSessionNumber(activeProfile?.id ?: -1L)
+
+        val isMotorcycle = activeProfile?.vehicleType == Profile.VehicleType.MOTORCYCLE
+        val maxLeftAngle = if (isMotorcycle) (foregroundService?.getMaxLeftAngle() ?: 0f) else 0f
+        val maxRightAngle = if (isMotorcycle) (foregroundService?.getMaxRightAngle() ?: 0f) else 0f
+        val raceId = System.currentTimeMillis()
+
+        return Race(
+            profileId = activeProfile?.id ?: -1L,
+            id = raceId,
+            routePoints = routePoints,
+            timestamp = System.currentTimeMillis(),
+            duration = foregroundService?.getServiceDuration() ?: 0,
+            absoluteTimestamp = System.currentTimeMillis(),
+            maxLeftAngle = maxLeftAngle,
+            maxRightAngle = maxRightAngle,
+            maxSpeed = foregroundService?.getMaxSpeed() ?: 0f,
+            name = "Session $sessionNumber",
+            distance = navSessionDistanceMeters / 1000.0,
+            time0to100 = 0L,
+            time0to200 = 0L,
+            time100to200 = 0L
+        )
+    }
+
+    private fun getNextSessionNumber(profileId: Long): Int {
+        if (profileId <= 0L) return 1
+        val allRaces = RouteStorage.loadRaces(requireContext())
+        val profileRaces = allRaces.filter { it.profileId == profileId }
+        val sessionNumbers = profileRaces.mapNotNull { race ->
+            race.name?.let { name ->
+                if (name.startsWith("Session ")) name.substringAfter("Session ").toIntOrNull() else null
+            }
+        }
+        val maxNumber = sessionNumbers.maxOrNull()
+        return maxNumber?.plus(1) ?: 1
+    }
+
+    private fun getActiveProfile(): Profile? {
+        val ctx = context ?: return null
+        val selectedId = ProfileStorage.getSelectedProfileId(ctx)
+        val profiles = ProfileStorage.loadProfiles(ctx)
+        return profiles.find { it.id == selectedId } ?: profiles.firstOrNull()
+    }
+
+    private fun handleEmptySession() {
+        cleanupForegroundService()
+        Toast.makeText(requireContext(), getString(R.string.error_no_route_data), Toast.LENGTH_LONG).show()
+        startActivity(Intent(requireContext(), MainContainerActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            putExtra("NAV_ITEM_ID", R.id.navMap)
+        })
+    }
+
+    private fun showError(message: String) {
+        val errorDialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
+            .setTitle("Error")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .create()
+        DialogHelper.styleDialogButtons(errorDialog)
+        errorDialog.show()
+    }
+
+    private fun onDestinationReached() {
+        if (hasReachedDestination) return
+        hasReachedDestination = true
+
+        setNavigationActive(false)
+        resetNavigationUiAfterStop()
     }
 
     private fun setCompactRouteMode(enabled: Boolean) {
@@ -934,6 +2113,13 @@ class MapFragment : Fragment() {
         routePreviewBottomContainer.visibility = if (enabled) View.VISIBLE else View.GONE
         btnSearchRoute.visibility = if (enabled) View.VISIBLE else View.GONE
         btnMotorwayOptions.visibility = if (enabled) View.VISIBLE else View.GONE
+        // In route preview we keep the left-side overview/recenter like before.
+        // The right-side "pill" controls are shown only during navigation.
+        mapControlsContainer?.visibility = View.GONE
+        btnOverview?.visibility = View.GONE
+        btnRecenter?.visibility = View.GONE
+        btnPreviewOverview?.visibility = if (enabled) View.VISIBLE else View.GONE
+        btnPreviewRecenter?.visibility = if (enabled) View.VISIBLE else View.GONE
         if (!enabled) {
             motorwayOptionsContainer.visibility = View.GONE
         }
@@ -945,6 +2131,8 @@ class MapFragment : Fragment() {
             btnSearchRoute.bringToFront()
             btnMotorwayOptions.bringToFront()
             motorwayOptionsContainer.bringToFront()
+            btnPreviewOverview?.bringToFront()
+            btnPreviewRecenter?.bringToFront()
         }
     }
 
@@ -956,7 +2144,7 @@ class MapFragment : Fragment() {
         }
 
         val originPoint = fixedOriginForRoute ?: run {
-            val originLoc = currentLocation
+            val originLoc = currentLocation ?: mapStateViewModel.lastKnownLocation
             if (originLoc != null) {
                 Point.fromLngLat(originLoc.longitude, originLoc.latitude)
             } else null
@@ -1065,8 +2253,8 @@ class MapFragment : Fragment() {
                 viewportDataSource.evaluate()
                 
                 // Show camera control buttons when route is displayed
-                btnOverview?.visibility = View.VISIBLE
-                btnRecenter?.visibility = View.VISIBLE
+                btnPreviewOverview?.visibility = View.VISIBLE
+                btnPreviewRecenter?.visibility = View.VISIBLE
                 
                 // Request overview state for smooth animation showing entire route
                 mapboxMapView?.post {
@@ -1088,6 +2276,7 @@ class MapFragment : Fragment() {
         tvRouteDuration.text = if (h > 0) "${h}ч ${m}м" else "${m}м"
 
         setCompactRouteMode(true)
+        routeWeatherPreviewOverlay?.showForRoute(primary)
     }
 
     private fun handleRouteClick(clickPoint: com.mapbox.geojson.Point) {
@@ -1177,6 +2366,10 @@ class MapFragment : Fragment() {
             }
             navigationCamera = NavigationCamera(mv.mapboxMap, mv.camera, viewportDataSource)
             mv.camera.addCameraAnimationsLifecycleListener(NavigationBasicGesturesHandler(navigationCamera))
+
+            mv.mapboxMap.addOnCameraChangeListener {
+                enforcePitchZeroIfNeeded()
+            }
             
             // Setup camera control buttons
             setupNavigationCameraButtons()
@@ -1233,6 +2426,22 @@ class MapFragment : Fragment() {
                 }
             }
 
+            if (routeArrowView == null) {
+                routeArrowView = MapboxRouteArrowView(RouteArrowOptions.Builder(requireContext()).build())
+            }
+
+            val routesToRender = mapboxNavigation.getNavigationRoutes()
+            if (routesToRender.isNotEmpty() && this::routeLineApi.isInitialized && this::routeLineView.isInitialized) {
+                if (this::viewportDataSource.isInitialized) {
+                    viewportDataSource.onRouteChanged(routesToRender.first())
+                    viewportDataSource.evaluate()
+                }
+                val metadata = mapboxNavigation.getAlternativeMetadataFor(routesToRender)
+                routeLineApi.setNavigationRoutes(routesToRender, metadata) { value ->
+                    routeLineView.renderRouteDrawData(style, value)
+                }
+            }
+
             mapboxMapView?.post {
                 mapboxMapView?.setBackgroundColor(Color.TRANSPARENT)
                 mapboxMapView?.alpha = 1f
@@ -1285,7 +2494,8 @@ class MapFragment : Fragment() {
         // Keep default provider initially (fast raw GPS puck). We'll switch to snapped provider when enhancedLocation arrives.
         isUsingNavigationLocationProvider = false
 
-        mapView.location.updateSettings {
+        val locationPlugin = mapView.getPlugin(Plugin.MAPBOX_LOCATION_COMPONENT_PLUGIN_ID) as? LocationComponentPlugin
+        locationPlugin?.updateSettings {
             enabled = true
             pulsingEnabled = true
             pulsingColor = orangeColor
@@ -1310,7 +2520,8 @@ class MapFragment : Fragment() {
         val mapView = mapboxMapView ?: return
         if (!isMapboxLocationComponentEnabled) return
 
-        mapView.location.updateSettings { enabled = false }
+        val locationPlugin = mapView.getPlugin(Plugin.MAPBOX_LOCATION_COMPONENT_PLUGIN_ID) as? LocationComponentPlugin
+        locationPlugin?.updateSettings { enabled = false }
         isMapboxLocationComponentEnabled = false
         isUsingNavigationLocationProvider = false
     }
@@ -1403,18 +2614,348 @@ class MapFragment : Fragment() {
         
         profile?.let {
             ProfileStorage.saveSelectedProfile(requireContext(), it.id)
-            val intent = Intent(requireContext(), CountdownActivity::class.java).apply {
-                putExtra("SELECTED_PROFILE", it)
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            if (currentDestination != null) {
+                cancelRoutePreview()
             }
-            startActivity(intent)
-            requireActivity().finish()
+            shouldResetOnConnect = true
+            if (serviceBound && foregroundService != null) {
+                shouldResetOnConnect = false
+                resetSessionData()
+            }
+            startAndBindServiceIfNeeded()
+            setNormalSessionUiActive(true)
+            enforcePitchZero = false
+            resetNormalDrivingCameraState()
+            startNavSessionTracking()
+            animateToCurrentLocation()
         } ?: run {
             Toast.makeText(requireContext(), "Моля изберете профил", Toast.LENGTH_SHORT).show()
             val intent = Intent(requireContext(), MainContainerActivity::class.java).apply {
                 putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_RACES)
             }
             startActivity(intent)
+        }
+    }
+
+    private fun setNormalSessionUiActive(active: Boolean) {
+        navSessionContainer?.visibility = if (active) View.VISIBLE else View.GONE
+        carModeContainer?.visibility = if (active) View.VISIBLE else View.GONE
+        bottomHudRow?.visibility = if (active) View.VISIBLE else View.GONE
+        buttonContainer?.visibility = if (active) View.VISIBLE else View.GONE
+        mapControlsContainer?.visibility = if (active) View.VISIBLE else View.GONE
+        btnOverview?.visibility = View.GONE
+        btnRecenter?.visibility = View.GONE
+        btnCameraNorthMode?.visibility = if (active) View.VISIBLE else View.GONE
+        view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = if (active) View.GONE else View.VISIBLE
+        requireActivity().findViewById<View>(R.id.bottomNavigationContainer)?.visibility = if (active) View.GONE else View.VISIBLE
+
+        maneuverContainer?.visibility = View.GONE
+        tripProgressContainer?.visibility = View.GONE
+
+        destinationSearchContainer.visibility = if (active) View.GONE else View.VISIBLE
+        searchContainer.visibility = View.GONE
+        routeInfoContainer.visibility = View.GONE
+        routePreviewBottomContainer.visibility = View.GONE
+        btnSearchRoute.visibility = View.GONE
+        btnMotorwayOptions.visibility = View.GONE
+        motorwayOptionsContainer.visibility = View.GONE
+
+        llTemperature.visibility = if (active) View.GONE else View.VISIBLE
+        llAltitude.visibility = if (active) View.GONE else View.VISIBLE
+        fabMyLocationContainer.visibility = if (active) View.GONE else View.VISIBLE
+
+        if (::llActiveProfileHeader.isInitialized) {
+            llActiveProfileHeader.visibility = if (active) View.GONE else View.VISIBLE
+        }
+    }
+
+    private fun animateToCurrentLocation() {
+        val loc = currentLocation ?: mapStateViewModel.lastKnownLocation ?: return
+        mapboxMapView?.mapboxMap?.easeTo(
+            CameraOptions.Builder()
+                .center(MapboxPoint.fromLngLat(loc.longitude, loc.latitude))
+                .zoom(17.0)
+                .build()
+        )
+    }
+
+    private fun resetNormalDrivingCameraState() {
+        mapboxTargetPosition = null
+        mapboxSmoothedTargetPosition = null
+        mapboxCurrentPosition = null
+        mapboxCurrentBearing = 0f
+        mapboxLastUpdateTime = 0L
+        targetMapOrientation = 0f
+        currentMapOrientation = 0f
+        lastCalculatedBearing = 0f
+        lastProcessedLocation = null
+        isFirstLocation = true
+        val currentZoomValue = mapboxMapView?.mapboxMap?.cameraState?.zoom ?: 17.5
+        targetZoom = currentZoomValue
+        currentZoom = currentZoomValue
+        lastZoomChangeTime = 0L
+    }
+
+    private fun getNormalDrivingPitch(): Double {
+        return if (isNorthUpMode) 0.0 else 60.0
+    }
+
+    private fun processNormalDrivingLocation(location: Location) {
+        val filtered = kalmanFilter.process(location)
+        val geoPoint = GeoPoint(filtered.latitude, filtered.longitude)
+
+        val speedKmh = location.speed * 3.6f
+        lastSpeedKmh = speedKmh
+
+        mapboxSmoothedTargetPosition = mapboxSmoothedTargetPosition?.let { prev ->
+            val alpha = when {
+                speedKmh < 5 -> 0.15
+                speedKmh < 30 -> 0.25
+                else -> 0.35
+            }
+            GeoPoint(
+                prev.latitude + (geoPoint.latitude - prev.latitude) * alpha,
+                prev.longitude + (geoPoint.longitude - prev.longitude) * alpha
+            )
+        } ?: geoPoint
+
+        if (isFirstLocation) {
+            initializeFirstNormalLocation(filtered)
+            return
+        }
+
+        var calculatedBearing = location.bearing
+
+        if (lastProcessedLocation != null && speedKmh > 1f) {
+            val lastGeoPoint = GeoPoint(lastProcessedLocation!!.latitude, lastProcessedLocation!!.longitude)
+            val distance = geoPoint.distanceToAsDouble(lastGeoPoint)
+
+            if (distance > 0.3) {
+                val lat1 = Math.toRadians(lastGeoPoint.latitude)
+                val lat2 = Math.toRadians(geoPoint.latitude)
+                val deltaLon = Math.toRadians(geoPoint.longitude - lastGeoPoint.longitude)
+
+                val x = sin(deltaLon) * cos(lat2)
+                val y = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)
+
+                var movementBearing = Math.toDegrees(atan2(x, y)).toFloat()
+                if (movementBearing < 0) movementBearing += 360f
+
+                calculatedBearing = when {
+                    speedKmh > 20 -> movementBearing * 0.1f + location.bearing * 0.9f
+                    speedKmh > 5 -> movementBearing * 0.5f + location.bearing * 0.5f
+                    else -> location.bearing
+                }
+            }
+        }
+
+        lastProcessedLocation = filtered
+
+        mapboxTargetPosition = mapboxSmoothedTargetPosition
+        mapboxTargetBearing = calculatedBearing
+        lastCalculatedBearing = calculatedBearing
+
+        if (isNorthUpMode) {
+            targetMapOrientation = 0f
+        } else if (speedKmh > 2) {
+            targetMapOrientation = -calculatedBearing
+        }
+
+        updateZoomBasedOnSpeed(speedKmh)
+        updateMapboxMapAnimation()
+    }
+
+    private fun initializeFirstNormalLocation(location: Location) {
+        if (!isFirstLocation) return
+        val geoPoint = GeoPoint(location.latitude, location.longitude)
+
+        val zoomLevel = currentZoom
+        val metersPerPixel = 156543.03392 * cos(Math.toRadians(location.latitude)) / Math.pow(2.0, zoomLevel)
+        val offsetMeters = 30 * resources.displayMetrics.density * metersPerPixel
+
+        val bearingRad = Math.toRadians(location.bearing.toDouble())
+        val offsetLat = (offsetMeters * cos(bearingRad)) / 111320.0
+        val offsetLon = (offsetMeters * sin(bearingRad)) / (111320.0 * cos(Math.toRadians(location.latitude)))
+
+        val centerLat = geoPoint.latitude + offsetLat
+        val centerLon = geoPoint.longitude + offsetLon
+
+        mapboxMapView?.mapboxMap?.setCamera(
+            CameraOptions.Builder()
+                .center(MapboxPoint.fromLngLat(centerLon, centerLat))
+                .zoom(currentZoom)
+                .bearing(location.bearing.toDouble())
+                .pitch(getNormalDrivingPitch())
+                .build()
+        )
+
+        mapboxCurrentPosition = geoPoint
+        mapboxCurrentBearing = location.bearing
+        mapboxLastUpdateTime = SystemClock.elapsedRealtime()
+        isFirstLocation = false
+    }
+
+    private fun updateZoomBasedOnSpeed(speed: Float) {
+        val newTargetZoom = when {
+            speed < 18 -> 19.5
+            speed < 46 -> 18.5
+            speed < 84 -> 17.5
+            else -> 15.5
+        }
+
+        val currentTime = System.currentTimeMillis()
+        if (newTargetZoom != targetZoom && (currentTime - lastZoomChangeTime) >= ZOOM_CHANGE_DELAY) {
+            targetZoom = newTargetZoom
+            lastZoomChangeTime = currentTime
+        }
+    }
+
+    private fun startMapboxRenderLoop() {
+        if (mapboxRenderRunnable != null) return
+        val runnable = object : Runnable {
+            override fun run() {
+                if (!navSessionActive || isNavigationActive || !isAdded) {
+                    stopMapboxRenderLoop()
+                    return
+                }
+                updateMapboxMapAnimation()
+                handler.postDelayed(this, 33L)
+            }
+        }
+        mapboxRenderRunnable = runnable
+        handler.post(runnable)
+    }
+
+    private fun stopMapboxRenderLoop() {
+        mapboxRenderRunnable?.let { handler.removeCallbacks(it) }
+        mapboxRenderRunnable = null
+    }
+
+    private fun updateMapboxMapAnimation() {
+        val mapView = mapboxMapView ?: return
+        if (!isAdded) return
+        if (mapView.width < 50 || mapView.height < 50) return
+        val targetPos = mapboxTargetPosition ?: return
+
+        if (mapboxCurrentPosition == null) {
+            mapboxCurrentPosition = targetPos
+            mapboxCurrentBearing = mapboxTargetBearing
+            mapboxLastUpdateTime = SystemClock.elapsedRealtime()
+        }
+
+        val now = SystemClock.elapsedRealtime()
+        val elapsed = (now - mapboxLastUpdateTime).coerceAtMost(100)
+        val progress = (elapsed / 100f).coerceIn(0f, 1f)
+
+        val isLandscape = mapView.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val currentPos = mapboxCurrentPosition!!
+        val distanceMeters = currentPos.distanceToAsDouble(targetPos)
+        val landscapeFactor = if (isLandscape) 0.9 else 1.0
+        val speedBasedStep = (lastSpeedKmh * 0.07).coerceIn(1.2, 12.0)
+        val maxStepMeters = speedBasedStep * landscapeFactor
+        val fraction = if (distanceMeters > 0.0) {
+            kotlin.math.min(1.0, maxStepMeters / distanceMeters)
+        } else {
+            1.0
+        }
+        val smoothNewLat = currentPos.latitude + (targetPos.latitude - currentPos.latitude) * fraction
+        val smoothNewLon = currentPos.longitude + (targetPos.longitude - currentPos.longitude) * fraction
+        val smoothPosition = GeoPoint(smoothNewLat, smoothNewLon)
+
+        var bearingDiff = mapboxTargetBearing - mapboxCurrentBearing
+        while (bearingDiff > 180f) bearingDiff -= 360f
+        while (bearingDiff < -180f) bearingDiff += 360f
+        val bearingSmoothing = when {
+            kotlin.math.abs(bearingDiff) > 90f -> 0.1f
+            kotlin.math.abs(bearingDiff) > 45f -> 0.15f
+            else -> 0.25f
+        }
+        val smoothBearing = mapboxCurrentBearing + bearingDiff * bearingSmoothing
+        val normalizedBearing = ((smoothBearing % 360f) + 360f) % 360f
+
+        mapboxCurrentPosition = smoothPosition
+        mapboxCurrentBearing = normalizedBearing
+        mapboxLastUpdateTime = now
+
+        val currentPosition = smoothPosition
+        val currentBearing = normalizedBearing
+
+        val currentZoomValue = mapView.mapboxMap.cameraState.zoom
+
+        val metersPerPixel = 156543.03392 * cos(Math.toRadians(currentPosition.latitude)) / Math.pow(2.0, currentZoomValue)
+        val offsetDp = if (isLandscape) 38.0 else 30.0
+        var offsetMeters = offsetDp * mapView.resources.displayMetrics.density * metersPerPixel
+        if (isNorthUpMode) {
+            offsetMeters = 0.0
+        }
+
+        val bearingRad = Math.toRadians(currentBearing.toDouble())
+        val offsetLat = (offsetMeters * cos(bearingRad)) / 111320.0
+        val offsetLon = (offsetMeters * sin(bearingRad)) / (111320.0 * cos(Math.toRadians(currentPosition.latitude)))
+
+        val newLat = currentPosition.latitude + offsetLat
+        val newLon = currentPosition.longitude + offsetLon
+
+        val currentCenter = mapView.mapboxMap.cameraState.center
+
+        val smoothCameraLat: Double
+        val smoothCameraLon: Double
+        val currentCenterLat = currentCenter.latitude()
+        val currentCenterLon = currentCenter.longitude()
+
+        val latDiff = newLat - currentCenterLat
+        val lonDiff = newLon - currentCenterLon
+        smoothCameraLat = currentCenterLat + latDiff * 0.12
+        smoothCameraLon = currentCenterLon + lonDiff * 0.12
+
+        updateMapboxMapOrientation()
+
+        val point = MapboxPoint.fromLngLat(smoothCameraLon, smoothCameraLat)
+        val cameraBearing = if (isNorthUpMode) 0.0 else (-currentMapOrientation).toDouble()
+
+        val zoomDiff = targetZoom - currentZoom
+        val smoothZoom = if (kotlin.math.abs(zoomDiff) > 0.01) {
+            currentZoom + zoomDiff * 0.08
+        } else {
+            currentZoom
+        }
+
+        if (kotlin.math.abs(zoomDiff) > 0.01) {
+            currentZoom = smoothZoom
+        }
+
+        val pitch = getNormalDrivingPitch()
+
+        mapView.mapboxMap.setCamera(
+            CameraOptions.Builder()
+                .center(point)
+                .bearing(cameraBearing)
+                .zoom(smoothZoom)
+                .pitch(pitch)
+                .build()
+        )
+    }
+
+    private fun updateMapboxMapOrientation() {
+        var diff = targetMapOrientation - currentMapOrientation
+        while (diff > 180f) diff -= 360f
+        while (diff < -180f) diff += 360f
+
+        val speed = foregroundService?.getCurrentSpeed() ?: 0f
+
+        val smoothingFactor = when {
+            kotlin.math.abs(diff) > 90f -> 0.15f
+            kotlin.math.abs(diff) > 45f -> 0.12f
+            kotlin.math.abs(diff) > 20f -> 0.08f
+            speed > 50 -> 0.06f
+            speed > 20 -> 0.05f
+            else -> 0.04f
+        }
+
+        if (kotlin.math.abs(diff) > 0.5f) {
+            currentMapOrientation += diff * smoothingFactor
+            while (currentMapOrientation > 360f) currentMapOrientation -= 360f
+            while (currentMapOrientation < 0f) currentMapOrientation += 360f
         }
     }
     
@@ -1442,14 +2983,17 @@ class MapFragment : Fragment() {
     override fun onStop() {
         super.onStop()
         mapboxMapView?.onStop()
+        stopLeanAngleUpdates()
+        stopMapboxRenderLoop()
     }
-    
+
     override fun onResume() {
         super.onResume()
         
         loadCachedWeatherData()
         updateEnvironmentDisplay()
         loadProfileInfo()
+        updateZeroButtonVisibility()
         
         // ВАЖНО: Ако има currentDestination (route preview режим), НЕ приближаваме до локацията
         // Запазваме текущата camera позиция (zoom на маршрута)
@@ -1457,6 +3001,52 @@ class MapFragment : Fragment() {
             // Само ако няма route preview, показваме last known location
             displayLastKnownLocationInstantly()
             displayLastKnownLocationInstantly() // ПРОФЕСИОНАЛНО РЕШЕНИЕ: Показваме last known location ВЕДНАГА за instant display
+        }
+
+        if (pendingExitAfterSave) {
+            pendingExitAfterSave = false
+            mapboxNavigation.setNavigationRoutes(emptyList())
+            setNavigationActive(false)
+            resetNavigationUiAfterStop()
+            stopNavSessionTracking()
+            setNormalSessionUiActive(false)
+            resetNormalDrivingCameraState()
+            enforcePitchZero = true
+        } else if (shouldRestoreNormalSessionAfterRecreate) {
+            shouldRestoreNormalSessionAfterRecreate = false
+            enforcePitchZero = false
+            startAndBindServiceIfNeeded()
+            navSessionActive = true
+            setNormalSessionUiActive(true)
+            startMapboxRenderLoop()
+            updateZeroButtonVisibility()
+            updateLeanAngleVisibility()
+            startLeanAngleUpdates()
+        } else if (shouldRestoreNavigationAfterRecreate) {
+            shouldRestoreNavigationAfterRecreate = false
+            if (mapboxNavigation.getNavigationRoutes().isNotEmpty()) {
+                setNavigationActive(true)
+                if (this::navigationCamera.isInitialized) {
+                    mapboxMapView?.post {
+                        navigationCamera.requestNavigationCameraToFollowing()
+                    }
+                }
+            }
+        } else if (isNavigationActive && mapboxNavigation.getNavigationRoutes().isEmpty()) {
+            setNavigationActive(false)
+            resetNavigationUiAfterStop()
+        }
+
+        if (!isNavigationActive && currentDestination == null) {
+            mapboxNavigation.setNavigationRoutes(emptyList())
+            if (this::routeLineApi.isInitialized && this::routeLineView.isInitialized && currentMapboxStyle != null) {
+                routeLineApi.clearRouteLine { value ->
+                    routeLineView.renderClearRouteLineValue(currentMapboxStyle!!, value)
+                }
+            }
+            currentMapboxStyle?.let { style ->
+                routeArrowView?.render(style, routeArrowApi.clearArrows())
+            }
         }
         
         // ВАЖНО: Ако има currentDestination но сме в MainContainerActivity (не в MainActivity),
@@ -1472,6 +3062,12 @@ class MapFragment : Fragment() {
         
         mapboxMapView?.onResume()
         tryEnableMapboxLocationComponent()
+        triggerFirstOpenWeatherFetchIfNeeded()
+        startWeatherRefreshTimer()
+
+        if (pendingRoutePreviewRestore) {
+            restoreRoutePreviewIfNeeded()
+        }
     }
     
     /**
@@ -1500,6 +3096,7 @@ class MapFragment : Fragment() {
     
     override fun onPause() {
         super.onPause()
+        stopWeatherRefreshTimer()
         
         // Изчисти navigation data cache ако Fragment е паузиран
         try {
@@ -1533,6 +3130,10 @@ class MapFragment : Fragment() {
         super.onDestroyView()
         // КРИТИЧНО: НЕ унищожаваме MapView тук - той се запазва в паметта за instant navigation
         // MapView ще се унищожи само когато Fragment се унищожи напълно
+        stopLeanAngleUpdates()
+        stopMapboxRenderLoop()
+        stopWeatherRefreshTimer()
+        routeWeatherPreviewOverlay?.clear()
     }
     
     override fun onDestroy() {
@@ -1727,19 +3328,127 @@ class MapFragment : Fragment() {
     }
     
     private fun updateWeatherExpandedText() {
-        val untilText = getString(R.string.weather_until)
-        val rainText = if (rainTimeText.isNotEmpty()) {
-            "🌧️${rainChance3h}% $untilText $rainTimeText"
+        val icon = if (summaryIsRain) "🌧️" else "☀️"
+        val summaryText = if (rainTimeText.isNotEmpty() && rainTimePrefix.isNotEmpty()) {
+            "${icon}${rainChance3h}% $rainTimePrefix $rainTimeText"
         } else {
-            "🌧️${rainChance3h}%"
+            "${icon}${rainChance3h}%"
         }
-        val expandedText = "💨${currentWindKph.toInt()}km/h 💧${currentHumidity}% | $rainText"
+        val expandedText = "💨${currentWindKph.toInt()}km/h 💧${currentHumidity}% | $summaryText"
         llWeatherExpanded.text = expandedText
+    }
+
+    private data class HourEntry(val hour: WeatherApiHour, val timeMillis: Long)
+
+    private fun parseWeatherHourMillis(timeText: String): Long? {
+        return try {
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
+            sdf.isLenient = false
+            sdf.parse(timeText)?.time
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun formatHourMillis(timeMillis: Long): String {
+        val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+        return sdf.format(java.util.Date(timeMillis))
+    }
+
+    private fun isRainCondition(code: Int): Boolean {
+        return when (code) {
+            1063, 1087, 1150, 1153 -> true
+            in 1180..1201 -> true
+            in 1240..1246 -> true
+            in 1273..1282 -> true
+            else -> false
+        }
+    }
+
+    private fun isRainHour(hour: WeatherApiHour, chanceThreshold: Int = 30): Boolean {
+        return isRainCondition(hour.condition.code) || hour.will_it_rain == 1 || hour.chance_of_rain >= chanceThreshold
     }
     
     private fun updateAltitudeExpandedText() {
         val pressureText = "📊 ${currentPressure.toInt()} hPa"
         llAltitudeExpanded.text = pressureText
+    }
+
+    private fun isWeatherCacheStale(): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        val cachedTime = prefs.getLong("cached_weather_time", 0L)
+        if (cachedTime == 0L) return true
+        val now = System.currentTimeMillis()
+        return now - cachedTime > WEATHER_REFRESH_INTERVAL_MS
+    }
+
+    private fun isWeatherFirstOpenDone(): Boolean {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        return prefs.getBoolean(PREF_WEATHER_FIRST_OPEN_DONE, false)
+    }
+
+    private fun markWeatherFirstOpenDone() {
+        val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
+        prefs.edit().putBoolean(PREF_WEATHER_FIRST_OPEN_DONE, true).apply()
+    }
+
+    private fun triggerFirstOpenWeatherFetchIfNeeded() {
+        if (isWeatherFirstOpenDone()) return
+        val loc = currentLocation ?: mapStateViewModel.lastKnownLocation
+        if (loc != null) {
+            fetchWeatherFromAPI(loc)
+            markWeatherFirstOpenDone()
+            pendingFirstWeatherFetch = false
+        } else {
+            pendingFirstWeatherFetch = true
+        }
+    }
+
+    private fun restoreRoutePreviewIfNeeded() {
+        if (!pendingRoutePreviewRestore) return
+        val dest = currentDestination ?: return
+        if (!this::routeLineApi.isInitialized || !this::routeLineView.isInitialized) {
+            mapboxMapView?.post { restoreRoutePreviewIfNeeded() }
+            return
+        }
+        pendingRoutePreviewRestore = false
+        setDestinationAndFindRoute(dest, currentDestinationName)
+    }
+
+    fun handleBackPressedFromActivity(): Boolean {
+        if (navSessionActive) {
+            showExitNormalSessionDialog()
+            return true
+        }
+        if (isNavigationActive) {
+            showExitNavigationDialog()
+            return true
+        }
+        if (currentDestination != null) {
+            cancelRoutePreview()
+            return true
+        }
+        return false
+    }
+
+    private fun startWeatherRefreshTimer() {
+        stopWeatherRefreshTimer()
+        weatherRefreshRunnable = object : Runnable {
+            override fun run() {
+                if (!isAdded) return
+                val loc = currentLocation
+                if (loc != null && isWeatherCacheStale()) {
+                    fetchWeatherFromAPI(loc)
+                }
+                weatherRefreshHandler.postDelayed(this, WEATHER_REFRESH_INTERVAL_MS)
+            }
+        }
+        weatherRefreshHandler.post(weatherRefreshRunnable!!)
+    }
+
+    private fun stopWeatherRefreshTimer() {
+        weatherRefreshRunnable?.let { weatherRefreshHandler.removeCallbacks(it) }
+        weatherRefreshRunnable = null
     }
     
     private fun centerOnCurrentLocation() {
@@ -1816,7 +3525,13 @@ class MapFragment : Fragment() {
         tvTemperature.text = tempText
         tvAltitude.text = altText
         ivWeatherIcon.setImageResource(currentWeatherIcon)
-        
+
+        if (isNavigationActive || navSessionActive || currentDestination != null) {
+            llTemperature.visibility = LinearLayout.GONE
+            llAltitude.visibility = LinearLayout.GONE
+            return
+        }
+
         if (currentTemperature != null) {
             llTemperature.visibility = LinearLayout.VISIBLE
         }
@@ -1835,6 +3550,10 @@ class MapFragment : Fragment() {
         val cachedWindKph = prefs.getFloat("cached_wind_kph", Float.NaN)
         val cachedHumidity = prefs.getInt("cached_humidity", -1)
         val cachedPressure = prefs.getFloat("cached_pressure", Float.NaN)
+        val cachedRainChance = prefs.getInt("cached_rain_chance", -1)
+        val cachedRainTime = prefs.getString("cached_rain_time", "") ?: ""
+        val cachedRainPrefix = prefs.getString("cached_rain_prefix", "") ?: ""
+        val cachedSummaryIsRain = prefs.getBoolean("cached_summary_is_rain", true)
         
         if (!cachedTemp.isNaN() && !cachedLat.isNaN() && !cachedLon.isNaN()) {
             currentTemperature = cachedTemp
@@ -1858,6 +3577,14 @@ class MapFragment : Fragment() {
         if (!cachedPressure.isNaN()) {
             currentPressure = cachedPressure.toDouble()
         }
+
+        if (cachedRainChance >= 0) {
+            rainChance3h = cachedRainChance
+        }
+        rainTimeText = cachedRainTime
+        rainTimePrefix = cachedRainPrefix
+        summaryIsRain = cachedSummaryIsRain
+        updateWeatherExpandedText()
     }
     
     private fun cacheWeatherData(location: Location) {
@@ -1866,12 +3593,17 @@ class MapFragment : Fragment() {
         
         currentTemperature?.let { editor.putFloat("cached_temperature", it) }
         currentAltitude?.let { editor.putFloat("cached_altitude", it) }
+        editor.putLong("cached_weather_time", System.currentTimeMillis())
         editor.putFloat("cached_location_lat", location.latitude.toFloat())
         editor.putFloat("cached_location_lon", location.longitude.toFloat())
         editor.putInt("cached_weather_icon", currentWeatherIcon)
         editor.putFloat("cached_wind_kph", currentWindKph.toFloat())
         editor.putInt("cached_humidity", currentHumidity)
         editor.putFloat("cached_pressure", currentPressure.toFloat())
+        editor.putInt("cached_rain_chance", rainChance3h)
+        editor.putString("cached_rain_time", rainTimeText)
+        editor.putString("cached_rain_prefix", rainTimePrefix)
+        editor.putBoolean("cached_summary_is_rain", summaryIsRain)
         editor.apply()
     }
     
@@ -1895,20 +3627,23 @@ class MapFragment : Fragment() {
         if (!isAdded) return false
         
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val cachedLat = prefs.getFloat("cached_location_lat", Float.NaN)
-        val cachedLon = prefs.getFloat("cached_location_lon", Float.NaN)
-        
-        if (cachedLat.isNaN() || cachedLon.isNaN()) {
+        val cachedTime = prefs.getLong("cached_weather_time", 0L)
+        val cachedIcon = prefs.getInt("cached_weather_icon", -1)
+        val cachedRainTime = prefs.getString("cached_rain_time", "") ?: ""
+        val now = System.currentTimeMillis()
+        if (cachedTime == 0L || now - cachedTime > CACHE_WEATHER_MAX_AGE_MS) {
+            return true
+        }
+
+        if (cachedRainTime.isBlank()) {
+            return true
+        }
+
+        if (cachedIcon == R.drawable.ic_weather_rainy && cachedRainTime.isBlank()) {
             return true
         }
         
-        val cachedLocation = Location("cached").apply {
-            latitude = cachedLat.toDouble()
-            longitude = cachedLon.toDouble()
-        }
-        val distanceKm = location.distanceTo(cachedLocation) / 1000.0
-        
-        return distanceKm > CACHE_LOCATION_THRESHOLD_KM
+        return false
     }
     
     private fun fetchWeatherFromAPI(location: Location) {
@@ -1928,7 +3663,7 @@ class MapFragment : Fragment() {
                 val openMeteoService = elevationRetrofit.create(OpenMeteoService::class.java)
                 
                 val weatherResponse = weatherApiService.getCurrentWeather(
-                    apiKey = "547cc84c36a447ab8fe131642251808",
+                            apiKey = WEATHER_API_KEY,
                     location = "${location.latitude},${location.longitude}",
                     lang = "bg"
                 )
@@ -1936,6 +3671,10 @@ class MapFragment : Fragment() {
                 if (weatherResponse.isSuccessful && weatherResponse.body() != null) {
                     val weather = weatherResponse.body()!!
                     currentTemperature = weather.current.temp_c.toFloat()
+                    android.util.Log.d(
+                        "MapFragment",
+                        "WeatherAPI temp_c=${weather.current.temp_c}, pressure_mb=${weather.current.pressure_mb}, humidity=${weather.current.humidity}"
+                    )
                     
                     val condition = weather.current.condition
                     val cloudCover = weather.current.cloud
@@ -1949,26 +3688,73 @@ class MapFragment : Fragment() {
                     currentPressure = weather.current.pressure_mb
                     
                     weather.forecast?.forecastday?.firstOrNull()?.hour?.let { hours ->
-                        val now = java.util.Calendar.getInstance()
-                        val currentHour = now.get(java.util.Calendar.HOUR_OF_DAY)
-                        val currentMinute = now.get(java.util.Calendar.MINUTE)
-                        
-                        val next3Hours = hours.filter { hour ->
-                            val hourTime = hour.time.split(" ")[1].split(":")[0].toInt()
-                            hourTime > currentHour || (hourTime == currentHour && currentMinute < 30)
-                        }.take(3)
-                        
-                        val maxRainHour = next3Hours.maxByOrNull { it.chance_of_rain }
-                        rainChance3h = maxRainHour?.chance_of_rain ?: 0
-                        
-                        rainTimeText = if (maxRainHour != null && rainChance3h > 0) {
-                            maxRainHour.time.split(" ")[1].substring(0, 5)
-                        } else {
-                            ""
+                        val nowMillis = System.currentTimeMillis()
+                        val hourEntries = hours.mapNotNull { hour ->
+                            parseWeatherHourMillis(hour.time)?.let { HourEntry(hour, it) }
+                        }.sortedBy { it.timeMillis }
+
+                        val rainThreshold = 30
+                        val currentHourEntry = hourEntries.lastOrNull { it.timeMillis <= nowMillis }
+                            ?: hourEntries.firstOrNull()
+
+                        val isRainingNow = (weather.current.precip_mm ?: 0.0) > 0.0 ||
+                            isRainCondition(weather.current.condition.code) ||
+                            currentWeatherIcon == R.drawable.ic_weather_rainy ||
+                            (currentHourEntry?.let { isRainHour(it.hour, rainThreshold) } == true)
+
+                        rainChance3h = 0
+                        rainTimeText = ""
+                        rainTimePrefix = ""
+                        summaryIsRain = true
+
+                        if (currentHourEntry != null) {
+                            if (isRainingNow) {
+                                val startIndex = hourEntries.indexOf(currentHourEntry)
+                                if (startIndex >= 0) {
+                                    var endIndex = startIndex
+                                    while (endIndex + 1 < hourEntries.size && isRainHour(hourEntries[endIndex + 1].hour, rainThreshold)) {
+                                        endIndex++
+                                    }
+
+                                    val endTimeMillis = if (endIndex + 1 < hourEntries.size) {
+                                        hourEntries[endIndex + 1].timeMillis
+                                    } else {
+                                        hourEntries[endIndex].timeMillis + 60 * 60 * 1000L
+                                    }
+
+                                    rainChance3h = hourEntries.subList(startIndex, endIndex + 1)
+                                        .maxOfOrNull { it.hour.chance_of_rain } ?: 0
+                                    rainTimeText = formatHourMillis(endTimeMillis)
+                                    rainTimePrefix = getString(R.string.weather_until)
+                                    summaryIsRain = true
+                                }
+                            } else {
+                                val nextRainEntry = hourEntries.firstOrNull {
+                                    it.timeMillis >= nowMillis && isRainHour(it.hour, rainThreshold)
+                                }
+                                if (nextRainEntry != null) {
+                                    rainChance3h = nextRainEntry.hour.chance_of_rain
+                                    rainTimeText = formatHourMillis(nextRainEntry.timeMillis)
+                                    rainTimePrefix = getString(R.string.weather_from)
+                                    summaryIsRain = true
+                                } else {
+                                    val futureEntries = hourEntries.filter { it.timeMillis >= nowMillis }
+                                    val maxRainChance = futureEntries.maxOfOrNull { it.hour.chance_of_rain } ?: 0
+                                    val minRainEntry = futureEntries.minByOrNull { it.hour.chance_of_rain }
+                                    val sunChance = (100 - maxRainChance).coerceIn(0, 100)
+                                    val timeMillis = minRainEntry?.timeMillis ?: nowMillis
+                                    rainChance3h = sunChance
+                                    rainTimeText = formatHourMillis(timeMillis)
+                                    rainTimePrefix = getString(R.string.weather_from)
+                                    summaryIsRain = false
+                                }
+                            }
                         }
                     } ?: run {
                         rainChance3h = 0
                         rainTimeText = ""
+                        rainTimePrefix = ""
+                        summaryIsRain = true
                     }
                     
                     withContext(Dispatchers.Main) {
@@ -1985,6 +3771,7 @@ class MapFragment : Fragment() {
                 if (elevationResponse.isSuccessful && elevationResponse.body() != null) {
                     val elevation = elevationResponse.body()!!
                     currentAltitude = elevation.elevation.firstOrNull()?.toFloat() ?: 0f
+                    android.util.Log.d("MapFragment", "OpenMeteo elevation=${currentAltitude}m")
                 }
                 
                 cacheWeatherData(location)
@@ -2009,6 +3796,12 @@ class MapFragment : Fragment() {
                 val navBarWidth = maxOf(systemBars.left, systemBars.right)
                 val basePadding = 16
                 val equalPadding = basePadding + navBarWidth
+
+                mapControlsContainer?.let { controls ->
+                    val params = controls.layoutParams as? android.widget.RelativeLayout.LayoutParams
+                    params?.topMargin = resources.getDimensionPixelSize(R.dimen.map_controls_margin_top_landscape)
+                    controls.layoutParams = params
+                }
                 
                 val bottomContainer = view.findViewById<LinearLayout>(R.id.bottomContainer)
                 bottomContainer?.setPadding(
@@ -2046,6 +3839,7 @@ class MapFragment : Fragment() {
                             fab.layoutParams = fabParams
                         }
                     }
+
                 }
             }
             

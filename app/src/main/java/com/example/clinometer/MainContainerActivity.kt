@@ -18,6 +18,7 @@ import android.graphics.Typeface
 import androidx.preference.PreferenceManager
 import android.view.WindowManager
 import com.example.clinometer.data.ProfileStorage
+import android.widget.Toast
 
 /**
  * Главна Container Activity която държи ViewPager2 с всички основни Fragments
@@ -33,6 +34,7 @@ class MainContainerActivity : AppCompatActivity() {
     private lateinit var navOptions: LinearLayout
     
     private var currentPage = 0
+    private var lastBackPressTime = 0L
     
     companion object {
         const val PAGE_MAP = 0
@@ -114,6 +116,12 @@ class MainContainerActivity : AppCompatActivity() {
         // Така че ако Fragment callback-ът е enabled и се изпълни, той ще спре цепочката
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (currentPage == PAGE_MAP) {
+                    val mapFragment = supportFragmentManager.fragments.find { it is MapFragment } as? MapFragment
+                    if (mapFragment?.handleBackPressedFromActivity() == true) {
+                        return
+                    }
+                }
                 // Проверяваме дали сме на RACES страницата и дали Fragment-ът е в selection mode
                 if (currentPage == PAGE_RACES) {
                     val racesFragment = supportFragmentManager.fragments.find { 
@@ -127,12 +135,15 @@ class MainContainerActivity : AppCompatActivity() {
                     }
                     // Ако не сме в selection mode, връщаме се на MAP
                     viewPager.setCurrentItem(PAGE_MAP, false)
-                } else if (currentPage == PAGE_MAP) {
-                    // Ако сме на началната страница, излизаме от приложението
+                    return
+                }
+
+                val now = System.currentTimeMillis()
+                if (now - lastBackPressTime < 2000L) {
                     finish()
                 } else {
-                    // Връщаме се на началната страница
-                    viewPager.setCurrentItem(PAGE_MAP, false)
+                    lastBackPressTime = now
+                    Toast.makeText(this@MainContainerActivity, "Натиснете назад още веднъж за изход", Toast.LENGTH_SHORT).show()
                 }
             }
         })
