@@ -1,0 +1,26 @@
+{
+    "sourceFile": "app/src/main/res/values/ids.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 2,
+            "patches": [
+                {
+                    "date": 1771508665850,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1772796578980,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -6,7 +6,8 @@\n     <item name=\"tag_maneuver_spacing_adjusted\" type=\"id\" />\r\n     <item name=\"tag_drag_chart_attempt\" type=\"id\" />\r\n     <item name=\"tag_drag_chart_mode\" type=\"id\" />\r\n     <item name=\"tag_drag_chart_marker\" type=\"id\" />\r\n+    <item name=\"tag_system_bars_initial_padding\" type=\"id\" />\r\n </resources>\r\n \r\n \r\n"
+                },
+                {
+                    "date": 1773054648557,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -7,7 +7,8 @@\n     <item name=\"tag_drag_chart_attempt\" type=\"id\" />\r\n     <item name=\"tag_drag_chart_mode\" type=\"id\" />\r\n     <item name=\"tag_drag_chart_marker\" type=\"id\" />\r\n     <item name=\"tag_system_bars_initial_padding\" type=\"id\" />\r\n+    <item name=\"tag_route_snapshot_race_id\" type=\"id\" />\r\n </resources>\r\n \r\n \r\n"
+                }
+            ],
+            "date": 1771508665850,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<resources>\r\n    <!-- Used as keys for View.setTag(int, Object) to ensure we don't re-scale maneuver UI repeatedly -->\r\n    <item name=\"tag_maneuver_scaled_text\" type=\"id\" />\r\n    <item name=\"tag_maneuver_scaled_icon\" type=\"id\" />\r\n    <item name=\"tag_maneuver_spacing_adjusted\" type=\"id\" />\r\n    <item name=\"tag_drag_chart_attempt\" type=\"id\" />\r\n    <item name=\"tag_drag_chart_mode\" type=\"id\" />\r\n    <item name=\"tag_drag_chart_marker\" type=\"id\" />\r\n</resources>\r\n\r\n\r\n"
+        }
+    ]
+}

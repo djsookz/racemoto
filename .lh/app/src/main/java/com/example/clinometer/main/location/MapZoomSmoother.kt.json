@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/location/MapZoomSmoother.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388337,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388337,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.location\r\n\r\nimport kotlin.math.abs\r\n\r\nobject MapZoomSmoother {\r\n    fun compute(currentZoom: Double, targetZoom: Double): Double {\r\n        val zoomDiff = targetZoom - currentZoom\r\n        return if (abs(zoomDiff) > 0.01) {\r\n            currentZoom + zoomDiff * 0.08\r\n        } else {\r\n            currentZoom\r\n        }\r\n    }\r\n}\r\n"
+        }
+    ]
+}

@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/map/NavigationRouteFallbackRenderer.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771611554616,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771611554616,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.map\r\n\r\nimport com.mapbox.geojson.Feature\r\nimport com.mapbox.geojson.FeatureCollection\r\nimport com.mapbox.geojson.LineString\r\nimport com.mapbox.maps.Style\r\nimport com.mapbox.maps.extension.style.layers.generated.lineLayer\r\nimport com.mapbox.maps.extension.style.layers.properties.generated.LineCap\r\nimport com.mapbox.maps.extension.style.layers.properties.generated.LineJoin\r\nimport com.mapbox.maps.extension.style.sources.generated.geoJsonSource\r\nimport com.mapbox.maps.extension.style.sources.addSource\r\nimport com.mapbox.maps.extension.style.layers.addLayer\r\n\r\nobject NavigationRouteFallbackRenderer {\r\n\r\n    fun render(style: Style, navigationRouteGeometry: LineString) {\r\n        val feature = Feature.fromGeometry(navigationRouteGeometry)\r\n        val featureCollection = FeatureCollection.fromFeatures(listOf(feature))\r\n\r\n        if (style.styleLayerExists(\"navigation-route-layer\")) {\r\n            style.removeStyleLayer(\"navigation-route-layer\")\r\n        }\r\n        if (style.styleLayerExists(\"navigation-route-casing-layer\")) {\r\n            style.removeStyleLayer(\"navigation-route-casing-layer\")\r\n        }\r\n\r\n        if (style.styleSourceExists(\"navigation-route-source\")) {\r\n            style.removeStyleSource(\"navigation-route-source\")\r\n        }\r\n\r\n        style.addSource(\r\n            geoJsonSource(\"navigation-route-source\") {\r\n                featureCollection(featureCollection)\r\n            }\r\n        )\r\n\r\n        style.addLayer(\r\n            lineLayer(\"navigation-route-casing-layer\", \"navigation-route-source\") {\r\n                lineColor(\"#CC4D1A\")\r\n                lineWidth(12.0)\r\n                lineCap(LineCap.ROUND)\r\n                lineJoin(LineJoin.ROUND)\r\n                slot(\"middle\")\r\n            }\r\n        )\r\n\r\n        style.addLayer(\r\n            lineLayer(\"navigation-route-layer\", \"navigation-route-source\") {\r\n                lineColor(\"#FF6020\")\r\n                lineWidth(8.0)\r\n                lineCap(LineCap.ROUND)\r\n                lineJoin(LineJoin.ROUND)\r\n                slot(\"middle\")\r\n            }\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

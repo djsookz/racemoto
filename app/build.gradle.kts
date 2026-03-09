@@ -84,15 +84,15 @@ dependencies {
     }
     
     // Mapbox Maps SDK
-    implementation("com.mapbox.maps:android:11.10.0")
-    implementation("com.mapbox.extension:maps-compose:11.10.0")
+    implementation("com.mapbox.maps:android:11.17.2")
+    implementation("com.mapbox.extension:maps-compose:11.17.2")
     
     // Mapbox Navigation SDK - Core and UI components
-    implementation("com.mapbox.navigationcore:android:3.17.1") {
+    implementation("com.mapbox.navigationcore:android:3.17.5") {
         exclude(group = "com.caverock", module = "androidsvg")
         exclude(group = "com.caverock", module = "androidsvg-aar")
     }
-    implementation("com.mapbox.navigationcore:ui-components:3.17.1") {
+    implementation("com.mapbox.navigationcore:ui-components:3.17.5") {
         exclude(group = "com.caverock", module = "androidsvg")
         exclude(group = "com.caverock", module = "androidsvg-aar")
     }
@@ -106,8 +106,10 @@ dependencies {
 
     // Тестване
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation("androidx.test:core-ktx:1.5.0")
     implementation ("com.squareup.retrofit2:retrofit:2.9.0")
     implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation ("com.google.android.gms:play-services-location:21.0.1")

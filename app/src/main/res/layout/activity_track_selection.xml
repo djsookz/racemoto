@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#121212">
+    android:background="@color/background_primary">
 
     <!-- Header -->
     <LinearLayout
@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             android:text="←"
             android:textSize="24sp"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/text_primary"
             android:padding="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
@@ -32,76 +32,48 @@
             android:layout_weight="1"
             android:text="Избор на писта"
             android:textSize="24sp"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/text_primary"
             android:textStyle="bold"
             android:gravity="center" />
 
     </LinearLayout>
 
-    <!-- Official Tracks Section -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp">
+
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tabTracks"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_rounded_button"
+            app:tabMode="fixed"
+            app:tabGravity="fill"
+            app:tabTextColor="@color/text_secondary"
+            app:tabSelectedTextColor="@color/text_primary"
+            app:tabIndicatorColor="@color/primary_color"
+            app:tabIndicatorHeight="3dp"
+            app:tabRippleColor="@color/transparent"
+            app:tabBackground="@android:color/transparent" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:background="@color/stroke_dark" />
+
+    </FrameLayout>
+
+    <!-- Create Custom Track Button (shown in Custom tab) -->
     <LinearLayout
+        android:id="@+id/llCreateCustomContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Официални писти"
-            android:textSize="18sp"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvOfficialTracks"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-    </LinearLayout>
-
-    <!-- Custom Tracks Section -->
-    <LinearLayout
-        android:id="@+id/llCustomTracksSection"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Custom писти"
-            android:textSize="18sp"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold"
-            android:layout_marginBottom="8dp" />
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvCustomTracks"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <TextView
-            android:id="@+id/tvNoCustomTracks"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Няма създадена custom писта"
-            android:textSize="16sp"
-            android:textColor="#888888"
-            android:gravity="center"
-            android:padding="32dp"
-            android:visibility="gone" />
-
-    </LinearLayout>
-
-    <!-- Create Custom Track Button -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="16dp"
+        android:visibility="gone">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCreateCustom"
@@ -110,9 +82,37 @@
             android:text="+ Създай Custom Писта"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:backgroundTint="#FF6B35"
-            android:textColor="#FFFFFF" />
+            android:backgroundTint="@color/primary_color"
+            android:textColor="@color/text_primary" />
 
     </LinearLayout>
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="8dp">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvTracks"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingTop="8dp" />
+
+        <TextView
+            android:id="@+id/tvEmptyState"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:padding="32dp"
+            android:text=""
+            android:textColor="@color/text_tertiary"
+            android:textSize="16sp"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
 </LinearLayout>

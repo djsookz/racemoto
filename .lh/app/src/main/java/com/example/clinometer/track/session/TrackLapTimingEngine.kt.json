@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/track/session/TrackLapTimingEngine.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771921694371,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771921694371,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.track.session\r\n\r\nclass TrackLapTimingEngine(\r\n    val minLapTimeMs: Long = 10_000L\r\n) {\r\n    fun lapElapsedMs(\r\n        lapStartTimeMs: Long,\r\n        nowMs: Long = System.currentTimeMillis()\r\n    ): Long {\r\n        if (lapStartTimeMs <= 0L) return 0L\r\n        return (nowMs - lapStartTimeMs).coerceAtLeast(0L)\r\n    }\r\n\r\n    fun canCompleteLap(\r\n        lapStartTimeMs: Long,\r\n        nowMs: Long = System.currentTimeMillis()\r\n    ): Boolean {\r\n        return lapElapsedMs(lapStartTimeMs, nowMs) >= minLapTimeMs\r\n    }\r\n}\r\n"
+        }
+    ]
+}

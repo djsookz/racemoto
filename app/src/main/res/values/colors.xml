@@ -130,8 +130,9 @@
     <color name="green">#4CAF50</color>
     <color name="red">#F44336</color>
     <color name="orange">#FF9800</color>
+    <color name="track_neon_green">#00E985</color>
 
-    <color name="background_transparent_80">#F2000000</color>
+    <color name="background_transparent_80">#CC000000</color>
 
 
 </resources>

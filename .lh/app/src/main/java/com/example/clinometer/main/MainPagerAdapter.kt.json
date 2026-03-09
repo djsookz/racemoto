@@ -1,0 +1,22 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/MainPagerAdapter.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 1,
+            "patches": [
+                {
+                    "date": 1771575193356,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1771577994261,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,7 +1,6 @@\n package com.example.clinometer.main\r\n \r\n-import com.example.clinometer.*\r\n import androidx.fragment.app.Fragment\r\n import androidx.fragment.app.FragmentActivity\r\n import androidx.viewpager2.adapter.FragmentStateAdapter\r\n import com.example.clinometer.DragFragment\r\n"
+                }
+            ],
+            "date": 1771575193356,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main\r\n\r\nimport com.example.clinometer.*\r\nimport androidx.fragment.app.Fragment\r\nimport androidx.fragment.app.FragmentActivity\r\nimport androidx.viewpager2.adapter.FragmentStateAdapter\r\nimport com.example.clinometer.DragFragment\r\nimport com.example.clinometer.GarageFragment\r\nimport com.example.clinometer.RacesFragment\r\nimport com.example.clinometer.SettingsFragment\r\nimport com.example.clinometer.TrackFragment\r\nimport com.example.clinometer.main.map.MapFragment\r\n\r\n/**\r\n * Adapter за ViewPager2 който държи всички основни Fragments\r\n * ViewPager2 автоматично кешира Fragments в паметта за instant navigation\r\n */\r\nclass MainPagerAdapter(\r\n    fragmentActivity: FragmentActivity\r\n) : FragmentStateAdapter(fragmentActivity) {\r\n    \r\n    override fun getItemCount(): Int = 6 // Map, Track, Drag, Garage, Settings, Races\r\n    \r\n    override fun createFragment(position: Int): Fragment {\r\n        return when (position) {\r\n            0 -> MapFragment()\r\n            1 -> TrackFragment()\r\n            2 -> DragFragment()\r\n            3 -> GarageFragment()\r\n            4 -> SettingsFragment()\r\n            5 -> RacesFragment()\r\n            else -> MapFragment()\r\n        }\r\n    }\r\n}\r\n\r\n"
+        }
+    ]
+}

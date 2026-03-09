@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/navigation/GeoBearing.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771611554616,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771611554616,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.navigation\r\n\r\nobject GeoBearing {\r\n\r\n    fun calculateBetweenPoints(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {\r\n        val dLon = Math.toRadians(lon2 - lon1)\r\n        val lat1Rad = Math.toRadians(lat1)\r\n        val lat2Rad = Math.toRadians(lat2)\r\n\r\n        val y = Math.sin(dLon) * Math.cos(lat2Rad)\r\n        val x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon)\r\n\r\n        var bearing = Math.toDegrees(Math.atan2(y, x))\r\n        if (bearing < 0) bearing += 360.0\r\n        return bearing\r\n    }\r\n}\r\n"
+        }
+    ]
+}

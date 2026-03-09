@@ -35,6 +35,9 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class CompareAttemptsActivity : AppCompatActivity() {
+
+    private val CHART_TOP_OFFSET_DP = 28f
+    private val CHART_Y_HEADROOM_MULTIPLIER = 1.15f
     
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(LanguageManager.applyLanguage(newBase))
@@ -60,6 +63,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
     private lateinit var tvCompare0to402: TextView
     
     private var currentSessionId: Long = -1
+    private var currentAttemptId: Long = -1
     private var compareSessionId: Long = -1
     private var compareAttemptId: Long = -1
     
@@ -93,6 +97,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_compare_attempts)
         
         currentSessionId = intent.getLongExtra("current_session_id", -1)
+        currentAttemptId = intent.getLongExtra("current_attempt_id", -1)
         compareSessionId = intent.getLongExtra("compare_session_id", -1)
         compareAttemptId = intent.getLongExtra("compare_attempt_id", -1)
         
@@ -176,6 +181,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         chart.legend.isEnabled = false  // Махаме легендата
         chart.isDragDecelerationEnabled = false
         chart.dragDecelerationFrictionCoef = 0f
+        chart.setExtraTopOffset(CHART_TOP_OFFSET_DP)
         
         // Настройваме легендата
         val legend = chart.legend
@@ -282,9 +288,10 @@ class CompareAttemptsActivity : AppCompatActivity() {
     }
     
     private fun loadData() {
-        // Зареждаме текущата сесия и първия опит
+        // Зареждаме текущата сесия и избрания current опит
         currentSession = DragStorage.getDragSession(this, currentSessionId)
-        currentAttempt = currentSession?.attempts?.firstOrNull()
+        currentAttempt = currentSession?.attempts?.find { it.id == currentAttemptId }
+            ?: currentSession?.attempts?.firstOrNull()
         
         // Зареждаме опита за сравняване
         compareSession = DragStorage.getDragSession(this, compareSessionId)
@@ -472,6 +479,14 @@ class CompareAttemptsActivity : AppCompatActivity() {
             ChartMode.G_FORCE -> updateGForceChart()
         }
     }
+
+    private fun applyRightChartPadding(maxTimeFromAllMeasurements: Float) {
+        val rightPaddingSeconds = maxOf(0.5f, maxTimeFromAllMeasurements * 0.08f)
+        chart.xAxis.axisMinimum = 0f
+        chart.xAxis.axisMaximum = maxTimeFromAllMeasurements + rightPaddingSeconds
+        chart.setVisibleXRangeMaximum(maxTimeFromAllMeasurements + rightPaddingSeconds)
+        chart.moveViewToX(0f)
+    }
     
     private fun updateSpeedChart() {
         val speedUnitSymbol = UnitsManager.getSpeedUnit(this).symbol
@@ -501,7 +516,8 @@ class CompareAttemptsActivity : AppCompatActivity() {
         // Настройваме Y оста - ТОЧНО като в DragSessionDetailsActivity
         val yAxis = chart.axisLeft
         yAxis.axisMinimum = 0f
-        yAxis.axisMaximum = if (convertedMaxSpeed > threshold200) convertedMaxSpeed * 1.1f else threshold200
+        val speedTopRef = maxOf(convertedMaxSpeed, threshold200)
+        yAxis.axisMaximum = speedTopRef * CHART_Y_HEADROOM_MULTIPLIER
         yAxis.setDrawZeroLine(true)
         yAxis.zeroLineColor = android.graphics.Color.GRAY
         yAxis.zeroLineWidth = 1f
@@ -513,10 +529,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         
         // Настройваме X оста - ТОЧНО като в DragSessionDetailsActivity
         val maxTimeFromAllMeasurements = getMaxTimeFromAllMeasurements(currentAttempt!!, compareAttempt!!).toFloat()
-        chart.xAxis.axisMinimum = 0f
-        chart.xAxis.axisMaximum = maxTimeFromAllMeasurements
-        chart.setVisibleXRangeMaximum(maxTimeFromAllMeasurements)
-        chart.moveViewToX(0f)
+        applyRightChartPadding(maxTimeFromAllMeasurements)
         
         chart.invalidate()
     }
@@ -545,7 +558,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         
         val maxAccel = maxOf(maxAccel1, maxAccel2)
         val minAccel = minOf(minAccel1, minAccel2)
-        val padding = (maxAccel - minAccel) * 0.1f
+        val padding = (maxAccel - minAccel) * 0.15f
         
         // Настройваме Y оста - ТОЧНО като в DragSessionDetailsActivity
         val yAxis = chart.axisLeft
@@ -562,10 +575,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         
         // Настройваме X оста - ТОЧНО като в DragSessionDetailsActivity
         val maxTimeFromAllMeasurements = getMaxTimeFromAllMeasurements(currentAttempt!!, compareAttempt!!).toFloat()
-        chart.xAxis.axisMinimum = 0f
-        chart.xAxis.axisMaximum = maxTimeFromAllMeasurements
-        chart.setVisibleXRangeMaximum(maxTimeFromAllMeasurements)
-        chart.moveViewToX(0f)
+        applyRightChartPadding(maxTimeFromAllMeasurements)
         
         chart.invalidate()
     }
@@ -594,7 +604,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         // Настройваме Y оста - ТОЧНО като в DragSessionDetailsActivity
         val yAxis = chart.axisLeft
         yAxis.axisMinimum = 0f
-        val yMax = if (maxG > 0.1f) maxG * 1.1f else 2f
+        val yMax = if (maxG > 0.1f) maxG * CHART_Y_HEADROOM_MULTIPLIER else 2f
         yAxis.axisMaximum = yMax
         yAxis.setDrawZeroLine(true)
         yAxis.zeroLineColor = android.graphics.Color.GRAY
@@ -607,10 +617,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         
         // Настройваме X оста - ТОЧНО като в DragSessionDetailsActivity
         val maxTimeFromAllMeasurements = getMaxTimeFromAllMeasurements(currentAttempt!!, compareAttempt!!).toFloat()
-        chart.xAxis.axisMinimum = 0f
-        chart.xAxis.axisMaximum = maxTimeFromAllMeasurements
-        chart.setVisibleXRangeMaximum(maxTimeFromAllMeasurements)
-        chart.moveViewToX(0f)
+        applyRightChartPadding(maxTimeFromAllMeasurements)
         
         chart.invalidate()
     }
@@ -1024,7 +1031,13 @@ class CompareAttemptsActivity : AppCompatActivity() {
                     finalExactTime = closestSpecial.exactTime
                 }
 
-                smartMarker.refreshContent(finalEntry, h)
+                val lineIndex = if (finalIsCurrent) 0 else 1
+                val specialDataSetIndex = if (closestSpecial != null) {
+                    findSpecialPointDataSetIndex(chart, finalEntry.x, finalEntry.y)
+                } else {
+                    null
+                }
+                val finalHighlight = Highlight(finalEntry.x, finalEntry.y, specialDataSetIndex ?: lineIndex)
 
                 try {
                     // Запазваме текущия pointType преди да го сетнем (за fallback)
@@ -1070,9 +1083,9 @@ class CompareAttemptsActivity : AppCompatActivity() {
                     shouldShowField.set(smartMarker, true)
                 } catch (ex: Exception) {}
 
-                val lineIndex = if (finalIsCurrent) 0 else 1
-                val highlight = Highlight(finalEntry.x, finalEntry.y, lineIndex)
-                chart.highlightValues(arrayOf(highlight))
+                smartMarker.refreshContent(finalEntry, finalHighlight)
+
+                chart.highlightValue(finalHighlight, false)
                 chart.invalidate()
             }
 
@@ -1134,6 +1147,19 @@ class CompareAttemptsActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun findSpecialPointDataSetIndex(chart: LineChart, x: Float, y: Float): Int? {
+        val dataSets = chart.data?.dataSets ?: return null
+        for (i in dataSets.indices) {
+            val dataSet = dataSets[i]
+            if (dataSet.label.isNotEmpty() || dataSet.entryCount != 1) continue
+            val pointEntry = dataSet.getEntryForIndex(0) ?: continue
+            if (kotlin.math.abs(pointEntry.x - x) <= 0.03f && kotlin.math.abs(pointEntry.y - y) <= 0.8f) {
+                return i
+            }
+        }
+        return null
+    }
     
     // Помощна функция за показване на маркера на специална точка
     private fun showMarkerAtPoint(chart: LineChart, entry: Entry, pointType: PointType, exactTime: Float, isCurrentAttempt: Boolean = true) {
@@ -1154,10 +1180,10 @@ class CompareAttemptsActivity : AppCompatActivity() {
                 } ?: 0
             }
         }
-        val validDataSetIndex = dataSetIndex.coerceIn(0, (chart.data?.dataSets?.size ?: 1) - 1)
+        val specialDataSetIndex = findSpecialPointDataSetIndex(chart, entry.x, entry.y)
+        val validDataSetIndex = (specialDataSetIndex ?: dataSetIndex)
+            .coerceIn(0, (chart.data?.dataSets?.size ?: 1) - 1)
         val highlight = Highlight(entry.x, entry.y, validDataSetIndex)
-
-        smartMarker.refreshContent(entry, highlight)
         
         try {
             val pointTypeField = smartMarker.javaClass.getDeclaredField("pointType")
@@ -1200,7 +1226,9 @@ class CompareAttemptsActivity : AppCompatActivity() {
             // Reflection failed
         }
 
-        chart.highlightValues(arrayOf(highlight))
+        smartMarker.refreshContent(entry, highlight)
+
+        chart.highlightValue(highlight, false)
         chart.invalidate()
     }
     
@@ -1688,8 +1716,9 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
     }
     
     override fun getOffset(): MPPointF {
-        // Използваме същата логика като в DragSessionDetailsActivity за перфектно центриране
-        return MPPointF(-width / 2f, -height.toFloat())
+        // Marker-ът се позиционира ръчно в draw() около posX/posY.
+        // Не добавяме допълнителен офсет, за да няма изместване вляво/вдясно.
+        return MPPointF(0f, 0f)
     }
     
     private fun determinePointType(x: Float): CompareAttemptsActivity.PointType? {

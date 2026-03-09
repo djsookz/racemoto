@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/startup/SensorInitializer.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771610876251,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771610876251,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.startup\r\n\r\nimport android.content.Context\r\nimport android.hardware.Sensor\r\nimport android.hardware.SensorManager\r\n\r\nobject SensorInitializer {\r\n\r\n    fun initialize(context: Context): Pair<SensorManager, SensorSetup> {\r\n        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager\r\n        val rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)\r\n\r\n        val accelerometer = if (rotationSensor == null) {\r\n            sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)\r\n        } else {\r\n            null\r\n        }\r\n\r\n        val magnetometer = if (rotationSensor == null) {\r\n            sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)\r\n        } else {\r\n            null\r\n        }\r\n\r\n        return sensorManager to SensorSetup(\r\n            rotationSensor = rotationSensor,\r\n            accelerometer = accelerometer,\r\n            magnetometer = magnetometer\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

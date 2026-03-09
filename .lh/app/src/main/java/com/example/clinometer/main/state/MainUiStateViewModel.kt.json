@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/state/MainUiStateViewModel.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388333,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388333,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.state\r\n\r\nimport androidx.lifecycle.ViewModel\r\nimport kotlinx.coroutines.flow.MutableStateFlow\r\nimport kotlinx.coroutines.flow.StateFlow\r\nimport kotlinx.coroutines.flow.asStateFlow\r\n\r\ndata class MainNavigationUiState(\r\n    val currentPage: Int = 0\r\n)\r\n\r\ndata class TripProgressUiState(\r\n    val remainingDistanceMeters: Double = 0.0,\r\n    val remainingTimeSeconds: Long = 0L,\r\n    val etaText: String = \"\"\r\n)\r\n\r\ndata class RoutePreviewUiState(\r\n    val hasRoute: Boolean = false,\r\n    val destinationName: String? = null,\r\n    val routeDistanceText: String = \"\",\r\n    val routeDurationText: String = \"\"\r\n)\r\n\r\ndata class MainUiState(\r\n    val navigation: MainNavigationUiState = MainNavigationUiState(),\r\n    val tripProgress: TripProgressUiState = TripProgressUiState(),\r\n    val routePreview: RoutePreviewUiState = RoutePreviewUiState()\r\n)\r\n\r\nclass MainUiStateViewModel : ViewModel() {\r\n    private val _uiState = MutableStateFlow(MainUiState())\r\n    val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()\r\n\r\n    fun setCurrentPage(page: Int) {\r\n        _uiState.value = _uiState.value.copy(\r\n            navigation = _uiState.value.navigation.copy(currentPage = page)\r\n        )\r\n    }\r\n\r\n    fun updateTripProgress(remainingDistanceMeters: Double, remainingTimeSeconds: Long, etaText: String) {\r\n        _uiState.value = _uiState.value.copy(\r\n            tripProgress = TripProgressUiState(\r\n                remainingDistanceMeters = remainingDistanceMeters,\r\n                remainingTimeSeconds = remainingTimeSeconds,\r\n                etaText = etaText\r\n            )\r\n        )\r\n    }\r\n\r\n    fun setRoutePreview(hasRoute: Boolean, destinationName: String?, routeDistanceText: String, routeDurationText: String) {\r\n        _uiState.value = _uiState.value.copy(\r\n            routePreview = RoutePreviewUiState(\r\n                hasRoute = hasRoute,\r\n                destinationName = destinationName,\r\n                routeDistanceText = routeDistanceText,\r\n                routeDurationText = routeDurationText\r\n            )\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

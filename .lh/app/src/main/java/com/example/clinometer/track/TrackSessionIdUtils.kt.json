@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/track/TrackSessionIdUtils.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1772455931578,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1772455931578,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer\r\n\r\nimport android.content.Context\r\nimport com.example.clinometer.tracking.CustomTrackStorage\r\n\r\nobject TrackSessionIdUtils {\r\n    fun extractTrackIdFromSessionId(context: Context, sessionId: String): String {\r\n        if (sessionId.isBlank()) {\r\n            return \"\"\r\n        }\r\n\r\n        val withoutProfileId = if (sessionId.matches(Regex(\"\\\\d+_.*\"))) {\r\n            sessionId.substringAfter(\"_\")\r\n        } else {\r\n            sessionId\r\n        }\r\n\r\n        val trackManager = TrackManager(context)\r\n        val officialIds = trackManager.getAllTracks()\r\n            .map { it.id }\r\n            .sortedByDescending { it.length }\r\n\r\n        val officialMatch = officialIds.firstOrNull { withoutProfileId.startsWith(it) }\r\n        if (officialMatch != null) {\r\n            return officialMatch\r\n        }\r\n\r\n        if (withoutProfileId.startsWith(\"custom_\")) {\r\n            val customTracks = CustomTrackStorage.loadCustomTracks(context)\r\n            val customIdMatch = customTracks\r\n                .map { it.id }\r\n                .sortedByDescending { it.length }\r\n                .firstOrNull { withoutProfileId.startsWith(it) }\r\n\r\n            return customIdMatch ?: withoutProfileId\r\n        }\r\n\r\n        val datePattern = Regex(\"_\\\\d{2}\\\\.\\\\d{2}\\\\.\\\\d{4}\")\r\n        val match = datePattern.find(withoutProfileId)\r\n        return if (match != null) {\r\n            withoutProfileId.substring(0, match.range.first)\r\n        } else {\r\n            withoutProfileId\r\n        }\r\n    }\r\n}"
+        }
+    ]
+}

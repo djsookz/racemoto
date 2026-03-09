@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/location/FirstLocationInitializer.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771672820922,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771672820922,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.location\r\n\r\nimport android.location.Location\r\nimport com.example.clinometer.GeoPoint\r\nimport kotlin.math.cos\r\nimport kotlin.math.sin\r\n\r\ndata class FirstLocationSetup(\r\n    val geoPoint: GeoPoint,\r\n    val centerLat: Double,\r\n    val centerLon: Double\r\n)\r\n\r\nobject FirstLocationInitializer {\r\n\r\n    fun compute(location: Location, density: Float, zoomLevel: Double): FirstLocationSetup {\r\n        val geoPoint = GeoPoint(location.latitude, location.longitude)\r\n\r\n        val metersPerPixel = 156543.03392 * cos(Math.toRadians(location.latitude)) / Math.pow(2.0, zoomLevel)\r\n        val offsetMeters = 30 * density * metersPerPixel\r\n\r\n        val bearingRad = Math.toRadians(location.bearing.toDouble())\r\n        val offsetLat = (offsetMeters * cos(bearingRad)) / 111320.0\r\n        val offsetLon = (offsetMeters * sin(bearingRad)) / (111320.0 * cos(Math.toRadians(location.latitude)))\r\n\r\n        return FirstLocationSetup(\r\n            geoPoint = geoPoint,\r\n            centerLat = geoPoint.latitude + offsetLat,\r\n            centerLon = geoPoint.longitude + offsetLon\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

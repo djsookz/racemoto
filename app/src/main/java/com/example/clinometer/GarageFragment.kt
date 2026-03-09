@@ -34,6 +34,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.data.VehicleData
+import com.example.clinometer.main.MainContainerActivity
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
@@ -143,7 +144,7 @@ class GarageFragment : Fragment() {
                 activity.navigateToPage(MainContainerActivity.PAGE_RACES)
             } else {
                 val intent = Intent(requireContext(), MainContainerActivity::class.java).apply {
-                    putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_RACES)
+                    putExtra(MainContainerActivity.EXTRA_INITIAL_PAGE, MainContainerActivity.PAGE_RACES)
                 }
                 startActivity(intent)
             }

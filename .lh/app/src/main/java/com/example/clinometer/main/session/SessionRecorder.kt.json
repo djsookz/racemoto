@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/session/SessionRecorder.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388334,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388334,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.session\r\n\r\nimport android.content.Context\r\nimport com.example.clinometer.Profile\r\nimport com.example.clinometer.Race\r\nimport com.example.clinometer.RoutePoint\r\nimport com.example.clinometer.RouteStorage\r\n\r\nobject SessionRecorder {\r\n    fun nextSessionNumber(context: Context, profileId: Long): Int {\r\n        val allRaces = RouteStorage.loadRaces(context)\r\n        val profileRaces = allRaces.filter { it.profileId == profileId }\r\n\r\n        val sessionNumbers = profileRaces.mapNotNull { race ->\r\n            race.name?.let { name ->\r\n                if (name.startsWith(\"Session \")) {\r\n                    name.substringAfter(\"Session \").toIntOrNull()\r\n                } else {\r\n                    null\r\n                }\r\n            }\r\n        }\r\n\r\n        return (sessionNumbers.maxOrNull() ?: 0) + 1\r\n    }\r\n\r\n    fun buildRace(\r\n        profile: Profile,\r\n        raceId: Long,\r\n        routePoints: List<RoutePoint>,\r\n        duration: Long,\r\n        maxSpeed: Float,\r\n        totalDistance: Double,\r\n        maxLeftAngle: Float,\r\n        maxRightAngle: Float,\r\n        sessionNumber: Int,\r\n        timestamp: Long = System.currentTimeMillis()\r\n    ): Race {\r\n        return Race(\r\n            profileId = profile.id,\r\n            id = raceId,\r\n            routePoints = routePoints,\r\n            timestamp = timestamp,\r\n            duration = duration,\r\n            absoluteTimestamp = timestamp,\r\n            maxLeftAngle = maxLeftAngle,\r\n            maxRightAngle = maxRightAngle,\r\n            maxSpeed = maxSpeed,\r\n            name = \"Session $sessionNumber\",\r\n            distance = totalDistance,\r\n            time0to100 = 0L,\r\n            time0to200 = 0L,\r\n            time100to200 = 0L\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

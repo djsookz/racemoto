@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/layout/lap_item_session_template.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771923937245,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771923937245,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"wrap_content\"\r\n    android:orientation=\"horizontal\"\r\n    android:padding=\"8dp\"\r\n    android:background=\"?android:attr/selectableItemBackground\"\r\n    android:clickable=\"true\"\r\n    android:focusable=\"true\">\r\n\r\n    <TextView\r\n        android:id=\"@+id/tvLapNumber\"\r\n        android:layout_width=\"0dp\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:layout_weight=\"1\"\r\n        android:text=\"@string/track_lap_label\"\r\n        android:textColor=\"#CCCCCC\"\r\n        android:textSize=\"14sp\" />\r\n\r\n    <TextView\r\n        android:id=\"@+id/tvBestLapMarker\"\r\n        android:layout_width=\"wrap_content\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"🏆\"\r\n        android:textSize=\"14sp\"\r\n        android:layout_marginEnd=\"8dp\"\r\n        android:visibility=\"gone\" />\r\n\r\n    <TextView\r\n        android:id=\"@+id/tvLapTime\"\r\n        android:layout_width=\"wrap_content\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"01:23.456\"\r\n        android:textColor=\"#4CAF50\"\r\n        android:textSize=\"14sp\"\r\n        android:textStyle=\"bold\" />\r\n\r\n</LinearLayout>\r\n\r\n"
+        }
+    ]
+}

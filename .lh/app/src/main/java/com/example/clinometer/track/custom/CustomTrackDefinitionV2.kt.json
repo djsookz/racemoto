@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/track/custom/CustomTrackDefinitionV2.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1772458279116,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1772458279116,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.tracking\r\n\r\nimport com.example.clinometer.GeoPoint\r\n\r\nenum class CustomTrackMode {\r\n    CIRCUIT,\r\n    POINT_TO_POINT\r\n}\r\n\r\ndata class GateLine(\r\n    val start: GeoPoint,\r\n    val end: GeoPoint\r\n)\r\n\r\ndata class CustomTrackDefinitionV2(\r\n    val id: String,\r\n    val name: String,\r\n    val mode: CustomTrackMode,\r\n    val createdAt: Long = System.currentTimeMillis(),\r\n    val startGate: GateLine? = null,\r\n    val finishGate: GateLine? = null,\r\n    val sectorGates: List<GateLine> = emptyList(),\r\n    val referencePath: List<GeoPoint> = emptyList()\r\n)\r\n"
+        }
+    ]
+}

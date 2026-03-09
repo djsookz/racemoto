@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/location/MapOrientationSmoother.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388337,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388337,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.location\r\n\r\nimport kotlin.math.abs\r\n\r\nobject MapOrientationSmoother {\r\n    fun computeNextOrientation(\r\n        currentOrientation: Float,\r\n        targetOrientation: Float,\r\n        speed: Float\r\n    ): Float {\r\n        var diff = targetOrientation - currentOrientation\r\n        while (diff > 180f) diff -= 360f\r\n        while (diff < -180f) diff += 360f\r\n\r\n        val smoothingFactor = when {\r\n            abs(diff) > 90f -> 0.15f\r\n            abs(diff) > 45f -> 0.12f\r\n            abs(diff) > 20f -> 0.08f\r\n            speed > 50f -> 0.06f\r\n            speed > 20f -> 0.05f\r\n            else -> 0.04f\r\n        }\r\n\r\n        if (abs(diff) <= 0.5f) {\r\n            return currentOrientation\r\n        }\r\n\r\n        var newOrientation = currentOrientation + diff * smoothingFactor\r\n        while (newOrientation > 360f) newOrientation -= 360f\r\n        while (newOrientation < 0f) newOrientation += 360f\r\n        return newOrientation\r\n    }\r\n}\r\n"
+        }
+    ]
+}

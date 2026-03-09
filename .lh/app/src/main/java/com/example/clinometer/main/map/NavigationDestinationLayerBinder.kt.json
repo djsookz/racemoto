@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/map/NavigationDestinationLayerBinder.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771611554616,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771611554616,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.map\r\n\r\nimport com.mapbox.geojson.Feature\r\nimport com.mapbox.geojson.FeatureCollection\r\nimport com.mapbox.geojson.Point\r\nimport com.mapbox.maps.Style\r\nimport com.mapbox.maps.extension.style.layers.addLayer\r\nimport com.mapbox.maps.extension.style.layers.generated.symbolLayer\r\nimport com.mapbox.maps.extension.style.layers.properties.generated.IconAnchor\r\nimport com.mapbox.maps.extension.style.sources.addSource\r\nimport com.mapbox.maps.extension.style.sources.generated.geoJsonSource\r\n\r\nobject NavigationDestinationLayerBinder {\r\n\r\n    fun bindIfNeeded(style: Style, destination: Point) {\r\n        if (style.styleSourceExists(\"navigation-destination-source\")) {\r\n            return\r\n        }\r\n\r\n        val destinationFeature = Feature.fromGeometry(destination)\r\n        val destinationCollection = FeatureCollection.fromFeatures(listOf(destinationFeature))\r\n\r\n        style.addSource(\r\n            geoJsonSource(\"navigation-destination-source\") {\r\n                featureCollection(destinationCollection)\r\n            }\r\n        )\r\n\r\n        style.addLayer(\r\n            symbolLayer(\"navigation-destination-layer\", \"navigation-destination-source\") {\r\n                iconImage(\"marker-icon\")\r\n                iconSize(1.5)\r\n                iconAnchor(IconAnchor.BOTTOM)\r\n            }\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

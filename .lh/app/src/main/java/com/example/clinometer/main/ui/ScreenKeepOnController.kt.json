@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/ui/ScreenKeepOnController.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771610876251,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771610876251,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.ui\r\n\r\nimport android.app.Activity\r\nimport android.view.WindowManager\r\nimport androidx.preference.PreferenceManager\r\n\r\nobject ScreenKeepOnController {\r\n\r\n    fun setup(activity: Activity) {\r\n        val prefs = PreferenceManager.getDefaultSharedPreferences(activity)\r\n        apply(activity, prefs.getBoolean(\"always_on_display\", false))\r\n\r\n        prefs.registerOnSharedPreferenceChangeListener { shared, key ->\r\n            if (key == \"always_on_display\") {\r\n                apply(activity, shared.getBoolean(key, false))\r\n            }\r\n        }\r\n    }\r\n\r\n    private fun apply(activity: Activity, keepOn: Boolean) {\r\n        if (keepOn) {\r\n            activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)\r\n        } else {\r\n            activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)\r\n        }\r\n    }\r\n}\r\n"
+        }
+    ]
+}

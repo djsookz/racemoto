@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/ui/MainControlsBinder.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771611554620,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771611554620,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.ui\r\n\r\nimport android.view.View\r\nimport android.widget.ImageButton\r\n\r\nobject MainControlsBinder {\r\n\r\n    fun bindSessionControls(\r\n        resetButton: View?,\r\n        resetButtonOverlay: View?,\r\n        zeroButton: View?,\r\n        zeroButtonOverlay: View?,\r\n        stopButton: View?,\r\n        stopButtonOverlay: View?,\r\n        onReset: () -> Unit,\r\n        onZero: () -> Unit,\r\n        onStop: () -> Unit\r\n    ) {\r\n        val resetClickListener = View.OnClickListener { onReset() }\r\n        resetButton?.setOnClickListener(resetClickListener)\r\n        resetButtonOverlay?.setOnClickListener(resetClickListener)\r\n\r\n        val zeroClickListener = View.OnClickListener { onZero() }\r\n        zeroButton?.setOnClickListener(zeroClickListener)\r\n        zeroButtonOverlay?.setOnClickListener(zeroClickListener)\r\n\r\n        val stopClickListener = View.OnClickListener { onStop() }\r\n        stopButton?.setOnClickListener(stopClickListener)\r\n        stopButtonOverlay?.setOnClickListener(stopClickListener)\r\n    }\r\n\r\n    fun bindNavigationCameraButtons(\r\n        isNavigationActive: Boolean,\r\n        hasNavigationCamera: Boolean,\r\n        btnOverview: ImageButton?,\r\n        btnRecenter: ImageButton?,\r\n        cameraNorthModeButton: ImageButton?,\r\n        onRecenter: () -> Unit,\r\n        onOverview: () -> Unit\r\n    ) {\r\n        if (isNavigationActive && hasNavigationCamera) {\r\n            btnOverview?.visibility = View.VISIBLE\r\n            btnRecenter?.visibility = View.VISIBLE\r\n            cameraNorthModeButton?.visibility = View.GONE\r\n\r\n            btnRecenter?.setOnClickListener { onRecenter() }\r\n            btnOverview?.setOnClickListener { onOverview() }\r\n            return\r\n        }\r\n\r\n        btnOverview?.visibility = View.GONE\r\n        btnRecenter?.visibility = View.GONE\r\n        cameraNorthModeButton?.visibility = View.VISIBLE\r\n    }\r\n}\r\n"
+        }
+    ]
+}

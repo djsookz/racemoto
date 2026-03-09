@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/location/MapCameraCenterCalculator.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388338,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388338,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.location\r\n\r\nimport com.example.clinometer.GeoPoint\r\nimport kotlin.math.cos\r\nimport kotlin.math.sin\r\n\r\ndata class CameraCenterResult(\r\n    val latitude: Double,\r\n    val longitude: Double\r\n)\r\n\r\nobject MapCameraCenterCalculator {\r\n    fun compute(\r\n        currentPosition: GeoPoint,\r\n        currentBearing: Float,\r\n        isNorthUpMode: Boolean,\r\n        isLandscape: Boolean,\r\n        density: Float,\r\n        currentZoomValue: Double,\r\n        currentCenterLatitude: Double?,\r\n        currentCenterLongitude: Double?\r\n    ): CameraCenterResult {\r\n        val metersPerPixel = 156543.03392 * cos(Math.toRadians(currentPosition.latitude)) / Math.pow(2.0, currentZoomValue)\r\n\r\n        var offsetMeters = 30 * density * metersPerPixel\r\n        if (isNorthUpMode || isLandscape) {\r\n            offsetMeters = 0.0\r\n        }\r\n\r\n        val bearingRad = Math.toRadians(currentBearing.toDouble())\r\n        val offsetLat = (offsetMeters * cos(bearingRad)) / 111320.0\r\n        val offsetLon = (offsetMeters * sin(bearingRad)) / (111320.0 * cos(Math.toRadians(currentPosition.latitude)))\r\n\r\n        val newLat = currentPosition.latitude + offsetLat\r\n        val newLon = currentPosition.longitude + offsetLon\r\n\r\n        if (currentCenterLatitude == null || currentCenterLongitude == null) {\r\n            return CameraCenterResult(newLat, newLon)\r\n        }\r\n\r\n        val latDiff = newLat - currentCenterLatitude\r\n        val lonDiff = newLon - currentCenterLongitude\r\n\r\n        return CameraCenterResult(\r\n            latitude = currentCenterLatitude + latDiff * 0.12,\r\n            longitude = currentCenterLongitude + lonDiff * 0.12\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

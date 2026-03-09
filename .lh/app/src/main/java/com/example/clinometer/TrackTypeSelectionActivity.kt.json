@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/TrackTypeSelectionActivity.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771932582182,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771932582182,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer\r\n\r\nimport android.content.Intent\r\nimport android.os.Bundle\r\nimport android.view.View\r\nimport android.widget.TextView\r\nimport androidx.appcompat.app.AppCompatActivity\r\nimport com.google.android.material.button.MaterialButton\r\nimport com.example.clinometer.tracking.CustomTrack\r\n\r\nclass TrackTypeSelectionActivity : AppCompatActivity() {\r\n    \r\n    private lateinit var btnCircuit: androidx.cardview.widget.CardView\r\n    private lateinit var btnPointToPoint: androidx.cardview.widget.CardView\r\n    \r\n    override fun onCreate(savedInstanceState: Bundle?) {\r\n        super.onCreate(savedInstanceState)\r\n        setContentView(R.layout.activity_track_type_selection)\r\n        applySystemBarsPaddingToRoot()\r\n        \r\n        initializeViews()\r\n        setupClickListeners()\r\n    }\r\n    \r\n    private fun initializeViews() {\r\n        btnCircuit = findViewById(R.id.btnCircuit)\r\n        btnPointToPoint = findViewById(R.id.btnPointToPoint)\r\n        \r\n        // Back button\r\n        findViewById<TextView>(R.id.btnBack).setOnClickListener {\r\n            onBackPressed()\r\n        }\r\n    }\r\n    \r\n    private fun setupClickListeners() {\r\n        btnCircuit.setOnClickListener {\r\n            startCustomTrackBuilder(CustomTrack.TrackType.CIRCUIT)\r\n        }\r\n        \r\n        btnPointToPoint.setOnClickListener {\r\n            startCustomTrackBuilder(CustomTrack.TrackType.POINT_TO_POINT)\r\n        }\r\n    }\r\n    \r\n    private fun startCustomTrackBuilder(trackType: CustomTrack.TrackType) {\r\n        val intent = Intent(this, CustomTrackBuilderActivity::class.java).apply {\r\n            putExtra(\"track_type\", trackType.name)\r\n        }\r\n        startActivity(intent)\r\n    }\r\n    \r\n    override fun onBackPressed() {\r\n        super.onBackPressed()\r\n        overridePendingTransition(0, 0)\r\n    }\r\n}\r\n"
+        }
+    ]
+}

@@ -17,6 +17,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.clinometer.data.ProfileStorage
+import com.example.clinometer.main.map.SaveSessionActivity
 import java.util.Calendar
 import java.util.Date
 
@@ -209,6 +210,7 @@ class RaceAdapter(
 
         var isRouteLoaded = false  // Flag to prevent reloading route on scroll
         var loadedRaceId: Long? = null  // Track which race is currently loaded
+        var boundRaceId: Long? = null
         var loadSnapshotRunnable: Runnable? = null  // Runnable за отменяне на заявките при скрол
 
         /**
@@ -219,6 +221,7 @@ class RaceAdapter(
         fun loadMiniMapSnapshot(race: Race) {
             val context = itemView.context
             val raceId = race.id
+            miniMapSnapshot.setTag(R.id.tag_route_snapshot_race_id, raceId)
 
             // Проверяваме дали snapshot вече е зареден за този race
             if (isRouteLoaded && loadedRaceId == raceId) {
@@ -237,7 +240,7 @@ class RaceAdapter(
                         // Snapshot съществува - използваме displaySnapshot с празен списък точки
                         // displaySnapshot ще зареди от диска или memory cache
                         android.os.Handler(android.os.Looper.getMainLooper()).post {
-                            if (itemView.isAttachedToWindow && loadedRaceId != raceId) {
+                            if (itemView.isAttachedToWindow && boundRaceId == raceId) {
                                 miniMapSnapshot.visibility = View.VISIBLE
                                 layoutMapPlaceholder.visibility = View.GONE
                                 // Подаваме празен списък - displaySnapshot няма да генерира, ще зареди от диска
@@ -246,10 +249,11 @@ class RaceAdapter(
                                 loadedRaceId = raceId
                             }
                         }
+
                     } else {
                         // 2. Ако го няма, показваме placeholder и пускаме генератора в background
                         android.os.Handler(android.os.Looper.getMainLooper()).post {
-                            if (itemView.isAttachedToWindow && loadedRaceId != raceId) {
+                            if (itemView.isAttachedToWindow && boundRaceId == raceId) {
                                 miniMapSnapshot.visibility = View.GONE
                                 layoutMapPlaceholder.visibility = View.VISIBLE
                             }
@@ -262,26 +266,30 @@ class RaceAdapter(
                             
                             // Използваме displaySnapshot - тя автоматично ще генерира snapshot
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                miniMapSnapshot.visibility = View.VISIBLE
-                                layoutMapPlaceholder.visibility = View.GONE
-                                RouteSnapshotGenerator.displaySnapshot(miniMapSnapshot, raceId, sampled)
-                                isRouteLoaded = true
-                                loadedRaceId = raceId
+                                if (itemView.isAttachedToWindow && boundRaceId == raceId) {
+                                    miniMapSnapshot.visibility = View.VISIBLE
+                                    layoutMapPlaceholder.visibility = View.GONE
+                                    RouteSnapshotGenerator.displaySnapshot(miniMapSnapshot, raceId, sampled)
+                                    isRouteLoaded = true
+                                    loadedRaceId = raceId
+                                }
                             }
                         } else {
                             // Няма route points - показваме placeholder
                             android.os.Handler(android.os.Looper.getMainLooper()).post {
-                                miniMapSnapshot.visibility = View.GONE
-                                layoutMapPlaceholder.visibility = View.VISIBLE
-                                isRouteLoaded = false
-                                loadedRaceId = null
+                                if (itemView.isAttachedToWindow && boundRaceId == raceId) {
+                                    miniMapSnapshot.visibility = View.GONE
+                                    layoutMapPlaceholder.visibility = View.VISIBLE
+                                    isRouteLoaded = false
+                                    loadedRaceId = null
+                                }
                             }
                         }
                     }
                 } catch (e: Exception) {
                     Log.e("RaceAdapter", "Error loading snapshot: raceId=$raceId", e)
                     android.os.Handler(android.os.Looper.getMainLooper()).post {
-                        if (itemView.isAttachedToWindow) {
+                        if (itemView.isAttachedToWindow && boundRaceId == raceId) {
                             miniMapSnapshot.visibility = View.GONE
                             layoutMapPlaceholder.visibility = View.VISIBLE
                         }
@@ -312,6 +320,8 @@ class RaceAdapter(
             return
         }
         val race = races.getOrNull(adapterPosition) ?: return
+        holder.boundRaceId = race.id
+        holder.miniMapSnapshot.setTag(R.id.tag_route_snapshot_race_id, race.id)
         Log.d("RaceAdapter", "🔵 onBindViewHolder START: position=$position, adapterPosition=$adapterPosition, raceId=${race.id}, payloads=$payloads")
         
         // Ако има payload "favorite_changed", обновяваме само favorite иконата
@@ -468,6 +478,7 @@ class RaceAdapter(
                     val currentAdapterPosition = holder.adapterPosition
                     if (currentAdapterPosition != RecyclerView.NO_POSITION &&
                         races.getOrNull(currentAdapterPosition)?.id == race.id &&
+                        holder.boundRaceId == race.id &&
                         holder.itemView.parent != null &&
                         holder.itemView.isAttachedToWindow) {
                         if (!holder.isRouteLoaded || holder.loadedRaceId != race.id) {
@@ -605,6 +616,8 @@ class RaceAdapter(
             holder.itemView.removeCallbacks(runnable)
             holder.loadSnapshotRunnable = null
         }
+        holder.boundRaceId = null
+        holder.miniMapSnapshot.setTag(R.id.tag_route_snapshot_race_id, null)
         // НЕ нулираме isRouteLoaded и loadedRaceId - оставяме картите заредени за да не се презареждат при скрол
     }
     

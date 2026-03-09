@@ -41,14 +41,17 @@ class SettingsFragment : Fragment() {
     private lateinit var cardDistanceUnit: MaterialCardView
     private lateinit var cardTemperatureUnit: MaterialCardView
     private lateinit var cardDragCalibration: MaterialCardView
+    private lateinit var cardLeanCalibration: MaterialCardView
     private lateinit var cardTrackEditor: MaterialCardView
     private lateinit var cardBatteryOptimization: MaterialCardView
+    private lateinit var dividerLeanCalibration: View
     
     private lateinit var tvLanguageValue: TextView
     private lateinit var tvSpeedUnitValue: TextView
     private lateinit var tvDistanceUnitValue: TextView
     private lateinit var tvTemperatureUnitValue: TextView
     private lateinit var tvDragCalibrationStatus: TextView
+    private lateinit var tvLeanCalibrationStatus: TextView
     private lateinit var tvBatteryOptimizationStatus: TextView
     
     override fun onCreateView(
@@ -84,14 +87,17 @@ class SettingsFragment : Fragment() {
         cardDistanceUnit = view.findViewById(R.id.cardDistanceUnit)
         cardTemperatureUnit = view.findViewById(R.id.cardTemperatureUnit)
         cardDragCalibration = view.findViewById(R.id.cardDragCalibration)
+        cardLeanCalibration = view.findViewById(R.id.cardLeanCalibration)
         cardTrackEditor = view.findViewById(R.id.cardTrackEditor)
         cardBatteryOptimization = view.findViewById(R.id.cardBatteryOptimization)
+        dividerLeanCalibration = view.findViewById(R.id.dividerLeanCalibration)
         
         tvLanguageValue = view.findViewById(R.id.tvLanguageValue)
         tvSpeedUnitValue = view.findViewById(R.id.tvSpeedUnitValue)
         tvDistanceUnitValue = view.findViewById(R.id.tvDistanceUnitValue)
         tvTemperatureUnitValue = view.findViewById(R.id.tvTemperatureUnitValue)
         tvDragCalibrationStatus = view.findViewById(R.id.tvDragCalibrationStatus)
+        tvLeanCalibrationStatus = view.findViewById(R.id.tvLeanCalibrationStatus)
         tvBatteryOptimizationStatus = view.findViewById(R.id.tvBatteryOptimizationStatus)
     }
     
@@ -138,6 +144,14 @@ class SettingsFragment : Fragment() {
             }
             startActivity(intent)
         }
+
+        cardLeanCalibration.setOnClickListener {
+            val profileId = ProfileStorage.getSelectedProfileId(requireContext())
+            val intent = Intent(requireContext(), LeanCalibrationActivity::class.java).apply {
+                putExtra("PROFILE_ID", profileId)
+            }
+            startActivity(intent)
+        }
         
         cardLanguage.setOnClickListener { showLanguageDialog() }
         
@@ -163,7 +177,17 @@ class SettingsFragment : Fragment() {
         tvTemperatureUnitValue.text = getString(UnitsManager.getTemperatureUnit(requireContext()).displayNameResId)
         
         updateDragCalibrationStatus()
+        updateLeanCalibrationStatus()
+        updateVehicleSpecificCards()
         updateBatteryOptimizationStatus()
+    }
+
+    private fun updateVehicleSpecificCards() {
+        val selectedProfileId = ProfileStorage.getSelectedProfileId(requireContext())
+        val selectedProfile = ProfileStorage.loadProfiles(requireContext()).find { it.id == selectedProfileId }
+        val isMotorcycle = selectedProfile?.vehicleType == Profile.VehicleType.MOTORCYCLE
+        cardLeanCalibration.visibility = if (isMotorcycle) View.VISIBLE else View.GONE
+        dividerLeanCalibration.visibility = if (isMotorcycle) View.VISIBLE else View.GONE
     }
     
     private fun updateBatteryOptimizationStatus() {
@@ -197,10 +221,31 @@ class SettingsFragment : Fragment() {
             tvDragCalibrationStatus.text = "$statusText - ${getString(R.string.calibration_not_calibrated)}"
         }
     }
+
+    private fun updateLeanCalibrationStatus() {
+        val profileId = ProfileStorage.getSelectedProfileId(requireContext())
+        val snapshot = LeanCalibrationStore.loadSnapshot(requireContext(), profileId)
+
+        val portraitStatus = if (snapshot.portraitCalibrated) "P:OK" else "P:--"
+        val landscapeStatus = if (snapshot.landscapeCalibrated) "L:OK" else "L:--"
+        val statusPrefix = "$portraitStatus  $landscapeStatus"
+
+        if (snapshot.hasAnyCalibration()) {
+            val latestTime = maxOf(snapshot.portraitTimestamp, snapshot.landscapeTimestamp)
+            val dateFormat = java.text.SimpleDateFormat("dd.MM HH:mm", java.util.Locale.getDefault())
+            tvLeanCalibrationStatus.text = "$statusPrefix - ${dateFormat.format(latestTime)}"
+            tvLeanCalibrationStatus.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.holo_green_light))
+        } else {
+            tvLeanCalibrationStatus.text = "$statusPrefix - ${getString(R.string.calibration_not_calibrated)}"
+            tvLeanCalibrationStatus.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.holo_orange_light))
+        }
+    }
     
     override fun onResume() {
         super.onResume()
         updateDragCalibrationStatus()
+        updateLeanCalibrationStatus()
+        updateVehicleSpecificCards()
         updateBatteryOptimizationStatus()
     }
     

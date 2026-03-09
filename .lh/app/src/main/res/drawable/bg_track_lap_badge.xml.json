@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/drawable/bg_track_lap_badge.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1772702075688,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1772702075688,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<shape xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:shape=\"rectangle\">\r\n    <corners android:radius=\"3dp\" />\r\n    <solid android:color=\"#FF8A00\" />\r\n    <stroke\r\n        android:width=\"1dp\"\r\n        android:color=\"#FFB347\" />\r\n</shape>\r\n"
+        }
+    ]
+}

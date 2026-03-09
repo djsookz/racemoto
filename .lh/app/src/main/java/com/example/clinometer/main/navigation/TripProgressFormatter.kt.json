@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/navigation/TripProgressFormatter.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388338,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388338,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.navigation\r\n\r\nimport java.text.SimpleDateFormat\r\nimport java.util.Calendar\r\nimport java.util.Locale\r\n\r\ndata class TripProgressTextModel(\r\n    val etaText: String,\r\n    val timeRemainingText: String,\r\n    val distanceRemainingText: String\r\n)\r\n\r\nobject TripProgressFormatter {\r\n    fun format(distanceRemainingMeters: Float, durationRemainingSeconds: Long): TripProgressTextModel {\r\n        val distanceKm = (distanceRemainingMeters / 1000f).toInt().coerceAtLeast(0)\r\n        val distanceRemainingText = distanceKm.toString()\r\n\r\n        val totalMinutes = (durationRemainingSeconds / 60).toInt()\r\n        val hours = totalMinutes / 60\r\n        val minutes = totalMinutes % 60\r\n        val timeRemainingText = if (hours > 0) \"${hours}ч ${minutes}м\" else \"${minutes}м\"\r\n\r\n        val calendar = Calendar.getInstance()\r\n        calendar.add(Calendar.SECOND, durationRemainingSeconds.toInt())\r\n        val etaText = SimpleDateFormat(\"HH:mm\", Locale.getDefault()).format(calendar.time)\r\n\r\n        return TripProgressTextModel(\r\n            etaText = etaText,\r\n            timeRemainingText = timeRemainingText,\r\n            distanceRemainingText = distanceRemainingText\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

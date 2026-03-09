@@ -32,6 +32,18 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:tint="#FFFFFF" />
+            <ImageView
+                android:id="@+id/btnPreviousLap"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="2dp"
+                android:padding="8dp"
+                android:src="@drawable/ic_arrow_back"
+                android:visibility="gone"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/tvSessionTitle"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="#FFFFFF" />
             <TextView
                 android:id="@+id/tvSessionTitle"
                 android:layout_width="0dp"
@@ -48,6 +60,36 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
+            <ImageView
+                android:id="@+id/btnNextLap"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="6dp"
+                android:padding="8dp"
+                android:rotation="180"
+                android:src="@drawable/ic_arrow_back"
+                android:visibility="gone"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/btnCompareLap"
+                app:layout_constraintStart_toEndOf="@id/tvSessionTitle"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="#FFFFFF" />
+
+            <ImageView
+                android:id="@+id/btnCompareLap"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="10dp"
+                android:background="@drawable/bg_stat_item"
+                android:contentDescription="@string/compare_attempts"
+                android:padding="8dp"
+                android:src="@drawable/ic_compare"
+                android:visibility="gone"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="#FFFFFF" />
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <androidx.core.widget.NestedScrollView
@@ -133,6 +175,7 @@
 
                 <!-- Chart Card -->
                 <androidx.cardview.widget.CardView
+                    android:id="@+id/cardChart"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="16dp"
@@ -168,6 +211,7 @@
 
                 <!-- Statistics Grid Section -->
                 <TextView
+                    android:id="@+id/tvStatisticsHeader"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"
@@ -180,6 +224,7 @@
                     android:textSize="13sp" />
 
                 <GridLayout
+                    android:id="@+id/gridStatistics"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:columnCount="2"

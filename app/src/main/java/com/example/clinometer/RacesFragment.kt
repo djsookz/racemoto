@@ -17,6 +17,8 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.clinometer.data.ProfileStorage
+import com.example.clinometer.main.MainContainerActivity
+import com.example.clinometer.main.map.MapActivity
 import com.example.clinometer.settings.LanguageManager
 import com.google.android.material.button.MaterialButton
 
@@ -424,7 +426,7 @@ class RacesFragment : Fragment() {
         } else {
             // Fallback ако не сме в MainContainerActivity
             val intent = Intent(requireContext(), MainContainerActivity::class.java).apply {
-                putExtra("NAV_ITEM_ID", R.id.navMap)
+                putExtra(MainContainerActivity.EXTRA_NAV_ITEM_ID, R.id.navMap)
             }
             startActivity(intent)
             activity.finish()

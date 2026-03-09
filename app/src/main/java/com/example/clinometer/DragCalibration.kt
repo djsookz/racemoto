@@ -686,6 +686,22 @@ object DragCalibration {
                linearAccel[1] * forwardVector[1] +
                linearAccel[2] * forwardVector[2]
     }
+
+    fun getSignedForwardAccelerationFromLinear(linearAccel: FloatArray): Float {
+        if (!isUniversalCalibrated) return 0f
+
+        return linearAccel[0] * forwardVector[0] +
+               linearAccel[1] * forwardVector[1] +
+               linearAccel[2] * forwardVector[2]
+    }
+
+    fun getSignedLateralAccelerationFromLinear(linearAccel: FloatArray): Float {
+        if (!isUniversalCalibrated) return 0f
+
+        return linearAccel[0] * rightVector[0] +
+               linearAccel[1] * rightVector[1] +
+               linearAccel[2] * rightVector[2]
+    }
     
     /**
      * DEPRECATED: Използвай getLinearAcceleration(rawAccel, isLandscape) вместо това!

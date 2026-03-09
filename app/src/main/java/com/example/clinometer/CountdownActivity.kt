@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.example.clinometer.main.MainActivity
 
 class CountdownActivity : AppCompatActivity() {
 

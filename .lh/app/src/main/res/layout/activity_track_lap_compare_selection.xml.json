@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/layout/activity_track_lap_compare_selection.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1772199955898,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1772199955898,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<androidx.constraintlayout.widget.ConstraintLayout\r\n    xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    xmlns:app=\"http://schemas.android.com/apk/res-auto\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"match_parent\"\r\n    android:fitsSystemWindows=\"true\"\r\n    android:background=\"@color/background_dark\">\r\n\r\n    <LinearLayout\r\n        android:id=\"@+id/llHeader\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:orientation=\"horizontal\"\r\n        android:padding=\"16dp\"\r\n        android:gravity=\"center_vertical\"\r\n        app:layout_constraintTop_toTopOf=\"parent\"\r\n        app:layout_constraintStart_toStartOf=\"parent\"\r\n        app:layout_constraintEnd_toEndOf=\"parent\">\r\n\r\n        <ImageButton\r\n            android:id=\"@+id/btnBack\"\r\n            android:layout_width=\"40dp\"\r\n            android:layout_height=\"40dp\"\r\n            android:src=\"@drawable/ic_arrow_back\"\r\n            android:background=\"?attr/selectableItemBackgroundBorderless\"\r\n            app:tint=\"@color/white\" />\r\n\r\n        <TextView\r\n            android:layout_width=\"0dp\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:layout_weight=\"1\"\r\n            android:layout_marginStart=\"16dp\"\r\n            android:text=\"@string/track_select_lap_to_compare\"\r\n            android:textSize=\"28sp\"\r\n            android:textStyle=\"bold\"\r\n            android:textColor=\"@color/text_primary\" />\r\n    </LinearLayout>\r\n\r\n    <androidx.recyclerview.widget.RecyclerView\r\n        android:id=\"@+id/rvSessions\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"0dp\"\r\n        android:paddingStart=\"8dp\"\r\n        android:paddingEnd=\"8dp\"\r\n        android:paddingBottom=\"8dp\"\r\n        android:clipToPadding=\"false\"\r\n        app:layout_constraintTop_toBottomOf=\"@id/llHeader\"\r\n        app:layout_constraintBottom_toBottomOf=\"parent\"\r\n        app:layout_constraintStart_toStartOf=\"parent\"\r\n        app:layout_constraintEnd_toEndOf=\"parent\" />\r\n\r\n</androidx.constraintlayout.widget.ConstraintLayout>\r\n"
+        }
+    ]
+}

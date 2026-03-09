@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/track/catalog/CustomTrackDefinitionMapper.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771921694383,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771921694383,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.track.catalog\r\n\r\nimport com.example.clinometer.GeoPoint\r\nimport com.example.clinometer.tracking.CustomTrack\r\n\r\nobject CustomTrackDefinitionMapper {\r\n    fun fromCustomTrack(track: CustomTrack): TrackDefinition {\r\n        val mode = when (track.type) {\r\n            CustomTrack.TrackType.CIRCUIT -> TrackMode.CIRCUIT\r\n            CustomTrack.TrackType.POINT_TO_POINT -> TrackMode.POINT_TO_POINT\r\n        }\r\n\r\n        val lapSequence = when (track.type) {\r\n            CustomTrack.TrackType.CIRCUIT -> buildCircuitLapSequence(track)\r\n            CustomTrack.TrackType.POINT_TO_POINT -> buildPointToPointLapSequence(track)\r\n        }\r\n\r\n        val startFinishGate = track.points\r\n            .filter { it.pointType == CustomTrack.TrackPoint.PointType.START_FINISH }\r\n            .take(2)\r\n            .let { points ->\r\n                when {\r\n                    points.size >= 2 -> TrackGate(points[0].geoPoint, points[1].geoPoint)\r\n                    points.size == 1 -> TrackGate(points[0].geoPoint, points[0].geoPoint)\r\n                    else -> null\r\n                }\r\n            }\r\n\r\n        return TrackDefinition(\r\n            id = track.id,\r\n            name = track.name,\r\n            description = \"Custom ${mode.name.lowercase().replace('_', '-')}\",\r\n            country = \"Custom\",\r\n            lengthKm = 0.0,\r\n            turns = 0,\r\n            mode = mode,\r\n            gpxResourceId = null,\r\n            startFinishGate = startFinishGate,\r\n            lapSequence = lapSequence\r\n        )\r\n    }\r\n\r\n    private fun buildCircuitLapSequence(track: CustomTrack): List<GeoPoint> {\r\n        val startFinish = track.points\r\n            .filter { it.pointType == CustomTrack.TrackPoint.PointType.START_FINISH }\r\n            .map { it.geoPoint }\r\n\r\n        if (startFinish.size >= 2) {\r\n            val p1 = startFinish[0]\r\n            val p2 = startFinish[1]\r\n            return listOf(p1, p2, p1, p2)\r\n        }\r\n\r\n        val fallback = track.points.firstOrNull()?.geoPoint\r\n        return if (fallback != null) listOf(fallback) else emptyList()\r\n    }\r\n\r\n    private fun buildPointToPointLapSequence(track: CustomTrack): List<GeoPoint> {\r\n        val starts = track.points\r\n            .filter { it.pointType == CustomTrack.TrackPoint.PointType.START }\r\n            .map { it.geoPoint }\r\n        val snaps = track.points\r\n            .filter { it.pointType == CustomTrack.TrackPoint.PointType.SNAP_HELPER }\r\n            .map { it.geoPoint }\r\n        val finishes = track.points\r\n            .filter { it.pointType == CustomTrack.TrackPoint.PointType.FINISH }\r\n            .map { it.geoPoint }\r\n\r\n        return starts + snaps + finishes\r\n    }\r\n}\r\n"
+        }
+    ]
+}

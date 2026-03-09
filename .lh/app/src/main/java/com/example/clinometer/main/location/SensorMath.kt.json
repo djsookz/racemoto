@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/location/SensorMath.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388615,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388615,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.location\r\n\r\nobject SensorMath {\r\n    fun smoothBearing(currentBearing: Float, azimuth: Float): Float {\r\n        var bearingDiff = azimuth - currentBearing\r\n        while (bearingDiff > 180) bearingDiff -= 360\r\n        while (bearingDiff < -180) bearingDiff += 360\r\n\r\n        var smoothedBearing = currentBearing + bearingDiff * 0.2f\r\n        while (smoothedBearing < 0) smoothedBearing += 360\r\n        while (smoothedBearing > 360) smoothedBearing -= 360\r\n\r\n        return smoothedBearing\r\n    }\r\n\r\n    fun lowPass(input: FloatArray, output: FloatArray?): FloatArray {\r\n        if (output == null) return input\r\n\r\n        val alpha = 0.8f\r\n        for (i in input.indices) {\r\n            output[i] = output[i] + alpha * (input[i] - output[i])\r\n        }\r\n        return output\r\n    }\r\n}\r\n"
+        }
+    ]
+}

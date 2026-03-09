@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/test/java/com/example/clinometer/main/state/MainUiStateViewModelTest.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388333,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388333,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.state\r\n\r\nimport org.junit.Assert.assertEquals\r\nimport org.junit.Assert.assertFalse\r\nimport org.junit.Assert.assertTrue\r\nimport org.junit.Test\r\n\r\nclass MainUiStateViewModelTest {\r\n\r\n    @Test\r\n    fun navigationState_updatesCurrentPage() {\r\n        val viewModel = MainUiStateViewModel()\r\n\r\n        viewModel.setCurrentPage(3)\r\n\r\n        assertEquals(3, viewModel.uiState.value.navigation.currentPage)\r\n    }\r\n\r\n    @Test\r\n    fun tripProgressState_updatesValues() {\r\n        val viewModel = MainUiStateViewModel()\r\n\r\n        viewModel.updateTripProgress(\r\n            remainingDistanceMeters = 1540.0,\r\n            remainingTimeSeconds = 320,\r\n            etaText = \"12:40\"\r\n        )\r\n\r\n        val state = viewModel.uiState.value.tripProgress\r\n        assertEquals(1540.0, state.remainingDistanceMeters, 0.0)\r\n        assertEquals(320, state.remainingTimeSeconds)\r\n        assertEquals(\"12:40\", state.etaText)\r\n    }\r\n\r\n    @Test\r\n    fun routePreviewState_updatesValues() {\r\n        val viewModel = MainUiStateViewModel()\r\n\r\n        viewModel.setRoutePreview(\r\n            hasRoute = true,\r\n            destinationName = \"Center\",\r\n            routeDistanceText = \"3.2 km\",\r\n            routeDurationText = \"8 min\"\r\n        )\r\n\r\n        val state = viewModel.uiState.value.routePreview\r\n        assertTrue(state.hasRoute)\r\n        assertEquals(\"Center\", state.destinationName)\r\n        assertEquals(\"3.2 km\", state.routeDistanceText)\r\n        assertEquals(\"8 min\", state.routeDurationText)\r\n\r\n        viewModel.setRoutePreview(false, null, \"\", \"\")\r\n        assertFalse(viewModel.uiState.value.routePreview.hasRoute)\r\n    }\r\n}\r\n"
+        }
+    ]
+}

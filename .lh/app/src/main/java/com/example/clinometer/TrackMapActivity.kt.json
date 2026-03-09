@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/TrackMapActivity.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771932582182,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771932582182,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer\r\n\r\nimport android.content.Intent\r\nimport android.os.Bundle\r\nimport android.widget.TextView\r\nimport androidx.appcompat.app.AppCompatActivity\r\nimport org.osmdroid.config.Configuration\r\nimport org.osmdroid.tileprovider.tilesource.TileSourceFactory\r\nimport org.osmdroid.views.MapView\r\nimport androidx.preference.PreferenceManager\r\n\r\nclass TrackMapActivity : AppCompatActivity() {\r\n    \r\n    private lateinit var map: MapView\r\n    private lateinit var tvTrackTitle: TextView\r\n    private lateinit var trackManager: TrackManager\r\n    private var trackId: String = \"\"\r\n    private var trackName: String = \"\"\r\n    \r\n    override fun onCreate(savedInstanceState: Bundle?) {\r\n        super.onCreate(savedInstanceState)\r\n        Configuration.getInstance().load(\r\n            applicationContext,\r\n            PreferenceManager.getDefaultSharedPreferences(applicationContext)\r\n        )\r\n        \r\n        // Default OSMDroid configuration\r\n        setContentView(R.layout.activity_track_map)\r\n        applySystemBarsPaddingToRoot()\r\n        \r\n        // Get track data from intent\r\n        trackId = intent.getStringExtra(\"track_id\") ?: \"\"\r\n        trackName = intent.getStringExtra(\"track_name\") ?: \"Track\"\r\n        \r\n        initializeViews()\r\n        setupClickListeners()\r\n        setupMap()\r\n    }\r\n    \r\n    private fun initializeViews() {\r\n        map = findViewById(R.id.mapTrack)\r\n        tvTrackTitle = findViewById(R.id.tvTrackTitle)\r\n        trackManager = TrackManager(this)\r\n    }\r\n    \r\n    private fun setupClickListeners() {\r\n        findViewById<TextView>(R.id.btnBack).setOnClickListener {\r\n            onBackPressed()\r\n        }\r\n    }\r\n    \r\n    private fun setupMap() {\r\n        map.setTileSource(TileSourceFactory.MAPNIK)\r\n        map.setMultiTouchControls(true)\r\n        \r\n        // Set track title\r\n        tvTrackTitle.text = trackName\r\n        \r\n        // Load and display track\r\n        if (trackId.isNotEmpty()) {\r\n            trackManager.setupTrackOnMap(map, trackId)\r\n        }\r\n    }\r\n    \r\n    override fun onBackPressed() {\r\n        super.onBackPressed()\r\n        overridePendingTransition(0, 0)\r\n    }\r\n}\r\n"
+        }
+    ]
+}

@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/location/MapMotionSmoother.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388338,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388338,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.location\r\n\r\nimport com.example.clinometer.GeoPoint\r\nimport kotlin.math.abs\r\n\r\ndata class MapMotionSmoothingResult(\r\n    val position: GeoPoint,\r\n    val bearing: Float\r\n)\r\n\r\nobject MapMotionSmoother {\r\n    fun compute(\r\n        currentPosition: GeoPoint,\r\n        currentBearing: Float,\r\n        targetPosition: GeoPoint,\r\n        targetBearing: Float,\r\n        progress: Float,\r\n        distanceToManeuver: Double?\r\n    ): MapMotionSmoothingResult {\r\n        val smoothingFactor = when {\r\n            distanceToManeuver == null -> 0.3f\r\n            distanceToManeuver < 50.0 -> 0.7f\r\n            distanceToManeuver < 100.0 -> 0.5f\r\n            else -> 0.4f\r\n        }\r\n\r\n        val smoothNewLat = currentPosition.latitude + (targetPosition.latitude - currentPosition.latitude) * progress * smoothingFactor\r\n        val smoothNewLon = currentPosition.longitude + (targetPosition.longitude - currentPosition.longitude) * progress * smoothingFactor\r\n        val smoothPosition = GeoPoint(smoothNewLat, smoothNewLon)\r\n\r\n        var bearingDiff = targetBearing - currentBearing\r\n        while (bearingDiff > 180f) bearingDiff -= 360f\r\n        while (bearingDiff < -180f) bearingDiff += 360f\r\n\r\n        val bearingSmoothing = when {\r\n            abs(bearingDiff) > 90f -> 0.1f\r\n            abs(bearingDiff) > 45f -> 0.15f\r\n            else -> 0.25f\r\n        }\r\n\r\n        val smoothBearing = currentBearing + bearingDiff * bearingSmoothing\r\n        val normalizedBearing = ((smoothBearing % 360f) + 360f) % 360f\r\n\r\n        return MapMotionSmoothingResult(\r\n            position = smoothPosition,\r\n            bearing = normalizedBearing\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

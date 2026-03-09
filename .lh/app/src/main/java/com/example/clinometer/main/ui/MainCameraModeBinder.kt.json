@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/ui/MainCameraModeBinder.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771672821084,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771672821084,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.ui\r\n\r\nimport com.example.clinometer.R\r\nimport com.mapbox.maps.CameraOptions\r\nimport com.mapbox.maps.MapView\r\nimport android.widget.ImageButton\r\n\r\nobject MainCameraModeBinder {\r\n\r\n    fun bindToggle(\r\n        button: ImageButton?,\r\n        isNavigationActive: Boolean,\r\n        hasNavigationCamera: Boolean,\r\n        onToggle: () -> Unit\r\n    ) {\r\n        button?.setOnClickListener {\r\n            if (isNavigationActive && hasNavigationCamera) return@setOnClickListener\r\n            onToggle()\r\n        }\r\n    }\r\n\r\n    fun updateIcon(button: ImageButton?, isNorthUpMode: Boolean) {\r\n        if (isNorthUpMode) {\r\n            button?.setImageResource(R.drawable.ic_map_compass)\r\n            button?.imageAlpha = 255\r\n        } else {\r\n            button?.setImageResource(R.drawable.ic_map_heading)\r\n            button?.imageAlpha = (255 * 0.85f).toInt()\r\n        }\r\n    }\r\n\r\n    fun applyCameraMode(mapView: MapView?, isNorthUpMode: Boolean, targetMapOrientation: Float, pitch: Double) {\r\n        val currentCenter = mapView?.mapboxMap?.cameraState?.center\r\n        val currentZoom = mapView?.mapboxMap?.cameraState?.zoom ?: return\r\n        val bearing = if (isNorthUpMode) 0.0 else (-targetMapOrientation).toDouble()\r\n\r\n        mapView.mapboxMap.setCamera(\r\n            CameraOptions.Builder()\r\n                .center(currentCenter)\r\n                .zoom(currentZoom)\r\n                .bearing(bearing)\r\n                .pitch(pitch)\r\n                .build()\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

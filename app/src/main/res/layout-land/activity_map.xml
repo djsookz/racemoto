@@ -35,6 +35,18 @@
                 android:padding="8dp"
                 android:contentDescription="Назад" />
 
+            <ImageView
+                android:id="@+id/btnPreviousLap"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_centerVertical="true"
+                android:layout_toStartOf="@id/tvSessionTitle"
+                android:layout_marginEnd="2dp"
+                android:padding="8dp"
+                android:src="@drawable/ic_arrow_back"
+                android:tint="#FFFFFF"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/tvSessionTitle"
                 android:layout_width="match_parent"
@@ -49,6 +61,19 @@
                 android:textSize="20sp"
                 android:ellipsize="end"
                 android:singleLine="true" />
+
+            <ImageView
+                android:id="@+id/btnNextLap"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_centerVertical="true"
+                android:layout_toEndOf="@id/tvSessionTitle"
+                android:layout_marginStart="2dp"
+                android:padding="8dp"
+                android:rotation="180"
+                android:src="@drawable/ic_arrow_back"
+                android:tint="#FFFFFF"
+                android:visibility="gone" />
         </RelativeLayout>
 
         <androidx.core.widget.NestedScrollView
@@ -120,6 +145,7 @@
                 </LinearLayout>
 
                 <androidx.cardview.widget.CardView
+                    android:id="@+id/cardChart"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="2dp">
@@ -159,6 +185,7 @@
                 </androidx.cardview.widget.CardView>
 
                 <androidx.cardview.widget.CardView
+                    android:id="@+id/cardStatistics"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="@dimen/card_margin">

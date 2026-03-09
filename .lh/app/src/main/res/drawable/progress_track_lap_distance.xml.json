@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/drawable/progress_track_lap_distance.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1772702075533,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1772702075533,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<layer-list xmlns:android=\"http://schemas.android.com/apk/res/android\">\r\n    <item android:id=\"@android:id/background\">\r\n        <shape android:shape=\"rectangle\">\r\n            <corners android:radius=\"2dp\" />\r\n            <solid android:color=\"#7A3E00\" />\r\n        </shape>\r\n    </item>\r\n\r\n    <item android:id=\"@android:id/progress\">\r\n        <clip>\r\n            <shape android:shape=\"rectangle\">\r\n                <corners android:radius=\"2dp\" />\r\n                <solid android:color=\"#FF8A00\" />\r\n            </shape>\r\n        </clip>\r\n    </item>\r\n</layer-list>\r\n"
+        }
+    ]
+}

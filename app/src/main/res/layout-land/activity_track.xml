@@ -104,26 +104,6 @@
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnViewTrack"
-            android:layout_width="wrap_content"
-            android:layout_height="36dp"
-            android:minHeight="0dp"
-            android:text="@string/track_button_view"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:textColor="@color/white"
-            android:paddingHorizontal="16dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:layout_marginStart="12dp"
-            android:visibility="gone"
-            app:cornerRadius="18dp"
-            app:icon="@drawable/ic_map"
-            app:iconGravity="textStart"
-            app:iconPadding="6dp"
-            app:iconSize="16dp"
-            app:backgroundTint="@color/accent_blue" />
     </LinearLayout>
 
     <!-- Bottom navigation is handled by MainContainerActivity - removed from here -->

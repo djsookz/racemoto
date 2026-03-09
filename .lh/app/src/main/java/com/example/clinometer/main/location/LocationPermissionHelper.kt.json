@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/location/LocationPermissionHelper.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771672820922,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771672820922,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.location\r\n\r\nimport android.Manifest\r\nimport android.app.Activity\r\nimport android.content.pm.PackageManager\r\nimport android.os.Build\r\nimport androidx.core.app.ActivityCompat\r\nimport androidx.core.content.ContextCompat\r\n\r\nobject LocationPermissionHelper {\r\n\r\n    fun ensure(activity: Activity, requestCode: Int): Boolean {\r\n        val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {\r\n            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.FOREGROUND_SERVICE_LOCATION)\r\n        } else {\r\n            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)\r\n        }\r\n\r\n        val allGranted = requiredPermissions.all {\r\n            ContextCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED\r\n        }\r\n\r\n        if (!allGranted) {\r\n            ActivityCompat.requestPermissions(activity, requiredPermissions, requestCode)\r\n        }\r\n        return allGranted\r\n    }\r\n}\r\n"
+        }
+    ]
+}

@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/track/TrackMapExtras.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1772455931577,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1772455931577,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.track\r\n\r\nobject TrackMapExtras {\r\n    const val EXTRA_TRACK_CONTEXT = \"track_context\"\r\n    const val EXTRA_TRACK_ID = \"track_id\"\r\n    const val EXTRA_TRACK_NAME = \"track_name\"\r\n    const val EXTRA_TRACK_IS_MOTORCYCLE = \"track_is_motorcycle\"\r\n    const val EXTRA_TRACK_SESSION_ID = \"track_session_id\"\r\n    const val EXTRA_TRACK_LAP_NUMBER = \"track_lap_number\"\r\n    const val EXTRA_TRACK_OUTING_NUMBER = \"track_outing_number\"\r\n    const val EXTRA_TRACK_IS_POINT_TO_POINT = \"track_is_point_to_point\"\r\n}\r\n"
+        }
+    ]
+}

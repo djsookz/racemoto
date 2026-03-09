@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/map/MapStyleReadyHandler.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771610876253,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771610876253,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.map\r\n\r\nimport android.view.View\r\nimport com.mapbox.geojson.LineString\r\nimport com.mapbox.maps.MapView\r\nimport com.mapbox.maps.Style\r\n\r\nobject MapStyleReadyHandler {\r\n\r\n    fun handle(\r\n        style: Style,\r\n        mapView: MapView?,\r\n        isNavigationActive: Boolean,\r\n        navigationRouteGeometry: LineString?,\r\n        setupSdkNavigationOnStyle: (Style) -> Unit,\r\n        updateUiForProfile: () -> Unit,\r\n        setupNavigationRouteFallback: (Style) -> Unit,\r\n        requestInitialSdkRouteIfPossible: () -> Unit\r\n    ) {\r\n        setupSdkNavigationOnStyle(style)\r\n        mapView?.visibility = View.VISIBLE\r\n\r\n        if (!isNavigationActive) {\r\n            return\r\n        }\r\n\r\n        updateUiForProfile()\r\n\r\n        if (navigationRouteGeometry != null) {\r\n            try {\r\n                setupNavigationRouteFallback(style)\r\n            } catch (_: Throwable) {\r\n            }\r\n        }\r\n\r\n        requestInitialSdkRouteIfPossible()\r\n    }\r\n}\r\n"
+        }
+    ]
+}

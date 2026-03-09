@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/test/java/com/example/clinometer/main/navigation/NavigationControllerTest.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388333,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388333,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.navigation\r\n\r\nimport com.example.clinometer.R\r\nimport com.example.clinometer.main.MainContainerActivity\r\nimport org.junit.Assert.assertEquals\r\nimport org.junit.Test\r\n\r\nclass NavigationControllerTest {\r\n\r\n    @Test\r\n    fun navItemIdToPage_mapsTrack() {\r\n        val page = NavigationController.navItemIdToPage(R.id.navTrack)\r\n        assertEquals(MainContainerActivity.PAGE_TRACK, page)\r\n    }\r\n\r\n    @Test\r\n    fun navItemIdToPage_mapsDrag() {\r\n        val page = NavigationController.navItemIdToPage(R.id.navDrag)\r\n        assertEquals(MainContainerActivity.PAGE_DRAG, page)\r\n    }\r\n\r\n    @Test\r\n    fun pageAndNavMapping_areConsistent() {\r\n        val navId = NavigationController.pageToNavItemId(MainContainerActivity.PAGE_GARAGE)\r\n        val page = NavigationController.navItemIdToPage(navId)\r\n\r\n        assertEquals(MainContainerActivity.PAGE_GARAGE, page)\r\n    }\r\n}\r\n"
+        }
+    ]
+}

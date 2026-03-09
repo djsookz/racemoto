@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/startup/ProfileLaunchParser.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771610876250,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771610876250,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.startup\r\n\r\nimport android.content.Intent\r\nimport com.example.clinometer.Profile\r\n\r\nobject ProfileLaunchParser {\r\n\r\n    fun parse(intent: Intent): Profile {\r\n        return intent.getSerializableExtra(\"SELECTED_PROFILE\") as? Profile\r\n            ?: Profile(name = \"My profile\", vehicleType = Profile.VehicleType.MOTORCYCLE)\r\n    }\r\n}\r\n"
+        }
+    ]
+}

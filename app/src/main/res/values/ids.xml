@@ -4,6 +4,11 @@
     <item name="tag_maneuver_scaled_text" type="id" />
     <item name="tag_maneuver_scaled_icon" type="id" />
     <item name="tag_maneuver_spacing_adjusted" type="id" />
+    <item name="tag_drag_chart_attempt" type="id" />
+    <item name="tag_drag_chart_mode" type="id" />
+    <item name="tag_drag_chart_marker" type="id" />
+    <item name="tag_system_bars_initial_padding" type="id" />
+    <item name="tag_route_snapshot_race_id" type="id" />
 </resources>
 
 

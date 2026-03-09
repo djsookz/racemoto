@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/session/NavigationServiceLauncher.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771610876249,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771610876249,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.session\r\n\r\nimport android.content.Context\r\nimport android.content.Intent\r\nimport android.content.ServiceConnection\r\nimport androidx.core.content.ContextCompat\r\nimport com.example.clinometer.ForegroundService\r\n\r\nobject NavigationServiceLauncher {\r\n\r\n    fun connect(\r\n        context: Context,\r\n        isServiceRunning: Boolean,\r\n        isNavigationActive: Boolean,\r\n        serviceConnection: ServiceConnection\r\n    ) {\r\n        when {\r\n            isServiceRunning -> bindToRunningForegroundService(context, serviceConnection)\r\n            isNavigationActive -> startAndBindNavigationService(context, serviceConnection)\r\n        }\r\n    }\r\n\r\n    private fun bindToRunningForegroundService(\r\n        context: Context,\r\n        serviceConnection: ServiceConnection\r\n    ) {\r\n        context.bindService(\r\n            Intent(context, ForegroundService::class.java),\r\n            serviceConnection,\r\n            Context.BIND_AUTO_CREATE\r\n        )\r\n    }\r\n\r\n    private fun startAndBindNavigationService(\r\n        context: Context,\r\n        serviceConnection: ServiceConnection\r\n    ) {\r\n        val serviceIntent = Intent(context, ForegroundService::class.java).apply {\r\n            putExtra(\"PRE_WARMING_MODE\", true)\r\n        }\r\n        ContextCompat.startForegroundService(context, serviceIntent)\r\n\r\n        val activateIntent = Intent(context, ForegroundService::class.java).apply {\r\n            putExtra(\"ACTIVATE_NORMAL_MODE\", true)\r\n        }\r\n        context.startService(activateIntent)\r\n\r\n        context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)\r\n    }\r\n}\r\n"
+        }
+    ]
+}

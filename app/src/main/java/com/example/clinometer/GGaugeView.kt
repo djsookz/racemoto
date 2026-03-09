@@ -11,6 +11,12 @@ class GGaugeView @JvmOverloads constructor(
     attrs: AttributeSet? = null
 ) : View(context, attrs) {
 
+    private data class TrailPoint(
+        val x: Float,
+        val y: Float,
+        val timestampMs: Long
+    )
+
     var gForceX: Float = 0f
         set(value) {
             field = value
@@ -41,6 +47,23 @@ class GGaugeView @JvmOverloads constructor(
         color = Color.RED
     }
 
+    private val trailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = Color.RED
+    }
+
+    private val trailLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+        strokeCap = Paint.Cap.ROUND
+        color = Color.RED
+    }
+
+    private val trailPoints = ArrayDeque<TrailPoint>()
+    private val maxTrailPoints = 20
+    private val minTrailStepPx = 1.5f
+    private val trailFadeDurationMs = 900L
+
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
         textSize = 20f
@@ -54,6 +77,7 @@ class GGaugeView @JvmOverloads constructor(
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        trailPoints.clear()
         val centerX = w / 2f
         val centerY = h / 2f
 
@@ -115,9 +139,74 @@ class GGaugeView @JvmOverloads constructor(
         val gX = centerX - scaledCorneringG * graphRadius
         val gY = centerY - scaledAccelG * graphRadius
 
+        val now = System.currentTimeMillis()
+        appendTrailPoint(gX, gY, now)
+        val hasActiveTrail = drawTrail(canvas, now)
+        if (hasActiveTrail) {
+            postInvalidateOnAnimation()
+        }
+
         // Draw current position
         centerDotPaint.color = Color.RED
         canvas.drawCircle(gX, gY, 12f, centerDotPaint)
 
+    }
+
+    private fun appendTrailPoint(x: Float, y: Float, now: Long) {
+        val last = trailPoints.lastOrNull()
+        if (last != null) {
+            val dx = x - last.x
+            val dy = y - last.y
+            if (hypot(dx, dy) < minTrailStepPx) {
+                return
+            }
+        }
+        if (trailPoints.size >= maxTrailPoints) {
+            trailPoints.removeFirst()
+        }
+        trailPoints.addLast(TrailPoint(x, y, now))
+    }
+
+    private fun drawTrail(canvas: Canvas, now: Long): Boolean {
+        trimExpiredTrailPoints(now)
+        if (trailPoints.isEmpty()) return false
+
+        val points = trailPoints.toList()
+        for (i in points.indices) {
+            val p = points[i]
+            val ageMs = (now - p.timestampMs).coerceAtLeast(0L)
+            val lifeT = 1f - (ageMs.toFloat() / trailFadeDurationMs.toFloat())
+            if (lifeT <= 0f) continue
+
+            val t = (i + 1).toFloat() / points.size.toFloat()
+            val alpha = (20f + 170f * lifeT).toInt().coerceIn(0, 255)
+            val radius = 3f + 7f * t
+
+            trailPaint.color = Color.argb(alpha, 255, 70, 70)
+            canvas.drawCircle(p.x, p.y, radius, trailPaint)
+
+            if (i > 0) {
+                val prev = points[i - 1]
+                val prevAgeMs = (now - prev.timestampMs).coerceAtLeast(0L)
+                val prevLifeT = 1f - (prevAgeMs.toFloat() / trailFadeDurationMs.toFloat())
+                val lineAlpha = (min(lifeT, prevLifeT) * 120f).toInt().coerceIn(0, 255)
+                if (lineAlpha > 0) {
+                    trailLinePaint.color = Color.argb(lineAlpha, 255, 70, 70)
+                    canvas.drawLine(prev.x, prev.y, p.x, p.y, trailLinePaint)
+                }
+            }
+        }
+        return trailPoints.isNotEmpty()
+    }
+
+    private fun trimExpiredTrailPoints(now: Long) {
+        while (trailPoints.isNotEmpty()) {
+            val oldest = trailPoints.first()
+            if (now - oldest.timestampMs > trailFadeDurationMs) {
+                trailPoints.removeFirst()
+            } else {
+                break
+            }
+        }
     }
 }

@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/session/MainServiceCoordinator.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388334,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388334,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.session\r\n\r\nimport android.content.Context\r\nimport android.content.Intent\r\nimport android.content.ServiceConnection\r\nimport android.os.SystemClock\r\nimport android.widget.Chronometer\r\nimport androidx.core.content.ContextCompat\r\nimport com.example.clinometer.ForegroundService\r\nimport com.example.clinometer.R\r\nimport com.example.clinometer.main.MainContainerActivity\r\n\r\nobject MainServiceCoordinator {\r\n    fun createNormalModeServiceIntent(context: Context): Intent {\r\n        return Intent(context, ForegroundService::class.java).apply {\r\n            putExtra(\"ACTIVATE_NORMAL_MODE\", true)\r\n        }\r\n    }\r\n\r\n    fun startForegroundAndBind(context: Context, serviceConnection: ServiceConnection) {\r\n        val serviceIntent = createNormalModeServiceIntent(context)\r\n        ContextCompat.startForegroundService(context, serviceIntent)\r\n        context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)\r\n    }\r\n\r\n    fun applyChronometerStart(\r\n        startTime: Long,\r\n        mainChronometer: Chronometer?,\r\n        carChronometer: Chronometer?,\r\n        carLandscapeChronometer: Chronometer?\r\n    ) {\r\n        mainChronometer?.base = startTime\r\n        mainChronometer?.start()\r\n\r\n        carChronometer?.base = startTime\r\n        carChronometer?.start()\r\n\r\n        carLandscapeChronometer?.base = startTime\r\n        carLandscapeChronometer?.start()\r\n    }\r\n\r\n    fun safeCleanup(context: Context, serviceBound: Boolean, serviceConnection: ServiceConnection): Boolean {\r\n        try {\r\n            if (serviceBound) {\r\n                try {\r\n                    context.unbindService(serviceConnection)\r\n                } catch (_: IllegalArgumentException) {\r\n                }\r\n            }\r\n            try {\r\n                context.stopService(Intent(context, ForegroundService::class.java))\r\n            } catch (_: Exception) {\r\n            }\r\n        } catch (_: Exception) {\r\n        }\r\n        return false\r\n    }\r\n\r\n    fun buildNavigateToMapIntent(context: Context): Intent {\r\n        return Intent(context, MainContainerActivity::class.java).apply {\r\n            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)\r\n            putExtra(MainContainerActivity.EXTRA_NAV_ITEM_ID, R.id.navMap)\r\n        }\r\n    }\r\n\r\n    fun buildNavigateToMapPageIntent(context: Context): Intent {\r\n        return Intent(context, MainContainerActivity::class.java).apply {\r\n            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)\r\n            putExtra(MainContainerActivity.EXTRA_INITIAL_PAGE, MainContainerActivity.PAGE_MAP)\r\n        }\r\n    }\r\n\r\n    fun resolveStartTimeOrNow(serviceStartTime: Long?): Long {\r\n        return serviceStartTime ?: SystemClock.elapsedRealtime()\r\n    }\r\n}\r\n"
+        }
+    ]
+}

@@ -309,7 +309,7 @@ Permissions are required for basic functionality!</string>
     <string name="calibration_step1">1️⃣ Choose orientation (Portrait or Landscape)</string>
     <string name="calibration_step2">2️⃣ Mount phone in desired position</string>
     <string name="calibration_step3">3️⃣ Press \'Calibrate\' button</string>
-    <string name="calibration_step4">4️⃣ Hold steady for 5 seconds</string>
+    <string name="calibration_step4">4️⃣ Engine ON (idle), keep vehicle and phone steady for 5 seconds</string>
     <string name="calibration_step5">5️⃣ Drive forward once</string>
     <string name="calibration_warning">⚠️ Calibrate BOTH if you rotate phone during measurements!</string>
     <string name="calibration_hold_steady">Hold steady for 5 seconds...</string>
@@ -410,7 +410,14 @@ Permissions are required for basic functionality!</string>
     <string name="track_best_time">Best Time:</string>
     <string name="track_min_speed">Min Speed:</string>
     <string name="track_max_speed">Max Speed:</string>
+    <string name="track_avg_speed">Avg Speed:</string>
+    <string name="track_distance">Distance:</string>
     <string name="track_max_acceleration">Max Acceleration:</string>
+    <string name="track_max_braking">Max Braking:</string>
+    <string name="track_max_cornering_left">Max Cornering L:</string>
+    <string name="track_max_cornering_right">Max Cornering R:</string>
+    <string name="track_max_lean_left">Max Lean L:</string>
+    <string name="track_max_lean_right">Max Lean R:</string>
     <string name="track_max_cornering">Max Cornering:</string>
     <string name="track_laps_section">Laps</string>
     <string name="track_no_sessions">No track sessions yet</string>
@@ -428,6 +435,7 @@ Permissions are required for basic functionality!</string>
     <string name="placeholder_track_name">Track Name</string>
     <string name="placeholder_vehicle_name">Vehicle Name</string>
     <string name="track_best_lap_label">Best Lap</string>
+    <string name="track_date_time_label">Date &amp; Time</string>
     <string name="track_duration_label">Duration</string>
     <string name="track_laps_label">Laps</string>
     <string name="track_new_session">+ New Session</string>
@@ -442,6 +450,12 @@ Permissions are required for basic functionality!</string>
     <string name="track_tab_g_force">G-Force</string>
     <string name="track_tab_angle">Angle</string>
     <string name="track_speed_label">Speed:</string>
+    <string name="track_predictive_gap_title">Gap to best lap</string>
+    <string name="track_predictive_mode_session">Session best</string>
+    <string name="track_predictive_mode_track">Track best</string>
+    <string name="track_predictive_reference_session_placeholder">LAP -- • --:--.---</string>
+    <string name="track_predictive_reference_track_placeholder">TRACK • --:--.---</string>
+    <string name="track_predictive_gap_unit">Seconds</string>
     
     <!-- Map mode buttons -->
     <string name="map_sessions_button">SESSIONS</string>
@@ -451,6 +465,7 @@ Permissions are required for basic functionality!</string>
     <string name="settings_general_header">═══ GENERAL ═══</string>
     <string name="settings_drag_header">═══ DRAG ═══</string>
     <string name="settings_drag_calibration">🏁 Calibration</string>
+    <string name="settings_lean_calibration">Lean Calibration</string>
     <string name="settings_allow_motorways">🛣️ Allow Motorways</string>
     <string name="settings_allow_motorways_desc">Include highways and motorways in navigation routes</string>
     
@@ -539,6 +554,23 @@ Permissions are required for basic functionality!</string>
     <string name="settings_voice_countdown">Voice Countdown</string>
     <string name="settings_lap_complete_sound">Sound on lap completion</string>
     <string name="settings_personal_best_sound">Sound on new personal record</string>
+
+    <string name="lean_calibration_title">Lean Calibration</string>
+    <string name="lean_calibration_description">Calibrate neutral bike angle per orientation. Keep the bike upright and still until auto-save completes.</string>
+    <string name="lean_calibration_portrait">Portrait Mount</string>
+    <string name="lean_calibration_landscape">Landscape Mount</string>
+    <string name="lean_calibration_calibrate">Calibrate</string>
+    <string name="lean_calibration_recalibrate">Recalibrate</string>
+    <string name="lean_calibration_clear">Clear</string>
+    <string name="lean_calibration_clear_all">Clear All Lean Calibrations</string>
+    <string name="lean_calibration_calibrated">Calibrated</string>
+    <string name="lean_calibration_not_calibrated">Not calibrated</string>
+    <string name="lean_calibration_missing_orientation">No calibration for this orientation</string>
+    <string name="lean_calibration_idle_hint">Press calibrate and hold the bike steady.</string>
+    <string name="lean_calibration_hold_still">Hold still in %1$s...</string>
+    <string name="lean_calibration_live_value">Lean %1$.1f°  |  Stability %2$d/80</string>
+    <string name="lean_calibration_saved">%1$s calibration saved</string>
+    <string name="lean_calibration_sensor_missing">Accelerometer is not available on this device.</string>
     
     <!-- Unit display names -->
     <string name="unit_kmh">km/h</string>
@@ -555,6 +587,21 @@ Permissions are required for basic functionality!</string>
 
     <string name="destination_placeholder">Търси дестинация...</string>
     <string name="route_preview_title">Преглед на маршрут</string>
+
+    <string name="track_select_lap_to_compare">Select Lap to Compare</string>
+    <string name="track_compare_invalid_current_lap">Current lap is invalid for comparison</string>
+    <string name="no_track_laps_to_compare">No other laps on this track to compare</string>
+    <string name="track_compare_unknown_profile">Unknown Profile</string>
+    <string name="track_compare_vehicle_moto">MOTO</string>
+    <string name="track_compare_vehicle_car">CAR</string>
+    <string name="track_compare_vehicle_unknown">UNKNOWN</string>
+    <string name="track_compare_session_meta">Session #%1$d • %2$s</string>
+    <string name="track_compare_lap_title">Lap #%1$d</string>
+
+    <plurals name="track_compare_laps_count">
+        <item quantity="one">%d lap</item>
+        <item quantity="other">%d laps</item>
+    </plurals>
 
 
 </resources>

@@ -3,7 +3,6 @@ package com.example.clinometer
 import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
-import android.view.MotionEvent
 import android.view.View
 import kotlin.math.*
 
@@ -13,9 +12,9 @@ class SpeedGaugeView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : View(context, attrs, defStyleAttr) {
 
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val arcPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val needlePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private var centerX = 0f
     private var centerY = 0f
@@ -24,353 +23,406 @@ class SpeedGaugeView @JvmOverloads constructor(
     private var currentSpeed = 0f
     private var maxSpeed = 280f
 
-    // G-force data (keep old fields for compatibility, but add direct access like GGaugeView)
-    private var accelerationG = 0f
-    private var brakingG = 0f
-    private var corneringG = 0f
-    // Direct g-force values (like GGaugeView) - use these instead of accelerationG - brakingG
     var gForceX: Float = 0f
         set(value) {
             field = value
+            updateCarTelemetryState()
             invalidate()
         }
+
     var gForceY: Float = 0f
         set(value) {
             field = value
+            updateCarTelemetryState()
             invalidate()
         }
-    private val gForceHistory = mutableListOf<PointF>()
-    private val maxGForcePoints = 50
 
-    // Predictive gap data
     private var currentLapTime = 0f
     private var targetLapTime = 0f
-    private var gapTime = 0f
-    private var lockedGapSign: Int? = null // -1 = faster (green), +1 = slower (red)
+    private var lockedGapSign: Int? = null
 
-    // Tab system
-    private var currentTab = 0 // 0: Speed, 1: Predictive Gap, 2: G-Forces, 3: Lean Angle (motorcycle only)
-    private val tabNames = arrayOf("Speed", "Predictive Gap", "G-Forces", "Lean Angle")
-
-    // Lean angle data (motorcycle only)
     private var leanAngle = 0f
+    private var maxLeanLeft = 0f
+    private var maxLeanRight = 0f
     private var isMotorcycle = false
+
+    private val gTrail = ArrayDeque<PointF>()
+    private val maxTrailPoints = 28
+    private var peakBrakeG = 0f
+    private var peakAccelG = 0f
+    private var peakLatLeftG = 0f
+    private var peakLatRightG = 0f
+    private var peakTotalG = 0f
+    private val latChartMaxG = 1.6f
+    private val minLongChartMaxG = 0.4f
+    private val maxLongChartMaxG = 3.2f
+    private val longScaleHeadroom = 1.0f
 
     init {
         setupPaints()
-        isClickable = true
+        isClickable = false
     }
 
     private fun setupPaints() {
-        // Background paint
-        paint.color = Color.parseColor("#1A1A1A")
-        paint.style = Paint.Style.FILL
-        paint.isAntiAlias = true
+        arcPaint.style = Paint.Style.STROKE
+        arcPaint.strokeCap = Paint.Cap.ROUND
 
-        // Text paint
         textPaint.color = Color.WHITE
         textPaint.textAlign = Paint.Align.CENTER
-        textPaint.isAntiAlias = true
         textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
 
-        // Needle paint
-        needlePaint.color = Color.parseColor("#FF6B00")
-        needlePaint.style = Paint.Style.STROKE
-        needlePaint.strokeWidth = 4f
-        needlePaint.strokeCap = Paint.Cap.ROUND
-        needlePaint.isAntiAlias = true
+        fillPaint.style = Paint.Style.FILL
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         centerX = w / 2f
-        centerY = h * 0.6f
-        radius = (w / 2f) * 0.9f // Use 90% of width for maximum horizontal space
-    }
-
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (event.action == MotionEvent.ACTION_UP) {
-            // Check if tap is in center area
-            val dx = event.x - centerX
-            val dy = event.y - centerY
-            val distance = sqrt(dx * dx + dy * dy)
-
-            if (distance < radius * 0.7f) {
-                // Cycle through tabs
-                currentTab++
-                if (isMotorcycle) {
-                    if (currentTab > 3) currentTab = 0
-                } else {
-                    if (currentTab > 2) currentTab = 0
-                }
-                invalidate()
-                return true
-            }
-        }
-        return super.onTouchEvent(event)
+        centerY = h * 0.42f
+        radius = min(w * 0.40f, h * 0.45f)
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        // No background color - transparent
-
-        // Draw gauge arc and markings
-        drawGaugeArc(canvas)
-        drawSpeedMarkings(canvas)
-
-        // Draw center content based on current tab
-        drawCenterContent(canvas)
-
-        // Draw tab indicator at bottom
-        drawTabIndicator(canvas)
+        drawPanelSurface(canvas)
+        drawCarTelemetry(canvas)
     }
 
-    private fun drawGaugeArc(canvas: Canvas) {
-        val rect = RectF(
-            centerX - radius,
-            centerY - radius,
-            centerX + radius,
-            centerY + radius
+    private fun drawPanelSurface(canvas: Canvas) {
+        val inset = dp(4f)
+        val rect = RectF(inset, inset, width - inset, height - inset)
+        val corner = dp(18f)
+
+        fillPaint.shader = LinearGradient(
+            0f,
+            rect.top,
+            0f,
+            rect.bottom,
+            Color.parseColor("#1C2128"),
+            Color.parseColor("#1C2128"),
+            Shader.TileMode.CLAMP
+        )
+        canvas.drawRoundRect(rect, corner, corner, fillPaint)
+        fillPaint.shader = null
+    }
+
+    private fun drawLeanAngleGauge(canvas: Canvas) {
+        // Arc sits on the top half of the speed circle
+        // 180° arc: from 180° (left) to 0° (right), i.e. the upper semicircle
+        // Center of arc = top of circle (270° = 12 o'clock)
+        // Lean -90° maps to 180° (9 o'clock), 0° maps to 270° (12 o'clock), +90° maps to 360°/0° (3 o'clock)
+        val gaugeRadius = radius * 0.86f
+        val gaugeRect = RectF(
+            centerX - gaugeRadius,
+            centerY - gaugeRadius,
+            centerX + gaugeRadius,
+            centerY + gaugeRadius
         )
 
-        // Draw grey background section (full arc)
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 40f // Increase stroke width for bigger gauge
-        paint.color = Color.parseColor("#4A4A4A")
-        canvas.drawArc(rect, 150f, 240f, false, paint)
+        // Gray background arc: upper semicircle (180° sweep from startAngle 180°)
+        arcPaint.strokeWidth = dp(13f)
+        arcPaint.color = Color.parseColor("#4A5060")
+        canvas.drawArc(gaugeRect, 180f, 180f, false, arcPaint)
 
-        // Draw orange section (0 to current speed)
-        if (currentSpeed > 0) {
-            paint.color = Color.parseColor("#FF8C00")
-            val currentAngle = (currentSpeed / maxSpeed) * 240f
-            canvas.drawArc(rect, 150f, currentAngle, false, paint)
+        // Blue: max left lean (from 270° going counter-clockwise toward 180°)
+        if (maxLeanLeft > 0f) {
+            val leftSweep = (maxLeanLeft / 90f).coerceIn(0f, 1f) * 90f
+            arcPaint.color = Color.parseColor("#FF6020")
+            canvas.drawArc(gaugeRect, 270f, -leftSweep, false, arcPaint)
         }
+
+        // Blue: max right lean (from 270° going clockwise toward 360°)
+        if (maxLeanRight > 0f) {
+            val rightSweep = (maxLeanRight / 90f).coerceIn(0f, 1f) * 90f
+            arcPaint.color = Color.parseColor("#FF6020")
+            canvas.drawArc(gaugeRect, 270f, rightSweep, false, arcPaint)
+        }
+
+        // White marker dot at live lean angle position
+        // leanAngle: -90 (left) → 0 (top) → +90 (right)
+        // Map to drawing angle: -90 → 180°, 0 → 270°, +90 → 360°
+        val drawAngle = 270.0 + leanAngle.toDouble()
+        val markerRad = Math.toRadians(drawAngle)
+        val markerX = centerX + gaugeRadius * cos(markerRad).toFloat()
+        val markerY = centerY + gaugeRadius * sin(markerRad).toFloat()
+
+        fillPaint.color = Color.parseColor("#F2F4F8")
+        canvas.drawCircle(markerX, markerY, dp(5f), fillPaint)
     }
 
+    private fun drawCenterDisk(canvas: Canvas) {
+        fillPaint.color = Color.parseColor("#2A323B")
+        canvas.drawCircle(centerX, centerY, radius, fillPaint)
 
-    private fun drawSpeedMarkings(canvas: Canvas) {
-        val markings = arrayOf(0, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280)
-
-        for (marking in markings) {
-            val angle = 150f + (marking / maxSpeed) * 240f
-            val angleRad = Math.toRadians(angle.toDouble())
-
-            // Draw tick marks - much shorter
-            val tickLength = 12f // Much shorter tick marks
-            val x1 = centerX + (radius - 45f) * cos(angleRad).toFloat()
-            val y1 = centerY + (radius - 45f) * sin(angleRad).toFloat()
-            val x2 = centerX + (radius - 45f - tickLength) * cos(angleRad).toFloat()
-            val y2 = centerY + (radius - 45f - tickLength) * sin(angleRad).toFloat()
-
-            paint.color = Color.WHITE
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 2f // Slightly thinner tick marks
-            canvas.drawLine(x1, y1, x2, y2, paint)
-
-            // Draw numbers
-            val textX = centerX + (radius - 85f) * cos(angleRad).toFloat()
-            val textY = centerY + (radius - 85f) * sin(angleRad).toFloat()
-
-            textPaint.textSize = 24f // Slightly smaller text to fit more numbers
-            textPaint.color = Color.parseColor("#AAAAAA")
-            canvas.drawText(marking.toString(), textX, textY + 8f, textPaint)
-        }
-    }
-
-    private fun drawCenterContent(canvas: Canvas) {
-        when (currentTab) {
-            0 -> drawSpeedDisplay(canvas)
-            1 -> drawPredictiveGap(canvas)
-            2 -> drawGForceGraph(canvas)
-            3 -> if (isMotorcycle) drawLeanAngle(canvas)
-        }
-    }
-
-    private fun drawSpeedDisplay(canvas: Canvas) {
-        // Large speed number
-        textPaint.textSize = 120f // Even bigger speed display
-        textPaint.color = Color.WHITE
-        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        canvas.drawText(String.format("%.1f", currentSpeed), centerX, centerY + 20f, textPaint)
-
-        // Unit
-        textPaint.textSize = 40f // Much bigger unit text
-        textPaint.color = Color.WHITE
-        canvas.drawText("kph", centerX, centerY + 80f, textPaint)
-    }
-
-    private fun drawPredictiveGap(canvas: Canvas) {
-        // Calculate predictive gap: predicted time - best time
-        val gap = currentLapTime - targetLapTime
-        
-        // Choose background color based on prediction
-        paint.style = Paint.Style.FILL
-        val locked = lockedGapSign
-        if (locked != null) {
-            paint.color = if (locked <= 0) Color.parseColor("#4CAF50") else Color.parseColor("#F44336")
-        } else if (targetLapTime <= 0f) {
-            // No best lap yet → neutral background
-            paint.color = Color.parseColor("#4A4A4A")
-        } else {
-            val sign = if (gap <= 0) -1 else 1
-            paint.color = if (sign <= 0) Color.parseColor("#4CAF50") else Color.parseColor("#F44336")
-        }
-        canvas.drawCircle(centerX, centerY, radius * 0.5f, paint)
-
-        // Gap time
-        textPaint.textSize = 80f // Much bigger gap time display
-        textPaint.color = Color.WHITE
-        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-
-        val gapText = if (targetLapTime > 0) {
-            if (gap >= 0) String.format("+%.2f", gap)
-            else String.format("%.2f", gap)
-        } else {
-            "0.00"
-        }
-
-        canvas.drawText(gapText, centerX, centerY, textPaint)
-
-        // Target time label
-        textPaint.textSize = 28f // Much bigger label text
-        textPaint.typeface = Typeface.DEFAULT
-        if (targetLapTime > 0) {
-            val targetText = String.format("Target: %02d:%02d.%02d",
-                (targetLapTime / 60).toInt(),
-                (targetLapTime % 60).toInt(),
-                ((targetLapTime * 100) % 100).toInt()
+        if (!isMotorcycle) {
+            val totalG = sqrt(gForceX * gForceX + gForceY * gForceY)
+            val normalized = (totalG / 1.8f).coerceIn(0f, 1f)
+            val ringRadius = radius * 0.93f
+            val ringRect = RectF(
+                centerX - ringRadius,
+                centerY - ringRadius,
+                centerX + ringRadius,
+                centerY + ringRadius
             )
-            canvas.drawText(targetText, centerX, centerY + 35f, textPaint)
+
+            arcPaint.style = Paint.Style.STROKE
+            arcPaint.strokeCap = Paint.Cap.ROUND
+            arcPaint.strokeWidth = dp(5f)
+            arcPaint.color = Color.parseColor("#4A5060")
+            canvas.drawArc(ringRect, -90f, 360f, false, arcPaint)
+
+            arcPaint.color = Color.argb((90 + normalized * 150f).roundToInt(), 255, 96, 32)
+            canvas.drawArc(ringRect, -90f, 360f * normalized, false, arcPaint)
+        }
+
+        textPaint.textAlign = Paint.Align.CENTER
+        if (!isMotorcycle) {
+            textPaint.color = Color.WHITE
+            textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+            textPaint.textSize = dp(62f)
+            canvas.drawText(currentSpeed.roundToInt().toString(), centerX, centerY + radius * 0.18f, textPaint)
+
+            textPaint.textSize = dp(24f)
+            textPaint.color = Color.parseColor("#E0E6EF")
+            canvas.drawText("kph", centerX, centerY + radius * 0.48f, textPaint)
+        }
+    }
+
+    private fun drawGapText(canvas: Canvas) {
+        textPaint.textAlign = Paint.Align.CENTER
+        val gap = currentLapTime - targetLapTime
+        val color = if (targetLapTime <= 0f) {
+            Color.parseColor("#8C97AA")
+        } else if ((lockedGapSign ?: if (gap <= 0f) -1 else 1) <= 0) {
+            Color.parseColor("#00E985")
         } else {
-            canvas.drawText("First Lap", centerX, centerY + 55f, textPaint) // Moved down by 20dp
+            Color.parseColor("#EB3E23")
         }
-    }
-
-    private fun drawGForceGraph(canvas: Canvas) {
-        // Draw G-force circle graph
-        val graphRadius = radius * 0.6f // Bigger graph
-
-        // Draw background circles
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 2f // Thicker lines
-        paint.color = Color.parseColor("#333333")
-
-        // Draw concentric circles for 0.5g, 1.0g, 2.0g
-        canvas.drawCircle(centerX, centerY, graphRadius * 0.5f, paint)
-        canvas.drawCircle(centerX, centerY, graphRadius, paint)
-        canvas.drawCircle(centerX, centerY, graphRadius * 1.5f, paint)
-
-        // Draw cross lines
-        canvas.drawLine(centerX - graphRadius, centerY, centerX + graphRadius, centerY, paint)
-        canvas.drawLine(centerX, centerY - graphRadius, centerX, centerY + graphRadius, paint)
-
-        // Draw labels
-        textPaint.textSize = 18f // Bigger labels
-        textPaint.color = Color.parseColor("#666666")
-        canvas.drawText("0.5g", centerX + graphRadius * 0.5f + 8f, centerY - 8f, textPaint)
-        canvas.drawText("1.0g", centerX + graphRadius + 8f, centerY - 8f, textPaint)
-        canvas.drawText("2.0g", centerX + graphRadius * 1.5f + 8f, centerY - 8f, textPaint)
-        
-        // Axis labels removed per request
-
-        // Draw current G-force point with proper scaling
-        // Scale G-forces to fit within the graph (max 2.5g)
-        // NOTE: Използваме директно gForceX и gForceY (как в drag сесиите)
-        // Service-ът вече ни подава инерционната сила (знаците са обърнати там)
-        // - gForceY > 0 (backward force) → точка надолу (positive Y в координатната система)
-        // - gForceY < 0 (forward force) → точка нагоре (negative Y в координатната система)
-        // - gForceX > 0 (left force) → точка надясно (positive X)
-        // - gForceX < 0 (right force) → точка наляво (negative X)
-        val maxG = 2.5f
-        val threshold = 0.10f // align with deadband to eliminate rest jumps
-        
-        val rawCorner = gForceX
-        val rawLong = gForceY
-        val scaledCorneringG = if (abs(rawCorner) <= threshold) 0f else (rawCorner / maxG).coerceIn(-1f, 1f)
-        val scaledAccelG = if (abs(rawLong) <= threshold) 0f else (rawLong / maxG).coerceIn(-1f, 1f)
-        
-        // Директна визуализация (без обръщане, знаците вече са правилни от Service-а)
-        val gX = centerX - scaledCorneringG * graphRadius
-        val gY = centerY - scaledAccelG * graphRadius
-
-        // Draw trail
-        if (gForceHistory.size > 1) {
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 2f
-            paint.color = Color.parseColor("#FF444488")
-
-            val path = Path()
-            path.moveTo(gForceHistory[0].x, gForceHistory[0].y)
-            for (i in 1 until gForceHistory.size) {
-                path.lineTo(gForceHistory[i].x, gForceHistory[i].y)
-            }
-            canvas.drawPath(path, paint)
+        val text = if (targetLapTime > 0f) {
+            if (gap >= 0f) String.format("GAP +%.2fs", gap) else String.format("GAP %.2fs", gap)
+        } else {
+            "GAP --"
         }
 
-        // Draw current position
-        paint.style = Paint.Style.FILL
-        paint.color = Color.RED
-        canvas.drawCircle(gX, gY, 12f, paint) // Bigger current position dot
-
-        // Removed textual G-force values per request
+        textPaint.textSize = dp(10f)
+        textPaint.color = color
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        canvas.drawText(text, centerX, centerY + radius * 0.85f, textPaint)
     }
 
-    private fun drawLeanAngle(canvas: Canvas) {
-        // Large lean angle display (integer degrees)
-        textPaint.textSize = 120f // Even bigger lean angle display
-        textPaint.color = Color.WHITE
-        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        val leanInt = abs(leanAngle).roundToInt()
-        canvas.drawText("${leanInt}°", centerX, centerY + 20f, textPaint)
-
-        // Direction indicator
-        textPaint.textSize = 40f // Much bigger direction text
-        textPaint.color = Color.WHITE
-        val direction = when {
-            leanAngle > 0 -> "Left"
-            leanAngle < 0 -> "Right"
-            else -> "Upright"
-        }
-        canvas.drawText(direction, centerX, centerY + 80f, textPaint)
-
-        // Visual lean indicator
-        val leanIndicatorLength = radius * 0.5f // Bigger lean indicator
-        val leanRad = Math.toRadians(leanAngle.toDouble())
-
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 6f // Thicker lean indicator line
-        paint.color = Color.parseColor("#FF8C00")
-
-        val endX = centerX - leanIndicatorLength * sin(leanRad).toFloat()
-        val endY = centerY - leanIndicatorLength * cos(leanRad).toFloat()
-        canvas.drawLine(centerX, centerY + 100f, endX, endY + 100f, paint) // Move indicator down
+    private fun drawMotoTelemetry(canvas: Canvas) {
     }
 
-    private fun drawTabIndicator(canvas: Canvas) {
-        val tabY = height - 80f // Move tab indicator down a bit
+    private fun drawCarTelemetry(canvas: Canvas) {
+        val graphCenterX = centerX
+        val graphCenterY = height * 0.80f
+        val graphRadius = dp(45f)
+        val longChartMaxG = resolveDynamicLongitudinalChartMaxG()
 
-        // Draw tab background
-        paint.style = Paint.Style.FILL
-        paint.color = Color.parseColor("#222222")
-        canvas.drawRoundRect(
-            centerX - 120f, tabY - 30f, // Even bigger tab indicator
-            centerX + 120f, tabY + 30f,
-            30f, 30f, paint
+        arcPaint.style = Paint.Style.STROKE
+        arcPaint.strokeCap = Paint.Cap.ROUND
+        arcPaint.strokeWidth = dp(1.4f)
+        arcPaint.color = Color.parseColor("#5D6473")
+
+        canvas.drawCircle(graphCenterX, graphCenterY, graphRadius, arcPaint)
+        canvas.drawCircle(graphCenterX, graphCenterY, graphRadius * 0.5f, arcPaint)
+
+        canvas.drawLine(
+            graphCenterX - graphRadius,
+            graphCenterY,
+            graphCenterX + graphRadius,
+            graphCenterY,
+            arcPaint
+        )
+        canvas.drawLine(
+            graphCenterX,
+            graphCenterY - graphRadius,
+            graphCenterX,
+            graphCenterY + graphRadius,
+            arcPaint
         )
 
-        // Draw tab text
-        textPaint.textSize = 32f // Much bigger tab text
-        textPaint.color = Color.WHITE
-        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        val tabName = when (currentTab) {
-            0 -> "Speed"
-            1 -> "Predictive Gap"
-            2 -> "G-Forces"
-            3 -> "Lean Angle"
-            else -> "Speed"
+        if (gTrail.isNotEmpty()) {
+            gTrail.forEachIndexed { index, point ->
+                val progress = (index + 1).toFloat() / gTrail.size.toFloat()
+                val normalizedX = (point.x / latChartMaxG).coerceIn(-1f, 1f)
+                val normalizedY = (point.y / longChartMaxG).coerceIn(-1f, 1f)
+                val trailX = graphCenterX - normalizedX * graphRadius
+                val trailY = graphCenterY - normalizedY * graphRadius
+                fillPaint.color = Color.argb((30 + progress * 150f).roundToInt(), 255, 96, 32)
+                canvas.drawCircle(trailX, trailY, dp(1.6f + progress * 2.6f), fillPaint)
+            }
         }
-        canvas.drawText(tabName, centerX, tabY + 10f, textPaint)
+
+        val normalizedX = (gForceX / latChartMaxG).coerceIn(-1f, 1f)
+        val normalizedY = (gForceY / longChartMaxG).coerceIn(-1f, 1f)
+        val dotX = graphCenterX - normalizedX * graphRadius
+        val dotY = graphCenterY - normalizedY * graphRadius
+
+        fillPaint.color = Color.parseColor("#FF6020")
+        canvas.drawCircle(dotX, dotY, dp(5.4f), fillPaint)
+
+        val peakVectorNorm = (peakTotalG / max(latChartMaxG, longChartMaxG)).coerceIn(0f, 1f)
+        arcPaint.strokeWidth = dp(3f)
+        arcPaint.color = Color.parseColor("#FF8B5B")
+        canvas.drawArc(
+            RectF(
+                graphCenterX - graphRadius * peakVectorNorm,
+                graphCenterY - graphRadius * peakVectorNorm,
+                graphCenterX + graphRadius * peakVectorNorm,
+                graphCenterY + graphRadius * peakVectorNorm
+            ),
+            -90f,
+            360f,
+            false,
+            arcPaint
+        )
+
+        val totalG = sqrt(gForceX * gForceX + gForceY * gForceY)
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textPaint.textSize = dp(12f)
+        textPaint.color = Color.parseColor("#F2F5FA")
+        canvas.drawText(String.format("%.2f G", totalG), graphCenterX, graphCenterY - graphRadius - dp(10f), textPaint)
+
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        textPaint.textSize = dp(9f)
+        textPaint.color = Color.parseColor("#A8B2C5")
+        canvas.drawText("Peak ${String.format("%.2f", peakTotalG)} G", graphCenterX, graphCenterY + graphRadius + dp(14f), textPaint)
+
+        val metricsY = height * 0.90f
+        drawCarMetric(canvas, width * 0.16f, metricsY, max(0f, gForceY), peakBrakeG, "Brake", longChartMaxG)
+        drawCarMetric(canvas, width * 0.39f, metricsY, max(0f, -gForceY), peakAccelG, "Accel", longChartMaxG)
+        drawCarMetric(canvas, width * 0.62f, metricsY, max(0f, gForceX), peakLatLeftG, "Lat L", latChartMaxG)
+        drawCarMetric(canvas, width * 0.85f, metricsY, max(0f, -gForceX), peakLatRightG, "Lat R", latChartMaxG)
+    }
+
+    private fun drawCarMetric(
+        canvas: Canvas,
+        x: Float,
+        y: Float,
+        value: Float,
+        peak: Float,
+        label: String,
+        maxScaleG: Float
+    ) {
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textPaint.textSize = dp(14f)
+        textPaint.color = Color.parseColor("#F2F5FA")
+        canvas.drawText(String.format("%.1f G", value), x, y, textPaint)
+
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        textPaint.textSize = dp(9f)
+        textPaint.color = Color.parseColor("#D3DAE7")
+        canvas.drawText(label, x, y + dp(12f), textPaint)
+
+        textPaint.textSize = dp(8f)
+        textPaint.color = Color.parseColor("#9AA4B7")
+        canvas.drawText("Pk ${String.format("%.1f", peak)}", x, y + dp(23f), textPaint)
+
+        drawMiniBar(canvas, x, y + dp(29f), value, maxScaleG)
+    }
+
+    private fun drawMiniBar(canvas: Canvas, x: Float, y: Float, value: Float, maxScaleG: Float) {
+        val widthBar = dp(58f)
+        val heightBar = dp(4.5f)
+        val safeScale = max(maxScaleG, 0.01f)
+        val normalized = (value / safeScale).coerceIn(0f, 1f)
+        val left = x - widthBar / 2f
+        val right = x + widthBar / 2f
+
+        fillPaint.color = Color.parseColor("#4A5060")
+        canvas.drawRoundRect(RectF(left, y, right, y + heightBar), dp(3f), dp(3f), fillPaint)
+
+        fillPaint.color = Color.parseColor("#FF6020")
+        canvas.drawRoundRect(
+            RectF(left, y, left + widthBar * normalized, y + heightBar),
+            dp(3f),
+            dp(3f),
+            fillPaint
+        )
+    }
+
+    private fun resolveDynamicLongitudinalChartMaxG(): Float {
+        val longPeak = max(peakBrakeG, peakAccelG)
+        val liveLong = abs(gForceY)
+        val scaled = max(longPeak, liveLong) * longScaleHeadroom
+        return scaled.coerceIn(minLongChartMaxG, maxLongChartMaxG)
+    }
+
+    private fun updateCarTelemetryState() {
+        val brake = max(0f, gForceY)
+        val accel = max(0f, -gForceY)
+        val latLeft = max(0f, gForceX)
+        val latRight = max(0f, -gForceX)
+
+        peakBrakeG = max(peakBrakeG, brake)
+        peakAccelG = max(peakAccelG, accel)
+        peakLatLeftG = max(peakLatLeftG, latLeft)
+        peakLatRightG = max(peakLatRightG, latRight)
+        peakTotalG = max(peakTotalG, sqrt(gForceX * gForceX + gForceY * gForceY))
+
+        gTrail.addLast(PointF(gForceX, gForceY))
+        while (gTrail.size > maxTrailPoints) {
+            gTrail.removeFirst()
+        }
+    }
+
+    private fun drawCompactGBar(
+        canvas: Canvas,
+        x: Float,
+        y: Float,
+        value: Float,
+        fillFromStart: Boolean
+    ) {
+        val barWidth = dp(96f)
+        val barHeight = dp(7f)
+        val maxValue = 1.5f
+        val normalized = (value / maxValue).coerceIn(0f, 1f)
+
+        val left = x - barWidth / 2f
+        val right = x + barWidth / 2f
+        val top = y
+        val bottom = y + barHeight
+
+        fillPaint.color = Color.parseColor("#4A5060")
+        canvas.drawRoundRect(RectF(left, top, right, bottom), dp(4f), dp(4f), fillPaint)
+
+        val fillWidth = barWidth * normalized
+        val fillRect = if (fillFromStart) {
+            RectF(left, top, left + fillWidth, bottom)
+        } else {
+            RectF(right - fillWidth, top, right, bottom)
+        }
+        fillPaint.color = Color.parseColor("#FF6020")
+        canvas.drawRoundRect(fillRect, dp(4f), dp(4f), fillPaint)
+    }
+
+    private fun drawBottomMetric(
+        canvas: Canvas,
+        x: Float,
+        y: Float,
+        align: Paint.Align,
+        valueText: String,
+        title: String
+    ) {
+        textPaint.textAlign = align
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textPaint.textSize = dp(19f)
+        textPaint.color = Color.parseColor("#F2F5FA")
+        canvas.drawText(valueText, x, y, textPaint)
+
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        textPaint.textSize = dp(10f)
+        textPaint.color = Color.parseColor("#E3E8F3")
+        canvas.drawText(title, x, y + dp(18f), textPaint)
+    }
+
+    private fun dp(value: Float): Float = value * resources.displayMetrics.density
+
+    private fun Canvas.drawText(text: String, x: Float, y: Float, paint: Paint = textPaint) {
+        drawText(text, x, y, paint)
     }
 
     // Public methods
@@ -379,39 +431,9 @@ class SpeedGaugeView @JvmOverloads constructor(
         invalidate()
     }
 
-    fun setGForces(acceleration: Float, braking: Float, cornering: Float) {
-        accelerationG = acceleration
-        brakingG = braking
-        corneringG = cornering
-
-        // Add to history with proper scaling and noise filtering
-        // Използваме директно gForceX и gForceY (ако са зададени), иначе fallback към старата логика
-        val maxG = 2.0f
-        val threshold = 0.1f // Ignore small values (noise)
-        
-        val rawCorner = if (gForceX != 0f || gForceY != 0f) gForceX else corneringG
-        val rawLong = if (gForceX != 0f || gForceY != 0f) gForceY else (accelerationG - brakingG)
-        
-        val scaledCorneringG = if (abs(rawCorner) < threshold) 0f else (rawCorner / maxG).coerceIn(-1f, 1f)
-        val scaledAccelG = if (abs(rawLong) < threshold) 0f else (rawLong / maxG).coerceIn(-1f, 1f)
-        
-        // Обръщаме знаците за canvas координати (как в drawGForceGraph)
-        val gX = centerX - scaledCorneringG * (radius * 0.6f)
-        val gY = centerY - scaledAccelG * (radius * 0.6f)
-        gForceHistory.add(PointF(gX, gY))
-
-        // Limit history size
-        if (gForceHistory.size > maxGForcePoints) {
-            gForceHistory.removeAt(0)
-        }
-
-        invalidate()
-    }
-
     fun setPredictiveGap(currentLap: Float, targetLap: Float) {
         currentLapTime = currentLap
         targetLapTime = targetLap
-        gapTime = currentLap - targetLap
         invalidate()
     }
 
@@ -426,30 +448,48 @@ class SpeedGaugeView @JvmOverloads constructor(
     }
 
     fun setLeanAngle(angle: Float) {
-        // Preserve sign: left negative, right positive
-        leanAngle = angle.coerceIn(-60f, 60f)
+        leanAngle = angle.coerceIn(-90f, 90f)
+        if (leanAngle < 0f) {
+            maxLeanLeft = max(maxLeanLeft, abs(leanAngle))
+        } else {
+            maxLeanRight = max(maxLeanRight, leanAngle)
+        }
         invalidate()
     }
 
     fun setDotByNormalizedG(normX: Float, normY: Float) {
-        val maxOffsetX = (width * 0.35f).coerceAtLeast(1f)
-        val maxOffsetY = (height * 0.35f).coerceAtLeast(1f)
-        val targetX = (width / 2f) + normX * maxOffsetX
-        val targetY = (height / 2f) + normY * maxOffsetY
-        // Update the G-force graph position directly
+        gForceX = normX
+        gForceY = normY
         invalidate()
     }
 
     fun setMotorcycleMode(motorcycle: Boolean) {
         isMotorcycle = motorcycle
-        if (!motorcycle && currentTab == 3) {
-            currentTab = 0
+        if (!motorcycle) {
+            leanAngle = 0f
+            maxLeanLeft = 0f
+            maxLeanRight = 0f
+            updateCarTelemetryState()
+        } else {
+            gTrail.clear()
+            peakBrakeG = 0f
+            peakAccelG = 0f
+            peakLatLeftG = 0f
+            peakLatRightG = 0f
+            peakTotalG = 0f
         }
         invalidate()
     }
 
     fun resetGForceHistory() {
-        gForceHistory.clear()
+        maxLeanLeft = 0f
+        maxLeanRight = 0f
+        gTrail.clear()
+        peakBrakeG = 0f
+        peakAccelG = 0f
+        peakLatLeftG = 0f
+        peakLatRightG = 0f
+        peakTotalG = 0f
         invalidate()
     }
 }

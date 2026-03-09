@@ -9,6 +9,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
@@ -139,12 +140,41 @@ class DragSessionDetailsActivity : AppCompatActivity() {
         }
         
         findViewById<View>(R.id.btnCompare)?.setOnClickListener {
-            // Отваряме страницата за избор на сесия и опит за сравняване
-            val intent = android.content.Intent(this, SessionSelectionActivity::class.java)
-            intent.putExtra("current_session_id", sessionId)
-            intent.putExtra("current_attempt_id", session?.attempts?.firstOrNull()?.id ?: -1)
-            startActivity(intent)
+            val attempts = session?.attempts ?: emptyList()
+            when {
+                attempts.isEmpty() -> {
+                    android.widget.Toast.makeText(this, "Няма опити за сравнение", android.widget.Toast.LENGTH_SHORT).show()
+                }
+                attempts.size == 1 -> {
+                    openSessionSelectionForCompare(attempts.first().id)
+                }
+                else -> {
+                    showAttemptSelectionDialog(attempts)
+                }
+            }
         }
+    }
+
+    private fun showAttemptSelectionDialog(attempts: List<DragAttempt>) {
+        val labels = attempts.mapIndexed { index, _ ->
+            "Опит #${index + 1}"
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle("Избери опит за сравнение")
+            .setItems(labels) { _, which ->
+                val selected = attempts.getOrNull(which) ?: return@setItems
+                openSessionSelectionForCompare(selected.id)
+            }
+            .setNegativeButton(getString(R.string.dialog_cancel_button), null)
+            .show()
+    }
+
+    private fun openSessionSelectionForCompare(attemptId: Long) {
+        val intent = android.content.Intent(this, SessionSelectionActivity::class.java)
+        intent.putExtra("current_session_id", sessionId)
+        intent.putExtra("current_attempt_id", attemptId)
+        startActivity(intent)
     }
 
     private fun displaySessionData() {
@@ -292,6 +322,29 @@ class DragAttemptsAdapter(
     private var currentMode: ChartMode = ChartMode.SPEED
     private var currentAttempt: DragAttempt? = null
     private var currentMarkerView: com.github.mikephil.charting.components.MarkerView? = null
+
+    private fun setChartContext(
+        chart: com.github.mikephil.charting.charts.LineChart,
+        attempt: DragAttempt,
+        mode: ChartMode
+    ) {
+        chart.setTag(R.id.tag_drag_chart_attempt, attempt)
+        chart.setTag(R.id.tag_drag_chart_mode, mode)
+    }
+
+    private fun getChartAttempt(chart: com.github.mikephil.charting.charts.LineChart): DragAttempt? {
+        return chart.getTag(R.id.tag_drag_chart_attempt) as? DragAttempt ?: currentAttempt
+    }
+
+    private fun getChartMode(chart: com.github.mikephil.charting.charts.LineChart): ChartMode {
+        return chart.getTag(R.id.tag_drag_chart_mode) as? ChartMode ?: currentMode
+    }
+
+    private fun getChartMarker(chart: com.github.mikephil.charting.charts.LineChart): com.github.mikephil.charting.components.MarkerView? {
+        return chart.getTag(R.id.tag_drag_chart_marker) as? com.github.mikephil.charting.components.MarkerView
+            ?: (chart.marker as? com.github.mikephil.charting.components.MarkerView)
+            ?: currentMarkerView
+    }
     
     // Константа за Y threshold множител (използва се и при drag и при tap)
     companion object {
@@ -441,6 +494,7 @@ class DragAttemptsAdapter(
         // КРИТИЧНО: Първо задаваме currentAttempt и currentMode (за да работят listener-ите)
         currentAttempt = attempt
         currentMode = ChartMode.SPEED
+        setChartContext(holder.chart, attempt, ChartMode.SPEED)
         
         // КРИТИЧНО: Първо настройваме основните настройки на графиката (БЕЗ listener-и)
         holder.chart.setTouchEnabled(true)
@@ -453,6 +507,8 @@ class DragAttemptsAdapter(
         holder.chart.legend.isEnabled = false
         holder.chart.isDragDecelerationEnabled = false
         holder.chart.dragDecelerationFrictionCoef = 0f
+        holder.chart.setExtraTopOffset(30f)
+        holder.chart.setExtraRightOffset(24f)
         
         holder.chart.xAxis.apply {
             position = com.github.mikephil.charting.components.XAxis.XAxisPosition.BOTTOM
@@ -493,11 +549,11 @@ class DragAttemptsAdapter(
     
     // Помощна функция за показване на маркера на специална точка
     private fun showMarkerAtPoint(chart: com.github.mikephil.charting.charts.LineChart, entry: com.github.mikephil.charting.data.Entry, pointType: PointTooltipMarker.PointType, exactTime: Float) {
-        currentMarkerView?.let { markerView ->
-            // КРИТИЧНО: Използваме индекса на dataset-а за текущия режим, не на специалните точки
-            // Специалните точки са отделни dataset-и, но бъбълът трябва да се позиционира спрямо главната линия
-            val dataSetIndex = getCurrentModeDataSetIndex(chart, currentMode) ?: run {
-                when (currentMode) {
+        val activeAttempt = getChartAttempt(chart) ?: return
+        val activeMode = getChartMode(chart)
+        getChartMarker(chart)?.let { markerView ->
+            val modeDataSetIndex = getCurrentModeDataSetIndex(chart, activeMode) ?: run {
+                when (activeMode) {
                     ChartMode.SPEED -> {
                         chart.data?.dataSets?.indexOfFirst {
                             it.label.contains("Speed", ignoreCase = true) || it.label.isEmpty()
@@ -515,31 +571,15 @@ class DragAttemptsAdapter(
                     }
                 }
             }
-            val validDataSetIndex = dataSetIndex.coerceIn(0, (chart.data?.dataSets?.size ?: 1) - 1)
-            
-            // КРИТИЧНО: За специални точки, използваме точно Y координатата на главната линия в този момент
-            // Това гарантира, че бъбълът се позиционира точно на точката
-            val exactYForHighlight = when (currentMode) {
-                ChartMode.SPEED -> {
-                    // За Speed режим, използваме точно скоростта в този момент
-                    val speedUnit = UnitsManager.getSpeedUnit(chart.context)
-                    when (pointType) {
-                        PointTooltipMarker.PointType.SPEED_100 -> UnitsManager.convertSpeed(100f, speedUnit)
-                        PointTooltipMarker.PointType.SPEED_200 -> UnitsManager.convertSpeed(200f, speedUnit)
-                        PointTooltipMarker.PointType.DISTANCE_402 -> {
-                            // За 0-402m, използваме реалната скорост в този момент
-                            findValueAtTimeInterpolated(currentAttempt ?: return@let, entry.x, currentMode)
-                        }
-                    }
-                }
-                ChartMode.ACCELERATION, ChartMode.G_FORCE -> {
-                    // За Acceleration и G-Force, използваме интерполираната стойност
-                    findValueAtTimeInterpolated(currentAttempt ?: return@let, entry.x, currentMode)
-                }
-            }
+            val specialDataSetIndex = findSpecialPointDataSetIndex(chart, pointType, entry.x)
+            val dataSetIndex = (specialDataSetIndex ?: modeDataSetIndex)
+                .coerceIn(0, (chart.data?.dataSets?.size ?: 1) - 1)
+
+            // За special points ползваме точната Y от самата точка
+            val exactYForHighlight = entry.y
             
             // КРИТИЧНО: Използваме точно Y координатата за правилно позициониране
-            val highlight = com.github.mikephil.charting.highlight.Highlight(entry.x, exactYForHighlight, validDataSetIndex)
+            val highlight = com.github.mikephil.charting.highlight.Highlight(entry.x, exactYForHighlight, dataSetIndex)
             
             // Обновяваме entry-то с точната Y координата
             val correctedEntry = com.github.mikephil.charting.data.Entry(entry.x, exactYForHighlight)
@@ -569,16 +609,17 @@ class DragAttemptsAdapter(
 
                 val modeField = markerView.javaClass.getDeclaredField("mode")
                 modeField.isAccessible = true
-                modeField.set(markerView, currentMode)
+                modeField.set(markerView, activeMode)
 
                 val attemptField = markerView.javaClass.getDeclaredField("attempt")
                 attemptField.isAccessible = true
-                attemptField.set(markerView, currentAttempt)
+                attemptField.set(markerView, activeAttempt)
             } catch (ex: Exception) {
                 // Reflection failed
             }
 
-            chart.highlightValues(arrayOf(highlight))
+            chart.highlightValue(null, false)
+            chart.highlightValue(highlight, false)
             chart.invalidate()
         }
     }
@@ -590,7 +631,8 @@ class DragAttemptsAdapter(
         attempt: DragAttempt,
         mode: ChartMode,
         snapThreshold: Float,
-        context: android.content.Context
+        context: android.content.Context,
+        yThresholdMultiplier: Float = SNAP_Y_MULTIPLIER
     ): SpecialPoint? {
         val specialPoints = mutableListOf<SpecialPoint>()
         val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
@@ -658,7 +700,7 @@ class DragAttemptsAdapter(
         // КРИТИЧНО: Ако има множество близки точки, избираме тази с най-висок приоритет
         val candidatePoints = mutableListOf<Pair<SpecialPoint, Float>>()
         val xThreshold = snapThreshold
-        val yThreshold = snapThreshold * SNAP_Y_MULTIPLIER // Използваме константа
+        val yThreshold = snapThreshold * yThresholdMultiplier
 
         for (point in specialPoints) {
             // Изчисляваме разстояние по X и Y отделно
@@ -683,7 +725,7 @@ class DragAttemptsAdapter(
             }
         } else null
     }
-    
+
     // Помощна функция за намиране на индекса на dataset-а за текущия режим
     private fun getCurrentModeDataSetIndex(chart: com.github.mikephil.charting.charts.LineChart, mode: ChartMode): Int? {
         val dataSets = chart.data?.dataSets ?: return null
@@ -720,6 +762,35 @@ class DragAttemptsAdapter(
             }
         }
         
+        return null
+    }
+
+    private fun findSpecialPointDataSetIndex(
+        chart: com.github.mikephil.charting.charts.LineChart,
+        pointType: PointTooltipMarker.PointType,
+        pointX: Float
+    ): Int? {
+        val dataSets = chart.data?.dataSets ?: return null
+        val expectedColor = when (pointType) {
+            PointTooltipMarker.PointType.SPEED_100 -> ContextCompat.getColor(chart.context, R.color.accent_green)
+            PointTooltipMarker.PointType.SPEED_200 -> ContextCompat.getColor(chart.context, R.color.accent_blue)
+            PointTooltipMarker.PointType.DISTANCE_402 -> ContextCompat.getColor(chart.context, R.color.accent_red)
+        }
+
+        for (i in dataSets.indices) {
+            val dataSet = dataSets[i]
+            if (dataSet.label.isNotEmpty() || dataSet.entryCount != 1) continue
+
+            val onlyEntry = dataSet.getEntryForIndex(0) ?: continue
+            if (kotlin.math.abs(onlyEntry.x - pointX) > 0.03f) continue
+
+            val lineDataSet = dataSet as? com.github.mikephil.charting.data.LineDataSet
+            val circleColor = lineDataSet?.circleColors?.firstOrNull()
+            if (circleColor == expectedColor) {
+                return i
+            }
+        }
+
         return null
     }
     
@@ -795,10 +866,14 @@ class DragAttemptsAdapter(
         // Value selected listener за tooltip-и с SNAPPING логика
         chart.setOnChartValueSelectedListener(object : com.github.mikephil.charting.listener.OnChartValueSelectedListener {
             override fun onValueSelected(e: com.github.mikephil.charting.data.Entry?, h: com.github.mikephil.charting.highlight.Highlight?) {
-                if (e == null || h == null || currentAttempt == null) {
+                val activeAttempt = getChartAttempt(chart)
+                val activeMode = getChartMode(chart)
+                val activeMarker = getChartMarker(chart)
+
+                if (e == null || h == null || activeAttempt == null) {
                     chart.highlightValue(null)
                     // СКРИВАМЕ маркера при празен highlight
-                    currentMarkerView?.let { markerView ->
+                    activeMarker?.let { markerView ->
                         try {
                             val shouldShowField = markerView.javaClass.getDeclaredField("shouldShow")
                             shouldShowField.isAccessible = true
@@ -819,7 +894,7 @@ class DragAttemptsAdapter(
                 if (touchedDataSet?.isHighlightEnabled != true && touchedDataSet?.label?.isNotEmpty() == true) {
                     chart.highlightValue(null) // Изчистваме всякакви highlight-и
                     // СКРИВАМЕ маркера при неактивен dataset
-                    currentMarkerView?.let { markerView ->
+                    activeMarker?.let { markerView ->
                         try {
                             val shouldShowField = markerView.javaClass.getDeclaredField("shouldShow")
                             shouldShowField.isAccessible = true
@@ -834,8 +909,8 @@ class DragAttemptsAdapter(
                 // (не правим ранно return тук) - това позволява на специалните dataset-и (маркерите) 
                 // да се обработват правилно и да се показват бъбъли при клик/драг
 
-                val attempt = currentAttempt!!
-                val snapThreshold = 0.4f // Радиус за snapping (0.3 секунди)
+                val attempt = activeAttempt
+                val snapThreshold = 0.16f // По-тесен радиус за snapping около самата точка
                 var finalEntry = e
                 var specialPointType: PointTooltipMarker.PointType? = null
                 var isSpecial = false
@@ -845,9 +920,10 @@ class DragAttemptsAdapter(
                     e.x,
                     e.y,
                     attempt,
-                    currentMode,
+                    activeMode,
                     snapThreshold,
-                    chart.context
+                    chart.context,
+                    SNAP_Y_MULTIPLIER
                 )
 
                 // Ако сме близо до специална точка - SNAP към нея
@@ -864,7 +940,22 @@ class DragAttemptsAdapter(
                 // Обновяваме маркера
                 // КРИТИЧНО: ПЪРВО задаваме свойствата чрез reflection, СЛЕД това refreshContent
                 // Това гарантира, че pointType е правилно зададен преди refreshContent да се извика
-                currentMarkerView?.let { markerView ->
+                val modeDataSetIndex = (getCurrentModeDataSetIndex(chart, activeMode)
+                    ?: touchedDataSetIndex).coerceIn(0, (chart.data?.dataSets?.size ?: 1) - 1)
+                val specialDataSetIndex = if (isSpecial && specialPointType != null) {
+                    findSpecialPointDataSetIndex(chart, specialPointType, finalEntry.x)
+                } else {
+                    null
+                }
+                val snappedDataSetIndex = (specialDataSetIndex ?: modeDataSetIndex)
+                    .coerceIn(0, (chart.data?.dataSets?.size ?: 1) - 1)
+                val finalHighlight = com.github.mikephil.charting.highlight.Highlight(
+                    finalEntry.x,
+                    finalEntry.y,
+                    snappedDataSetIndex
+                )
+
+                activeMarker?.let { markerView ->
                     // Задаваме свойствата чрез reflection ПРЕДИ refreshContent
                     try {
                         // КРИТИЧНО: Активираме маркера за показване
@@ -905,24 +996,23 @@ class DragAttemptsAdapter(
 
                         val modeField = markerView.javaClass.getDeclaredField("mode")
                         modeField.isAccessible = true
-                        modeField.set(markerView, currentMode)
+                        modeField.set(markerView, activeMode)
 
                         val attemptField = markerView.javaClass.getDeclaredField("attempt")
                         attemptField.isAccessible = true
-                        attemptField.set(markerView, currentAttempt)
+                        attemptField.set(markerView, attempt)
                     } catch (ex: Exception) {
                         // Reflection failed
                     }
                     
                     // СЛЕД като pointType е зададен правилно, извикваме refreshContent
-                    markerView.refreshContent(finalEntry, h)
+                    // с финалния snapped highlight за центриране върху точката.
+                    markerView.refreshContent(finalEntry, finalHighlight)
                 }
 
-                // Принудително рисуваме highlight на финалната точка
-                // Използваме същия dataSetIndex който вече определихме по-горе
-                val finalDataSetIndex = h.dataSetIndex.coerceIn(0, (chart.data?.dataSets?.size ?: 1) - 1)
-                val highlight = com.github.mikephil.charting.highlight.Highlight(finalEntry.x, finalEntry.y, finalDataSetIndex)
-                chart.highlightValues(arrayOf(highlight))
+                // Винаги използваме финалния snapped highlight (ако е special point,
+                // това е центърът на точката), за да няма изместване вляво/вдясно.
+                chart.highlightValue(finalHighlight, false)
                 chart.invalidate()
             }
 
@@ -946,41 +1036,8 @@ class DragAttemptsAdapter(
                 chart.fitScreen()
             }
             override fun onChartSingleTapped(me: MotionEvent?) {
-                // SNAPPING логика при цъкване - използваме същата функция като при drag за консистентност
-                if (me != null && currentAttempt != null) {
-                    val touchPoint = chart.getValuesByTouchPoint(me.x, me.y, com.github.mikephil.charting.components.YAxis.AxisDependency.LEFT)
-                    if (touchPoint != null && touchPoint.x >= 0f) {
-                        val attempt = currentAttempt!!
-                        val snapThreshold = 0.4f // Радиус за snapping (0.4 секунди)
-                        
-                        // Използваме същата помощна функция като при drag за консистентност
-                        // КРИТИЧНО: Конвертираме Double към Float (touchPoint връща Double, но функцията очаква Float)
-                        val closestSpecialPoint = findClosestSpecialPoint(
-                            touchPoint.x.toFloat(),
-                            touchPoint.y.toFloat(),
-                            attempt,
-                            currentMode,
-                            snapThreshold,
-                            chart.context
-                        )
-                        
-                        if (closestSpecialPoint != null) {
-                            val exactTime = when (closestSpecialPoint.type) {
-                                PointTooltipMarker.PointType.SPEED_100 -> attempt.time0to100 / 1_000_000_000.0f
-                                PointTooltipMarker.PointType.SPEED_200 -> {
-                                    if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
-                                        attempt.time100to200 / 1_000_000_000.0f
-                                    } else {
-                                        attempt.time0to200 / 1_000_000_000.0f
-                                    }
-                                }
-                                PointTooltipMarker.PointType.DISTANCE_402 -> attempt.time0to402 / 1_000_000_000.0f
-                            }
-                            val entry = com.github.mikephil.charting.data.Entry(closestSpecialPoint.x, closestSpecialPoint.y)
-                            showMarkerAtPoint(chart, entry, closestSpecialPoint.type, exactTime)
-                        }
-                    }
-                }
+                // Нищо – използваме същата логика като CompareAttemptsActivity.
+                // onValueSelected + snapping управляват показването на балона при tap/drag.
             }
             override fun onChartFling(me1: MotionEvent?, me2: MotionEvent?, velocityX: Float, velocityY: Float) {}
             override fun onChartScale(me: MotionEvent?, scaleX: Float, scaleY: Float) {}
@@ -1070,6 +1127,7 @@ class DragAttemptsAdapter(
         holder.currentChartMode = mode
         currentMode = mode
         currentAttempt = attempt
+        setChartContext(holder.chart, attempt, mode)
         
         // Обновяваме стила на бутоните
         updateButtonStyles(holder, mode)
@@ -1178,11 +1236,17 @@ class DragAttemptsAdapter(
         
         // Принудително обновяваме X-оста след всяко обновяване на данните
         val maxTimeFromAllMeasurements = getMaxTimeFromAllMeasurements(attempt).toFloat()
-        holder.chart.xAxis.axisMinimum = 0f
-        holder.chart.xAxis.axisMaximum = maxTimeFromAllMeasurements
-        holder.chart.setVisibleXRangeMaximum(maxTimeFromAllMeasurements)
-        holder.chart.moveViewToX(0f)
+        applyChartXPadding(holder.chart, maxTimeFromAllMeasurements)
         holder.chart.invalidate()
+    }
+
+    private fun applyChartXPadding(chart: com.github.mikephil.charting.charts.LineChart, baseMaxX: Float) {
+        val safeBaseMax = if (baseMaxX > 0f) baseMaxX else 1f
+        val rightPadding = maxOf(0.5f, safeBaseMax * 0.08f)
+        chart.xAxis.axisMinimum = 0f
+        chart.xAxis.axisMaximum = safeBaseMax + rightPadding
+        chart.setVisibleXRangeMaximum(safeBaseMax + rightPadding)
+        chart.moveViewToX(0f)
     }
     
     private fun addSpeedLine(holder: AttemptViewHolder, attempt: DragAttempt, isActive: Boolean) {
@@ -1393,10 +1457,12 @@ class DragAttemptsAdapter(
             if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
                 val threshold100 = UnitsManager.convertSpeed(100f, speedUnit)
                 yAxis.axisMinimum = threshold100
-                yAxis.axisMaximum = if (convertedMax > threshold200) convertedMax * 1.1f else threshold200
+                val topRef = maxOf(convertedMax, threshold200)
+                yAxis.axisMaximum = topRef * 1.05f
             } else {
                 yAxis.axisMinimum = 0f
-                yAxis.axisMaximum = if (convertedMax > threshold200) convertedMax * 1.1f else threshold200
+                val topRef = maxOf(convertedMax, threshold200)
+                yAxis.axisMaximum = topRef * 1.05f
             }
             yAxis.setDrawZeroLine(true)
             yAxis.zeroLineColor = android.graphics.Color.GRAY
@@ -1414,17 +1480,11 @@ class DragAttemptsAdapter(
                 if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
                     // За 100-200 режим времето е нормализирано (100 km/h = 0.0s)
                     val maxNormalizedTime = entries.maxOfOrNull { it.x } ?: 0f
-                    holder.chart.xAxis.axisMinimum = 0f
-                    holder.chart.xAxis.axisMaximum = maxNormalizedTime * 1.1f
-                    holder.chart.setVisibleXRangeMaximum(maxNormalizedTime * 1.1f)
-                    holder.chart.moveViewToX(0f)
+                    applyChartXPadding(holder.chart, maxNormalizedTime * 1.1f)
                 } else {
                     // За останалите режими използваме реалните времена
                     val maxTimeFromAllMeasurements = getMaxTimeFromAllMeasurements(attempt).toFloat()
-                    holder.chart.xAxis.axisMinimum = 0f
-                    holder.chart.xAxis.axisMaximum = maxTimeFromAllMeasurements
-                    holder.chart.setVisibleXRangeMaximum(maxTimeFromAllMeasurements)
-                    holder.chart.moveViewToX(0f)
+                    applyChartXPadding(holder.chart, maxTimeFromAllMeasurements)
                 }
             }
             
@@ -1455,10 +1515,7 @@ class DragAttemptsAdapter(
                 getMaxTimeFromAllMeasurements(attempt).toFloat()
             }
             
-            holder.chart.xAxis.axisMinimum = 0f
-            holder.chart.xAxis.axisMaximum = maxTime
-            holder.chart.setVisibleXRangeMaximum(maxTime)
-            holder.chart.moveViewToX(0f)
+            applyChartXPadding(holder.chart, maxTime)
             
             // Настройваме Y оста - показваме и отрицателни стойности за acceleration
             val yAxis = holder.chart.axisLeft
@@ -1511,10 +1568,7 @@ class DragAttemptsAdapter(
                 getMaxTimeFromAllMeasurements(attempt).toFloat()
             }
             
-            holder.chart.xAxis.axisMinimum = 0f
-            holder.chart.xAxis.axisMaximum = maxTime
-            holder.chart.setVisibleXRangeMaximum(maxTime)
-            holder.chart.moveViewToX(0f)
+            applyChartXPadding(holder.chart, maxTime)
             
             // Настройваме Y оста - поправяме скалирането
             val yAxis = holder.chart.axisLeft
@@ -1599,7 +1653,7 @@ class DragAttemptsAdapter(
                     lineWidth = 0f
                     circleRadius = 8f
                     circleHoleRadius = 4f
-                    isHighlightEnabled = true // ВРЪЩАМЕ TRUE, за да работи tap върху кръгчето
+                    isHighlightEnabled = true
                     setCircleColor(ContextCompat.getColor(context, R.color.accent_green)) // 100 km/h - зелена
                 }
                 existingData.addDataSet(dataSet100)
@@ -1659,7 +1713,7 @@ class DragAttemptsAdapter(
                     lineWidth = 0f
                     circleRadius = 8f
                     circleHoleRadius = 4f
-                    isHighlightEnabled = true // ВРЪЩАМЕ TRUE, за да работи tap върху кръгчето
+                    isHighlightEnabled = true
                     setCircleColor(ContextCompat.getColor(context, R.color.accent_blue)) // 200 km/h - синя
                 }
                 existingData.addDataSet(dataSet200)
@@ -1679,7 +1733,7 @@ class DragAttemptsAdapter(
                     lineWidth = 0f
                     circleRadius = 8f
                     circleHoleRadius = 4f
-                    isHighlightEnabled = true // ВРЪЩАМЕ TRUE, за да работи tap върху кръгчето
+                    isHighlightEnabled = true
                     setCircleColor(ContextCompat.getColor(context, R.color.accent_red)) // 402m - червена
                 }
                 existingData.addDataSet(dataSet402)
@@ -1867,11 +1921,12 @@ class DragAttemptsAdapter(
             }
             
             override fun getOffset(): MPPointF {
-                return MPPointF(-width / 2f, -height.toFloat())
+                return MPPointF(0f, 0f)
             }
         }
         
         holder.chart.marker = smartMarker
+        holder.chart.setTag(R.id.tag_drag_chart_marker, smartMarker)
         currentMarkerView = smartMarker
     }
     

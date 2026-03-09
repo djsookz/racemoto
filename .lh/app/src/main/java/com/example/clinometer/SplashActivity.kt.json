@@ -1,0 +1,22 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/SplashActivity.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 1,
+            "patches": [
+                {
+                    "date": 1771575193363,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1771577993912,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -22,9 +22,9 @@\n         \r\n         // След 1.5 секунди продължаваме към MainContainerActivity\r\n         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({\r\n             val intent = Intent(this, MainContainerActivity::class.java)\r\n-            intent.putExtra(\"NAV_ITEM_ID\", R.id.navMap) // Отваряме Map страницата по подразбиране\r\n+            intent.putExtra(MainContainerActivity.EXTRA_NAV_ITEM_ID, R.id.navMap) // Отваряме Map страницата по подразбиране\r\n             startActivity(intent)\r\n             overridePendingTransition(0, 0) // Премахваме анимацията\r\n             finish()\r\n         }, 1500)\r\n"
+                }
+            ],
+            "date": 1771575193363,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer\r\n\r\nimport android.content.Context\r\nimport android.content.Intent\r\nimport android.os.Bundle\r\nimport androidx.appcompat.app.AppCompatActivity\r\nimport com.example.clinometer.settings.LanguageManager\r\nimport com.example.clinometer.main.MainContainerActivity\r\n\r\nclass SplashActivity : AppCompatActivity() {\r\n    \r\n    override fun attachBaseContext(newBase: Context) {\r\n        super.attachBaseContext(LanguageManager.applyLanguage(newBase))\r\n    }\r\n\r\n    override fun onCreate(savedInstanceState: Bundle?) {\r\n        super.onCreate(savedInstanceState)\r\n        setContentView(R.layout.activity_welcome)\r\n        \r\n        // Скриваме бутона START за loading screen\r\n        findViewById<com.google.android.material.button.MaterialButton>(R.id.btnStart).visibility = android.view.View.GONE\r\n        \r\n        // След 1.5 секунди продължаваме към MainContainerActivity\r\n        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({\r\n            val intent = Intent(this, MainContainerActivity::class.java)\r\n            intent.putExtra(\"NAV_ITEM_ID\", R.id.navMap) // Отваряме Map страницата по подразбиране\r\n            startActivity(intent)\r\n            overridePendingTransition(0, 0) // Премахваме анимацията\r\n            finish()\r\n        }, 1500)\r\n    }\r\n}\r\n\r\n"
+        }
+    ]
+}

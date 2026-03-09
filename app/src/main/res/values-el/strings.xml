@@ -255,7 +255,14 @@
     <string name="track_best_time">Καλύτερος Χρόνος:</string>
     <string name="track_min_speed">Ελάχιστη Ταχύτητα:</string>
     <string name="track_max_speed">Μέγιστη Ταχύτητα:</string>
+    <string name="track_avg_speed">Μέση Ταχύτητα:</string>
+    <string name="track_distance">Απόσταση:</string>
     <string name="track_max_acceleration">Μέγ. Επιτάχυνση:</string>
+    <string name="track_max_braking">Μέγ. Φρενάρισμα:</string>
+    <string name="track_max_cornering_left">Μέγ. Στροφή L:</string>
+    <string name="track_max_cornering_right">Μέγ. Στροφή R:</string>
+    <string name="track_max_lean_left">Μέγ. Κλίση L:</string>
+    <string name="track_max_lean_right">Μέγ. Κλίση R:</string>
     <string name="track_max_cornering">Μέγ. Στροφή:</string>
     <string name="track_laps_section">Γύροι</string>
     <string name="track_no_sessions">Δεν υπάρχουν συνεδρίες πίστας</string>
@@ -273,6 +280,7 @@
     <string name="placeholder_track_name">Όνομα Πίστας</string>
     <string name="placeholder_vehicle_name">Όχημα</string>
     <string name="track_best_lap_label">Καλύτερος Γύρος</string>
+    <string name="track_date_time_label">Ημερομηνία &amp; Ώρα</string>
     <string name="track_duration_label">Διάρκεια</string>
     <string name="track_laps_label">Γύροι</string>
     <string name="track_new_session">+ Νέα Έξοδος</string>

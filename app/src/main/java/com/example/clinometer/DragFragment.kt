@@ -156,7 +156,7 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         
         btnStartSession.setOnClickListener {
             if (checkLocationPermission()) {
-                startCountdownAndSession()
+                verifyCalibrationAndStartSession()
             } else {
                 requestLocationPermission()
             }
@@ -478,6 +478,35 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
     private fun startCountdownAndSession() {
         showMeasurementModeDialog()
     }
+
+    private fun verifyCalibrationAndStartSession() {
+        val selectedProfileId = getCurrentProfileId()
+        if (selectedProfileId != -1L) {
+            DragCalibration.setProfile(selectedProfileId)
+        }
+
+        if (!DragCalibration.isCalibrated) {
+            AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
+                .setTitle("Calibration Required")
+                .setMessage("Drag start needs calibration. Open calibration now?")
+                .setPositiveButton("Open Calibration") { _, _ -> openCalibrationScreen() }
+                .setNegativeButton(getString(R.string.dialog_cancel_button), null)
+                .show()
+        } else {
+            startCountdownAndSession()
+        }
+    }
+
+    private fun openCalibrationScreen() {
+        val selectedProfileId = getCurrentProfileId()
+        val calibrationIntent = Intent(requireContext(), DragCalibrationActivity::class.java).apply {
+            putExtra("PROFILE_ID", selectedProfileId)
+            putExtra("IS_FIRST_PROFILE", false)
+            putExtra("IS_NEW_PROFILE", false)
+            putExtra("IS_FIRST_LAUNCH", false)
+        }
+        startActivity(calibrationIntent)
+    }
     
     private fun showMeasurementModeDialog() {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_measurement_mode, null)
@@ -615,7 +644,7 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST_LOCATION) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startCountdownAndSession()
+                verifyCalibrationAndStartSession()
             }
         }
     }

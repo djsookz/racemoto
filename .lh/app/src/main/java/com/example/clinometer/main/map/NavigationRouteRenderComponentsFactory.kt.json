@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/map/NavigationRouteRenderComponentsFactory.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771672821084,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771672821084,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.map\r\n\r\nimport android.content.Context\r\nimport com.mapbox.navigation.ui.maps.route.arrow.api.MapboxRouteArrowView\r\nimport com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineApi\r\nimport com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineView\r\nimport com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineApiOptions\r\nimport com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineViewOptions\r\n\r\ndata class NavigationRouteRenderComponents(\r\n    val routeLineApi: MapboxRouteLineApi,\r\n    val routeLineView: MapboxRouteLineView,\r\n    val routeArrowView: MapboxRouteArrowView\r\n)\r\n\r\nobject NavigationRouteRenderComponentsFactory {\r\n\r\n    fun ensure(\r\n        context: Context,\r\n        routeLineApi: MapboxRouteLineApi?,\r\n        routeLineView: MapboxRouteLineView?,\r\n        routeArrowView: MapboxRouteArrowView?,\r\n        createRouteArrowView: (Boolean) -> MapboxRouteArrowView\r\n    ): NavigationRouteRenderComponents {\r\n        val ensuredRouteLineApi = routeLineApi ?: MapboxRouteLineApi(\r\n            MapboxRouteLineApiOptions.Builder().build()\r\n        )\r\n\r\n        val ensuredRouteLineView = routeLineView ?: MapboxRouteLineView(\r\n            MapboxRouteLineViewOptions.Builder(context)\r\n                .routeLineBelowLayerId(\"road-label\")\r\n                .build()\r\n        )\r\n\r\n        val ensuredRouteArrowView = routeArrowView ?: createRouteArrowView(true)\r\n\r\n        return NavigationRouteRenderComponents(\r\n            routeLineApi = ensuredRouteLineApi,\r\n            routeLineView = ensuredRouteLineView,\r\n            routeArrowView = ensuredRouteArrowView\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

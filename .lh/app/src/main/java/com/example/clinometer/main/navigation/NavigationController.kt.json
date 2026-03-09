@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/navigation/NavigationController.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388333,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388333,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.navigation\r\n\r\nimport android.content.Intent\r\nimport com.example.clinometer.R\r\nimport com.example.clinometer.main.MainContainerActivity\r\n\r\nobject NavigationController {\r\n    fun resolveInitialPage(intent: Intent): Int {\r\n        return if (intent.hasExtra(MainContainerActivity.EXTRA_INITIAL_PAGE) || intent.hasExtra(\"INITIAL_PAGE\")) {\r\n            intent.getIntExtra(\r\n                MainContainerActivity.EXTRA_INITIAL_PAGE,\r\n                intent.getIntExtra(\"INITIAL_PAGE\", MainContainerActivity.PAGE_MAP)\r\n            )\r\n        } else if (intent.hasExtra(MainContainerActivity.EXTRA_NAV_ITEM_ID) || intent.hasExtra(\"NAV_ITEM_ID\")) {\r\n            val navItemId = intent.getIntExtra(\r\n                MainContainerActivity.EXTRA_NAV_ITEM_ID,\r\n                intent.getIntExtra(\"NAV_ITEM_ID\", R.id.navMap)\r\n            )\r\n            navItemIdToPage(navItemId)\r\n        } else {\r\n            MainContainerActivity.PAGE_MAP\r\n        }\r\n    }\r\n\r\n    fun pageToNavItemId(page: Int): Int {\r\n        return when (page) {\r\n            MainContainerActivity.PAGE_MAP -> R.id.navMap\r\n            MainContainerActivity.PAGE_TRACK -> R.id.navTrack\r\n            MainContainerActivity.PAGE_DRAG -> R.id.navDrag\r\n            MainContainerActivity.PAGE_GARAGE -> R.id.navGarage\r\n            MainContainerActivity.PAGE_SETTINGS -> R.id.navOptions\r\n            else -> R.id.navMap\r\n        }\r\n    }\r\n\r\n    fun navItemIdToPage(navItemId: Int): Int {\r\n        return when (navItemId) {\r\n            R.id.navMap -> MainContainerActivity.PAGE_MAP\r\n            R.id.navTrack -> MainContainerActivity.PAGE_TRACK\r\n            R.id.navDrag -> MainContainerActivity.PAGE_DRAG\r\n            R.id.navGarage -> MainContainerActivity.PAGE_GARAGE\r\n            R.id.navOptions -> MainContainerActivity.PAGE_SETTINGS\r\n            else -> MainContainerActivity.PAGE_MAP\r\n        }\r\n    }\r\n}\r\n"
+        }
+    ]
+}

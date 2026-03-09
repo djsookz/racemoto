@@ -31,6 +31,11 @@ private fun Int.dpToPx(context: Context): Int {
 }
 
 class SessionSelectionActivity : AppCompatActivity() {
+
+    private data class AttemptItem(
+        val attempt: DragAttempt,
+        val originalNumber: Int
+    )
     
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(LanguageManager.applyLanguage(newBase))
@@ -62,6 +67,7 @@ class SessionSelectionActivity : AppCompatActivity() {
             // Отваряме страницата за сравняване
             val intent = Intent(this, CompareAttemptsActivity::class.java)
             intent.putExtra("current_session_id", currentSessionId)
+            intent.putExtra("current_attempt_id", currentAttemptId)
             intent.putExtra("compare_session_id", session.id)
             intent.putExtra("compare_attempt_id", attempt.id)
             startActivity(intent)
@@ -88,8 +94,13 @@ class SessionSelectionActivity : AppCompatActivity() {
         private val expandedSessions = mutableSetOf<Long>()
         
         fun updateSessions(newSessions: List<DragSession>) {
-            // Премахваме текущата сесия от списъка
-            sessions = newSessions.filter { it.id != currentSessionId }
+            sessions = newSessions.filter { session ->
+                if (session.id != currentSessionId) {
+                    true
+                } else {
+                    (session.attempts?.size ?: 0) > 1
+                }
+            }
             notifyDataSetChanged()
         }
         
@@ -133,7 +144,11 @@ class SessionSelectionActivity : AppCompatActivity() {
                 tvSessionDate.text = dateFormat.format(Date(session.timestamp))
                 
                 // Зареждаме опитите за тази сесия
-                val attempts = session.attempts ?: emptyList()
+                val attempts = (session.attempts ?: emptyList())
+                    .mapIndexed { index, attempt -> AttemptItem(attempt, index + 1) }
+                    .filterNot {
+                        session.id == currentSessionId && it.attempt.id == currentAttemptId
+                    }
                 
                 val attemptsAdapter = AttemptsAdapter(attempts) { attempt ->
                     onAttemptSelected(attempt)
@@ -158,7 +173,7 @@ class SessionSelectionActivity : AppCompatActivity() {
     }
     
     private inner class AttemptsAdapter(
-        private val attempts: List<DragAttempt>,
+        private val attempts: List<AttemptItem>,
         private val onAttemptSelected: (DragAttempt) -> Unit
     ) : RecyclerView.Adapter<AttemptsAdapter.AttemptViewHolder>() {
         
@@ -169,9 +184,9 @@ class SessionSelectionActivity : AppCompatActivity() {
         }
         
         override fun onBindViewHolder(holder: AttemptViewHolder, position: Int) {
-            val attempt = attempts[position]
-            holder.bind(attempt) {
-                onAttemptSelected(attempt)
+            val item = attempts[position]
+            holder.bind(item) {
+                onAttemptSelected(item.attempt)
             }
         }
         
@@ -182,12 +197,12 @@ class SessionSelectionActivity : AppCompatActivity() {
             private val tvAttemptTime: TextView = itemView.findViewById(R.id.tvAttemptTime)
             private val tvAttemptStats: TextView = itemView.findViewById(R.id.tvAttemptStats)
             
-            fun bind(attempt: DragAttempt, onAttemptSelected: () -> Unit) {
-                tvAttemptNumber.text = "Attempt ${adapterPosition + 1}"
+            fun bind(item: AttemptItem, onAttemptSelected: () -> Unit) {
+                tvAttemptNumber.text = "Attempt ${item.originalNumber}"
                 
                 // Показваме датата и часа
                 val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault())
-                tvAttemptTime.text = dateFormat.format(Date(attempt.timestamp))
+                tvAttemptTime.text = dateFormat.format(Date(item.attempt.timestamp))
                 
                 // НЕ показваме статистики
                 tvAttemptStats.text = ""

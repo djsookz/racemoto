@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/location/LocationUpdateCoordinator.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388337,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388337,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.location\r\n\r\nimport android.location.Location\r\nimport com.example.clinometer.GeoPoint\r\nimport kotlin.math.atan2\r\nimport kotlin.math.cos\r\nimport kotlin.math.sin\r\n\r\ndata class LocationUpdateComputation(\r\n    val filteredLocation: Location,\r\n    val geoPoint: GeoPoint,\r\n    val calculatedBearing: Float,\r\n    val targetMapOrientation: Float\r\n)\r\n\r\nobject LocationUpdateCoordinator {\r\n    fun compute(\r\n        location: Location,\r\n        speed: Float,\r\n        lastProcessedLocation: Location?,\r\n        isNorthUpMode: Boolean,\r\n        kalmanFilter: KalmanLocationFilter\r\n    ): LocationUpdateComputation {\r\n        val filtered = kalmanFilter.process(location)\r\n        val geoPoint = GeoPoint(filtered.latitude, filtered.longitude)\r\n\r\n        var calculatedBearing = location.bearing\r\n\r\n        if (lastProcessedLocation != null && speed > 1f) {\r\n            val lastGeoPoint = GeoPoint(\r\n                lastProcessedLocation.latitude,\r\n                lastProcessedLocation.longitude\r\n            )\r\n\r\n            val distance = geoPoint.distanceToAsDouble(lastGeoPoint)\r\n\r\n            if (distance > 0.3) {\r\n                val lat1 = Math.toRadians(lastGeoPoint.latitude)\r\n                val lat2 = Math.toRadians(geoPoint.latitude)\r\n                val deltaLon = Math.toRadians(geoPoint.longitude - lastGeoPoint.longitude)\r\n\r\n                val x = sin(deltaLon) * cos(lat2)\r\n                val y = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)\r\n\r\n                var movementBearing = Math.toDegrees(atan2(x, y)).toFloat()\r\n                if (movementBearing < 0) movementBearing += 360f\r\n\r\n                calculatedBearing = when {\r\n                    speed > 20f -> movementBearing * 0.1f + location.bearing * 0.9f\r\n                    speed > 5f -> movementBearing * 0.5f + location.bearing * 0.5f\r\n                    else -> location.bearing\r\n                }\r\n            }\r\n        }\r\n\r\n        val targetMapOrientation = when {\r\n            isNorthUpMode -> 0f\r\n            speed > 2f -> -calculatedBearing\r\n            else -> 0f\r\n        }\r\n\r\n        return LocationUpdateComputation(\r\n            filteredLocation = filtered,\r\n            geoPoint = geoPoint,\r\n            calculatedBearing = calculatedBearing,\r\n            targetMapOrientation = targetMapOrientation\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

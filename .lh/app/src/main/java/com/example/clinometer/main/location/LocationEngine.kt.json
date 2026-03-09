@@ -1,0 +1,22 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/location/LocationEngine.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 1,
+            "patches": [
+                {
+                    "date": 1771581388333,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1771676464189,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -37,8 +37,15 @@\n             time = timestamp\r\n             this.accuracy = sqrt(variance).toFloat()\r\n         }\r\n     }\r\n+\r\n+    fun reset() {\r\n+        timestamp = 0L\r\n+        lat = 0.0\r\n+        lng = 0.0\r\n+        variance = -1.0\r\n+    }\r\n }\r\n \r\n class MotionPredictor {\r\n     private data class MotionState(\r\n@@ -74,5 +81,9 @@\n         if (history.size > maxHistory) {\r\n             history.removeAt(0)\r\n         }\r\n     }\r\n+\r\n+    fun reset() {\r\n+        history.clear()\r\n+    }\r\n }\r\n"
+                }
+            ],
+            "date": 1771581388333,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.location\r\n\r\nimport android.location.Location\r\nimport android.os.SystemClock\r\nimport com.example.clinometer.GeoPoint\r\nimport kotlin.math.sqrt\r\n\r\nclass KalmanLocationFilter(private val qMetersPerSecond: Float = 3f) {\r\n    private var timestamp = 0L\r\n    private var lat = 0.0\r\n    private var lng = 0.0\r\n    private var variance = -1.0\r\n\r\n    fun process(location: Location): Location {\r\n        val accuracy = location.accuracy.toDouble()\r\n\r\n        if (variance < 0) {\r\n            timestamp = location.time\r\n            lat = location.latitude\r\n            lng = location.longitude\r\n            variance = accuracy * accuracy\r\n        } else {\r\n            val dt = (location.time - timestamp) / 1000.0\r\n            if (dt > 0) {\r\n                variance += dt * qMetersPerSecond * qMetersPerSecond\r\n                timestamp = location.time\r\n                val k = variance / (variance + accuracy * accuracy)\r\n                lat += k * (location.latitude - lat)\r\n                lng += k * (location.longitude - lng)\r\n                variance = (1 - k) * variance\r\n            }\r\n        }\r\n\r\n        return Location(location).apply {\r\n            latitude = lat\r\n            longitude = lng\r\n            time = timestamp\r\n            this.accuracy = sqrt(variance).toFloat()\r\n        }\r\n    }\r\n}\r\n\r\nclass MotionPredictor {\r\n    private data class MotionState(\r\n        val position: GeoPoint,\r\n        val velocity: DoubleArray,\r\n        val timestamp: Long,\r\n        val bearing: Float,\r\n        val speed: Float\r\n    )\r\n\r\n    private val history = mutableListOf<MotionState>()\r\n    private val maxHistory = 5\r\n\r\n    fun addSample(position: GeoPoint, bearing: Float, speed: Float) {\r\n        val now = SystemClock.elapsedRealtime()\r\n\r\n        val velocity = if (history.isNotEmpty()) {\r\n            val last = history.last()\r\n            val dt = (now - last.timestamp) / 1000.0\r\n            if (dt > 0) {\r\n                doubleArrayOf(\r\n                    (position.latitude - last.position.latitude) / dt,\r\n                    (position.longitude - last.position.longitude) / dt\r\n                )\r\n            } else {\r\n                doubleArrayOf(0.0, 0.0)\r\n            }\r\n        } else {\r\n            doubleArrayOf(0.0, 0.0)\r\n        }\r\n\r\n        history.add(MotionState(position, velocity, now, bearing, speed))\r\n        if (history.size > maxHistory) {\r\n            history.removeAt(0)\r\n        }\r\n    }\r\n}\r\n"
+        }
+    ]
+}

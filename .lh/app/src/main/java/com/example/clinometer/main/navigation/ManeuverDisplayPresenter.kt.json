@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/navigation/ManeuverDisplayPresenter.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388614,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388614,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.navigation\r\n\r\nimport android.content.Context\r\nimport com.example.clinometer.navigation.DirectionsStep\r\n\r\ndata class ManeuverDisplayModel(\r\n    val distanceText: String,\r\n    val primaryText: CharSequence,\r\n    val secondaryText: String?,\r\n    val iconRes: Int\r\n)\r\n\r\nobject ManeuverDisplayPresenter {\r\n    fun build(\r\n        context: Context,\r\n        step: DirectionsStep,\r\n        distanceToManeuver: Double\r\n    ): ManeuverDisplayModel {\r\n        val distance = if (distanceToManeuver >= 0) distanceToManeuver else step.distance\r\n        val distanceText = RouteMath.formatDistance(distance)\r\n\r\n        val instruction = step.maneuver?.instruction\r\n            ?: step.bannerInstructions?.firstOrNull()?.primary?.text\r\n            ?: step.name\r\n            ?: \"Continue\"\r\n\r\n        val primaryText = ManeuverFormatter.formatManeuverInstruction(context, instruction)\r\n        val secondaryText = step.bannerInstructions?.firstOrNull()?.secondary?.text\r\n\r\n        val parsedFromInstruction = ManeuverFormatter.parseManeuverFromInstruction(instruction)\r\n        val parsedType = parsedFromInstruction.first\r\n        val parsedModifier = parsedFromInstruction.second\r\n\r\n        val bannerPrimary = step.bannerInstructions?.firstOrNull()?.primary\r\n        val maneuverType = parsedType ?: bannerPrimary?.type ?: step.maneuver?.type\r\n        val maneuverModifier = parsedModifier ?: bannerPrimary?.modifier ?: step.maneuver?.modifier\r\n\r\n        val iconRes = ManeuverFormatter.getManeuverIcon(maneuverType, maneuverModifier)\r\n\r\n        return ManeuverDisplayModel(\r\n            distanceText = distanceText,\r\n            primaryText = primaryText,\r\n            secondaryText = secondaryText,\r\n            iconRes = iconRes\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

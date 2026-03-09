@@ -288,7 +288,7 @@
                             android:layout_marginTop="4dp"
                             android:fontFamily="sans-serif-medium"
                             android:text="ADD"
-                            android:textColor="@color/accent_orange"
+                            android:textColor="@color/primary_color"
                             android:textSize="9sp" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>

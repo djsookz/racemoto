@@ -1,0 +1,22 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/SystemBarsInsetsHelper.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 1,
+            "patches": [
+                {
+                    "date": 1771932582181,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1772796578955,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -3,25 +3,48 @@\n import android.view.ViewGroup\r\n import androidx.appcompat.app.AppCompatActivity\r\n import androidx.core.view.ViewCompat\r\n import androidx.core.view.WindowInsetsCompat\r\n+import kotlin.math.max\r\n \r\n+private data class RootInitialPadding(\r\n+    val left: Int,\r\n+    val top: Int,\r\n+    val right: Int,\r\n+    val bottom: Int\r\n+)\r\n+\r\n fun AppCompatActivity.applySystemBarsPaddingToRoot() {\r\n     val content = findViewById<ViewGroup>(android.R.id.content) ?: return\r\n     val root = content.getChildAt(0) ?: return\r\n \r\n-    val initialLeft = root.paddingLeft\r\n-    val initialTop = root.paddingTop\r\n-    val initialRight = root.paddingRight\r\n-    val initialBottom = root.paddingBottom\r\n+    // We handle system bar insets manually.\r\n+    root.fitsSystemWindows = false\r\n \r\n+    val initialPadding = (root.getTag(R.id.tag_system_bars_initial_padding) as? RootInitialPadding)\r\n+        ?: RootInitialPadding(\r\n+            left = root.paddingLeft,\r\n+            top = root.paddingTop,\r\n+            right = root.paddingRight,\r\n+            bottom = root.paddingBottom\r\n+        ).also {\r\n+            root.setTag(R.id.tag_system_bars_initial_padding, it)\r\n+        }\r\n+\r\n     ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->\r\n         val systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())\r\n+        val cutoutInsets = insets.getInsets(WindowInsetsCompat.Type.displayCutout())\r\n+\r\n+        val insetLeft = max(systemBarsInsets.left, cutoutInsets.left)\r\n+        val insetTop = max(systemBarsInsets.top, cutoutInsets.top)\r\n+        val insetRight = max(systemBarsInsets.right, cutoutInsets.right)\r\n+        val insetBottom = max(systemBarsInsets.bottom, cutoutInsets.bottom)\r\n+\r\n         view.setPadding(\r\n-            initialLeft + systemBarsInsets.left,\r\n-            initialTop + systemBarsInsets.top,\r\n-            initialRight + systemBarsInsets.right,\r\n-            initialBottom + systemBarsInsets.bottom\r\n+            initialPadding.left + insetLeft,\r\n+            initialPadding.top + insetTop,\r\n+            initialPadding.right + insetRight,\r\n+            initialPadding.bottom + insetBottom\r\n         )\r\n         insets\r\n     }\r\n \r\n"
+                }
+            ],
+            "date": 1771932582181,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer\r\n\r\nimport android.view.ViewGroup\r\nimport androidx.appcompat.app.AppCompatActivity\r\nimport androidx.core.view.ViewCompat\r\nimport androidx.core.view.WindowInsetsCompat\r\n\r\nfun AppCompatActivity.applySystemBarsPaddingToRoot() {\r\n    val content = findViewById<ViewGroup>(android.R.id.content) ?: return\r\n    val root = content.getChildAt(0) ?: return\r\n\r\n    val initialLeft = root.paddingLeft\r\n    val initialTop = root.paddingTop\r\n    val initialRight = root.paddingRight\r\n    val initialBottom = root.paddingBottom\r\n\r\n    ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->\r\n        val systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())\r\n        view.setPadding(\r\n            initialLeft + systemBarsInsets.left,\r\n            initialTop + systemBarsInsets.top,\r\n            initialRight + systemBarsInsets.right,\r\n            initialBottom + systemBarsInsets.bottom\r\n        )\r\n        insets\r\n    }\r\n\r\n    ViewCompat.requestApplyInsets(root)\r\n}\r\n"
+        }
+    ]
+}

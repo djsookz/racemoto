@@ -16,6 +16,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.example.clinometer.settings.LanguageManager
+import com.example.clinometer.main.MainContainerActivity
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.abs
@@ -94,6 +95,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     private var maxVibrX = 0f
     private var maxVibrY = 0f
     private var maxVibrZ = 0f
+    private var baselineNoiseRms = 0f
     private val VIBRATION_BUFFER = 0.05f
     
     private var profileId: Long = -1L
@@ -106,6 +108,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_drag_calibration)
+        applySystemBarsPaddingToRoot()
 
         window.statusBarColor = ContextCompat.getColor(this, R.color.dark_background)
         
@@ -282,6 +285,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
         maxVibrX = 0f
         maxVibrY = 0f
         maxVibrZ = 0f
+        baselineNoiseRms = 0f
         calibrationStartTime = System.currentTimeMillis()
         
         val statusView = if (orientation == "portrait") tvPortraitStatus else tvLandscapeStatus
@@ -340,20 +344,24 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
         maxVibrX = 0f
         maxVibrY = 0f
         maxVibrZ = 0f
+        var baselineNoiseEnergy = 0f
         for (i in noiseBaselineX.indices) {
             val dx = abs(noiseBaselineX[i] - baselineVector[0])
             val dy = abs(noiseBaselineY[i] - baselineVector[1])
             val dz = abs(noiseBaselineZ[i] - baselineVector[2])
+            baselineNoiseEnergy += dx * dx + dy * dy + dz * dz
             
             if (dx > maxVibrX) maxVibrX = dx
             if (dy > maxVibrY) maxVibrY = dy
             if (dz > maxVibrZ) maxVibrZ = dz
         }
+        baselineNoiseRms = sqrt((baselineNoiseEnergy / noiseBaselineX.size.coerceAtLeast(1)).coerceAtLeast(0f))
         
         baselineCollected = true
         Log.d("DragCalibration", "✅ Baseline collected: ${noiseBaselineX.size} samples")
         Log.d("DragCalibration", "   Average baseline vector: [${baselineVector[0]}, ${baselineVector[1]}, ${baselineVector[2]}]")
         Log.d("DragCalibration", "   Max vibrations per axis: X=${"%.3f".format(maxVibrX)}, Y=${"%.3f".format(maxVibrY)}, Z=${"%.3f".format(maxVibrZ)} m/s²")
+        Log.d("DragCalibration", "   Baseline RMS noise: ${"%.3f".format(baselineNoiseRms)} m/s²")
     }
     
     private fun collectNoiseBaseline() {
@@ -456,7 +464,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
         Log.d("DragCalibration", "📊 Collected ${forwardSamplesX.size} samples over ~${FORWARD_SAMPLES_NEEDED * 10}ms")
         Log.d("DragCalibration", "📍 Average Forward Vector: [${forwardAxis[0]}, ${forwardAxis[1]}, ${forwardAxis[2]}]")
         Log.d("DragCalibration", "📍 Magnitude: ${"%.3f".format(magnitude)} m/s²")
-        
+
         // Lateral axis не ни трябва
         val dummyLateralAxis = floatArrayOf(0f, 1f, 0f)
         
@@ -513,7 +521,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
             isFirstProfile -> {
                 // Първи профил - отиваме в главното app
                 startActivity(Intent(this, MainContainerActivity::class.java).apply {
-                    putExtra("NAV_ITEM_ID", R.id.navMap)
+                    putExtra(MainContainerActivity.EXTRA_NAV_ITEM_ID, R.id.navMap)
                 })
                 finish()
             }

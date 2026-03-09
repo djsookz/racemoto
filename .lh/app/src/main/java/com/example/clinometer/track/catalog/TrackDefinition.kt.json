@@ -1,0 +1,22 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/track/catalog/TrackDefinition.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 1,
+            "patches": [
+                {
+                    "date": 1771921694371,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1772041307676,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -22,8 +22,10 @@\n     val mode: TrackMode = TrackMode.CIRCUIT,\r\n     val isEnabled: Boolean = true,\r\n     val gpxResourceId: Int? = null,\r\n     val startFinishGate: TrackGate? = null,\r\n+    val startGate: TrackGate? = null,\r\n+    val finishGate: TrackGate? = null,\r\n     val lapSequence: List<GeoPoint> = emptyList()\r\n ) {\r\n     fun detailsText(): String = \"${lengthKm}km • ${turns} завоя • $country\"\r\n \r\n"
+                }
+            ],
+            "date": 1771921694371,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.track.catalog\r\n\r\nimport com.example.clinometer.GeoPoint\r\n\r\ndata class TrackGate(\r\n    val start: GeoPoint,\r\n    val end: GeoPoint\r\n)\r\n\r\nenum class TrackMode {\r\n    CIRCUIT,\r\n    POINT_TO_POINT\r\n}\r\n\r\ndata class TrackDefinition(\r\n    val id: String,\r\n    val name: String,\r\n    val description: String,\r\n    val country: String,\r\n    val lengthKm: Double,\r\n    val turns: Int,\r\n    val mode: TrackMode = TrackMode.CIRCUIT,\r\n    val isEnabled: Boolean = true,\r\n    val gpxResourceId: Int? = null,\r\n    val startFinishGate: TrackGate? = null,\r\n    val lapSequence: List<GeoPoint> = emptyList()\r\n) {\r\n    fun detailsText(): String = \"${lengthKm}km • ${turns} завоя • $country\"\r\n\r\n    fun isReadyForSession(): Boolean {\r\n        val hasTrackData = gpxResourceId != null || lapSequence.isNotEmpty()\r\n        return isEnabled && hasTrackData\r\n    }\r\n}\r\n"
+        }
+    ]
+}

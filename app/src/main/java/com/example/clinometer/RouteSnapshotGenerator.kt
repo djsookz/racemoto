@@ -29,6 +29,14 @@ object RouteSnapshotGenerator {
     // Смятаме мащаба на картата - стандарт за Web Mercator
     private const val TILE_SIZE = 256.0
 
+    private fun bindImageViewToRace(imageView: ImageView, raceId: Long) {
+        imageView.setTag(R.id.tag_route_snapshot_race_id, raceId)
+    }
+
+    private fun isImageViewBoundToRace(imageView: ImageView, raceId: Long): Boolean {
+        return (imageView.getTag(R.id.tag_route_snapshot_race_id) as? Long) == raceId
+    }
+
     /**
      * Връща пътя към snapshot файла за даден race
      */
@@ -74,6 +82,7 @@ object RouteSnapshotGenerator {
         
         val context = imageView.context
         val cacheKey = raceId.toString()
+        bindImageViewToRace(imageView, raceId)
 
         // 1. Проверка в RAM кеша (Мигновено - 0ms)
         val cacheCheckStart = System.currentTimeMillis()
@@ -104,9 +113,14 @@ object RouteSnapshotGenerator {
             }
             
             Handler(Looper.getMainLooper()).post {
+                if (!isImageViewBoundToRace(imageView, raceId)) {
+                    android.util.Log.d("RouteSnapshotGenerator", "⏭️ Skip outdated request: raceId=$raceId")
+                    return@post
+                }
+
                 if (fileExists) {
                     android.util.Log.d("RouteSnapshotGenerator", "📂 Loading from disk: raceId=$raceId")
-                    loadFromDisk(file, cacheKey, imageView)
+                    loadFromDisk(file, cacheKey, raceId, imageView)
                 } else {
                     // 3. Генериране (Само ако липсва И имаме route points)
                     if (points.isEmpty()) {
@@ -133,7 +147,7 @@ object RouteSnapshotGenerator {
     /**
      * Зарежда snapshot от диск асинхронно и го добавя в memory cache
      */
-    private fun loadFromDisk(file: File, cacheKey: String, imageView: ImageView) {
+    private fun loadFromDisk(file: File, cacheKey: String, raceId: Long, imageView: ImageView) {
         val loadStart = System.currentTimeMillis()
         android.util.Log.d("RouteSnapshotGenerator", "💾 loadFromDisk START: cacheKey=$cacheKey")
         
@@ -152,7 +166,7 @@ object RouteSnapshotGenerator {
                     val setImageStart = System.currentTimeMillis()
                     Handler(Looper.getMainLooper()).post {
                         // Проверяваме дали ImageView все още е валиден
-                        if (imageView.parent != null) {
+                        if (imageView.parent != null && isImageViewBoundToRace(imageView, raceId)) {
                             imageView.setImageBitmap(bitmap)
                             val setImageTime = System.currentTimeMillis() - setImageStart
                             android.util.Log.d("RouteSnapshotGenerator", "✅ Image set: time=${setImageTime}ms for cacheKey=$cacheKey")
@@ -160,7 +174,7 @@ object RouteSnapshotGenerator {
                                 android.util.Log.d("RouteSnapshotGenerator", "⚠️ setImageBitmap took ${setImageTime}ms for cacheKey=$cacheKey")
                             }
                         } else {
-                            android.util.Log.d("RouteSnapshotGenerator", "❌ ImageView detached: cacheKey=$cacheKey")
+                            android.util.Log.d("RouteSnapshotGenerator", "❌ ImageView detached/outdated: cacheKey=$cacheKey")
                         }
                     }
                 } else {
@@ -210,17 +224,21 @@ object RouteSnapshotGenerator {
             snapshotter.setStyleUri("mapbox://styles/djsookz/cmiyer8iu000101s84wqsav5l")
 
             snapshotter.start(
-                overlayCallback = null,
+                overlayCallback = { overlay ->
+                    drawRouteOnOverlay(context, overlay, mapboxPoints, density)
+                },
                 resultCallback = { bitmap, error ->
                     if (bitmap != null && error == null) {
-                        val finalBitmap = drawRoute(context, bitmap, mapboxPoints, cameraOptions, width, height, density)
+                        val finalBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false) ?: bitmap
                         
                         // Запис и Кеш
                         executor.execute {
                             saveToFile(getSnapshotFile(context, raceId), finalBitmap)
                             memoryCache.put(raceId.toString(), finalBitmap)
                             Handler(Looper.getMainLooper()).post {
-                                imageView.setImageBitmap(finalBitmap)
+                                if (isImageViewBoundToRace(imageView, raceId)) {
+                                    imageView.setImageBitmap(finalBitmap)
+                                }
                                 runningTasks.remove(raceId)
                             }
                         }
@@ -470,12 +488,20 @@ object RouteSnapshotGenerator {
         context: Context,
         raceId: Long,
         routePoints: List<RoutePoint>,
+        forceRegenerate: Boolean = false,
         callback: ((Boolean) -> Unit)? = null
     ) {
         val file = getSnapshotFile(context, raceId)
-        if (file.exists()) {
+        if (file.exists() && !forceRegenerate) {
             callback?.invoke(true)
             return
+        }
+
+        if (forceRegenerate) {
+            if (file.exists()) {
+                file.delete()
+            }
+            memoryCache.remove(raceId.toString())
         }
 
         if (routePoints.isEmpty()) {
@@ -516,10 +542,12 @@ object RouteSnapshotGenerator {
                 snapshotter.setStyleUri("mapbox://styles/djsookz/cmiyer8iu000101s84wqsav5l")
 
                 snapshotter.start(
-                    overlayCallback = null,
+                    overlayCallback = { overlay ->
+                        drawRouteOnOverlay(context, overlay, mapboxPoints, density)
+                    },
                     resultCallback = { bitmap, error ->
                         if (bitmap != null && error == null) {
-                            val finalBitmap = drawRoute(context, bitmap, mapboxPoints, cameraOptions, width, height, density)
+                            val finalBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, false) ?: bitmap
                             
                             executor.execute {
                                 saveToFile(file, finalBitmap)
@@ -536,6 +564,45 @@ object RouteSnapshotGenerator {
                     }
                 )
             }
+        }
+    }
+
+    /**
+     * Draw route and markers using Mapbox-provided projection from SnapshotOverlay.
+     * This keeps list thumbnails consistent with detail map even when style projection changes.
+     */
+    private fun drawRouteOnOverlay(
+        context: Context,
+        overlay: SnapshotOverlay,
+        points: List<Point>,
+        density: Float
+    ) {
+        if (points.isEmpty()) return
+
+        val canvas = overlay.canvas
+        val routePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(255, 122, 24)
+            strokeWidth = 5f * density
+            style = Paint.Style.STROKE
+            strokeJoin = Paint.Join.ROUND
+            strokeCap = Paint.Cap.ROUND
+        }
+
+        val path = Path()
+        points.forEachIndexed { index, point ->
+            val screen = overlay.screenCoordinate(point)
+            val x = screen.x.toFloat()
+            val y = screen.y.toFloat()
+            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        }
+        canvas.drawPath(path, routePaint)
+
+        val start = overlay.screenCoordinate(points.first())
+        drawMarker(context, canvas, start.x.toFloat(), start.y.toFloat(), density, true)
+
+        if (points.size > 1) {
+            val end = overlay.screenCoordinate(points.last())
+            drawMarker(context, canvas, end.x.toFloat(), end.y.toFloat(), density, false)
         }
     }
 

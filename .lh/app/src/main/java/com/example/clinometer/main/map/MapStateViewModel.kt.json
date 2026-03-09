@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/map/MapStateViewModel.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771575193356,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771575193356,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.map\r\n\r\nimport com.example.clinometer.*\r\nimport android.location.Location\r\nimport androidx.lifecycle.ViewModel\r\n\r\n/**\r\n * ViewModel за запазване на състоянието на картата между lifecycle промени\r\n * Това предотвратява презареждане на картата при връщане в activity-то\r\n */\r\nclass MapStateViewModel : ViewModel() {\r\n    \r\n    // Флаг дали камерата е инициализирана (използва се само при първо зареждане)\r\n    var hasInitializedCamera: Boolean = false\r\n    \r\n    // Последно запазено състояние на картата\r\n    var lastMapState: MapState? = null\r\n    \r\n    // Последна известна локация - използва се за instant display при resume\r\n    var lastKnownLocation: Location? = null\r\n    \r\n    /**\r\n     * Запазва текущото състояние на картата\r\n     */\r\n    fun saveMapState(centerLat: Double, centerLon: Double, zoom: Double, pitch: Double? = null) {\r\n        lastMapState = MapState(\r\n            centerLat = centerLat,\r\n            centerLon = centerLon,\r\n            zoom = zoom,\r\n            pitch = pitch\r\n        )\r\n    }\r\n    \r\n    /**\r\n     * Запазва последната известна локация\r\n     */\r\n    fun saveLastLocation(location: Location) {\r\n        lastKnownLocation = location\r\n    }\r\n    \r\n    /**\r\n     * Изчиства запазеното състояние (използва се при първо зареждане или при нужда)\r\n     */\r\n    fun clearMapState() {\r\n        lastMapState = null\r\n        hasInitializedCamera = false\r\n    }\r\n    \r\n    data class MapState(\r\n        val centerLat: Double,\r\n        val centerLon: Double,\r\n        val zoom: Double,\r\n        val pitch: Double? = null\r\n    )\r\n}\r\n\r\n"
+        }
+    ]
+}

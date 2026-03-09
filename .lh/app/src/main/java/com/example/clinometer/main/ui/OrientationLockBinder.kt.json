@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/ui/OrientationLockBinder.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771672820924,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771672820924,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.ui\r\n\r\nimport android.content.pm.ActivityInfo\r\nimport android.widget.ImageButton\r\nimport com.example.clinometer.R\r\n\r\nobject OrientationLockBinder {\r\n\r\n    fun apply(\r\n        setRequestedOrientation: (Int) -> Unit,\r\n        orientationToggle: ImageButton?,\r\n        locked: Boolean\r\n    ) {\r\n        if (locked) {\r\n            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED)\r\n            orientationToggle?.setImageResource(R.drawable.ic_lock)\r\n            orientationToggle?.imageAlpha = (255 * 0.95).toInt()\r\n        } else {\r\n            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)\r\n            orientationToggle?.setImageResource(R.drawable.ic_unlock)\r\n            orientationToggle?.imageAlpha = (255 * 0.5).toInt()\r\n        }\r\n    }\r\n}\r\n"
+        }
+    ]
+}

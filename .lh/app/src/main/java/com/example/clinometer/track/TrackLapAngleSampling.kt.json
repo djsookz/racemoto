@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/track/TrackLapAngleSampling.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1772635491866,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1772635491866,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.track\r\n\r\nimport com.example.clinometer.LapData\r\nimport com.example.clinometer.RoutePoint\r\nimport kotlin.math.abs\r\n\r\nfun enrichRoutePointsWithLeanPeaks(lapData: LapData): List<RoutePoint> {\r\n    if (lapData.routePoints.isEmpty()) return emptyList()\r\n\r\n    val sampleCount = minOf(lapData.leanAngleData.size, lapData.timestamps.size)\r\n    if (sampleCount <= 0 || lapData.startTime <= 0L) {\r\n        return lapData.routePoints\r\n    }\r\n\r\n    val leanSamples = ArrayList<Pair<Long, Float>>(sampleCount)\r\n    repeat(sampleCount) { index ->\r\n        val angle = lapData.leanAngleData[index]\r\n        if (!angle.isFinite()) return@repeat\r\n        val relativeTimeMs = lapData.timestamps[index] - lapData.startTime\r\n        leanSamples.add(relativeTimeMs to angle)\r\n    }\r\n\r\n    if (leanSamples.isEmpty()) {\r\n        return lapData.routePoints\r\n    }\r\n\r\n    val sortedSamples = leanSamples.sortedBy { it.first }\r\n    val routePoints = lapData.routePoints\r\n\r\n    return routePoints.mapIndexed { index, point ->\r\n        val currentTime = point.timestamp\r\n        val prevTime = routePoints.getOrNull(index - 1)?.timestamp ?: currentTime\r\n        val nextTime = routePoints.getOrNull(index + 1)?.timestamp ?: currentTime\r\n\r\n        val startBound = if (index == 0) {\r\n            currentTime - ((nextTime - currentTime).coerceAtLeast(0L) / 2L)\r\n        } else {\r\n            (prevTime + currentTime) / 2L\r\n        }\r\n\r\n        val endBound = if (index == routePoints.lastIndex) {\r\n            currentTime + ((currentTime - prevTime).coerceAtLeast(0L) / 2L)\r\n        } else {\r\n            (currentTime + nextTime) / 2L\r\n        }\r\n\r\n        val minBound = minOf(startBound, endBound)\r\n        val maxBound = maxOf(startBound, endBound)\r\n\r\n        val peakSample = sortedSamples\r\n            .asSequence()\r\n            .filter { (time, _) -> time in minBound..maxBound }\r\n            .maxByOrNull { (_, angle) -> abs(angle) }\r\n\r\n        val nearestSample = if (peakSample == null) {\r\n            sortedSamples.minByOrNull { (time, _) -> abs(time - currentTime).toFloat() }\r\n        } else {\r\n            null\r\n        }\r\n\r\n        val selectedAngle = peakSample?.second ?: nearestSample?.second ?: point.angle\r\n        point.copy(angle = selectedAngle)\r\n    }\r\n}\r\n"
+        }
+    ]
+}

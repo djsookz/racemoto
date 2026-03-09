@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/navigation/NavigationStepSelector.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388338,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388338,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.navigation\r\n\r\nimport com.example.clinometer.GeoPoint\r\nimport com.example.clinometer.navigation.DirectionsStep\r\n\r\ndata class NavigationStepSelection(\r\n    val stepIndex: Int,\r\n    val distanceToManeuver: Double\r\n)\r\n\r\nobject NavigationStepSelector {\r\n    fun select(\r\n        currentLocation: GeoPoint,\r\n        navigationSteps: List<DirectionsStep>,\r\n        currentStepIndex: Int\r\n    ): NavigationStepSelection {\r\n        if (navigationSteps.isEmpty()) {\r\n            return NavigationStepSelection(0, Double.MAX_VALUE)\r\n        }\r\n\r\n        val startIndex = currentStepIndex.coerceIn(0, navigationSteps.lastIndex)\r\n        var bestStepIndex = startIndex\r\n        var bestDistance = Double.MAX_VALUE\r\n\r\n        for (index in startIndex until navigationSteps.size) {\r\n            val step = navigationSteps[index]\r\n            val distanceToManeuver = RouteMath.calculateDistanceToManeuver(currentLocation, step)\r\n            if (distanceToManeuver < 10.0) continue\r\n\r\n            bestStepIndex = index\r\n            bestDistance = distanceToManeuver\r\n            break\r\n        }\r\n\r\n        if (bestDistance == Double.MAX_VALUE) {\r\n            for (index in navigationSteps.indices) {\r\n                val step = navigationSteps[index]\r\n                val distanceToManeuver = RouteMath.calculateDistanceToManeuver(currentLocation, step)\r\n                if (distanceToManeuver < 10.0) continue\r\n\r\n                bestStepIndex = index\r\n                bestDistance = distanceToManeuver\r\n                break\r\n            }\r\n        }\r\n\r\n        if (bestDistance == Double.MAX_VALUE) {\r\n            bestStepIndex = navigationSteps.lastIndex\r\n            bestDistance = RouteMath.calculateDistanceToManeuver(currentLocation, navigationSteps[bestStepIndex])\r\n        }\r\n\r\n        return NavigationStepSelection(\r\n            stepIndex = bestStepIndex,\r\n            distanceToManeuver = bestDistance\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

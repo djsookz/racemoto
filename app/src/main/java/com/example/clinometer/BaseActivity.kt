@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import android.view.WindowManager
 import androidx.preference.PreferenceManager
 import com.example.clinometer.settings.LanguageManager
+import com.example.clinometer.main.MainContainerActivity
 
 abstract class BaseActivity : AppCompatActivity() {
 
@@ -30,6 +31,7 @@ abstract class BaseActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(getLayoutResourceId())
+        applySystemBarsPaddingToRoot()
         setupScreenKeepOn()
         setupBottomNavigation()
     }
@@ -172,7 +174,7 @@ abstract class BaseActivity : AppCompatActivity() {
 
     protected open fun navigateToDrag() {
         val intent = Intent(this, MainContainerActivity::class.java).apply {
-            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_DRAG)
+            putExtra(MainContainerActivity.EXTRA_INITIAL_PAGE, MainContainerActivity.PAGE_DRAG)
         }
         startActivity(intent)
         overridePendingTransition(0, 0)
@@ -181,7 +183,7 @@ abstract class BaseActivity : AppCompatActivity() {
 
     protected open fun navigateToGarage() {
         val intent = Intent(this, MainContainerActivity::class.java).apply {
-            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_GARAGE)
+            putExtra(MainContainerActivity.EXTRA_INITIAL_PAGE, MainContainerActivity.PAGE_GARAGE)
         }
         startActivity(intent)
         overridePendingTransition(0, 0)
@@ -190,7 +192,7 @@ abstract class BaseActivity : AppCompatActivity() {
 
     protected open fun navigateToMap() {
         val intent = Intent(this, MainContainerActivity::class.java).apply {
-            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_MAP)
+            putExtra(MainContainerActivity.EXTRA_INITIAL_PAGE, MainContainerActivity.PAGE_MAP)
         }
         startActivity(intent)
         overridePendingTransition(0, 0)
@@ -200,7 +202,7 @@ abstract class BaseActivity : AppCompatActivity() {
     protected open fun navigateToSessions() {
         // Навигираме към RACES страницата в MainContainerActivity
         val intent = Intent(this, MainContainerActivity::class.java).apply {
-            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_RACES)
+            putExtra(MainContainerActivity.EXTRA_INITIAL_PAGE, MainContainerActivity.PAGE_RACES)
         }
         startActivity(intent)
         overridePendingTransition(0, 0)
@@ -209,7 +211,7 @@ abstract class BaseActivity : AppCompatActivity() {
 
     protected open fun navigateToTrack() {
         val intent = Intent(this, MainContainerActivity::class.java).apply {
-            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_TRACK)
+            putExtra(MainContainerActivity.EXTRA_INITIAL_PAGE, MainContainerActivity.PAGE_TRACK)
         }
         startActivity(intent)
         overridePendingTransition(0, 0)
@@ -218,7 +220,7 @@ abstract class BaseActivity : AppCompatActivity() {
 
     protected open fun navigateToSettings() {
         val intent = Intent(this, MainContainerActivity::class.java).apply {
-            putExtra("INITIAL_PAGE", MainContainerActivity.PAGE_SETTINGS)
+            putExtra(MainContainerActivity.EXTRA_INITIAL_PAGE, MainContainerActivity.PAGE_SETTINGS)
         }
         startActivity(intent)
         overridePendingTransition(0, 0)

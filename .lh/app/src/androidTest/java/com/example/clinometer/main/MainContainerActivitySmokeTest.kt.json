@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/androidTest/java/com/example/clinometer/main/MainContainerActivitySmokeTest.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388334,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388334,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main\r\n\r\nimport android.content.Intent\r\nimport androidx.test.core.app.ActivityScenario\r\nimport androidx.test.ext.junit.runners.AndroidJUnit4\r\nimport androidx.test.platform.app.InstrumentationRegistry\r\nimport com.example.clinometer.Profile\r\nimport com.example.clinometer.R\r\nimport com.example.clinometer.data.ProfileStorage\r\nimport org.junit.Assert.assertEquals\r\nimport org.junit.Test\r\nimport org.junit.runner.RunWith\r\n\r\n@RunWith(AndroidJUnit4::class)\r\nclass MainContainerActivitySmokeTest {\r\n\r\n    @Test\r\n    fun launch_withMapPage_andSwitchToTrackPage() {\r\n        val context = InstrumentationRegistry.getInstrumentation().targetContext\r\n        val profile = Profile(\r\n            id = 1L,\r\n            name = \"Test User\",\r\n            vehicleType = Profile.VehicleType.CAR\r\n        )\r\n        ProfileStorage.saveProfiles(context, listOf(profile))\r\n        ProfileStorage.saveSelectedProfile(context, profile.id)\r\n\r\n        val intent = Intent(context, MainContainerActivity::class.java).apply {\r\n            putExtra(MainContainerActivity.EXTRA_INITIAL_PAGE, MainContainerActivity.PAGE_MAP)\r\n            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)\r\n        }\r\n\r\n        ActivityScenario.launch<MainContainerActivity>(intent).use { scenario ->\r\n            scenario.onActivity { activity ->\r\n                val viewPager = activity.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPager)\r\n                assertEquals(MainContainerActivity.PAGE_MAP, viewPager.currentItem)\r\n\r\n                activity.findViewById<android.view.View>(R.id.navTrack).performClick()\r\n            }\r\n\r\n            Thread.sleep(300)\r\n\r\n            scenario.onActivity { activity ->\r\n                val viewPager = activity.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPager)\r\n                assertEquals(MainContainerActivity.PAGE_TRACK, viewPager.currentItem)\r\n            }\r\n        }\r\n    }\r\n}\r\n"
+        }
+    ]
+}

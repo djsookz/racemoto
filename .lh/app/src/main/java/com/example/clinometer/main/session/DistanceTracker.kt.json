@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/session/DistanceTracker.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771581388337,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771581388337,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.session\r\n\r\nimport com.example.clinometer.GeoPoint\r\n\r\nclass DistanceTracker {\r\n    var totalDistanceKm: Double = 0.0\r\n        private set\r\n\r\n    var lastDistancePoint: GeoPoint? = null\r\n        private set\r\n\r\n    private val _distancePoints = mutableListOf<GeoPoint>()\r\n    val distancePoints: MutableList<GeoPoint>\r\n        get() = _distancePoints\r\n\r\n    fun reset() {\r\n        totalDistanceKm = 0.0\r\n        lastDistancePoint = null\r\n        _distancePoints.clear()\r\n    }\r\n\r\n    fun seedIfNeeded(point: GeoPoint) {\r\n        if (lastDistancePoint == null) {\r\n            lastDistancePoint = point\r\n            _distancePoints.add(point)\r\n        }\r\n    }\r\n\r\n    fun addPointAndAccumulate(point: GeoPoint, minDistanceMeters: Double = 1.0): Boolean {\r\n        val previous = lastDistancePoint\r\n        if (previous != null) {\r\n            val distanceMeters = previous.distanceToAsDouble(point)\r\n            if (distanceMeters > minDistanceMeters) {\r\n                totalDistanceKm += distanceMeters / 1000.0\r\n                lastDistancePoint = point\r\n                _distancePoints.add(point)\r\n                return true\r\n            }\r\n            return false\r\n        }\r\n\r\n        lastDistancePoint = point\r\n        _distancePoints.add(point)\r\n        return false\r\n    }\r\n\r\n    fun replaceWith(points: List<GeoPoint>) {\r\n        _distancePoints.clear()\r\n        _distancePoints.addAll(points)\r\n        recalculateTotalDistance()\r\n        lastDistancePoint = _distancePoints.lastOrNull()\r\n    }\r\n\r\n    fun recalculateTotalDistance() {\r\n        totalDistanceKm = 0.0\r\n        if (_distancePoints.size >= 2) {\r\n            for (i in 1 until _distancePoints.size) {\r\n                totalDistanceKm += _distancePoints[i - 1].distanceToAsDouble(_distancePoints[i]) / 1000.0\r\n            }\r\n        }\r\n    }\r\n\r\n    fun restoreTotalDistance(totalDistanceKm: Double) {\r\n        this.totalDistanceKm = totalDistanceKm\r\n    }\r\n}\r\n"
+        }
+    ]
+}

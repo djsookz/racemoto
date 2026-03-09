@@ -28,6 +28,8 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.example.clinometer.data.ProfileStorage
+import com.example.clinometer.main.MainActivity
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.sqrt
@@ -46,7 +48,10 @@ class ForegroundService : Service(), SensorEventListener {
         const val EXTRA_GPS_HZ = "gps_hz"
         
         private const val NORMAL_SAMPLING_MS = 250L 
-        private const val DRAG_SAMPLING_MS = 100L   
+        private const val DRAG_SAMPLING_MS = 100L
+        private const val RAD_TO_DEG = 57.29578f
+        private const val MIN_ACCEL_CORRECTION = 0.03f
+        private const val MAX_ACCEL_CORRECTION = 0.22f
     }
 
     private val routePoints = mutableListOf<RoutePoint>()
@@ -86,8 +91,21 @@ class ForegroundService : Service(), SensorEventListener {
     private lateinit var locCallback: LocationCallback
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
+    private var gyroscope: Sensor? = null
     var sessionStartTime: Long = 0
     var accelerationTracking = AccelerationData()
+
+    // Lean angle fusion state (gyro + accel reference)
+    private var latestRollRateDegPerSec = 0f
+    private var gyroIntegratedLeanDeg = 0f
+    private var hasGyroIntegratedLean = false
+    private var leanGyroIntegrationTimestampNs = 0L
+    private var lastGyroMagnitude = 0f
+    private var runtimeLeanOffsetDeg = 0f
+    private var profileLeanOffsetDeg = 0f
+    private var lastLeanOrientationLandscape: Boolean? = null
+    private var leanCalibrationSnapshot: LeanCalibrationSnapshot = LeanCalibrationSnapshot()
+    private var selectedProfileIdForLeanCalibration: Long = -1L
 
     private val gravity = FloatArray(3)
     private val linearAcceleration = FloatArray(3)
@@ -106,6 +124,7 @@ class ForegroundService : Service(), SensorEventListener {
     private val REQUIRED_ACCEL_SAMPLES = 3
     private var consecutiveAccelSamples = 0
     private var currentMeasurementMode = "ALL"
+    @Volatile private var activeRunOrientationLandscape: Boolean? = null
 
     private val SAMPLES_CAPACITY = 1000
     private val gSamplesBuffer: ArrayDeque<Float> = ArrayDeque(SAMPLES_CAPACITY)
@@ -207,6 +226,13 @@ class ForegroundService : Service(), SensorEventListener {
     fun getLinearAccelTriggerTime(): Long = linearAccelTriggerTime
     fun isLinearAccelCalibrated(): Boolean = DragCalibration.isUniversalCalibrated
     fun getAccuracyMode(): String = if (DragCalibration.isUniversalCalibrated) "HIGH_ACCURACY" else "GPS_ONLY"
+    fun setActiveRunOrientation(isLandscape: Boolean) {
+        activeRunOrientationLandscape = isLandscape
+        Log.d("ForegroundService", "🧭 Active run orientation set to ${if (isLandscape) "LANDSCAPE" else "PORTRAIT"}")
+    }
+    fun clearActiveRunOrientation() {
+        activeRunOrientationLandscape = null
+    }
     fun isSessionActive(): Boolean = isMeasurementActive
     fun getCurrentAngle(): Float = currentCalibratedAngle
     fun getCurrentSpeed(): Float = currentSpeed
@@ -230,12 +256,19 @@ class ForegroundService : Service(), SensorEventListener {
     private fun getDataSaveInterval(): Long = if (currentMeasurementMode == "NORMAL") NORMAL_SAMPLING_MS else DRAG_SAMPLING_MS
 
     fun calibrateZero() {
-        offsetAngle = filteredAngle
+        val isLandscape = resolveRunOrientationIsLandscape()
+        if (lastLeanOrientationLandscape == null || lastLeanOrientationLandscape != isLandscape) {
+            updateProfileLeanOffsetForOrientation(isLandscape)
+            lastLeanOrientationLandscape = isLandscape
+        }
+        runtimeLeanOffsetDeg = filteredAngle - profileLeanOffsetDeg
+        offsetAngle = profileLeanOffsetDeg + runtimeLeanOffsetDeg
         maxLeftAngle = 0f; maxRightAngle = 0f; currentCalibratedAngle = 0f
     }
 
     fun startNewMeasurement(measurementMode: String = "ALL") {
         currentMeasurementMode = measurementMode
+        reloadLeanCalibrationForSelectedProfile(forceResetRuntime = false)
         gMeasurementStartTime = System.currentTimeMillis()
         measurementStartTimeNano = System.nanoTime()
         lastGSampleTime = 0L; lastGPSAccelSampleTime = 0L
@@ -256,7 +289,9 @@ class ForegroundService : Service(), SensorEventListener {
 
     fun resetData() {
         routePoints.clear()
-        filteredAngle = 0f; offsetAngle = 0f; currentCalibratedAngle = 0f; maxLeftAngle = 0f; maxRightAngle = 0f; maxSpeed = 0f; currentSpeed = 0f
+        maxLeftAngle = 0f; maxRightAngle = 0f; maxSpeed = 0f; currentSpeed = 0f
+        reloadLeanCalibrationForSelectedProfile(forceResetRuntime = true)
+        resetLeanFusionState(forceResetRuntime = false)
         val now = SystemClock.elapsedRealtime()
         startTime = now; actualStartTime = if (isPreWarmingMode) 0L else now; resetTime = now
         accelerationTracking = AccelerationData(); totalDistance = 0.0; lastLocationForDistance = null
@@ -336,6 +371,8 @@ class ForegroundService : Service(), SensorEventListener {
     private fun registerSensors() {
         accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
     }
 
     private fun createNotification(): Notification {
@@ -357,90 +394,97 @@ class ForegroundService : Service(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent) {
         if (isPreWarmingMode) return
-        if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-            val x = event.values[0]; val y = event.values[1]; val z = event.values[2]
-            val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-            val totalGravity = sqrt(x * x + y * y + z * z)
-            val raw = if (totalGravity > 0) {
-                if (isLandscape) -Math.toDegrees(Math.asin((y / totalGravity).toDouble().coerceIn(-1.0, 1.0))).toFloat()
-                else Math.toDegrees(Math.asin((x / totalGravity).toDouble().coerceIn(-1.0, 1.0))).toFloat()
-            } else 0f
-            val delta = abs(raw - filteredAngle)
-            val adaptiveAlpha = (0.3f + (delta / 30f)).coerceIn(0.5f, 0.8f)
-            filteredAngle += adaptiveAlpha * (raw - filteredAngle)
-            currentCalibratedAngle = (offsetAngle - filteredAngle).coerceIn(-90f, 90f)
-            if (currentCalibratedAngle < maxLeftAngle) maxLeftAngle = currentCalibratedAngle
-            if (currentCalibratedAngle > maxRightAngle) maxRightAngle = currentCalibratedAngle
-
-            gravity[0] = alpha * gravity[0] + (1 - alpha) * event.values[0]
-            gravity[1] = alpha * gravity[1] + (1 - alpha) * event.values[1]
-            gravity[2] = alpha * gravity[2] + (1 - alpha) * event.values[2]
-            val magnitude = sqrt((event.values[0]-gravity[0]).let{it*it} + (event.values[1]-gravity[1]).let{it*it} + (event.values[2]-gravity[2]).let{it*it})
-            currentG = magnitude / 9.81f
-            if (currentG > peakG) peakG = currentG
-            
-            // Използваме калибрацията за определяне на посоките (ако е налична)
-            if (DragCalibration.isUniversalCalibrated) {
-                // ✅ КРИТИЧНО: Използваме КАЛИБРИРАНАТА gravity, НЕ live gravity!
-                // Това заключва посоките спрямо момента на калибрацията
-                val rawAccel = floatArrayOf(event.values[0], event.values[1], event.values[2])
-                val calibratedGravity = DragCalibration.gravityVector
-                
-                val forwardAccel = DragCalibration.getSignedForwardAcceleration(rawAccel, calibratedGravity)
-                val lateralAccel = DragCalibration.getSignedLateralAcceleration(rawAccel, calibratedGravity)
-                
-                // Конвертираме в g-сили и показваме ИНЕРЦИОННАТА СИЛА
-                // Инерционна сила = обратна на ускорението:
-                // - Ускорение напред → сила назад (gForceY положителна = точка надолу)
-                // - Спиране → сила напред (gForceY отрицателна = точка нагоре)
-                // - Завой надясно → сила наляво (gForceX отрицателна = точка наляво)
-                // - Завой наляво → сила надясно (gForceX положителна = точка надясно)
-                val rawGForceX = -lateralAccel / 9.81f  // Обръщаме за инерционна сила
-                val rawGForceY = -forwardAccel / 9.81f  // Обръщаме за инерционна сила
-                
-                // ✅ ПРОФЕСИОНАЛЕН LOW-PASS FILTER за drag sessions (заради вибрации)
-                // Адаптивна константа: бързи промени = по-бавен филтър, малки промени = по-бърз филтър
-                val deltaX = abs(rawGForceX - displayLX)
-                val deltaY = abs(rawGForceY - displayLY)
-                
-                // За drag: alpha 0.3-0.5 (по-силно филтриране за да премахне вибрациите)
-                val alphaX = if (deltaX > 0.5f) 0.3f else 0.5f  // Бързи промени = по-бавен филтър
-                val alphaY = if (deltaY > 0.5f) 0.3f else 0.5f
-                
-                displayLX = alphaX * rawGForceX + (1f - alphaX) * displayLX
-                displayLY = alphaY * rawGForceY + (1f - alphaY) * displayLY
-                
-                currentGForceX = displayLX
-                currentGForceY = displayLY
-            } else {
-                // Fallback към старата логика (device frame) ако няма калибрация
-                val rawGForceX = (event.values[0] - gravity[0]) / 9.81f
-                val rawGForceY = (event.values[1] - gravity[1]) / 9.81f
-                
-                // Същият филтър и за fallback режим
-                val deltaX = abs(rawGForceX - displayLX)
-                val deltaY = abs(rawGForceY - displayLY)
-                val alphaX = if (deltaX > 0.5f) 0.3f else 0.5f
-                val alphaY = if (deltaY > 0.5f) 0.3f else 0.5f
-                
-                displayLX = alphaX * rawGForceX + (1f - alphaX) * displayLX
-                displayLY = alphaY * rawGForceY + (1f - alphaY) * displayLY
-                
-                currentGForceX = displayLX
-                currentGForceY = displayLY
+        when (event.sensor.type) {
+            Sensor.TYPE_GYROSCOPE -> {
+                updateLeanFusionFromGyroscope(event)
             }
+            Sensor.TYPE_ACCELEROMETER -> {
+                val x = event.values[0]
+                val y = event.values[1]
+                val z = event.values[2]
+                val isLandscape = resolveRunOrientationIsLandscape()
 
-            if (isMeasurementActive && gMeasurementStartTime > 0L) {
-                val now = System.currentTimeMillis()
-                if (now - lastGSampleTime >= 100) {
-                    synchronized(gSamplesBuffer) {
-                        gSamplesBuffer.addLast(currentG); gTimeStamps.addLast(System.nanoTime() - measurementStartTimeNano)
-                        if (gSamplesBuffer.size > SAMPLES_CAPACITY) { gSamplesBuffer.removeFirst(); gTimeStamps.removeFirst() }
-                    }
-                    lastGSampleTime = now
+                gravity[0] = alpha * gravity[0] + (1 - alpha) * x
+                gravity[1] = alpha * gravity[1] + (1 - alpha) * y
+                gravity[2] = alpha * gravity[2] + (1 - alpha) * z
+
+                val linearX = x - gravity[0]
+                val linearY = y - gravity[1]
+                val linearZ = z - gravity[2]
+
+                updateLeanFusionFromAccelerometer(
+                    x = x,
+                    y = y,
+                    z = z,
+                    linearX = linearX,
+                    linearY = linearY,
+                    linearZ = linearZ,
+                    isLandscape = isLandscape
+                )
+
+                val magnitude = sqrt(linearX * linearX + linearY * linearY + linearZ * linearZ)
+                currentG = magnitude / 9.81f
+                if (currentG > peakG) peakG = currentG
+
+                // Използваме калибрацията за определяне на посоките (ако е налична)
+                if (DragCalibration.isUniversalCalibrated) {
+                    val rawAccel = floatArrayOf(x, y, z)
+                    val calibratedGravity = DragCalibration.gravityVector
+
+                    val forwardAccel = DragCalibration.getSignedForwardAcceleration(rawAccel, calibratedGravity)
+                    val lateralAccel = DragCalibration.getSignedLateralAcceleration(rawAccel, calibratedGravity)
+
+                    // Конвертираме в g-сили и показваме ИНЕРЦИОННАТА СИЛА
+                    // Инерционна сила = обратна на ускорението:
+                    // - Ускорение напред → сила назад (gForceY положителна = точка надолу)
+                    // - Спиране → сила напред (gForceY отрицателна = точка нагоре)
+                    // - Завой надясно → сила наляво (gForceX отрицателна = точка наляво)
+                    // - Завой наляво → сила надясно (gForceX положителна = точка надясно)
+                    val rawGForceX = -lateralAccel / 9.81f
+                    val rawGForceY = -forwardAccel / 9.81f
+
+                    val deltaX = abs(rawGForceX - displayLX)
+                    val deltaY = abs(rawGForceY - displayLY)
+                    val alphaX = if (deltaX > 0.5f) 0.3f else 0.5f
+                    val alphaY = if (deltaY > 0.5f) 0.3f else 0.5f
+
+                    displayLX = alphaX * rawGForceX + (1f - alphaX) * displayLX
+                    displayLY = alphaY * rawGForceY + (1f - alphaY) * displayLY
+
+                    currentGForceX = displayLX
+                    currentGForceY = displayLY
+                } else {
+                    val rawGForceX = linearX / 9.81f
+                    val rawGForceY = linearY / 9.81f
+
+                    val deltaX = abs(rawGForceX - displayLX)
+                    val deltaY = abs(rawGForceY - displayLY)
+                    val alphaX = if (deltaX > 0.5f) 0.3f else 0.5f
+                    val alphaY = if (deltaY > 0.5f) 0.3f else 0.5f
+
+                    displayLX = alphaX * rawGForceX + (1f - alphaX) * displayLX
+                    displayLY = alphaY * rawGForceY + (1f - alphaY) * displayLY
+
+                    currentGForceX = displayLX
+                    currentGForceY = displayLY
                 }
+
+                if (isMeasurementActive && gMeasurementStartTime > 0L) {
+                    val now = System.currentTimeMillis()
+                    if (now - lastGSampleTime >= 100) {
+                        synchronized(gSamplesBuffer) {
+                            gSamplesBuffer.addLast(currentG)
+                            gTimeStamps.addLast(System.nanoTime() - measurementStartTimeNano)
+                            if (gSamplesBuffer.size > SAMPLES_CAPACITY) {
+                                gSamplesBuffer.removeFirst()
+                                gTimeStamps.removeFirst()
+                            }
+                        }
+                        lastGSampleTime = now
+                    }
+                }
+                if (currentMeasurementMode != "NORMAL" && !linearAccelTriggered) checkLinearAccelStart(event.values)
             }
-            if (currentMeasurementMode != "NORMAL" && !linearAccelTriggered) checkLinearAccelStart(event.values)
         }
     }
 
@@ -519,12 +563,128 @@ class ForegroundService : Service(), SensorEventListener {
     private fun sendGpsHzBroadcast(hz: Double) { sendBroadcast(Intent(GPS_HZ_BROADCAST).apply { putExtra(EXTRA_GPS_HZ, hz) }) }
     private fun hasRequiredPermissions(): Boolean = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
+    private fun resolveRunOrientationIsLandscape(): Boolean {
+        return activeRunOrientationLandscape
+            ?: (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+    }
+
+    private fun reloadLeanCalibrationForSelectedProfile(forceResetRuntime: Boolean = false) {
+        val selectedProfileId = ProfileStorage.getSelectedProfileId(this)
+        val profileChanged = selectedProfileId != selectedProfileIdForLeanCalibration
+        if (profileChanged) {
+            selectedProfileIdForLeanCalibration = selectedProfileId
+        }
+        leanCalibrationSnapshot = LeanCalibrationStore.loadSnapshot(this, selectedProfileId)
+        if (profileChanged || forceResetRuntime) {
+            runtimeLeanOffsetDeg = 0f
+        }
+        lastLeanOrientationLandscape = null
+        updateProfileLeanOffsetForOrientation(resolveRunOrientationIsLandscape())
+    }
+
+    private fun updateProfileLeanOffsetForOrientation(isLandscape: Boolean) {
+        val (_, resolvedOffset) = LeanCalibrationStore.resolveOffset(leanCalibrationSnapshot, isLandscape)
+        profileLeanOffsetDeg = resolvedOffset
+        offsetAngle = profileLeanOffsetDeg + runtimeLeanOffsetDeg
+    }
+
+    private fun resetLeanFusionState(forceResetRuntime: Boolean) {
+        if (forceResetRuntime) {
+            runtimeLeanOffsetDeg = 0f
+        }
+        latestRollRateDegPerSec = 0f
+        gyroIntegratedLeanDeg = 0f
+        hasGyroIntegratedLean = false
+        leanGyroIntegrationTimestampNs = 0L
+        lastGyroMagnitude = 0f
+        filteredAngle = 0f
+        currentCalibratedAngle = 0f
+        lastLeanOrientationLandscape = null
+        updateProfileLeanOffsetForOrientation(resolveRunOrientationIsLandscape())
+    }
+
+    private fun updateLeanFusionFromGyroscope(event: SensorEvent) {
+        val isLandscape = resolveRunOrientationIsLandscape()
+        val gyroMag = sqrt(
+            event.values[0] * event.values[0] +
+                event.values[1] * event.values[1] +
+                event.values[2] * event.values[2]
+        )
+        lastGyroMagnitude = 0.2f * gyroMag + 0.8f * lastGyroMagnitude
+
+        val rawRollRateRad = if (isLandscape) event.values[0] else event.values[1]
+        val rollRateDeg = -rawRollRateRad * RAD_TO_DEG
+        latestRollRateDegPerSec = 0.25f * rollRateDeg + 0.75f * latestRollRateDegPerSec
+
+        if (hasGyroIntegratedLean && leanGyroIntegrationTimestampNs > 0L) {
+            val dtSec = ((event.timestamp - leanGyroIntegrationTimestampNs) / 1_000_000_000f).coerceIn(0f, 0.06f)
+            if (dtSec > 0f) {
+                gyroIntegratedLeanDeg = (gyroIntegratedLeanDeg + latestRollRateDegPerSec * dtSec).coerceIn(-89f, 89f)
+            }
+        }
+        leanGyroIntegrationTimestampNs = event.timestamp
+    }
+
+    private fun updateLeanFusionFromAccelerometer(
+        x: Float,
+        y: Float,
+        z: Float,
+        linearX: Float,
+        linearY: Float,
+        linearZ: Float,
+        isLandscape: Boolean
+    ) {
+        if (lastLeanOrientationLandscape == null || lastLeanOrientationLandscape != isLandscape) {
+            updateProfileLeanOffsetForOrientation(isLandscape)
+            lastLeanOrientationLandscape = isLandscape
+        }
+
+        val totalGravity = sqrt(x * x + y * y + z * z)
+        val accelReferenceTilt = if (totalGravity > 0f) {
+            if (isLandscape) {
+                (-Math.toDegrees(Math.asin((y / totalGravity).toDouble().coerceIn(-1.0, 1.0)))).toFloat()
+            } else {
+                (-Math.toDegrees(Math.asin((x / totalGravity).toDouble().coerceIn(-1.0, 1.0)))).toFloat()
+            }
+        } else {
+            0f
+        }
+
+        if (!hasGyroIntegratedLean) {
+            gyroIntegratedLeanDeg = accelReferenceTilt
+            hasGyroIntegratedLean = true
+        }
+
+        val dynamicLinearMag = sqrt(linearX * linearX + linearY * linearY + linearZ * linearZ)
+        val dynamicLoadG = (dynamicLinearMag / SensorManager.GRAVITY_EARTH).coerceAtLeast(0f)
+        val accelMotionTrust = (1f - dynamicLoadG * 0.55f).coerceIn(0.18f, 1f)
+        val gyroSpinPenalty = (lastGyroMagnitude / 4.0f).coerceIn(0f, 1f)
+        val accelTrust = (accelMotionTrust * (1f - 0.25f * gyroSpinPenalty)).coerceIn(0.15f, 1f)
+        val correctionGain = (MIN_ACCEL_CORRECTION + (MAX_ACCEL_CORRECTION - MIN_ACCEL_CORRECTION) * accelTrust)
+            .coerceIn(MIN_ACCEL_CORRECTION, MAX_ACCEL_CORRECTION)
+
+        gyroIntegratedLeanDeg += correctionGain * (accelReferenceTilt - gyroIntegratedLeanDeg)
+        filteredAngle = gyroIntegratedLeanDeg
+        currentCalibratedAngle = (filteredAngle - offsetAngle).coerceIn(-90f, 90f)
+
+        if (currentCalibratedAngle < maxLeftAngle) maxLeftAngle = currentCalibratedAngle
+        if (currentCalibratedAngle > maxRightAngle) maxRightAngle = currentCalibratedAngle
+    }
+
     private fun checkLinearAccelStart(rawAccel: FloatArray) {
-        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        if (!DragCalibration.hasCalibrationFor(isLandscape)) return
-        val forward = DragCalibration.getForwardAcceleration(rawAccel, isLandscape)
-        val lateral = DragCalibration.getLateralAcceleration(rawAccel, isLandscape)
-        val threshold = DragCalibration.getWeightedDynamicThreshold(DragCalibration.getLinearAcceleration(rawAccel, isLandscape), isLandscape).coerceAtLeast(0.8f)
+        val isLandscape = resolveRunOrientationIsLandscape()
+        val calibrationOrientation = when {
+            DragCalibration.hasCalibrationFor(isLandscape) -> isLandscape
+            DragCalibration.isLandscapeCalibrated -> true
+            DragCalibration.isPortraitCalibrated -> false
+            else -> return
+        }
+        val forward = DragCalibration.getForwardAcceleration(rawAccel, calibrationOrientation)
+        val lateral = DragCalibration.getLateralAcceleration(rawAccel, calibrationOrientation)
+        val threshold = DragCalibration.getWeightedDynamicThreshold(
+            DragCalibration.getLinearAcceleration(rawAccel, calibrationOrientation),
+            calibrationOrientation
+        ).coerceAtLeast(0.8f)
         if (forward > threshold && forward > lateral * 4.0f) {
             consecutiveAccelSamples++
             if (consecutiveAccelSamples >= REQUIRED_ACCEL_SAMPLES) { linearAccelTriggered = true; linearAccelTriggerTime = System.nanoTime() }

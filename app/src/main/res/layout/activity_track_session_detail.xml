@@ -41,6 +41,15 @@
                 android:textStyle="bold"
                 android:gravity="center" />
 
+            <ImageButton
+                android:id="@+id/btnCompare"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_compare"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/compare_attempts"
+                app:tint="@color/white" />
+
         </LinearLayout>
 
         <!-- Session Information Card -->
@@ -125,30 +134,6 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/track_label_duration"
-                        android:textColor="#9E9E9E"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvSessionDuration"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="1:30:15"
-                        android:textColor="#2196F3"
-                        android:textSize="14sp" />
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="8dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:text="@string/track_label_track"
                         android:textColor="#9E9E9E"
                         android:textSize="14sp" />
@@ -169,6 +154,7 @@
                     android:orientation="horizontal">
 
                     <TextView
+                        android:id="@+id/tvTotalLapsLabel"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -257,6 +243,7 @@
                     android:layout_marginBottom="8dp">
 
                     <TextView
+                        android:id="@+id/tvBestTimeLabel"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -332,6 +319,54 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
+                        android:text="@string/track_avg_speed"
+                        android:textColor="#9E9E9E"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tvAvgSpeed"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0 km/h"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/track_distance"
+                        android:textColor="#9E9E9E"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tvDistance"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0 km"
+                        android:textColor="#FFFFFF"
+                        android:textSize="14sp" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
                         android:text="@string/track_max_acceleration"
                         android:textColor="#9E9E9E"
                         android:textSize="14sp" />
@@ -349,21 +384,71 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
 
                     <TextView
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/track_max_cornering"
+                        android:text="@string/track_max_braking"
                         android:textColor="#9E9E9E"
                         android:textSize="14sp" />
 
                     <TextView
-                        android:id="@+id/tvMaxCornering"
+                        android:id="@+id/tvMaxBraking"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="1.2g"
+                        android:text="0.00 G"
+                        android:textColor="#FF9800"
+                        android:textSize="14sp" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:id="@+id/tvMaxCorneringLeftLabel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/track_max_cornering_left"
+                        android:textColor="#9E9E9E"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tvMaxCorneringLeft"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0.00 G"
+                        android:textColor="#2196F3"
+                        android:textSize="14sp" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvMaxCorneringRightLabel"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/track_max_cornering_right"
+                        android:textColor="#9E9E9E"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tvMaxCorneringRight"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0.00 G"
                         android:textColor="#2196F3"
                         android:textSize="14sp" />
 
@@ -375,6 +460,7 @@
 
         <!-- Laps Card -->
         <androidx.cardview.widget.CardView
+            android:id="@+id/cardLaps"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardBackgroundColor="@color/card_background"
@@ -388,6 +474,7 @@
                 android:padding="20dp">
 
                 <TextView
+                    android:id="@+id/tvLapsSectionTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/track_laps_section"

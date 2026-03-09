@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/session/SessionSaveCoordinator.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771672820924,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771672820924,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.session\r\n\r\nimport android.content.Context\r\nimport android.util.Log\r\nimport com.example.clinometer.Race\r\nimport com.example.clinometer.RoutePoint\r\nimport com.example.clinometer.RouteSnapshotGenerator\r\nimport com.example.clinometer.RouteStorage\r\nimport java.util.concurrent.Executors\r\n\r\nobject SessionSaveCoordinator {\r\n\r\n    fun persistRace(context: Context, race: Race, routePoints: List<RoutePoint>) {\r\n        RouteStorage.saveRoutePoints(context, race.id, routePoints)\r\n\r\n        val allRaces = RouteStorage.loadRaces(context).toMutableList()\r\n        allRaces.add(race)\r\n        RouteStorage.saveRaces(context, allRaces)\r\n\r\n        if (routePoints.isNotEmpty()) {\r\n            generateSnapshotAsync(context, race.id, routePoints)\r\n        }\r\n    }\r\n\r\n    private fun generateSnapshotAsync(\r\n        context: Context,\r\n        raceId: Long,\r\n        routePoints: List<RoutePoint>\r\n    ) {\r\n        Executors.newSingleThreadExecutor().execute {\r\n            try {\r\n                RouteSnapshotGenerator.generateAndSaveSnapshot(\r\n                    context = context,\r\n                    raceId = raceId,\r\n                    routePoints = routePoints\r\n                ) { success ->\r\n                    Log.d(\r\n                        \"SessionSaveCoordinator\",\r\n                        if (success) \"✅ Snapshot generated for race $raceId\" else \"❌ Failed to generate snapshot for race $raceId\"\r\n                    )\r\n                }\r\n            } catch (error: Exception) {\r\n                Log.e(\"SessionSaveCoordinator\", \"Error generating snapshot\", error)\r\n            }\r\n        }\r\n    }\r\n}\r\n"
+        }
+    ]
+}

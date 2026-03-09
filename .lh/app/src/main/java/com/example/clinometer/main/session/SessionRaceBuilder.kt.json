@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/session/SessionRaceBuilder.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771672820924,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771672820924,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.session\r\n\r\nimport android.content.Context\r\nimport com.example.clinometer.Profile\r\nimport com.example.clinometer.Race\r\nimport com.example.clinometer.RoutePoint\r\n\r\nobject SessionRaceBuilder {\r\n\r\n    fun build(\r\n        context: Context,\r\n        profile: Profile,\r\n        routePoints: List<RoutePoint>,\r\n        serviceDuration: Long,\r\n        maxSpeed: Float,\r\n        totalDistanceKm: Double,\r\n        maxLeftAngle: Float,\r\n        maxRightAngle: Float\r\n    ): Race {\r\n        val sessionNumber = SessionRecorder.nextSessionNumber(context, profile.id)\r\n        val raceId = System.currentTimeMillis()\r\n\r\n        return SessionRecorder.buildRace(\r\n            profile = profile,\r\n            raceId = raceId,\r\n            routePoints = routePoints,\r\n            duration = serviceDuration,\r\n            maxSpeed = maxSpeed,\r\n            totalDistance = totalDistanceKm,\r\n            maxLeftAngle = maxLeftAngle,\r\n            maxRightAngle = maxRightAngle,\r\n            sessionNumber = sessionNumber\r\n        )\r\n    }\r\n}\r\n"
+        }
+    ]
+}

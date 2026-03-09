@@ -1,0 +1,37 @@
+{
+  "files.exclude": {
+    "**/.gradle": true,
+    "**/build": true,
+    "**/app/build": true,
+    "**/.history": true,
+    "**/app/release": true,
+    "**/*.apk": true,
+    "**/*.aab": true,
+    "**/*.logcat": true
+  },
+  "search.exclude": {
+    "**/.gradle/**": true,
+    "**/build/**": true,
+    "**/app/build/**": true,
+    "**/.history/**": true,
+    "**/app/release/**": true,
+    "**/*.apk": true,
+    "**/*.aab": true,
+    "**/*.logcat": true
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/.gradle/**": true,
+    "**/build/**": true,
+    "**/app/build/**": true,
+    "**/.history/**": true,
+    "**/app/release/**": true,
+    "**/*.apk": true,
+    "**/*.aab": true,
+    "**/*.logcat": true
+  },
+  "terminal.integrated.enablePersistentSessions": false,
+  "git.decorations.enabled": false,
+  "git.autofetch": false
+}

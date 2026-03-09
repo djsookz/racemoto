@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/track/custom/CustomTrack.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1772458123988,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1772458123988,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.tracking\r\n\r\nimport com.example.clinometer.GeoPoint\r\n\r\n\r\n/**\r\n * Data class representing a custom track created by the user\r\n */\r\ndata class CustomTrack(\r\n    val id: String,\r\n    val name: String,\r\n    val type: TrackType,\r\n    val points: List<TrackPoint>,\r\n    val createdAt: Long = System.currentTimeMillis()\r\n) {\r\n    enum class TrackType {\r\n        CIRCUIT,    // Closed loop track (start = finish)\r\n        POINT_TO_POINT  // Start to finish track\r\n    }\r\n    \r\n    data class TrackPoint(\r\n        val geoPoint: GeoPoint,\r\n        val pointType: PointType,\r\n        val name: String? = null\r\n    ) {\r\n        enum class PointType {\r\n            START_FINISH,   // For circuit tracks\r\n            START,          // For point-to-point tracks\r\n            FINISH,         // For point-to-point tracks\r\n            SNAP_HELPER     // Helper points for snap-to-road\r\n        }\r\n    }\r\n}\r\n"
+        }
+    ]
+}

@@ -40,18 +40,18 @@
         </activity>
 
         <activity
-            android:name=".MainContainerActivity"
+            android:name=".main.MainContainerActivity"
             android:exported="true" />
         
         <activity
-            android:name=".DestinationSearchActivity"
+            android:name=".main.map.DestinationSearchActivity"
             android:label="Търсене на дестинация"
             android:exported="false" />
         
         <activity
-            android:name=".RoutePreviewActivity"
+            android:name=".main.map.RoutePreviewActivity"
             android:label="@string/route_preview_title"
-            android:parentActivityName=".DestinationSearchActivity"
+            android:parentActivityName=".main.map.DestinationSearchActivity"
             android:exported="false" />
 
         <activity
@@ -83,22 +83,22 @@
 
 
         <activity
-            android:name=".MainActivity"
+            android:name=".main.MainActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity
-            android:name=".SaveSessionActivity"
+            android:name=".main.map.SaveSessionActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity
-            android:name=".ProcessingActivity"
+            android:name=".main.map.ProcessingActivity"
             android:exported="false"
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity
-            android:name=".MapActivity"
+            android:name=".main.map.MapActivity"
             android:exported="false"
             android:screenOrientation="portrait"
             />
@@ -115,16 +115,18 @@
 
         <activity
             android:name=".DragCalibrationActivity"
-            android:screenOrientation="portrait"
             android:theme="@style/Theme.DragMe.Calibration"/>
+        <activity
+            android:name=".LeanCalibrationActivity"
+            android:theme="@style/Theme.DragMe.Calibration" />
         <activity
             android:name=".TrackSessionDetailActivity"
             android:exported="false" />
         <activity
-            android:name=".TrackLapDetailActivity"
+            android:name=".TrackLapCompareActivity"
             android:exported="false" />
         <activity
-            android:name=".TrackMapActivity"
+            android:name=".TrackLapCompareSelectionActivity"
             android:exported="false" />
         <activity
             android:name=".TrackSelectionActivity"
@@ -133,15 +135,11 @@
             android:name=".TrackTypeSelectionActivity"
             android:exported="false" />
         <activity
-            android:name=".CustomTrackBuilderActivity"
+            android:name=".track.CustomTrackBuilderActivity"
             android:exported="false" />
         <activity
             android:name=".TrackSessionActivity"
             android:exported="false" />
-        <activity
-            android:name=".TrackEditorActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar"/>
         <activity
             android:name=".ProfileDetailActivity"
             android:screenOrientation="portrait" />

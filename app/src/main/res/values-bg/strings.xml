@@ -165,7 +165,7 @@
     <string name="calibration_step1">1️⃣ Избери ориентация (Портрет или Пейзаж)</string>
     <string name="calibration_step2">2️⃣ Постави телефона на желаната позиция</string>
     <string name="calibration_step3">3️⃣ Натисни бутона \'Калибрирай\'</string>
-    <string name="calibration_step4">4️⃣ Държи неподвижно 5 секунди</string>
+    <string name="calibration_step4">4️⃣ Двигателят да е запален на idle (празен ход) и дръж колата и телефона неподвижни 5 секунди</string>
     <string name="calibration_step5">5️⃣ Тръгни напред веднъж</string>
     <string name="calibration_warning">⚠️ Калибрирай И ДВЕТЕ ако въртиш телефона при измерване!</string>
     <string name="calibration_hold_steady">Държи неподвижно 5 секунди...</string>
@@ -266,7 +266,14 @@
     <string name="track_best_time">Най-добро време:</string>
     <string name="track_min_speed">Минимална скорост:</string>
     <string name="track_max_speed">Максимална скорост:</string>
+    <string name="track_avg_speed">Средна скорост:</string>
+    <string name="track_distance">Разстояние:</string>
     <string name="track_max_acceleration">Макс. ускорение:</string>
+    <string name="track_max_braking">Макс. спиране:</string>
+    <string name="track_max_cornering_left">Макс. завой L:</string>
+    <string name="track_max_cornering_right">Макс. завой R:</string>
+    <string name="track_max_lean_left">Макс. наклон L:</string>
+    <string name="track_max_lean_right">Макс. наклон R:</string>
     <string name="track_max_cornering">Макс. натоварване завой:</string>
     <string name="track_laps_section">Обиколки</string>
     <string name="track_no_sessions">Няма записани трак сесии</string>
@@ -284,6 +291,7 @@
     <string name="placeholder_track_name">Име на писта</string>
     <string name="placeholder_vehicle_name">Превозно средство</string>
     <string name="track_best_lap_label">Най-добра обиколка</string>
+    <string name="track_date_time_label">Дата и час</string>
     <string name="track_duration_label">Времетраене</string>
     <string name="track_laps_label">Обиколки</string>
     <string name="track_new_session">+ Нова сесия</string>
@@ -381,4 +389,19 @@
     <string name="unit_hpa">хектопаскал</string>
     <string name="unit_inhg">инчове живак</string>
     <string name="unit_mmhg">мм живак</string>
+    <string name="track_select_lap_to_compare">Избери обиколка за сравнение</string>
+    <string name="track_compare_invalid_current_lap">Текущата обиколка е невалидна за сравнение</string>
+    <string name="no_track_laps_to_compare">Няма други обиколки на тази писта за сравнение</string>
+    <string name="track_compare_unknown_profile">Непознат профил</string>
+    <string name="track_compare_vehicle_moto">МОТО</string>
+    <string name="track_compare_vehicle_car">АВТО</string>
+    <string name="track_compare_vehicle_unknown">НЕИЗВЕСТНО</string>
+    <string name="track_compare_session_meta">Сесия #%1$d • %2$s</string>
+    <string name="track_compare_lap_title">Обиколка #%1$d</string>
+
+    <plurals name="track_compare_laps_count">
+        <item quantity="one">%d обиколка</item>
+        <item quantity="other">%d обиколки</item>
+    </plurals>
+
 </resources>

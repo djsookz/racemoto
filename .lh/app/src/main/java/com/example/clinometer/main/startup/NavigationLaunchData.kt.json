@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/startup/NavigationLaunchData.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771610876658,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771610876658,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.startup\r\n\r\nimport com.example.clinometer.navigation.DirectionsStep\r\nimport com.mapbox.geojson.LineString\r\nimport com.mapbox.geojson.Point\r\n\r\ndata class NavigationLaunchData(\r\n    val startFromPreview: Boolean,\r\n    val directionsResponseJson: String?,\r\n    val parsedRouteGeometry: LineString?,\r\n    val routePoints: List<Point>,\r\n    val navigationSteps: List<DirectionsStep>,\r\n    val destinationPoint: Point?,\r\n    val originLat: Double,\r\n    val originLon: Double,\r\n    val originBearing: Float,\r\n    val allowMotorways: Boolean,\r\n    val destinationName: String,\r\n    val preferredRoutePolyline: String?\r\n)\r\n"
+        }
+    ]
+}

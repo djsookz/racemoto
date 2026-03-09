@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#0D1117"
-    tools:context=".MainActivity">
+    tools:context=".main.MainActivity">
 
     <!-- Top: Map Section -->
     <FrameLayout

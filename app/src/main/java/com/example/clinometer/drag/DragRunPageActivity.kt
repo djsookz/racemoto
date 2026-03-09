@@ -1,12 +1,10 @@
 package com.example.clinometer.drag
 
-import android.Manifest
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.location.Location
 import android.os.*
@@ -19,7 +17,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.cardview.widget.CardView
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.clinometer.*
 import com.example.clinometer.DragCalibration
@@ -85,7 +82,6 @@ class DragRunPageActivity : BaseActivity() {
     private val MEDIAN_WINDOW_SAMPLES = 5   // Брой семпли за медианен филтър по време на калибрация
     private val KMH_TO_MPS = 1.0 / 3.6
     private var calibrationStartTime: Long = 0L
-    private var calibrationStartSpeed: Float = 0f
     private var extrapolatedStartTime: Long = 0L
     private var isCalibrating = false
     private var calibrationComplete = false
@@ -102,18 +98,17 @@ class DragRunPageActivity : BaseActivity() {
     private var startTimeNano: Long = 0L
     private var finishTimeNano: Long = -1L
     private val TARGET_METERS = 402.336f
+    private val GPS_READY_ACCURACY_METERS = 30f
+    private val FULL_STOP_REARM_SPEED_KMH = 3f
+    private val DECELERATION_DELTA_KMH = -5f
+    private val DECELERATION_MAX_SPEED_KMH = 80f
+    private val ROLLING_START_MIN_KMH = 95f
+    private val ROLLING_START_MAX_KMH = 99f
+    private val ROLLING_FINISH_SPEED_KMH = 200f
     private var distanceCompleted = false
     private var measurementComplete = false
     private var accumulatedDistance = 0f
     private var lastLocationForDistance: Location? = null
-
-    private var lastHighSpeed: Float = 0f
-    private var lowSpeedStartTime: Long = 0L
-    private val LOW_SPEED_THRESHOLD = 3f
-    private val LOW_SPEED_DURATION = 3000L
-    private val MIN_START_SPEED = 3f
-    private val ROLLING_START_MIN = 95f
-    private val ROLLING_START_MAX = 99f
 
     private var sessionBest0to100: Long = -1L
     private var sessionBest0to200: Long = -1L
@@ -146,7 +141,6 @@ class DragRunPageActivity : BaseActivity() {
     private var lastSpeed: Float = 0f
     private var decelerationDetected = false
     private var waitingForFullStop = false
-    private var decelerationDialog: AlertDialog? = null
 
     private lateinit var tvGCurrentBig: TextView
     private lateinit var gGaugeView: com.example.clinometer.GGaugeView
@@ -155,8 +149,6 @@ class DragRunPageActivity : BaseActivity() {
     private var lastDisplayedConvertedSpeed = 0f
     private var lastDisplayedG = 0f
 
-    private var waitingForStop = false
-    private var waitingForAcceleration = false
     private var measurementStarted = false
     private val RESTART_COOLDOWN_MS = 5000L
     private var restartCooldownActive = false
@@ -187,6 +179,7 @@ class DragRunPageActivity : BaseActivity() {
 
             if (measuring) startPolling()
             updateReadyStatus()
+            syncServiceRunOrientation()
             
             // Стартирай измерването когато service-ът се свърже
             if (!measurementStarted) {
@@ -205,7 +198,7 @@ class DragRunPageActivity : BaseActivity() {
 
     private fun checkGPSReady() {
         val location = foregroundService?.getLastLocation()
-        if (location != null && location.accuracy < 30f) {
+        if (location != null && location.accuracy < GPS_READY_ACCURACY_METERS) {
             gpsReady = true
             updateReadyStatus()
         } else {
@@ -218,31 +211,18 @@ class DragRunPageActivity : BaseActivity() {
         }
     }
 
-    private var pollCount = 0
-    private var lastPollTime = 0L
-    
     private val pollRunnable = object : Runnable {
         override fun run() {
             try {
-                pollCount++
-                val now = System.currentTimeMillis()
-                if (lastPollTime > 0L && pollCount % 10 == 0) {
-                    val avgInterval = (now - lastPollTime) / 10
-                    lastPollTime = now
-                }
-                if (pollCount == 1) lastPollTime = now
-                
                 val loc = foregroundService?.getLastLocation()
                 if (loc != null) {
                     handleLocation(loc)
-                } else {
                 }
                 
                 updateUIFromService()
             } finally {
                 if (measuring) {
                     pollHandler.postDelayed(this, POLL_INTERVAL_MS)
-                } else {
                 }
             }
         }
@@ -465,15 +445,12 @@ class DragRunPageActivity : BaseActivity() {
         isCalibrating = false
         calibrationComplete = false
         calibrationStartTime = 0L
-        calibrationStartSpeed = 0f
         extrapolatedStartTime = 0L
         calibrationSpeedMps.clear()
         calibrationTimeNanos.clear()
 
         // Останалата част от кода остава същата...
         attemptAlreadySaved = false
-        waitingForStop = false
-        waitingForAcceleration = false
         decelerationDetected = false
         waitingForFullStop = false
 
@@ -572,15 +549,49 @@ class DragRunPageActivity : BaseActivity() {
                 else -> -1L
             }
 
+            val (windowStartNs, windowEndNs, speedCapKmh) = getMeasurementWindowAndSpeedCap(
+                mode = measurementMode,
+                attempt = attempt,
+                attempt0to100Ns = attempt0to100Result,
+                attempt0to200Ns = attempt0to200Result,
+                attempt100to200Ns = attempt100to200Result
+            )
+
             // RAW данни - без екстраполация, без синтетични точки
-            val adjustedGSamples = if (gSamples.isNotEmpty() && gTimeStamps.isNotEmpty()) gSamples else emptyList()
-            val adjustedGTimes = if (gSamples.isNotEmpty() && gTimeStamps.isNotEmpty()) gTimeStamps else emptyList()
+            val (alignedGSamples, alignedGTimes) = if (gSamples.isNotEmpty() && gTimeStamps.isNotEmpty()) {
+                trimTimeSeriesToWindow(gSamples, gTimeStamps, windowStartNs, windowEndNs)
+            } else {
+                emptyList<Float>() to emptyList<Long>()
+            }
 
-            val adjustedGpsAccelSamples = if (gpsAccelSamples.isNotEmpty() && gpsAccelTimeStamps.isNotEmpty()) gpsAccelSamples else emptyList()
-            val adjustedGpsAccelTimes = if (gpsAccelSamples.isNotEmpty() && gpsAccelTimeStamps.isNotEmpty()) gpsAccelTimeStamps else emptyList()
+            val (alignedGpsAccelSamples, alignedGpsAccelTimes) = if (gpsAccelSamples.isNotEmpty() && gpsAccelTimeStamps.isNotEmpty()) {
+                trimTimeSeriesToWindow(gpsAccelSamples, gpsAccelTimeStamps, windowStartNs, windowEndNs)
+            } else {
+                emptyList<Float>() to emptyList<Long>()
+            }
 
-            val adjustedSpeedSamples = if (speedSamplesRaw.isNotEmpty() && speedTimeStampsRaw.isNotEmpty()) speedSamplesRaw else emptyList()
-            val adjustedSpeedTimes = if (speedSamplesRaw.isNotEmpty() && speedTimeStampsRaw.isNotEmpty()) speedTimeStampsRaw else emptyList()
+            val (trimmedSpeedSamplesRaw, trimmedSpeedTimes) = if (speedSamplesRaw.isNotEmpty() && speedTimeStampsRaw.isNotEmpty()) {
+                trimTimeSeriesToWindow(speedSamplesRaw, speedTimeStampsRaw, windowStartNs, windowEndNs)
+            } else {
+                emptyList<Float>() to emptyList<Long>()
+            }
+
+            val cappedSpeedSamples = if (speedCapKmh != null) {
+                trimmedSpeedSamplesRaw.map { sample -> sample.coerceAtMost(speedCapKmh) }
+            } else {
+                trimmedSpeedSamplesRaw
+            }
+
+            val (adjustedSpeedSamples, adjustedSpeedTimes) = ensureSpeedSeriesCoversMeasurementEnd(
+                speedSamples = cappedSpeedSamples,
+                speedTimes = trimmedSpeedTimes,
+                windowEndNs = windowEndNs,
+                targetSpeedKmh = speedCapKmh
+            )
+
+            val computedMaxSpeed = adjustedSpeedSamples.maxOrNull()
+                ?: foregroundService?.getMaxSpeed()
+                ?: 0f
 
             // Продължителност = максималното от измерените времена (нано)
             val measurementDuration = listOf(
@@ -595,12 +606,12 @@ class DragRunPageActivity : BaseActivity() {
                 time0to200 = attempt0to200Result,
                 time100to200 = attempt100to200Result,
                 time0to402 = attempt0to402Result,
-                maxSpeed = foregroundService?.getMaxSpeed() ?: 0f,
-                gSamples = adjustedGSamples,
-                gpsAccelSamples = adjustedGpsAccelSamples,
+                maxSpeed = computedMaxSpeed,
+                gSamples = alignedGSamples,
+                gpsAccelSamples = alignedGpsAccelSamples,
                 startTime = attempt.startTime, // Запазваме rolling100StartTime за 100-200 режим
-                timeStamps = adjustedGTimes,
-                gpsTimeStamps = adjustedGpsAccelTimes,
+                timeStamps = alignedGTimes,
+                gpsTimeStamps = alignedGpsAccelTimes,
                 duration = measurementDuration,
                 speedSamples = adjustedSpeedSamples,
                 speedTimeStamps = adjustedSpeedTimes
@@ -784,6 +795,7 @@ class DragRunPageActivity : BaseActivity() {
         cancelRestartCooldown()
         if (measurementStarted) return
         measurementStarted = true
+        syncServiceRunOrientation()
         
         createNewAttempt()
         
@@ -803,12 +815,8 @@ class DragRunPageActivity : BaseActivity() {
         pollHandler.removeCallbacks(pollRunnable)
     }
 
-    private var handleLocationCallCount = 0
-    
     private fun handleLocation(loc: Location) {
-        handleLocationCallCount++
-        
-        if (loc.accuracy > 30f) {
+        if (loc.accuracy > GPS_READY_ACCURACY_METERS) {
             return
         }
         
@@ -823,14 +831,14 @@ class DragRunPageActivity : BaseActivity() {
         // Деселерация детекция - само ако имаме реална скорост
         if (started && !measurementComplete && speedKmh > 5f) {
             val speedDiff = speedKmh - lastSpeed
-            if (speedDiff < -5f && speedKmh < 80f && !decelerationDetected) {
+            if (speedDiff < DECELERATION_DELTA_KMH && speedKmh < DECELERATION_MAX_SPEED_KMH && !decelerationDetected) {
                 decelerationDetected = true
                 handleDeceleration(speedKmh)
             }
         } else if (measurementMode == MeasurementMode.HUNDRED_TO_200 && started && !measurementComplete && speedKmh > 5f) {
             // За 100-200 режим - детектираме деселерация докато измерваме
             val speedDiff = speedKmh - lastSpeed
-            if (speedDiff < -5f && speedKmh < 80f && !decelerationDetected) {
+            if (speedDiff < DECELERATION_DELTA_KMH && speedKmh < DECELERATION_MAX_SPEED_KMH && !decelerationDetected) {
                 decelerationDetected = true
                 handleDeceleration(speedKmh)
             }
@@ -842,12 +850,8 @@ class DragRunPageActivity : BaseActivity() {
             MeasurementMode.QUARTER_MILE -> {
 
                 if (waitingForFullStop) {
-                    if (speedKmh < 3f && !restartCooldownActive) {
-                        waitingForFullStop = false
-                        decelerationDetected = false
-                        isCalibrating = false
-                        calibrationComplete = false
-                        startRestartCooldown()
+                    if (speedKmh < FULL_STOP_REARM_SPEED_KMH) {
+                        prepareSingleModeNextAttemptAfterFullStop()
                     }
                 } else if (!started && serviceReady && gpsReady && !decelerationDetected && !restartCooldownActive) {
                     // БЛОКИРАМЕ измерването ако няма калибрирана посока
@@ -859,21 +863,10 @@ class DragRunPageActivity : BaseActivity() {
                     
                     // Хибридна старт детекция: Linear Acceleration + GPS
                     val linearAccelTriggered = foregroundService?.isLinearAccelTriggered() ?: false
-                    val isLinearAccelCalibrated = foregroundService?.isLinearAccelCalibrated() ?: false
                     
                     // ВАЖНО: GPS НЕ участва в старта! Само Linear Acceleration!
                     // GPS използваме САМО за измерване на скорости след старта
-                    val shouldStart = when (measurementMode) {
-                        MeasurementMode.HUNDRED_TO_200 -> {
-                            // За 100-200 режим: linear accel + скорост ~100 km/h (rolling start)
-                            linearAccelTriggered && speedKmh > 99f
-                        }
-                        else -> {
-                            // За останалите режими: САМО forward ускорение!
-                            // GPS използваме след това за измерване на 100/200 km/h
-                            linearAccelTriggered
-                        }
-                    }
+                    val shouldStart = linearAccelTriggered
                     
                     // Периодично логване - показва че чакаме за forward ускорение
                     if (!shouldStart && System.currentTimeMillis() % 3000 < 100) {
@@ -881,19 +874,6 @@ class DragRunPageActivity : BaseActivity() {
                     }
                     
                     if (shouldStart) {
-                        started = true
-                        Log.d("DragRunPage", "🚀 START измерване! speedKmh=$speedKmh, linearAccelTriggered=$linearAccelTriggered")
-                        
-                        // Използваме Linear Accel trigger time ако е налично, иначе текущото време
-                        startTimeNano = if (linearAccelTriggered) {
-                            foregroundService?.getLinearAccelTriggerTime() ?: System.nanoTime()
-                        } else {
-                            System.nanoTime()
-                        }
-                        
-                        // Задаваме measurementStartTimeNano в service-а
-                        foregroundService?.setMeasurementStartTimeNano(startTimeNano)
-                        startLocation = loc
                         val attemptNumber = getCurrentAttemptNumber()
                         val modeText = when (measurementMode) {
                             MeasurementMode.ZERO_TO_100 -> "0-100"
@@ -901,8 +881,13 @@ class DragRunPageActivity : BaseActivity() {
                             MeasurementMode.QUARTER_MILE -> "0-402m"
                             else -> ""
                         }
-                        tvStatus.text = getString(R.string.drag_status_measuring, modeText, attemptNumber)
-                        foregroundService?.startNewMeasurement(measurementMode.name)
+                        beginMeasurementFromLinearAcceleration(
+                            loc = loc,
+                            speedKmh = speedKmh,
+                            linearAccelTriggered = linearAccelTriggered,
+                            logSuffix = "",
+                            statusText = getString(R.string.drag_status_measuring, modeText, attemptNumber)
+                        )
                     }
                 } else if (!started) {
                 }
@@ -934,7 +919,7 @@ class DragRunPageActivity : BaseActivity() {
 
             MeasurementMode.HUNDRED_TO_200 -> {
                 // Проверяваме за завършване на измерването ПЪРВО
-                if (started && !measurementComplete && speedKmh >= 200f) {
+                if (started && !measurementComplete && speedKmh >= ROLLING_FINISH_SPEED_KMH) {
                     // Използваме rolling100StartTime като база за измерването
                     val currentTime = System.nanoTime()
                     attempt100to200Nanos = currentTime - rolling100StartTime
@@ -988,40 +973,22 @@ class DragRunPageActivity : BaseActivity() {
                 }  // Затваряме if (started && !measurementComplete && speedKmh >= 200f)
                 // След това проверяваме другите състояния САМО ако не сме завършили измерване
                 if (waitingForFullStop && !measurementComplete) {
-                    if (speedKmh in 95f..99f) {
-                        waitingForFullStop = false
-                        decelerationDetected = false
-                        isCalibrating = false
-                        calibrationComplete = false
-                        rollingStartReady = true
-                        started = false
-                        measurementComplete = false
-                        createNewAttempt()  // Създаваме нов опит за 100-200 режим
-                        tvStatus.text = getString(R.string.drag_status_pass_100)
-                        tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
-                    } else if (speedKmh < 95f) {
+                    if (isInRollingStartRange(speedKmh)) {
+                        prepareHundredToTwoHundredNextAttempt()
+                    } else if (speedKmh < ROLLING_START_MIN_KMH) {
                         // Показваме съобщението само ако не е деселерация
                         if (!decelerationDetected) {
                             tvStatus.text = getString(R.string.drag_status_return_95_99)
                             tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
                         }
-                    } else if (speedKmh > 99f) {
+                    } else if (speedKmh > ROLLING_START_MAX_KMH) {
                         tvStatus.text = getString(R.string.drag_status_too_fast)
                         tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
                     }
                 } else if (waitingForFullStop && measurementComplete) {
                     // След успешно измерване - показваме съобщението докато не се върне на 95-99
-                    if (speedKmh in 95f..99f) {
-                        waitingForFullStop = false
-                        decelerationDetected = false
-                        isCalibrating = false
-                        calibrationComplete = false
-                        rollingStartReady = true
-                        started = false
-                        measurementComplete = false
-                        createNewAttempt()  // Създаваме нов опит за 100-200 режим
-                        tvStatus.text = getString(R.string.drag_status_pass_100)
-                        tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
+                    if (isInRollingStartRange(speedKmh)) {
+                        prepareHundredToTwoHundredNextAttempt()
                     }
                     // Не променяме съобщението ако не сме в 95-99 диапазона
                 } else if (!started && speedKmh >= 100f && rollingStartReady && serviceReady && gpsReady && !decelerationDetected) {
@@ -1032,17 +999,17 @@ class DragRunPageActivity : BaseActivity() {
                     tvStatus.text = getString(R.string.drag_status_measuring, "100-200", attemptNumber)
                     tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_blue_dark))
                     foregroundService?.startNewMeasurement(measurementMode.name)
-                } else if (!started && speedKmh in 95f..99f && !rollingStartReady) {
+                } else if (!started && isInRollingStartRange(speedKmh) && !rollingStartReady) {
                     // Готови сме за старт
                     rollingStartReady = true
                     tvStatus.text = getString(R.string.drag_status_pass_100)
                     tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
-                } else if (!started && speedKmh < 95f) {
+                } else if (!started && speedKmh < ROLLING_START_MIN_KMH) {
                     // Твърде бавно
                     rollingStartReady = false
                     tvStatus.text = getString(R.string.drag_status_speed_up)
                     tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
-                } else if (!started && speedKmh > 99f && !rollingStartReady && !measurementComplete) {
+                } else if (!started && speedKmh > ROLLING_START_MAX_KMH && !rollingStartReady && !measurementComplete) {
                     // Твърде бързо - само ако не сме завършили измерване
                     tvStatus.text = getString(R.string.drag_status_too_fast)
                     tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
@@ -1052,12 +1019,14 @@ class DragRunPageActivity : BaseActivity() {
             MeasurementMode.ALL -> {
                 // Проверка за пълна спирка след деселерация
                 if (waitingForFullStop) {
-                    if (speedKmh < 3f && !restartCooldownActive) {
+                    if (speedKmh < FULL_STOP_REARM_SPEED_KMH) {
                         waitingForFullStop = false
                         decelerationDetected = false
                         isCalibrating = false
                         calibrationComplete = false
-                        startRestartCooldown()
+                        cancelRestartCooldown()
+                        restartAllMeasurements()
+                        foregroundService?.startNewMeasurement(measurementMode.name)
                     } else {
                         // Продължаваме да показваме съобщението
                         tvStatus.text = getString(R.string.drag_status_stop_to_restart)
@@ -1073,21 +1042,10 @@ class DragRunPageActivity : BaseActivity() {
                     
                     // Хибридна старт детекция: Linear Acceleration + GPS
                     val linearAccelTriggered = foregroundService?.isLinearAccelTriggered() ?: false
-                    val isLinearAccelCalibrated = foregroundService?.isLinearAccelCalibrated() ?: false
                     
                     // ВАЖНО: GPS НЕ участва в старта! Само Linear Acceleration!
                     // GPS използваме САМО за измерване на скорости след старта
-                    val shouldStart = when (measurementMode) {
-                        MeasurementMode.HUNDRED_TO_200 -> {
-                            // За 100-200 режим: linear accel + скорост ~100 km/h (rolling start)
-                            linearAccelTriggered && speedKmh > 99f
-                        }
-                        else -> {
-                            // За останалите режими: САМО forward ускорение!
-                            // GPS използваме след това за измерване на 100/200 km/h
-                            linearAccelTriggered
-                        }
-                    }
+                    val shouldStart = linearAccelTriggered
                     
                     // Периодично логване - показва че чакаме за forward ускорение
                     if (!shouldStart && System.currentTimeMillis() % 3000 < 100) {
@@ -1095,21 +1053,13 @@ class DragRunPageActivity : BaseActivity() {
                     }
                     
                     if (shouldStart) {
-                        started = true
-                        Log.d("DragRunPage", "🚀 START измерване! speedKmh=$speedKmh, linearAccelTriggered=$linearAccelTriggered (ALL режим)")
-                        
-                        // Използваме Linear Accel trigger time ако е налично, иначе текущото време
-                        startTimeNano = if (linearAccelTriggered) {
-                            foregroundService?.getLinearAccelTriggerTime() ?: System.nanoTime()
-                        } else {
-                            System.nanoTime()
-                        }
-                        
-                        // Задаваме measurementStartTimeNano в service-а
-                        foregroundService?.setMeasurementStartTimeNano(startTimeNano)
-                        startLocation = loc
-                        tvStatus.text = getString(R.string.drag_measuring)
-                        foregroundService?.startNewMeasurement(measurementMode.name)
+                        beginMeasurementFromLinearAcceleration(
+                            loc = loc,
+                            speedKmh = speedKmh,
+                            linearAccelTriggered = linearAccelTriggered,
+                            logSuffix = " (ALL режим)",
+                            statusText = getString(R.string.drag_measuring)
+                        )
                     }
                 } else if (!started) {
                 }
@@ -1254,6 +1204,7 @@ class DragRunPageActivity : BaseActivity() {
                 val measurementStartTime = foregroundService?.getMeasurementStartTimeNano() ?: 0L
                 val currentTime = System.nanoTime()
                 val elapsedNanos = currentTime - measurementStartTime
+                finishTimeNano = currentTime
 
                 // Запазваме времето за по-късно използване
                 attempt0to402Nanos = elapsedNanos
@@ -1281,8 +1232,11 @@ class DragRunPageActivity : BaseActivity() {
                     foregroundService?.stopMeasurement()
                     saveCurrentAttempt()
                     attemptAlreadySaved = true
+                    measurementComplete = true
+                    started = false
                     waitingForFullStop = true
-                    tvStatus.text = getString(R.string.drag_status_quarter_complete_stop)
+                    val quarterDistance = UnitsManager.getQuarterMileDistance(this)
+                    tvStatus.text = "0-$quarterDistance ${getString(R.string.drag_complete_stop_for_new)}"
                     tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
                 } else {
                     // В ALL режим - проверяваме дали всички измервания са завършени
@@ -1349,25 +1303,6 @@ class DragRunPageActivity : BaseActivity() {
         restartCooldownHandler.removeCallbacks(restartCooldownRunnable)
     }
 
-    private fun showDecelerationDialog() {
-        if (decelerationDialog?.isShowing == true) return
-
-        runOnUiThread {
-            tvStatus.text = getString(R.string.drag_status_decel_detected)
-            tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
-
-            decelerationDialog = AlertDialog.Builder(this)
-                .setTitle("Deceleration Detected")
-                .setMessage("The measurement was interrupted. Please come to a complete stop and the system will automatically prepare for a new attempt.")
-                .setPositiveButton("Restart Now") { dialog, _ ->
-                    restartAllMeasurements()
-                    dialog.dismiss()
-                }
-                .setCancelable(false)
-                .show()
-        }
-    }
-
     private fun restartAllMeasurements() {
         // Спираме текущото измерване
         measurementComplete = false
@@ -1401,7 +1336,6 @@ class DragRunPageActivity : BaseActivity() {
         accelStartNano = 0L
         distanceCompleted = false
         calibrationStartTime = 0L
-        calibrationStartSpeed = 0f
         extrapolatedStartTime = 0L
         accumulatedDistance = 0f
         lastLocationForDistance = null
@@ -1493,7 +1427,7 @@ class DragRunPageActivity : BaseActivity() {
         }
 
         // Обработка на измерванията
-        if (started && !measurementComplete && !waitingForStop) {
+        if (started && !measurementComplete) {
             val nowNano = System.nanoTime()
 
             // Използваме СЪЩАТА времева основа като RAW данните
@@ -1677,7 +1611,7 @@ class DragRunPageActivity : BaseActivity() {
                 val speedDiff = speedFloat - prevSpeed
 
                 // Рязка деселерация = край на измерването, но НЕ в ALL режим докато не завършим 0-402m
-                if (speedDiff < -5f && speedFloat < 80f) {
+                if (speedDiff < DECELERATION_DELTA_KMH && speedFloat < DECELERATION_MAX_SPEED_KMH) {
                     // В ALL режим, не спираме измерването докато не завършим 0-402m
                     if (measurementMode != MeasurementMode.ALL || measured0to402) {
                         decelerationDetected = true
@@ -1750,6 +1684,150 @@ class DragRunPageActivity : BaseActivity() {
         lastSpeed = speedFloat
     }
 
+    private fun isInRollingStartRange(speedKmh: Float): Boolean {
+        return speedKmh in ROLLING_START_MIN_KMH..ROLLING_START_MAX_KMH
+    }
+
+    private fun getMeasurementWindowAndSpeedCap(
+        mode: MeasurementMode,
+        attempt: DragAttempt,
+        attempt0to100Ns: Long,
+        attempt0to200Ns: Long,
+        attempt100to200Ns: Long
+    ): Triple<Long, Long, Float?> {
+        return when (mode) {
+            MeasurementMode.ZERO_TO_100 -> Triple(0L, attempt0to100Ns, 100f)
+            MeasurementMode.ZERO_TO_200 -> Triple(0L, attempt0to200Ns, 200f)
+            MeasurementMode.HUNDRED_TO_200 -> {
+                val startNs = attempt.startTime.coerceAtLeast(0L)
+                val endNs = if (attempt100to200Ns > 0L) startNs + attempt100to200Ns else -1L
+                Triple(startNs, endNs, 200f)
+            }
+            else -> Triple(0L, -1L, null)
+        }
+    }
+
+    private fun <T> trimTimeSeriesToWindow(
+        values: List<T>,
+        timestamps: List<Long>,
+        startNs: Long,
+        endNs: Long
+    ): Pair<List<T>, List<Long>> {
+        val limit = minOf(values.size, timestamps.size)
+        if (limit <= 0) return emptyList<T>() to emptyList()
+
+        val alignedValues = values.take(limit)
+        val alignedTimes = timestamps.take(limit)
+
+        if (endNs <= 0L) {
+            return alignedValues to alignedTimes
+        }
+
+        val filteredValues = mutableListOf<T>()
+        val filteredTimes = mutableListOf<Long>()
+        for (i in 0 until limit) {
+            val ts = alignedTimes[i]
+            if (ts in startNs..endNs) {
+                filteredValues.add(alignedValues[i])
+                filteredTimes.add(ts)
+            }
+        }
+
+        return if (filteredValues.isNotEmpty()) {
+            filteredValues to filteredTimes
+        } else {
+            alignedValues to alignedTimes
+        }
+    }
+
+    private fun ensureSpeedSeriesCoversMeasurementEnd(
+        speedSamples: List<Float>,
+        speedTimes: List<Long>,
+        windowEndNs: Long,
+        targetSpeedKmh: Float?
+    ): Pair<List<Float>, List<Long>> {
+        if (windowEndNs <= 0L || targetSpeedKmh == null) return speedSamples to speedTimes
+        if (speedSamples.isEmpty() || speedTimes.isEmpty()) return speedSamples to speedTimes
+
+        val limit = minOf(speedSamples.size, speedTimes.size)
+        val alignedSamples = speedSamples.take(limit).toMutableList()
+        val alignedTimes = speedTimes.take(limit).toMutableList()
+
+        val hasEndOrAfterPoint = alignedTimes.any { it >= windowEndNs }
+        val maxSpeed = alignedSamples.maxOrNull() ?: 0f
+
+        if (!hasEndOrAfterPoint && maxSpeed < targetSpeedKmh) {
+            alignedSamples.add(targetSpeedKmh)
+            alignedTimes.add(windowEndNs)
+        }
+
+        return alignedSamples to alignedTimes
+    }
+
+    private fun beginMeasurementFromLinearAcceleration(
+        loc: Location,
+        speedKmh: Float,
+        linearAccelTriggered: Boolean,
+        logSuffix: String,
+        statusText: String
+    ) {
+        started = true
+        Log.d("DragRunPage", "🚀 START измерване! speedKmh=$speedKmh, linearAccelTriggered=$linearAccelTriggered$logSuffix")
+
+        startTimeNano = if (linearAccelTriggered) {
+            foregroundService?.getLinearAccelTriggerTime() ?: System.nanoTime()
+        } else {
+            System.nanoTime()
+        }
+
+        foregroundService?.setMeasurementStartTimeNano(startTimeNano)
+        startLocation = loc
+        tvStatus.text = statusText
+        foregroundService?.startNewMeasurement(measurementMode.name)
+    }
+
+    private fun prepareSingleModeNextAttemptAfterFullStop() {
+        waitingForFullStop = false
+        decelerationDetected = false
+        isCalibrating = false
+        calibrationComplete = false
+        measurementComplete = false
+        started = false
+        cancelRestartCooldown()
+
+        createNewAttempt()
+        foregroundService?.startNewMeasurement(measurementMode.name)
+
+        when (measurementMode) {
+            MeasurementMode.ZERO_TO_100 -> {
+                tvStatus.text = getString(R.string.drag_status_ready_0to100)
+            }
+            MeasurementMode.ZERO_TO_200 -> {
+                tvStatus.text = getString(R.string.drag_status_ready_0to200)
+            }
+            MeasurementMode.QUARTER_MILE -> {
+                tvStatus.text = getString(R.string.drag_status_ready_quarter)
+            }
+            else -> {
+                tvStatus.text = getString(R.string.drag_waiting_for_acceleration)
+            }
+        }
+        tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
+    }
+
+    private fun prepareHundredToTwoHundredNextAttempt() {
+        waitingForFullStop = false
+        decelerationDetected = false
+        isCalibrating = false
+        calibrationComplete = false
+        rollingStartReady = true
+        started = false
+        measurementComplete = false
+        createNewAttempt()
+        tvStatus.text = getString(R.string.drag_status_pass_100)
+        tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
+    }
+
     private fun formatNanos(nanos: Long): String {
         return if (nanos > 0L) {
             val sec = nanos / 1_000_000_000.0
@@ -1757,37 +1835,6 @@ class DragRunPageActivity : BaseActivity() {
         } else {
             "--"
         }
-    }
-
-    private fun findSpeedCrossingPoint(speedSamples: List<Float>, timeStamps: List<Long>, targetSpeed: Float): Long {
-        if (speedSamples.isEmpty() || timeStamps.isEmpty()) return 0L
-        
-        // Намираме първата точка където скоростта превишава targetSpeed
-        for (i in speedSamples.indices) {
-            if (speedSamples[i] >= targetSpeed) {
-                // Ако сме на първата точка, връщаме нейното време
-                if (i == 0) return timeStamps[0]
-                
-                // Иначе правим линейна интерполация между текущата и предишната точка
-                val prevSpeed = speedSamples[i - 1]
-                val currSpeed = speedSamples[i]
-                val prevTime = timeStamps[i - 1]
-                val currTime = timeStamps[i]
-                
-                // Линейна интерполация: t = prevTime + (targetSpeed - prevSpeed) / (currSpeed - prevSpeed) * (currTime - prevTime)
-                val speedDiff = currSpeed - prevSpeed
-                if (speedDiff > 0) {
-                    val timeDiff = currTime - prevTime
-                    val speedRatio = (targetSpeed - prevSpeed) / speedDiff
-                    return prevTime + (timeDiff * speedRatio).toLong()
-                } else {
-                    return currTime
-                }
-            }
-        }
-        
-        // Ако не намерим превишение, връщаме последното време
-        return timeStamps.last()
     }
 
     private fun showStopConfirmation() {
@@ -1916,6 +1963,7 @@ class DragRunPageActivity : BaseActivity() {
     private fun cleanup() {
         stopPolling()
         cancelRestartCooldown()
+        foregroundService?.clearActiveRunOrientation()
         foregroundService?.stopMeasurement()
         if (serviceBound) {
             try {
@@ -1934,6 +1982,14 @@ class DragRunPageActivity : BaseActivity() {
         foregroundService = null
     }
 
+    private fun isRunOrientationLandscape(): Boolean {
+        return resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    }
+
+    private fun syncServiceRunOrientation() {
+        foregroundService?.setActiveRunOrientation(isRunOrientationLandscape())
+    }
+
     override fun onBackPressed() {
         showStopConfirmation()
     }
@@ -1949,6 +2005,7 @@ class DragRunPageActivity : BaseActivity() {
         }
         
         setContentView(layoutId)
+        applySystemBarsPaddingToRoot()
         
         // Реинициализираме всички view-та
         initializeViews()
@@ -1957,6 +2014,7 @@ class DragRunPageActivity : BaseActivity() {
         // Възстановяваме състоянието на UI-а
         updateReadyStatus()
         updateUIFromService()
+        syncServiceRunOrientation()
         
         // Възстановяваме навигацията
         setupBottomNavigation()
@@ -1967,32 +2025,16 @@ class DragRunPageActivity : BaseActivity() {
         super.onResume()
         // Презареждаме калибрацията при връщане в activity-то
         DragCalibration.setProfile(profileId)
+        syncServiceRunOrientation()
         Log.d("DragRunPage", "🔄 onResume - Profile ID: $profileId, Calibrated: ${DragCalibration.isCalibrated}, Portrait: ${DragCalibration.isPortraitCalibrated}, Landscape: ${DragCalibration.isLandscapeCalibrated}")
         updateReadyStatus()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        decelerationDialog?.dismiss()
         readyCheckHandler.removeCallbacksAndMessages(null)
         soundManager.release()
         cleanup()
     }
 
-    private fun checkLocationPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
-                PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun requestLocationPermission() {
-        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 2001)
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 2001 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-        } else {
-            tvStatus.text = getString(R.string.measure_no_permission)
-        }
-    }
 }

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.example.clinometer.settings.LanguageManager
+import com.example.clinometer.main.MainContainerActivity
 
 class SplashActivity : AppCompatActivity() {
     
@@ -22,7 +23,7 @@ class SplashActivity : AppCompatActivity() {
         // След 1.5 секунди продължаваме към MainContainerActivity
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             val intent = Intent(this, MainContainerActivity::class.java)
-            intent.putExtra("NAV_ITEM_ID", R.id.navMap) // Отваряме Map страницата по подразбиране
+            intent.putExtra(MainContainerActivity.EXTRA_NAV_ITEM_ID, R.id.navMap) // Отваряме Map страницата по подразбиране
             startActivity(intent)
             overridePendingTransition(0, 0) // Премахваме анимацията
             finish()

@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/main/map/NavigationMapCleanup.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1771672824480,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1771672824480,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.main.map\r\n\r\nimport com.mapbox.maps.Style\r\n\r\nobject NavigationMapCleanup {\r\n\r\n    fun clearNavigationLayers(style: Style) {\r\n        if (style.styleLayerExists(\"navigation-route-layer\")) {\r\n            style.removeStyleLayer(\"navigation-route-layer\")\r\n        }\r\n        if (style.styleLayerExists(\"navigation-route-casing-layer\")) {\r\n            style.removeStyleLayer(\"navigation-route-casing-layer\")\r\n        }\r\n\r\n        if (style.styleSourceExists(\"navigation-route-source\")) {\r\n            style.removeStyleSource(\"navigation-route-source\")\r\n        }\r\n\r\n        if (style.styleLayerExists(\"navigation-destination-layer\")) {\r\n            style.removeStyleLayer(\"navigation-destination-layer\")\r\n        }\r\n        if (style.styleSourceExists(\"navigation-destination-source\")) {\r\n            style.removeStyleSource(\"navigation-destination-source\")\r\n        }\r\n    }\r\n}\r\n"
+        }
+    ]
+}
