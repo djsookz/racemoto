@@ -1210,6 +1210,11 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         if (rotationVector == null) {
             Log.w("TrackSession", "Rotation vector not available")
         }
+        if (gyroscope == null) {
+            Log.w("TrackSession", "Gyroscope not available - using accelerometer-only lean fusion")
+        } else {
+            Log.i("TrackSession", "Gyroscope available - advanced lean fusion enabled when calibration exists")
+        }
         
         // Регистрираме ACCELEROMETER сензора ВИНАГИ (не само когато записваме)
         // за да може g-силите да се обновяват винаги (както в drag сесиите)
@@ -1518,7 +1523,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         linearAccelSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         // ACCELEROMETER вече е регистриран в setupSensors() (винаги активен за g-сили)
         rotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
-        gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
+        gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         handler.post(updateRunnable)
         currentLap = 0
         updateCurrentLapBadge(0)
@@ -1564,6 +1569,12 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         statsFilteredLongG = 0f
         statsFilteredLatG = 0f
         smoothedConfidence = 1f
+        forwardBiasG = 0f
+        lateralBiasG = 0f
+        displayLY = 0f
+        displayLX = 0f
+        forwardGSmooth = 0f
+        lateralGSmooth = 0f
         latestRollRateDegPerSec = 0f
         gyroIntegratedLeanDeg = 0f
         hasGyroIntegratedLean = false
@@ -1864,7 +1875,13 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             fusedLongG = (1f - longBlend) * fusedLongG + longBlend * headingLongG
         }
 
-        val canLearnBias = isStationary || !isRecording || awaitingStart || speedMs < 0.8f
+        // Learn bias only when the bike is effectively stationary.
+        // Including !isRecording here causes sustained cornering G to be absorbed as "bias"
+        // during test rides and the dot snaps back to center.
+        val nearZeroDynamicG = abs(fusedLongG) < 0.08f && abs(fusedLatG) < 0.08f
+        val canLearnBias = isStationary ||
+            (awaitingStart && speedMs < 2.0f) ||
+            (speedMs < 0.5f && nearZeroDynamicG)
         if (canLearnBias) {
             forwardBiasG = (1f - biasAlpha) * forwardBiasG + biasAlpha * fusedLongG
             lateralBiasG = (1f - biasAlpha) * lateralBiasG + biasAlpha * fusedLatG
@@ -1985,7 +2002,11 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                     lastGyroMagnitude = 0.2f * gyroMag + 0.8f * lastGyroMagnitude
 
                     val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-                    val rawRollRateRad = if (isLandscape) ev.values[0] else ev.values[1]
+                    val rawRollRateRad = if (DragCalibration.isUniversalCalibrated) {
+                        // Roll around bike forward axis, independent of phone mounting orientation.
+                        val fw = DragCalibration.forwardVector
+                        ev.values[0] * fw[0] + ev.values[1] * fw[1] + ev.values[2] * fw[2]
+                    } else if (isLandscape) ev.values[0] else ev.values[1]
                     val rollRateDeg = -rawRollRateRad * radToDeg
                     latestRollRateDegPerSec = 0.25f * rollRateDeg + 0.75f * latestRollRateDegPerSec
 
@@ -2057,8 +2078,14 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             lastLeanOrientationLandscape = isLandscape
         }
 
+        val useAdvancedLeanFusion = gyroscope != null && DragCalibration.isUniversalCalibrated
         val accelReferenceTilt = if (totalGravity > 0f) {
-            if (isLandscape) {
+            if (useAdvancedLeanFusion) {
+                // Lean from gravity projection on calibrated bike RIGHT axis.
+                val rv = DragCalibration.rightVector
+                val rightComponent = ((x * rv[0] + y * rv[1] + z * rv[2]) / totalGravity).toDouble().coerceIn(-1.0, 1.0)
+                (-Math.toDegrees(Math.asin(rightComponent))).toFloat()
+            } else if (isLandscape) {
                 (-Math.toDegrees(Math.asin((y / totalGravity).toDouble().coerceIn(-1.0, 1.0)))).toFloat()
             } else {
                 (-Math.toDegrees(Math.asin((x / totalGravity).toDouble().coerceIn(-1.0, 1.0)))).toFloat()
@@ -2074,8 +2101,10 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         val accelMotionTrust = (1f - dynamicLoadG * 0.55f).coerceIn(0.18f, 1f)
         val gyroSpinPenalty = (lastGyroMagnitude / 4.0f).coerceIn(0f, 1f)
         val accelTrust = (accelMotionTrust * (1f - 0.25f * gyroSpinPenalty)).coerceIn(0.15f, 1f)
-        val correctionGain = (minAccelCorrection + (maxAccelCorrection - minAccelCorrection) * accelTrust)
-            .coerceIn(minAccelCorrection, maxAccelCorrection)
+        val minCorrection = if (useAdvancedLeanFusion) 0.07f else minAccelCorrection
+        val maxCorrection = if (useAdvancedLeanFusion) 0.35f else maxAccelCorrection
+        val correctionGain = (minCorrection + (maxCorrection - minCorrection) * accelTrust)
+            .coerceIn(minCorrection, maxCorrection)
 
         gyroIntegratedLeanDeg += correctionGain * (accelReferenceTilt - gyroIntegratedLeanDeg)
         filteredAngle = gyroIntegratedLeanDeg
