@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/dark_background"
+    android:clipToPadding="false"
+    android:paddingBottom="@dimen/navigation_bar_padding">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/calibration_description"
+            android:textSize="16sp"
+            android:textColor="@color/text_secondary_light"
+            android:layout_marginBottom="24dp"
+            android:layout_marginTop="12dp"/>
+
+        <!-- PORTRAIT Calibration Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="@color/dark_surface"
+            app:cardElevation="4dp"
+            app:cardCornerRadius="12dp"
+            app:strokeColor="@color/stroke_dark"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/calibration_portrait"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/white"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:id="@+id/tvPortraitStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="⚠️ Not Calibrated"
+                    android:textSize="16sp"
+                    android:textColor="@color/primary_color"
+                    android:layout_marginBottom="4dp"/>
+
+                <!-- Мото lean: live ъгъл на наклон, видимо само през lean фаза -->
+                <TextView
+                    android:id="@+id/tvPortraitLeanAngle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="0°"
+                    android:textSize="72sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:fontFamily="sans-serif-condensed"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="4dp"
+                    android:visibility="gone"/>
+
+                <TextView
+                    android:id="@+id/tvPortraitDate"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Please calibrate in portrait mode"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary_light"
+                    android:layout_marginBottom="12dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnCalibratePortrait"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Calibrate"
+                        android:textSize="14sp"
+                        app:cornerRadius="32dp"
+                        android:backgroundTint="@color/primary_color"
+                        android:layout_marginEnd="8dp"/>
+
+                    <Button
+                        android:id="@+id/btnClearPortrait"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Clear"
+                        android:textSize="14sp"
+                        app:cornerRadius="32dp"
+                        android:backgroundTint="@color/stop_button_color"
+                        android:enabled="false"/>
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- LANDSCAPE Calibration Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="@color/dark_surface"
+            app:cardElevation="4dp"
+            app:cardCornerRadius="12dp"
+            app:strokeColor="@color/stroke_dark"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/calibration_landscape"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/white"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:id="@+id/tvLandscapeStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="⚠️ Not Calibrated"
+                    android:textSize="16sp"
+                    android:textColor="@color/primary_color"
+                    android:layout_marginBottom="4dp"/>
+
+                <!-- Мото lean: live ъгъл на наклон, видимо само през lean фаза -->
+                <TextView
+                    android:id="@+id/tvLandscapeLeanAngle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="0°"
+                    android:textSize="72sp"
+                    android:textStyle="bold"
+                    android:gravity="center"
+                    android:textColor="@android:color/white"
+                    android:fontFamily="sans-serif-condensed"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="4dp"
+                    android:visibility="gone"/>
+
+                <TextView
+                    android:id="@+id/tvLandscapeDate"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Please calibrate in landscape mode"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary_light"
+                    android:layout_marginBottom="12dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btnCalibrateLandscape"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Calibrate"
+                        app:cornerRadius="32dp"
+                        android:textSize="14sp"
+                        android:backgroundTint="@color/primary_color"
+                        android:layout_marginEnd="8dp"/>
+
+                    <Button
+                        android:id="@+id/btnClearLandscape"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Clear"
+                        app:cornerRadius="32dp"
+                        android:textSize="14sp"
+                        android:backgroundTint="@color/stop_button_color"
+                        android:enabled="false"/>
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Instructions Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="@color/dark_surface"
+            app:cardElevation="4dp"
+            app:cardCornerRadius="12dp"
+            app:strokeColor="@color/stroke_dark"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/calibration_instructions_title"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/white"
+                    android:layout_marginBottom="12dp"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/calibration_step1"
+                    android:textSize="14sp"
+                    android:textColor="@android:color/white"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/calibration_step2"
+                    android:textSize="14sp"
+                    android:textColor="@android:color/white"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/calibration_step3"
+                    android:textSize="14sp"
+                    android:textColor="@android:color/white"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/calibration_step4"
+                    android:textSize="14sp"
+                    android:textColor="@android:color/white"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/calibration_step5"
+                    android:textSize="14sp"
+                    android:textColor="@android:color/white"
+                    android:layout_marginBottom="8dp"/>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/calibration_warning"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/primary_color"/>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Action Buttons Container -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <!-- Cancel Button -->
+            <Button
+                android:id="@+id/btnCancel"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:text="@string/calibration_btn_cancel"
+                android:textSize="16sp"
+                app:cornerRadius="32dp"
+                android:backgroundTint="@android:color/holo_red_dark"
+                android:layout_marginEnd="8dp"/>
+
+            <!-- Continue Button -->
+            <Button
+                android:id="@+id/btnContinue"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:text="@string/calibration_btn_continue"
+                android:textSize="16sp"
+                app:cornerRadius="32dp"
+                android:backgroundTint="@color/primary_color"
+                android:enabled="false"/>
+
+        </LinearLayout>
+
+        <!-- Clear All Button (only for settings) -->
+        <Button
+            android:id="@+id/btnClearAll"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="@string/calibration_btn_clear_all"
+            android:textSize="16sp"
+            app:cornerRadius="32dp"
+            android:backgroundTint="@android:color/holo_red_dark"
+            android:enabled="false"
+            android:visibility="gone"/>
+
+    </LinearLayout>
+
+</ScrollView>

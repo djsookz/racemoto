@@ -1,0 +1,607 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DragMe Pro</string>
+    <string name="show_route">Route</string>
+    <string name="compare_attempts">Compare Attempts</string>
+    <string name="select_session_to_compare">Select Session to Compare</string>
+    <string name="comparing_attempts">Comparing Attempts</string>
+    <string name="current_session">Current Session</string>
+    <string name="compare_session">Compare Session</string>
+    <string name="comparison_stats">Comparison Stats</string>
+
+    <!-- Ъгли -->
+    <string name="current_angle">%1$d°</string>
+
+    <!-- GPS скорости (km/h) -->
+    <string name="current_speed">%1$d</string>
+
+
+    <string name="calibrate">Reset</string>
+    <string name="race_item_desc">Елемент от състезание</string>
+    <string name="date_desc">Date of Session</string>
+    <string name="duration_desc">Duration of Session</string>
+    <string name="points_desc">Points</string>
+    <string name="empty_races_message">No records...</string>
+    <string name="dragme">DragMe Pro</string>
+    <string name="options">Options</string>
+
+
+
+
+
+    <string name="error_permissions_required">
+Permissions are required for basic functionality!</string>
+    <string name="welcome">Welcome!</string>
+    <string name="create_profile">Put your first vehicle into garage to continue.</string>
+    <string name="vehicle_brand">Vehicle brand</string>
+    <string name="vehicle_type">Vehicle type</string>
+    <string name="create_profile_button">READY</string>
+    <string name="vehicle_type_car">Car</string>
+    <string name="vehicle_type_motorcycle">Motorcycle</string>
+    <string name="error_empty_name">Please enter a vehicle brand.</string>
+    <string name="reset_button">RESET</string>
+    <string name="stop_button">END</string>
+    <string name="start_session">Start your session now.</string>
+    <string name="start_button">START</string>
+    <string name="zero_button">ZERO</string>
+    <string name="profile_button">PROFILES</string>
+    <string name="session_button">SESSIONS</string>
+    <string name="dialog_name_profile">Profiles name</string>
+    <string name="dialog_input_name_profile">Name</string>
+    <string name="dialog_vehicle_type">Type</string>
+    <string name="dialog_create_profile">Create new profile</string>
+    <string name="dialog_save_button">Create</string>
+    <string name="dialog_cancel_button">Cancel</string>
+    <string name="profile_edit_text">Edit profile</string>
+    <string name="profile_edit_button">Edit</string>
+    <string name="profile_save_button">Save</string>
+    <string name="profile_delete_button">Delete</string>
+    <string name="profile_details_menu">Details</string>
+    <string name="profile_header">Garage</string>
+    <string name="profile_add_button">Add new vehicle</string>
+    <string name="session_header">Sessions</string>
+    <string name="tab_all">All</string>
+    <string name="tab_favorites">Favorites</string>
+    <string name="session_today">Today</string>
+    <string name="session_yesterday">Yesterday</string>
+    <plurals name="session_years">
+        <item quantity="one">1 Year</item>
+        <item quantity="other">%d Years</item>
+    </plurals>
+
+    <plurals name="session_months">
+        <item quantity="one">1 Month</item>
+        <item quantity="other">%d Months</item>
+    </plurals>
+
+    <plurals name="session_days">
+
+        <item quantity="other">%d Days</item>
+    </plurals>
+    <string name="session_title">Session %1$d</string>
+    <string name="session_options_rename">Rename</string>
+    <string name="session_options_rename_popup_header">Rename session</string>
+    <string name="session_options_rename_popup_ok">OK</string>
+    <string name="session_new_button">New Session</string>
+
+    <string name="map_information">Information</string>
+    <string name="max_left_angle">Max left angle:</string>
+    <string name="max_right_angle">Max right angle:</string>
+    <string name="max_speed">Max speed:</string>
+    <string name="map_duration">Duration: 00:00:00</string>
+    <string name="map_distance">Distance</string>
+
+    <!-- Грешки и съобщения -->
+    <string name="error_missing_session_id">Error: missing session ID</string>
+    <string name="error_session_not_found">No session available</string>
+    <string name="error_no_route_data">No data for session</string>
+    <string name="location_title">Location</string>
+    <string name="new_session_button">NEW ROUTE</string>
+
+    <!-- Форматирани стрингове -->
+    <string name="distance_format">Distance:</string>
+    <string name="created_date_format">Created on: %s</string>
+    <string name="time_format">Duration: %s</string>
+    <string name="acceleration_format">%s: %s</string>
+
+    <!-- Текстове за информация -->
+    <string name="speed_label">Speed:</string>
+    <string name="angle_label">Angle:</string>
+    <string name="time_label">Duration:</string>
+
+
+    <!-- Легенди на графиката -->
+    <string name="chart_speed_legend">Speed (km/h)</string>
+    <string name="chart_angle_legend">Angle (°)</string>
+
+    <!-- Табове -->
+    <string name="tab_speed">Speed</string>
+    <string name="tab_angle">Angle</string>
+
+    <!-- Ускорения -->
+    <string name="accel_0_100">0-100 km/h</string>
+    <string name="accel_0_200">0-200 km/h</string>
+    <string name="accel_100_200">100-200 km/h</string>
+
+
+    <string name="speed_unit">Km/h</string>
+    <string name="km_unit">Km</string>
+    <string name="angle_unit">°</string>
+    <string name="accel_not_available">--</string>
+
+    <string name="exit_race_header">Exit from session?</string>
+    <string name="exit_race">Are you sure you want to exit? The data will be lost!</string>
+    <string name="exit_race_yes">Yes</string>
+    <string name="exit_race_no">No</string>
+
+    <string name="always_on_display">Always On Display</string>
+    <string name="settings_title">Settings</string>
+
+    <string name="max_speed_format">%.2f</string>
+
+    <string name="sprint">Sprint</string>
+    <string name="full_sprint">Full Sprint</string>
+    <string name="mid_range">Mid Range</string>
+    <string name="profile_details_top_speed">Top Speed</string>
+
+
+
+    <string name="nav_search">Търсене</string>
+    <string name="nav_history">История</string>
+    <string name="nav_map">Карта</string>
+    <string name="nav_garage">Гараж</string>
+    <string name="nav_settings">Настройки</string>
+
+    <!-- Търсене и навигация -->
+    <string name="search_destination_hint">Къде искате да отидете?</string>
+    <string name="quick_suggestion_home">Дом</string>
+    <string name="quick_suggestion_work">Работа</string>
+    <string name="quick_suggestion_favorites">Любими</string>
+
+    <!-- Навигационен панел -->
+    <string name="destination_label">Дестинация</string>
+    <string name="start_navigation">Старт</string>
+    <string name="stop_navigation">Стоп</string>
+
+
+    <!-- Съобщения -->
+    <string name="location_not_found">Локацията не е намерена</string>
+    <string name="search_error">Грешка при търсенето</string>
+    <string name="route_calculation_error">Не може да се изчисли маршрут</string>
+    <string name="navigation_started">Навигацията е стартирана!</string>
+    <string name="location_permission_required">Необходимо е разрешение за локация</string>
+    <string name="coming_soon">Скоро</string>
+
+    <!-- Разрешения -->
+    <string name="location_permission_rationale">Приложението се нуждае от достъп до локацията за навигация</string>
+
+    <!-- Бутони -->
+    <string name="ok">OK</string>
+    <string name="cancel">CANCEL</string>
+    <string name="retry">Опитай отново</string>
+
+    <!-- Описания за достъпност -->
+    <string name="my_location_button">Моето местоположение</string>
+    <string name="zoom_in_button">Увеличаване</string>
+    <string name="zoom_out_button">Намаляване</string>
+    <string name="search_button">Търсене</string>
+    <string name="navigation_button">Навигация</string>
+
+    <string name="toggle_navigation">Покажи/скрий навигация</string>
+    <string name="map_control_orientation">Заключи ориентацията на екрана</string>
+    <string name="map_control_heading_mode">Превключи посоката на картата</string>
+    <string name="navigation_icon_desc">Икона на маневрата</string>
+
+
+
+    <string name="nav_sessions">Сесии</string>
+    <string name="nav_track">Писта</string>
+    <string name="nav_profiles">Гараж</string>
+    <string name="nav_drag">Драг</string>
+
+
+
+        <string name="measure_idle">Готов</string>
+        <string name="measure_waiting_start_location">Чака се стартова локация...</string>
+        <string name="measure_started">Измерване в ход</string>
+        <string name="measure_finished">Завършено</string>
+        <string name="measure_no_permission">Няма разрешение за локация</string>
+
+        <string name="start">СТАРТ</string>
+        <string name="stop">СТОП</string>
+
+    <!-- Add these to your strings.xml file -->
+
+    <!-- Drag Racing Strings -->
+
+    <string name="no_drag_sessions">No drag sessions yet</string>
+    <string name="start_drag_session">START DRAG SESSION</string>
+    <string name="start_track_session">START TRACK SESSION</string>
+    <string name="nav_drag_label">Drag</string>
+    <string name="nav_garage_label">Garage</string>
+    <string name="nav_map_label">Map</string>
+    <string name="nav_track_label">Track</string>
+    <string name="nav_options_label">Settings</string>
+    <string name="drag_starting_in">Starting in...</string>
+    <string name="delete_session_title">Delete Session</string>
+    <string name="delete_session_message">Are you sure you want to delete this session?</string>
+    <string name="delete">Delete</string>
+    <string name="drag_attempt_number">Attempt #%d</string>
+    <string name="drag_waiting_for_start">Waiting for GPS signal...</string>
+    <string name="drag_waiting_for_acceleration">Ready - Accelerate to start</string>
+    <string name="drag_measuring">Measuring...</string>
+    <string name="drag_402m_complete">402m complete!</string>
+    <string name="drag_auto_reset">Auto-reset in 1 second...</string>
+    <string name="drag_stop_session_title">Stop Session?</string>
+    <string name="drag_stop_session_message">Stop this drag session and save all attempts?</string>
+    <string name="yes">YES</string>
+    <string name="no">NO</string>
+    <string name="drag_measuring_all">Measuring: Everything</string>
+    <string name="drag_measuring_0to100">Measuring: 0-100 km/h</string>
+    <string name="drag_measuring_0to200">Measuring: 0-200 km/h</string>
+    <string name="drag_measuring_100to200">Measuring: 100-200 km/h\nStart at 95-99 km/h</string>
+    <string name="drag_measuring_402m">Measuring: 0-402m</string>
+    <string name="drag_best_times_header">Best Times</string>
+    <string name="drag_all_attempts">All Attempts</string>
+    <string name="no_attempts_recorded">No attempts recorded</string>
+    <string name="attempt_number">Attempt #%d</string>
+    <string name="attempt_title">Attempt %d</string>
+    <string name="max_speed_kmh">Max Speed: %d km/h</string>
+    <string name="max_speed_format_simple">Max: %.0f km/h</string>
+    <string name="stop_session">STOP SESSION</string>
+    <string name="reset">Reset</string>
+    <string name="avg_speed">Average Speed</string>
+    <string name="duration_format">Duration: %s</string>
+    <string name="max_speed_format_drag">Max Speed: %.0f km/h</string>
+
+    <plurals name="drag_attempts_count">
+        <item quantity="one">%d attempt</item>
+        <item quantity="other">%d attempts</item>
+    </plurals>
+
+    <!-- Drag Run Page Status Messages -->
+    <string name="drag_status_initializing">⏳ Initializing sensors...</string>
+    <string name="drag_status_waiting_gps">📡 Waiting for GPS signal...</string>
+    <string name="drag_status_ready_all">✅ READY - Start accelerating!</string>
+    <string name="drag_status_ready_0to100">✅ READY - Accelerate for 0-100 km/h</string>
+    <string name="drag_status_ready_0to200">✅ READY - Accelerate for 0-200 km/h</string>
+    <string name="drag_status_ready_100to200">✅ READY - Speed up to 95-99 km/h</string>
+    <string name="drag_status_ready_quarter">✅ READY - Accelerate for 1/4 mile</string>
+    <string name="drag_status_measuring">Measuring %s Attempt #%d</string>
+    <string name="drag_status_calibrating">Calibrating...</string>
+    <string name="drag_status_deceleration">Deceleration! Stop completely for new attempt</string>
+    <string name="drag_status_deceleration_100to200">Deceleration! Return to 95-99 km/h</string>
+    <string name="drag_status_too_fast">Too fast! Slow down to 95-99 km/h</string>
+    <string name="drag_status_speed_up">Speed up to 95-99 km/h</string>
+    <string name="drag_status_pass_100">Ready! Pass 100 km/h to start</string>
+    <string name="drag_status_return_95_99">Return to 95-99 km/h for new attempt</string>
+    <string name="drag_status_100to200_complete">100-200 Complete! Return to 95-99 km/h for new attempt</string>
+    <string name="drag_status_0to100_complete">0-100 Complete! Stop completely for new attempt</string>
+    <string name="drag_status_0to200_complete">0-200 Complete! Stop completely for new attempt</string>
+    <string name="drag_status_quarter_complete_stop">1/4 Mile Complete! Stop completely for new attempt</string>
+    <string name="drag_status_quarter_complete_continue">1/4 Mile Complete! Continue for other measurements</string>
+    <string name="drag_status_restart_in">⏳ Restart in %1$d s</string>
+    <string name="drag_complete_stop_for_new">Complete! Stop completely for new attempt</string>
+    <string name="drag_complete_return_95_99">Complete! Return to 95-99 km/h for new attempt</string>
+    <string name="drag_status_all_complete">All measurements complete!</string>
+    <string name="drag_status_stop_to_restart">⚠️ Stop completely to restart session</string>
+    <string name="drag_status_decel_detected">⚠️ Deceleration detected! Stop to restart</string>
+    <string name="drag_finish_session">Finish Session</string>
+    <string name="drag_completed_format">Completed: %s</string>
+    
+    <!-- Drag Calibration -->
+    <string name="calibration_title">Calibration</string>
+    <string name="calibration_description">Calibrate your device in both portrait and landscape orientations for accurate drag measurements.</string>
+    <string name="calibration_portrait">📱 PORTRAIT</string>
+    <string name="calibration_landscape">🔄 LANDSCAPE</string>
+    <string name="calibration_status_calibrated">Calibrated</string>
+    <string name="calibration_status_not_calibrated">Not Calibrated</string>
+    <string name="calibration_date_format">Last: %s</string>
+    <string name="calibration_please_portrait">Please calibrate in portrait mode</string>
+    <string name="calibration_please_landscape">Please calibrate in landscape mode</string>
+    <string name="calibration_btn_calibrate">Calibrate</string>
+    <string name="calibration_btn_recalibrate">Re-do</string>
+    <string name="calibration_btn_clear">Clear</string>
+    <string name="calibration_btn_clear_all">Clear All Calibrations</string>
+    <string name="calibration_btn_continue">Continue</string>
+    <string name="calibration_btn_cancel">Cancel</string>
+    <string name="calibration_instructions_title">📋 Instructions</string>
+    <string name="calibration_step1">1️⃣ Choose orientation (Portrait or Landscape)</string>
+    <string name="calibration_step2">2️⃣ Mount phone in desired position</string>
+    <string name="calibration_step3">3️⃣ Press \'Calibrate\' button</string>
+    <string name="calibration_step4">4️⃣ Engine ON (idle), keep vehicle and phone steady for 5 seconds</string>
+    <string name="calibration_step5">5️⃣ Drive forward once</string>
+    <string name="calibration_warning">⚠️ Calibrate BOTH if you rotate phone during measurements!</string>
+    <string name="calibration_hold_steady">Hold steady for 5 seconds...</string>
+    <string name="calibration_drive_forward">Drive FORWARD once...</string>
+    <string name="calibration_success">SUCCESS!</string>
+    <string name="calibration_portrait_success">Portrait calibrated successfully!</string>
+    <string name="calibration_landscape_success">Landscape calibrated successfully!</string>
+    <string name="calibration_need_one">⚠️ Please calibrate at least ONE orientation before using the app</string>
+    <string name="calibration_need_profile">⚠️ Please calibrate %s first!</string>
+    <string name="calibration_not_calibrated">Not calibrated</string>
+    
+    <!-- Drag Session Details -->
+    <string name="drag_speed_chart_title">Speed (km/h)</string>
+    <string name="drag_accel_chart_title">Acceleration (m/s²)</string>
+    <string name="drag_g_force_chart_title">G-Force</string>
+    <string name="drag_chart_max_speed">Max: %.1f km/h</string>
+    <string name="drag_max_speed_label">Max:</string>
+    <string name="drag_chart_max_accel">Max: %.1f m/s²</string>
+    <string name="drag_chart_peak_g">Peak: %.2fg</string>
+    <string name="drag_chart_no_speed_data">No speed data</string>
+    <string name="drag_chart_no_accel_data">No acceleration data</string>
+    <string name="drag_chart_no_g_data">No G-force data</string>
+    <string name="drag_attempt_duration">Duration: %.2fs</string>
+    
+    <!-- Common Messages -->
+    <string name="back_press_exit">Press again to exit</string>
+    <string name="delete_confirmation">Are you sure you want to delete \"%s\"?</string>
+    <string name="delete_button">Delete</string>
+    <string name="cancel_button">Cancel</string>
+    
+    <!-- Popular Brands -->
+    <string name="popular_brands_header">Most Popular</string>
+    
+    <!-- Drag Run Layout Labels -->
+    <string name="drag_speed_unit">km/h</string>
+    <string name="drag_g_current">0.00 g</string>
+    <string name="drag_g_peak">Peak: 0.00 g</string>
+    <string name="drag_label_0to100">0-100 km/h</string>
+    <string name="drag_label_0to200">0-200 km/h</string>
+    <string name="drag_label_100to200">100-200 km/h</string>
+    <string name="drag_label_quarter">0-402m (1/4 mile)</string>
+    <string name="drag_distance_m">0 m</string>
+    <string name="drag_tap_to_restart">Tap to restart</string>
+    <string name="drag_value_placeholder">--</string>
+    <string name="drag_temperature_placeholder">--°C</string>
+    <string name="drag_altitude_placeholder">--m</string>
+    <string name="weather_until">до</string>
+    <string name="weather_from">from</string>
+    
+    <!-- Drag Session Details Labels -->
+    <string name="drag_best_0to100_label">0-100:</string>
+    <string name="drag_best_0to200_label">0-200:</string>
+    <string name="drag_best_100to200_label">100-200:</string>
+    <string name="drag_best_quarter_label">0-402m:</string>
+    <string name="drag_tab_speed">Speed</string>
+    <string name="drag_tab_acceleration">Acceleration</string>
+    <string name="drag_tab_gforce">G-Force</string>
+    
+    <!-- Drag Measurement Mode Dialog -->
+    <string name="drag_mode_dialog_title">What do you want to measure?</string>
+    <string name="drag_mode_all">Everything</string>
+    <string name="drag_mode_0to100">0-100</string>
+    <string name="drag_mode_0to200">0-200</string>
+    <string name="drag_mode_100to200">100-200</string>
+    <string name="drag_mode_quarter">0-402m</string>
+    <string name="drag_mode_note">Note: For 100-200, start at 90-95 km/h</string>
+    <string name="drag_mode_cancel">Cancel</string>
+    
+    <!-- Track Mode Strings -->
+    <string name="track_lap_label">Lap #%d</string>
+    <string name="track_lap_header">Lap #0</string>
+    <string name="track_laps_header">Laps</string>
+    <string name="track_no_laps">No recorded laps</string>
+    <string name="track_button_lap">LAP</string>
+    <string name="track_button_start">START</string>
+    <string name="track_button_stop">STOP</string>
+    <string name="track_button_resume">RESUME</string>
+    <string name="track_button_cancel">CANCEL</string>
+    <string name="track_button_view">VIEW</string>
+    <string name="track_time_format">00:00.000</string>
+    <string name="track_data_lost">Data was lost</string>
+    <string name="track_lap_saved">Lap %d saved: %s</string>
+    <string name="track_session_saved">Session created: %d laps, best: %s</string>
+    <string name="track_save_error">Save error: %s</string>
+    <string name="track_session_deleted">Session deleted successfully</string>
+    <string name="track_custom_soon">Custom track feature will be added soon...</string>
+    
+    <!-- Track Session Detail Labels -->
+    <string name="track_session_title">Session #%d</string>
+    <string name="track_session_info">Session Information</string>
+    <string name="track_label_date">Date:</string>
+    <string name="track_label_time">Time:</string>
+    <string name="track_label_duration">Duration:</string>
+    <string name="track_label_track">Track:</string>
+    <string name="track_label_laps">Laps:</string>
+    <string name="track_vehicle_header">Vehicle</string>
+    <string name="track_stats_header">Session Statistics</string>
+    <string name="track_best_time">Best Time:</string>
+    <string name="track_min_speed">Min Speed:</string>
+    <string name="track_max_speed">Max Speed:</string>
+    <string name="track_avg_speed">Avg Speed:</string>
+    <string name="track_distance">Distance:</string>
+    <string name="track_max_acceleration">Max Acceleration:</string>
+    <string name="track_max_braking">Max Braking:</string>
+    <string name="track_max_cornering_left">Max Cornering L:</string>
+    <string name="track_max_cornering_right">Max Cornering R:</string>
+    <string name="track_max_lean_left">Max Lean L:</string>
+    <string name="track_max_lean_right">Max Lean R:</string>
+    <string name="track_max_cornering">Max Cornering:</string>
+    <string name="track_laps_section">Laps</string>
+    <string name="track_no_sessions">No track sessions yet</string>
+    <string name="track_no_sessions_today">No sessions saved for today</string>
+    <string name="track_selection_title">Track Selection</string>
+    <string name="track_selection_serres_desc">Professional track for motorcycles and cars with 4 timing points for precise measurements.</string>
+    <string name="track_create_custom">Create Custom Track</string>
+    <string name="track_create_custom_desc">Create your own track by marking points on the map for timing measurements.</string>
+    <string name="track_name_serres">Serres Circuit</string>
+    <string name="track_name_sofia">Sofia Ring</string>
+    <string name="track_name_custom">Custom Track</string>
+    <string name="track_name_unknown">Unknown Track</string>
+    
+    <!-- Placeholder texts -->
+    <string name="placeholder_track_name">Track Name</string>
+    <string name="placeholder_vehicle_name">Vehicle Name</string>
+    <string name="track_best_lap_label">Best Lap</string>
+    <string name="track_date_time_label">Date &amp; Time</string>
+    <string name="track_duration_label">Duration</string>
+    <string name="track_laps_label">Laps</string>
+    <string name="track_new_session">+ New Session</string>
+    <string name="track_resume">RESUME</string>
+    <string name="track_delete_session_title">Delete Session</string>
+    <string name="track_delete_session_message">Are you sure you want to delete the session \"%s\"? This action cannot be undone.</string>
+    <string name="track_delete_button">Delete</string>
+    <string name="track_lap_title">Lap #%d</string>
+    <string name="track_prev_lap">Previous lap</string>
+    <string name="track_next_lap">Next lap</string>
+    <string name="track_tab_speed">Speed</string>
+    <string name="track_tab_g_force">G-Force</string>
+    <string name="track_tab_angle">Angle</string>
+    <string name="track_speed_label">Speed:</string>
+    <string name="track_predictive_gap_title">Gap to best lap</string>
+    <string name="track_predictive_mode_session">Session best</string>
+    <string name="track_predictive_mode_track">Track best</string>
+    <string name="track_predictive_reference_session_placeholder">LAP -- • --:--.---</string>
+    <string name="track_predictive_reference_track_placeholder">TRACK • --:--.---</string>
+    <string name="track_predictive_gap_unit">Seconds</string>
+    
+    <!-- Map mode buttons -->
+    <string name="map_sessions_button">SESSIONS</string>
+    <string name="map_start_button">START</string>
+    
+    <!-- Settings -->
+    <string name="settings_general_header">═══ GENERAL ═══</string>
+    <string name="settings_drag_header">═══ DRAG ═══</string>
+    <string name="settings_drag_calibration">🏁 Calibration</string>
+    <string name="settings_lean_calibration">Lean Calibration</string>
+    <string name="settings_allow_motorways">🛣️ Allow Motorways</string>
+    <string name="settings_allow_motorways_desc">Include highways and motorways in navigation routes</string>
+    
+    <!-- Garage -->
+    <string name="garage_title">Garage</string>
+    <string name="garage_add_button">Add</string>
+    <string name="garage_my_profile">My Profile</string>
+    <string name="garage_vehicle_car">Car</string>
+    <string name="garage_vehicle_motorcycle">Motorcycle</string>
+    <string name="garage_change_button">Change</string>
+    <string name="garage_profile_image">Profile image</string>
+    <string name="garage_select_image">Select image</string>
+    <string name="garage_remove_image">Remove image</string>
+    <string name="garage_my_collection">My Collection</string>
+    <string name="garage_sessions_template">%d sessions</string>
+    <string name="garage_max_speed_template">🏁 %s km/h max</string>
+    <string name="garage_confirm_delete">Are you sure you want to delete "%s"?\n\nAll %d sessions for this profile will also be deleted.</string>
+    <string name="garage_confirm_delete_simple">Are you sure you want to delete "%s"?</string>
+    <string name="garage_delete_button">Delete</string>
+    <string name="garage_cancel_button">Cancel</string>
+    <string name="garage_create_button">Create</string>
+    <string name="garage_select_brand">Please select a brand</string>
+    <string name="garage_select_model">Please select a model</string>
+    <string name="garage_most_popular">Most Popular</string>
+    <string name="garage_active_vehicle">Active vehicle</string>
+    <string name="garage_all_profiles">All vehicles</string>
+    <string name="garage_view_sessions">View sessions</string>
+    <string name="garage_empty_title">No profiles yet</string>
+    <string name="garage_empty_subtitle">Add a vehicle to start recording sessions.</string>
+    <string name="garage_add_first_vehicle">Add first vehicle</string>
+    <string name="garage_tap_to_add_photo">Tap to add a photo</string>
+    <string name="garage_active_badge">ACTIVE</string>
+    <string name="garage_add_vehicle_title">Add vehicle</string>
+    <string name="garage_add_vehicle_subtitle">Pick a type, then choose brand + model.</string>
+    <string name="garage_brand_label">Brand</string>
+    <string name="garage_model_label">Model</string>
+    <string name="garage_brand_placeholder">Select brand...</string>
+    <string name="garage_model_placeholder">Select model...</string>
+    <string name="garage_vehicle_car_plain">Car</string>
+    <string name="garage_vehicle_motorcycle_plain">Motorcycle</string>
+    <string name="garage_choose_from_library">Choose from library</string>
+    <string name="garage_remove_photo">Remove photo</string>
+    <string name="garage_profile_details">Profile details</string>
+    <string name="garage_open_calibration">Open calibration</string>
+    <string name="garage_set_active">Set as active</string>
+    <string name="garage_calibration">Calibration</string>
+    <string name="garage_not_calibrated">⚠️ Not calibrated</string>
+    <string name="garage_calibrated">✅ Calibrated</string>
+    <string name="garage_search_placeholder">Search...</string>
+    <string name="garage_no_results">No results</string>
+    <string name="garage_back_press">Press again to exit</string>
+    
+    <!-- Profile Details -->
+    <string name="profile_detail_session_text">Sessions</string>
+    <string name="profile_detail_distance_format">0.0 km</string>
+    <string name="profile_detail_distance_text">Total Distance</string>
+    <string name="profile_detail_duration_format">%1$dh %2$dm</string>
+    <string name="profile_detail_duration_text">Total Time</string>
+    <string name="profile_details_stats">Statistics</string>
+    <string name="seconds">seconds</string>
+    <string name="quarter_mile">Quarter Mile</string>
+    <string name="kmh_unit">km/h</string>
+    <string name="drag_0to100_title">0-100 km/h</string>
+    <string name="drag_0to200_title">0-200 km/h</string>
+    <string name="drag_100to200_title">100-200 km/h</string>
+    <string name="drag_quarter_mile_title">0-402m</string>
+    <string name="profile_detail_reset_title">Reset %s</string>
+    <string name="profile_detail_reset_message">Are you sure you want to reset the record for %s?\n\nThis will delete the best result from all sessions.</string>
+    <string name="profile_detail_reset_button">Reset</string>
+    <string name="profile_detail_max_speed">Max Speed</string>
+    <string name="settings_track_header">═══ TRACK ═══</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_auto">Automatic</string>
+    <string name="settings_units_header">Measurement Units</string>
+    <string name="settings_speed_unit">Speed</string>
+    <string name="settings_speed_kmh">km/h</string>
+    <string name="settings_distance_unit">Distance</string>
+    <string name="settings_distance_km">kilometers</string>
+    <string name="settings_temperature_unit">Temperature</string>
+    <string name="settings_temperature_celsius">Celsius</string>
+    <string name="settings_pressure_unit">Pressure</string>
+    <string name="settings_pressure_hpa">hectopascal</string>
+    <string name="settings_sound_100">Sound at 100 km/h</string>
+    <string name="settings_sound_200">Sound at 200 km/h</string>
+    <string name="settings_sound_402">Sound at 402 m</string>
+    <string name="settings_voice_countdown">Voice Countdown</string>
+    <string name="settings_lap_complete_sound">Sound on lap completion</string>
+    <string name="settings_personal_best_sound">Sound on new personal record</string>
+
+    <string name="lean_calibration_title">Lean Calibration</string>
+    <string name="lean_calibration_description">Calibrate neutral bike angle per orientation. Keep the bike upright and still until auto-save completes.</string>
+    <string name="lean_calibration_portrait">Portrait Mount</string>
+    <string name="lean_calibration_landscape">Landscape Mount</string>
+    <string name="lean_calibration_calibrate">Calibrate</string>
+    <string name="lean_calibration_recalibrate">Recalibrate</string>
+    <string name="lean_calibration_clear">Clear</string>
+    <string name="lean_calibration_clear_all">Clear All Lean Calibrations</string>
+    <string name="lean_calibration_calibrated">Calibrated</string>
+    <string name="lean_calibration_not_calibrated">Not calibrated</string>
+    <string name="lean_calibration_missing_orientation">No calibration for this orientation</string>
+    <string name="lean_calibration_idle_hint">Press calibrate and hold the bike steady.</string>
+    <string name="lean_calibration_hold_still">Hold still in %1$s...</string>
+    <string name="lean_calibration_live_value">Lean %1$.1f°  |  Stability %2$d/80</string>
+    <string name="lean_calibration_saved">%1$s calibration saved</string>
+    <string name="lean_calibration_sensor_missing">Accelerometer is not available on this device.</string>
+    
+    <!-- Unit display names -->
+    <string name="unit_kmh">km/h</string>
+    <string name="unit_mph">mph</string>
+    <string name="unit_ms">m/s</string>
+    <string name="unit_kilometers">kilometers</string>
+    <string name="unit_miles">miles</string>
+    <string name="unit_meters">meters</string>
+    <string name="unit_celsius">Celsius</string>
+    <string name="unit_fahrenheit">Fahrenheit</string>
+    <string name="unit_hpa">hectopascal</string>
+    <string name="unit_inhg">inches Hg</string>
+    <string name="unit_mmhg">mm Hg</string>
+
+    <string name="destination_placeholder">Търси дестинация...</string>
+    <string name="route_preview_title">Преглед на маршрут</string>
+
+    <string name="track_select_lap_to_compare">Select Lap to Compare</string>
+    <string name="track_compare_invalid_current_lap">Current lap is invalid for comparison</string>
+    <string name="no_track_laps_to_compare">No other laps on this track to compare</string>
+    <string name="track_compare_unknown_profile">Unknown Profile</string>
+    <string name="track_compare_vehicle_moto">MOTO</string>
+    <string name="track_compare_vehicle_car">CAR</string>
+    <string name="track_compare_vehicle_unknown">UNKNOWN</string>
+    <string name="track_compare_session_meta">Session #%1$d • %2$s</string>
+    <string name="track_compare_lap_title">Lap #%1$d</string>
+
+    <plurals name="track_compare_laps_count">
+        <item quantity="one">%d lap</item>
+        <item quantity="other">%d laps</item>
+    </plurals>
+
+
+</resources>

@@ -1,0 +1,1467 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_primary">
+
+    <TextView
+        android:id="@+id/tvCurrentLap"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_track_lap_badge"
+        android:paddingStart="18dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="6dp"
+        android:text="LAP 0"
+        android:textAllCaps="true"
+        android:textColor="#0F1115"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <ProgressBar
+        android:id="@+id/progressLapDistance"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="8dp"
+        android:layout_below="@id/tvCurrentLap"
+        android:layout_marginStart="24dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="24dp"
+        android:indeterminate="false"
+        android:max="1000"
+        android:progress="0"
+        android:progressDrawable="@drawable/progress_track_lap_distance" />
+
+    <!-- Content area between top and bottom bar (fixed gauge, scrollable laps only) -->
+    <LinearLayout
+        android:id="@+id/contentArea"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/progressLapDistance"
+        android:layout_above="@+id/bottomBar"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <LinearLayout
+            android:id="@+id/topTelemetryRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+
+            android:orientation="horizontal">
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardTopSpeedTelemetry"
+                android:layout_width="0dp"
+                android:layout_height="176dp"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1.30"
+                app:cardBackgroundColor="@android:color/transparent"
+                app:cardCornerRadius="12dp"
+
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_track_metric_speed"
+                    android:orientation="vertical"
+
+                    android:padding="14dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:includeFontPadding="false"
+                        android:text="SPEED"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1">
+
+                        <RelativeLayout
+                            android:id="@+id/llTopSpeedMotoBody"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:visibility="visible">
+
+                            <LinearLayout
+                                android:id="@+id/llTopSpeedMotoCenter"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_centerInParent="true"
+                                android:gravity="center_horizontal"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvTopSpeedValue"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_horizontal"
+                                    android:includeFontPadding="false"
+                                    android:text="0"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="50sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center_horizontal"
+                                    android:layout_marginTop="-8dp"
+                                    android:text="KM/H"
+                                    android:textColor="@color/accent_color"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:id="@+id/llTopSpeedMotoStats"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentEnd="true"
+                                android:layout_alignParentBottom="true"
+                                android:layout_marginEnd="2dp"
+                                android:layout_marginBottom="2dp"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:includeFontPadding="false"
+                                        android:text="MAX"
+                                        android:textAllCaps="true"
+                                        android:textColor="@color/primary_color"
+                                        android:textSize="7sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvTopMaxSpeedValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:includeFontPadding="false"
+                                        android:text="0"
+                                        android:textColor="@color/text_primary"
+                                        android:textSize="14sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="12dp"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:includeFontPadding="false"
+                                        android:text="AVG"
+                                        android:textAllCaps="true"
+                                        android:textColor="@color/primary_color"
+                                        android:textSize="7sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvTopAvgSpeedValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:includeFontPadding="false"
+                                        android:text="0"
+                                        android:textColor="@color/text_primary"
+                                        android:textSize="14sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
+                            </LinearLayout>
+                        </RelativeLayout>
+
+                        <RelativeLayout
+                            android:id="@+id/rlTopSpeedCarBody"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:visibility="gone">
+
+                            <LinearLayout
+                                android:id="@+id/llTopSpeedCarCenter"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_centerInParent="true"
+                                android:gravity="center_horizontal"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvTopSpeedValueCar"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center_horizontal"
+                                    android:includeFontPadding="false"
+                                    android:text="0"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="72sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center_horizontal"
+                                    android:layout_marginTop="-6dp"
+                                    android:text="KM/H"
+                                    android:textColor="@color/accent_color"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:id="@+id/llTopSpeedCarStats"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentEnd="true"
+                                android:layout_alignParentBottom="true"
+                                android:layout_marginEnd="2dp"
+                                android:layout_marginBottom="2dp"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:includeFontPadding="false"
+                                        android:text="MAX"
+                                        android:textAllCaps="true"
+                                        android:textColor="@color/primary_color"
+                                        android:textSize="8sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvTopMaxSpeedValueCar"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:includeFontPadding="false"
+                                        android:text="0"
+                                        android:textColor="@color/text_primary"
+                                        android:textSize="20sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="14dp"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:includeFontPadding="false"
+                                        android:text="AVG"
+                                        android:textAllCaps="true"
+                                        android:textColor="@color/primary_color"
+                                        android:textSize="8sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/tvTopAvgSpeedValueCar"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:includeFontPadding="false"
+                                        android:text="0"
+                                        android:textColor="@color/text_primary"
+                                        android:textSize="20sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
+                            </LinearLayout>
+                        </RelativeLayout>
+                    </FrameLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardTopLeanTelemetry"
+                android:layout_width="0dp"
+                android:layout_height="176dp"
+                android:layout_marginStart="8dp"
+                android:layout_weight="0.95"
+                app:cardBackgroundColor="@android:color/transparent"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_track_metric_speed"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:includeFontPadding="false"
+                            android:text="LEAN"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnTopLeanZero"
+                            android:layout_width="wrap_content"
+                            android:layout_height="30dp"
+                            android:minWidth="0dp"
+                            android:minHeight="0dp"
+                            android:paddingStart="10dp"
+                            android:paddingEnd="10dp"
+                            android:text="@string/zero_button"
+                            android:textAllCaps="true"
+                            android:textColor="@android:color/white"
+                            android:textSize="8sp"
+                            android:textStyle="bold"
+                            app:backgroundTint="@color/primary_color"
+                            app:cornerRadius="8dp" />
+                    </LinearLayout>
+
+                    <com.example.clinometer.LeanVisualizerView
+                        android:id="@+id/leanVisualizer"
+                        android:layout_width="match_parent"
+                        android:layout_height="62dp"
+                        android:layout_marginTop="0dp" />
+
+                    <TextView
+                        android:id="@+id/tvTopLeanValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="5dp"
+                        android:includeFontPadding="false"
+                        android:text="0°"
+                        android:textColor="#FFFFFF"
+                        android:textSize="36sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvTopLeanDirection"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:includeFontPadding="false"
+                        android:layout_marginTop="0dp"
+                        android:text=""
+                        android:textAllCaps="true"
+                        android:textColor="@color/accent_color"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+        </LinearLayout>
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardPredictiveLap"
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
+            android:layout_marginBottom="8dp"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_track_metric_speed"
+                android:paddingStart="14dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="8dp">
+
+                <View
+                    android:id="@+id/viewPredictiveAccent"
+                    android:layout_width="3dp"
+                    android:layout_height="76dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:background="@color/primary_color" />
+
+                <LinearLayout
+                    android:id="@+id/llPredictiveLeft"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentStart="true"
+                    android:layout_toStartOf="@id/llPredictiveRight"
+                    android:layout_toEndOf="@id/viewPredictiveAccent"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginEnd="12dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvPredictiveGapHeader"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:includeFontPadding="false"
+                        android:text="@string/track_predictive_gap_title"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvPredictiveReference"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:includeFontPadding="false"
+                        android:text="@string/track_predictive_reference_session_placeholder"
+                        android:textColor="@color/primary_color"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnPredictiveGapMode"
+                        android:layout_width="wrap_content"
+                        android:layout_height="30dp"
+                        android:layout_marginTop="6dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp"
+                        android:text="@string/track_predictive_mode_session"
+                        android:textAllCaps="true"
+                        android:textColor="@android:color/white"
+                        android:textSize="8sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="@color/primary_color"
+                        app:cornerRadius="8dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/llPredictiveRight"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:gravity="end"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="1dp"
+                        android:gravity="bottom"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvPredictiveGapSignValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="4dp"
+                            android:includeFontPadding="false"
+                            android:text="+"
+                            android:textColor="#00E985"
+                            android:textSize="26sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvPredictiveGapValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:includeFontPadding="false"
+                            android:text="0.0"
+                            android:textColor="#00E985"
+                            android:textSize="36sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvPredictiveGapUnit"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="end"
+                        android:includeFontPadding="false"
+                        android:text="@string/track_predictive_gap_unit"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </RelativeLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- Central Speed Gauge Card (fixed) -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            app:cardBackgroundColor="#1C2128"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp">
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="156dp">
+
+                <com.example.clinometer.SpeedGaugeView
+                    android:id="@+id/speedGauge"
+                    android:layout_width="match_parent"
+                    android:layout_height="156dp"
+                    android:visibility="gone" />
+
+                <RelativeLayout
+                    android:id="@+id/motoGForceContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:paddingStart="14dp"
+                    android:background="@drawable/bg_track_metric_speed"
+                    android:paddingTop="12dp"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="10dp">
+
+                    <TextView
+                        android:id="@+id/tvMotoGHeader"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="G-FORCE - LONGITUDINAL"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="11sp" />
+
+                    <LinearLayout
+                        android:id="@+id/llMotoTotalValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_alignTop="@id/tvMotoGHeader"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvMotoTotalLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="TOTAL"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="11sp" />
+
+                        <TextView
+                            android:id="@+id/tvMotoTotalValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:includeFontPadding="false"
+                            android:text="0.0"
+                            android:textColor="#F9B028"
+                            android:textSize="22sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="2dp"
+                            android:layout_marginTop="4dp"
+                            android:text="g"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/llMotoBody"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvMotoGHeader"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal"
+                        android:gravity="top"
+                        >
+
+                        <LinearLayout
+                            android:id="@+id/llMotoLeft"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:gravity="bottom"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <View
+                                        android:layout_width="8dp"
+                                        android:layout_height="8dp"
+                                        android:background="#59667A" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="10dp"
+                                        android:text="BRAKING"
+                                        android:textColor="#EB3E23"
+                                        android:textSize="8.5sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="bottom"
+                                    android:orientation="horizontal">
+
+                                    <TextView
+                                        android:id="@+id/tvMotoBrakingValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:includeFontPadding="false"
+                                        android:text="0.0"
+                                        android:textColor="#EB3E23"
+                                        android:textSize="36sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="2dp"
+                                        android:layout_marginBottom="3dp"
+                                        android:text="g"
+                                        android:textColor="#6E88A4"
+                                        android:textSize="10sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <ProgressBar
+                                android:id="@+id/pbMotoBraking"
+                                style="?android:attr/progressBarStyleHorizontal"
+                                android:layout_width="match_parent"
+                                android:layout_height="8dp"
+                                android:layout_marginTop="6dp"
+                                android:max="250"
+                                android:progress="0"
+                                android:progressTint="#E64563"
+                                android:progressBackgroundTint="#394758" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical">
+
+                                <TextView
+                                    android:id="@+id/tvMotoLeftFooterLabel"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="MAX"
+                                    android:textColor="@color/text_tertiary"
+                                    android:textSize="11sp" />
+
+                                <TextView
+                                    android:id="@+id/tvMotoMaxBrakingValue"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0.0g"
+                                    android:textColor="#EB3E23"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <RelativeLayout
+                            android:id="@+id/rlMotoAxis"
+                            android:layout_width="56dp"
+                            android:layout_height="92dp"
+                            android:layout_marginStart="10dp"
+                            android:layout_marginEnd="10dp">
+
+                            <TextView
+                                android:id="@+id/tvMotoAxisBrakeLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_centerHorizontal="true"
+                                android:text="BRAKE"
+                                android:textColor="#FF4E6F"
+                                android:textSize="6.5sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvMotoAxisAccelLabel"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_alignParentBottom="true"
+                                android:layout_centerHorizontal="true"
+                                android:text="ACCEL"
+                                android:textColor="#00E985"
+                                android:textSize="6.5sp"
+                                android:textStyle="bold" />
+
+                            <com.example.clinometer.GGaugeView
+                                android:id="@+id/gGaugeTrack"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:visibility="gone" />
+
+                            <View
+                                android:id="@+id/viewMotoAxisLine"
+                                android:layout_width="1dp"
+                                android:layout_height="70dp"
+                                android:layout_centerInParent="true"
+                                android:background="#415368" />
+
+                            <View
+                                android:id="@+id/viewMotoTickTop"
+                                android:layout_width="10dp"
+                                android:layout_height="1dp"
+                                android:layout_centerHorizontal="true"
+                                android:layout_marginTop="16dp"
+                                android:background="#415368" />
+
+                            <View
+                                android:id="@+id/viewMotoTickMid"
+                                android:layout_width="10dp"
+                                android:layout_height="1dp"
+                                android:layout_centerHorizontal="true"
+                                android:layout_centerVertical="true"
+                                android:background="#415368" />
+
+                            <View
+                                android:id="@+id/viewMotoTickBottom"
+                                android:layout_width="10dp"
+                                android:layout_height="1dp"
+                                android:layout_centerHorizontal="true"
+                                android:layout_marginBottom="16dp"
+                                android:layout_alignParentBottom="true"
+                                android:background="#415368" />
+
+                            <View
+                                android:id="@+id/viewMotoLongitudinalDot"
+                                android:layout_width="12dp"
+                                android:layout_height="12dp"
+                                android:layout_centerInParent="true"
+                                android:background="@drawable/bg_moto_long_dot" />
+                        </RelativeLayout>
+
+                        <LinearLayout
+                            android:id="@+id/llMotoRight"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="6dp"
+                                android:gravity="bottom"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:gravity="center_vertical"
+                                    android:orientation="horizontal">
+
+                                    <View
+                                        android:layout_width="8dp"
+                                        android:layout_height="8dp"
+                                        android:background="#59667A" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="8dp"
+                                        android:text="ACCEL"
+                                        android:textColor="#00E985"
+                                        android:textSize="8.5sp"
+                                        android:textStyle="bold" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="bottom"
+                                    android:orientation="horizontal">
+
+                                    <TextView
+                                        android:id="@+id/tvMotoAccelValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:includeFontPadding="false"
+                                        android:text="0.0"
+                                        android:textColor="#00E985"
+                                        android:textSize="36sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="2dp"
+                                        android:layout_marginBottom="3dp"
+                                        android:text="g"
+                                        android:textColor="@color/text_tertiary"
+                                        android:textSize="10sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <ProgressBar
+                                android:id="@+id/pbMotoAccel"
+                                style="?android:attr/progressBarStyleHorizontal"
+                                android:layout_width="match_parent"
+                                android:layout_height="8dp"
+                                android:layout_marginTop="6dp"
+                                android:max="250"
+                                android:progress="0"
+                                android:progressTint="#00CC75"
+                                android:progressBackgroundTint="#394758" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical">
+
+                                <TextView
+                                    android:id="@+id/tvMotoRightFooterLabel"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="MAX"
+                                    android:textColor="@color/text_tertiary"
+                                    android:textSize="11sp" />
+
+                                <TextView
+                                    android:id="@+id/tvMotoMaxAccelValue"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0.0g"
+                                    android:textColor="#00E985"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/carGForceLayout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_below="@id/tvMotoGHeader"
+                        android:layout_marginTop="1dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:visibility="gone"
+                        >
+
+                        <com.example.clinometer.GGaugeView
+                            android:id="@+id/gGaugeTrackCar"
+                            android:layout_width="0dp"
+                            android:layout_height="112dp"
+                            android:layout_marginEnd="12dp"
+                            android:layout_weight="0.95" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1.35"
+                            android:orientation="vertical">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="LATERAL L"
+                                        android:textAllCaps="true"
+                                        android:textColor="#2EBEFF"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold" />
+
+                                    <LinearLayout
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="bottom"
+                                        android:orientation="horizontal">
+
+                                        <TextView
+                                            android:id="@+id/tvCarLateralLeftValue"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:includeFontPadding="false"
+                                            android:text="0.0"
+                                            android:textColor="#2EBEFF"
+                                            android:textSize="20sp"
+                                            android:textStyle="bold" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginStart="2dp"
+                                            android:layout_marginBottom="4dp"
+                                            android:text="g"
+                                            android:textColor="#8AA8C4"
+                                            android:textSize="10sp" />
+                                    </LinearLayout>
+
+                                    <ProgressBar
+                                        android:id="@+id/pbCarLateralLeft"
+                                        style="?android:attr/progressBarStyleHorizontal"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="6dp"
+                                        android:layout_marginTop="1dp"
+                                        android:max="250"
+                                        android:progress="0"
+                                        android:progressTint="#2EBEFF"
+                                        android:progressBackgroundTint="#394758" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="LATERAL R"
+                                        android:textAllCaps="true"
+                                        android:textColor="#19C4FF"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold" />
+
+                                    <LinearLayout
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="bottom"
+                                        android:orientation="horizontal">
+
+                                        <TextView
+                                            android:id="@+id/tvCarLateralRightValue"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:includeFontPadding="false"
+                                            android:text="0.0"
+                                            android:textColor="#19C4FF"
+                                            android:textSize="20sp"
+                                            android:textStyle="bold" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginStart="2dp"
+                                            android:layout_marginBottom="4dp"
+                                            android:text="g"
+                                            android:textColor="#8AA8C4"
+                                            android:textSize="10sp" />
+                                    </LinearLayout>
+
+                                    <ProgressBar
+                                        android:id="@+id/pbCarLateralRight"
+                                        style="?android:attr/progressBarStyleHorizontal"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="6dp"
+                                        android:layout_marginTop="1dp"
+                                        android:max="250"
+                                        android:progress="0"
+                                        android:progressTint="#19C4FF"
+                                        android:progressBackgroundTint="#394758" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:orientation="horizontal">
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="BRAKING"
+                                        android:textAllCaps="true"
+                                        android:textColor="#FF4E6F"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold" />
+
+                                    <LinearLayout
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="bottom"
+                                        android:orientation="horizontal">
+
+                                        <TextView
+                                            android:id="@+id/tvCarBrakingValue"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:includeFontPadding="false"
+                                            android:text="0.0"
+                                            android:textColor="#FF4E6F"
+                                            android:textSize="20sp"
+                                            android:textStyle="bold" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginStart="2dp"
+                                            android:layout_marginBottom="5dp"
+                                            android:text="g"
+                                            android:textColor="#8AA8C4"
+                                            android:textSize="10sp" />
+                                    </LinearLayout>
+
+                                    <ProgressBar
+                                        android:id="@+id/pbCarBraking"
+                                        style="?android:attr/progressBarStyleHorizontal"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="7dp"
+                                        android:layout_marginTop="1dp"
+                                        android:max="250"
+                                        android:progress="0"
+                                        android:progressTint="#E64563"
+                                        android:progressBackgroundTint="#394758" />
+                                </LinearLayout>
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="ACCEL"
+                                        android:textAllCaps="true"
+                                        android:textColor="#00E985"
+                                        android:textSize="9sp"
+                                        android:textStyle="bold" />
+
+                                    <LinearLayout
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:gravity="bottom"
+                                        android:orientation="horizontal">
+
+                                        <TextView
+                                            android:id="@+id/tvCarAccelValue"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:includeFontPadding="false"
+                                            android:text="0.0"
+                                            android:textColor="#00E985"
+                                            android:textSize="20sp"
+                                            android:textStyle="bold" />
+
+                                        <TextView
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:layout_marginStart="2dp"
+                                            android:layout_marginBottom="5dp"
+                                            android:text="g"
+                                            android:textColor="#8AA8C4"
+                                            android:textSize="10sp" />
+                                    </LinearLayout>
+
+                                    <ProgressBar
+                                        android:id="@+id/pbCarAccel"
+                                        style="?android:attr/progressBarStyleHorizontal"
+                                        android:layout_width="match_parent"
+                                        android:layout_height="7dp"
+                                        android:layout_marginTop="1dp"
+                                        android:max="250"
+                                        android:progress="0"
+                                        android:progressTint="#00CC75"
+                                        android:progressBackgroundTint="#394758" />
+                                </LinearLayout>
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="0dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="TOTAL G-FORCE"
+                                    android:textAllCaps="true"
+                                    android:textColor="@color/text_tertiary"
+                                    android:textSize="10sp"
+                                    android:textStyle="bold" />
+
+                                <LinearLayout
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="bottom"
+                                    android:orientation="horizontal">
+
+                                    <TextView
+                                        android:id="@+id/tvCarTotalValue"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:includeFontPadding="false"
+                                        android:text="0.0"
+                                        android:textColor="#F9C12D"
+                                        android:textSize="24sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginStart="3dp"
+                                        android:layout_marginBottom="4dp"
+                                        android:text="g"
+                                        android:textColor="#8AA8C4"
+                                        android:textSize="10sp" />
+                                </LinearLayout>
+                            </LinearLayout>
+                        </LinearLayout>
+                    </LinearLayout>
+                </RelativeLayout>
+
+            </FrameLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <TextView
+            android:id="@+id/tvLapTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/track_time_format"
+            android:visibility="gone" />
+
+        <!-- Laps Card (fills remaining space; internal scroll only for laps list) -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardLaps"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:visibility="gone"
+            app:cardBackgroundColor="@color/card_background"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:padding="10dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/track_laps_header"
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="6dp" />
+
+                <!-- Only the list area scrolls -->
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:fillViewport="true"
+                    android:clipToPadding="false">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <!-- Laps Container -->
+                        <LinearLayout
+                            android:id="@+id/llLapsContainer"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+
+                        <!-- No Laps Message -->
+                        <TextView
+                            android:id="@+id/tvNoLaps"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="@string/track_no_laps"
+                            android:textColor="#CCCCCC"
+                            android:textSize="14sp"
+                            android:gravity="center"
+                            android:padding="16dp"
+                            android:visibility="visible" />
+
+                    </LinearLayout>
+                </ScrollView>
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <LinearLayout
+            android:id="@+id/lapSummaryRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:orientation="horizontal">
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="0dp"
+                android:layout_height="70dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                app:cardBackgroundColor="@android:color/transparent"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="3dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_track_metric_speed"
+                    android:orientation="vertical"
+                    android:paddingStart="10dp"
+                    android:paddingTop="7dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="7dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:includeFontPadding="false"
+                        android:text="CURRENT"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvSessionCurrentTimerValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:ellipsize="end"
+                        android:fontFamily="monospace"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:text="0:00.000"
+                        android:textColor="@color/primary_color"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="0dp"
+                android:layout_height="70dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                android:layout_weight="1"
+                app:cardBackgroundColor="@android:color/transparent"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="3dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_track_metric_speed"
+                    android:orientation="vertical"
+                    android:paddingStart="10dp"
+                    android:paddingTop="7dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="7dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:includeFontPadding="false"
+                            android:text="BEST LAP"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvSessionBestLapMarker"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:includeFontPadding="false"
+                            android:text="L -"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvSessionBestLapValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:ellipsize="end"
+                        android:fontFamily="monospace"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:text="--:--.---"
+                        android:textColor="#B28CFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="0dp"
+                android:layout_height="70dp"
+                android:layout_marginStart="4dp"
+                android:layout_weight="1"
+                app:cardBackgroundColor="@android:color/transparent"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="3dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_track_metric_speed"
+                    android:orientation="vertical"
+                    android:paddingStart="10dp"
+                    android:paddingTop="7dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="7dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:includeFontPadding="false"
+                        android:text="LAST LAP"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvSessionLastLapValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:ellipsize="end"
+                        android:fontFamily="monospace"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:text="--:--.---"
+                        android:textColor="#26E8A4"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Bottom Control Buttons (fixed) -->
+    <LinearLayout
+        android:id="@+id/bottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="12dp"
+        android:background="@color/background_primary"
+        android:elevation="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnLap"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="@string/track_button_lap"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:backgroundTint="#FF9800"
+            app:cornerRadius="28dp"
+            app:iconSize="16dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnStartStop"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="@string/track_button_start"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:backgroundTint="#FF6020"
+            app:cornerRadius="28dp"
+            app:iconSize="16dp" />
+
+    </LinearLayout>
+
+</RelativeLayout>

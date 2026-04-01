@@ -1,0 +1,407 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DragMe</string>
+    <string name="welcome">Добре Дошли!</string>
+    <string name="create_profile">Създайте първия си профил на превозното средство, за да продължите.</string>
+    <string name="vehicle_brand">Марка на превозното средство</string>
+    <string name="vehicle_type">Тип превозно средство</string>
+    <string name="create_profile_button">Създай профил</string>
+    <string name="vehicle_type_car">Кола</string>
+    <string name="vehicle_type_motorcycle">Мотоциклет</string>
+    <string name="error_empty_name">Моля, въведете марка на превозното средство.</string>
+    <string name="reset_button">РЕСТАРТ</string>
+    <string name="stop_button">КРАЙ</string>
+    <string name="start_session">Започни своята сесия сега.</string>
+    <string name="start_button">СТАРТ</string>
+    <string name="zero_button">НУЛИРАЙ</string>
+    <string name="profile_button">ПРОФИЛИ</string>
+    <string name="session_button">СЕСИИ</string>
+    <string name="dialog_name_profile">Име на профил</string>
+    <string name="dialog_input_name_profile">Име</string>
+    <string name="dialog_vehicle_type">"Тип "</string>
+    <string name="dialog_create_profile">Създай нов профил</string>
+    <string name="dialog_save_button">Запази</string>
+    <string name="dialog_cancel_button">Откажи</string>
+    <string name="profile_edit_text">Редактирай профил</string>
+    <string name="profile_edit_button">Редактирай</string>
+    <string name="profile_save_button">Запази</string>
+    <string name="profile_delete_button">Изтрий</string>
+    <string name="profile_header">Профили</string>
+    <string name="profile_add_button">Добави нов профил</string>
+    <string name="session_header">Сесии</string>
+    <string name="session_today">Днес</string>
+    <string name="session_yesterday">Вчера</string>
+    <string name="session_year">Година</string>
+    <string name="session_years">Години</string>
+    <string name="session_month">Месец</string>
+    <string name="session_months">Месеца</string>
+    <string name="session_days">Дни</string>
+    <string name="session_name">Сесия %1$d</string>
+    <string name="session_title">Сесия %1$d</string>
+    <string name="session_options_rename">Преименувай</string>
+    <string name="session_options_rename_popup_header">Преименуване на сесията</string>
+    <string name="session_options_rename_popup_ok">ОК</string>
+    <string name="session_new_button">Нова Сесия</string>
+    <string name="map_information">Информация</string>
+    <string name="map_max_left">Макс ляв ъгъл: 0°</string>
+    <string name="map_max_right">Макс десен ъгъл: 0°</string>
+    <string name="map_max_speed">Макс скорост: 0 km/h</string>
+    <string name="max_speed">Макс. скорост:</string>
+    <string name="map_duration">Време: 00:00:00</string>
+    <string name="map_distance">Разстояние: -</string>
+    <string name="error_missing_session_id">Грешка: Липсва ID на сесията</string>
+    <string name="error_session_not_found">Сесията не е намерена</string>
+    <string name="error_no_route_data">Няма данни за маршрут</string>
+    <string name="location_title">Μестоположение</string>
+    <string name="new_session_button">НОВА СЕСИЯ</string>
+    <string name="distance_format">Разстояние:</string>
+    <string name="created_date_format">Създаден: %s</string>
+    <string name="time_format">Време: %s</string>
+    <string name="acceleration_format">%s: %.3fs</string>
+    <string name="speed_label">"Скорост: "</string>
+    <string name="angle_label">Ъгъл:</string>
+    <string name="time_label">"Време: "</string>
+    <string name="speed_unit">км/ч</string>
+    <string name="km_unit">Км</string>
+    <string name="angle_unit">°</string>
+    <string name="chart_speed_legend">Скорост (км/ч)</string>
+    <string name="chart_angle_legend">Ъгъл (°)</string>
+    <string name="tab_speed">Скорост</string>
+    <string name="tab_angle">Ъгъл</string>
+    <string name="accel_0_100">0-100 км/ч</string>
+    <string name="accel_0_200">0-200 км/ч</string>
+    <string name="accel_100_200">100-200 км/ч</string>
+    <string name="accel_not_available">--</string>
+    <string name="max_left_angle">Макс. ляв ъгъл:</string>
+    <string name="max_right_angle">Макс. десен ъгъл:</string>
+    <string name="empty_races_message">Няма данни...</string>
+    <string name="dragme">DragMe</string>
+    <string name="exit_race_header">Изход от сесия?</string>
+    <string name="exit_race">Сигурни ли сте, че искате да излезете? Данните ще бъдат изгубени!</string>
+    <string name="exit_race_yes">Да</string>
+    <string name="exit_race_no">Не</string>
+    <string name="always_on_display">Always On Display</string>
+    <string name="settings_title">Настройки</string>
+    <string name="mid_range">Средно</string>
+    <string name="profile_details_top_speed">Рекорд</string>
+    <string name="sprint">Спринт</string>
+    <string name="full_sprint">Фул Спринт</string>
+    <string name="drag_best_times_header">Най-добри Времена</string>
+    <string name="drag_all_attempts">Всички Опити</string>
+    <string name="no_attempts_recorded">Няма записани опити</string>
+    <string name="attempt_number">Опит #%d</string>
+    <string name="attempt_title">Опит %d</string>
+    <string name="max_speed_format_simple">Макс: %.0f км/ч</string>
+    <string name="start_drag_session">Започни Драг Сесия</string>
+    <string name="start_track_session">Започни Трак Сесия</string>
+    <string name="no_drag_sessions">Все още няма драг сесии</string>
+    <string name="drag_stop_session_title">Спиране на сесията?</string>
+    <string name="drag_stop_session_message">Спри тази драг сесия и запази всички опити?</string>
+    <string name="yes">ДА</string>
+    <string name="no">НЕ</string>
+    <string name="drag_measuring_all">Измерва: Всичко</string>
+    <string name="drag_measuring_0to100">Измерва: 0-100 km/h</string>
+    <string name="drag_measuring_0to200">Измерва: 0-200 km/h</string>
+    <string name="drag_measuring_100to200">Измерва: 100-200 km/h\nСтартирай при 95-99 km/h</string>
+    <string name="drag_measuring_402m">Измерва: 0-402m</string>
+    <string name="cancel">ОТКАЗ</string>
+    <string name="nav_drag_label">Драг</string>
+    <string name="nav_garage_label">Гараж</string>
+    <string name="nav_map_label">Карта</string>
+    <string name="nav_track_label">Писта</string>
+    <string name="nav_options_label">Настройки</string>
+    
+    <plurals name="drag_attempts_count">
+        <item quantity="one">%d опит</item>
+        <item quantity="other">%d опита</item>
+    </plurals>
+    
+    <!-- Drag Run Page Status Messages -->
+    <string name="drag_status_initializing">⏳ Инициализация на сензорите...</string>
+    <string name="drag_status_waiting_gps">📡 Изчакване на GPS сигнал...</string>
+    <string name="drag_status_ready_all">✅ ГОТОВ - Започнете ускорение!</string>
+    <string name="drag_status_ready_0to100">✅ ГОТОВ - Ускорете за 0-100 км/ч</string>
+    <string name="drag_status_ready_0to200">✅ ГОТОВ - Ускорете за 0-200 км/ч</string>
+    <string name="drag_status_ready_100to200">✅ ГОТОВ - Ускорете до 95-99 км/ч</string>
+    <string name="drag_status_ready_quarter">✅ ГОТОВ - Ускорете за 402 метра</string>
+    <string name="drag_status_measuring">Измерване %s Опит #%d</string>
+    <string name="drag_status_calibrating">Калибриране...</string>
+    <string name="drag_status_deceleration">Забавяне! Спрете напълно за нов опит</string>
+    <string name="drag_status_deceleration_100to200">Забавяне! Върнете се на 95-99 км/ч</string>
+    <string name="drag_status_too_fast">Твърде бързо! Намалете до 95-99 км/ч</string>
+    <string name="drag_status_speed_up">Ускорете до 95-99 км/ч</string>
+    <string name="drag_status_pass_100">Готов! Преминете 100 км/ч за старт</string>
+    <string name="drag_status_return_95_99">Върнете се на 95-99 км/ч за нов опит</string>
+    <string name="drag_status_100to200_complete">100-200 Завършено! Върнете се на 95-99 км/ч за нов опит</string>
+    <string name="drag_status_0to100_complete">0-100 Завършено! Спрете напълно за нов опит</string>
+    <string name="drag_status_0to200_complete">0-200 Завършено! Спрете напълно за нов опит</string>
+    <string name="drag_status_quarter_complete_stop">402м Завършено! Спрете напълно за нов опит</string>
+    <string name="drag_status_quarter_complete_continue">402м Завършено! Продължете за други измервания</string>
+    <string name="drag_complete_stop_for_new">Завършено! Спрете напълно за нов опит</string>
+    <string name="drag_complete_return_95_99">Завършено! Върнете се на 95-99 km/h за нов опит</string>
+    <string name="drag_status_all_complete">Всички измервания завършени!</string>
+    <string name="drag_status_stop_to_restart">⚠️ Спрете напълно за рестарт на сесията</string>
+    <string name="drag_status_decel_detected">⚠️ Забавяне! Спрете за рестарт</string>
+    <string name="drag_finish_session">Приключи Сесия</string>
+    <string name="drag_completed_format">Завършени: %s</string>
+    
+    <!-- Drag Calibration -->
+    <string name="calibration_title">Калибриране</string>
+    <string name="calibration_description">Калибрирай посоката напред/назад за двете ориентации</string>
+    <string name="calibration_portrait">📱 ПОРТРЕТ</string>
+    <string name="calibration_landscape">🔄 ПЕЙЗАЖ</string>
+    <string name="calibration_status_calibrated">Калибрирано</string>
+    <string name="calibration_status_not_calibrated">Не е калибрирано</string>
+    <string name="calibration_date_format">Последно: %s</string>
+    <string name="calibration_please_portrait">Моля калибрирайте в портретен режим</string>
+    <string name="calibration_please_landscape">Моля калибрирайте в пейзажен режим</string>
+    <string name="calibration_btn_calibrate">Калибрирай</string>
+    <string name="calibration_btn_recalibrate">Повтори</string>
+    <string name="calibration_btn_clear">Изчисти</string>
+    <string name="calibration_btn_clear_all">Изчисти всички калибрации</string>
+    <string name="calibration_btn_continue">ПРОДЪЛЖИ</string>
+    <string name="calibration_btn_cancel">ОТКАЗ</string>
+    <string name="calibration_instructions_title">📋 Инструкции</string>
+    <string name="calibration_step1">1️⃣ Избери ориентация (Портрет или Пейзаж)</string>
+    <string name="calibration_step2">2️⃣ Постави телефона на желаната позиция</string>
+    <string name="calibration_step3">3️⃣ Натисни бутона \'Калибрирай\'</string>
+    <string name="calibration_step4">4️⃣ Държи неподвижно 5 секунди</string>
+    <string name="calibration_step5">5️⃣ Тръгни напред веднъж</string>
+    <string name="calibration_warning">⚠️ Калибрирай И ДВЕТЕ ако въртиш телефона при измерване!</string>
+    <string name="calibration_hold_steady">Държи неподвижно 5 секунди...</string>
+    <string name="calibration_drive_forward">Тръгни НАПРЕД веднъж...</string>
+    <string name="calibration_success">УСПЕХ!</string>
+    <string name="calibration_portrait_success">Портретът е калибриран успешно!</string>
+    <string name="calibration_landscape_success">Пейзажът е калибриран успешно!</string>
+    <string name="calibration_need_one">⚠️ Моля калибрирай ПОНЕ ЕДНА ориентация преди използване на приложението</string>
+    <string name="calibration_need_profile">⚠️ Моля първо калибрирай %s!</string>
+    <string name="calibration_not_calibrated">Не е калибрирано</string>
+    
+    <!-- Drag Session Details -->
+    <string name="drag_speed_chart_title">Скорост (км/ч)</string>
+    <string name="drag_accel_chart_title">Ускорение (m/s²)</string>
+    <string name="drag_g_force_chart_title">G-натоварване</string>
+    <string name="drag_chart_max_speed">Макс: %.1f км/ч</string>
+    <string name="drag_max_speed_label">Макс:</string>
+    <string name="drag_chart_max_accel">Макс: %.1f m/s²</string>
+    <string name="drag_chart_peak_g">Пик: %.2fg</string>
+    <string name="drag_chart_no_speed_data">Няма данни за скорост</string>
+    <string name="drag_chart_no_accel_data">Няма данни за ускорение</string>
+    <string name="drag_chart_no_g_data">Няма данни за G-сили</string>
+    <string name="drag_attempt_duration">Продължителност: %.2fs</string>
+    
+    <!-- Common Messages -->
+    <string name="back_press_exit">Натиснете отново за изход</string>
+    <string name="delete_confirmation">Сигурни ли сте, че искате да изтриете \"%s\"?</string>
+    <string name="delete_button">Изтрий</string>
+    <string name="cancel_button">Отказ</string>
+    
+    <!-- Popular Brands -->
+    <string name="popular_brands_header">Най-популярни</string>
+    
+    <!-- Drag Run Layout Labels -->
+    <string name="drag_speed_unit">км/ч</string>
+    <string name="drag_g_current">0.00 g</string>
+    <string name="drag_g_peak">Пик: 0.00 g</string>
+    <string name="drag_label_0to100">0-100 км/ч</string>
+    <string name="drag_label_0to200">0-200 км/ч</string>
+    <string name="drag_label_100to200">100-200 км/ч</string>
+    <string name="drag_label_quarter">0-402m (1/4 mile)</string>
+    <string name="drag_distance_m">0 m</string>
+    <string name="drag_tap_to_restart">Докоснете за рестарт</string>
+    <string name="drag_value_placeholder">--</string>
+    <string name="drag_temperature_placeholder">--°C</string>
+    <string name="drag_altitude_placeholder">--m</string>
+    <string name="weather_until">до</string>
+    <string name="weather_from">от</string>
+    
+    <!-- Drag Session Details Labels -->
+    <string name="drag_best_0to100_label">0-100:</string>
+    <string name="drag_best_0to200_label">0-200:</string>
+    <string name="drag_best_100to200_label">100-200:</string>
+    <string name="drag_best_quarter_label">0-402m:</string>
+    <string name="drag_tab_speed">Скорост</string>
+    <string name="drag_tab_acceleration">Ускорение</string>
+    <string name="drag_tab_gforce">G-сила</string>
+    
+    <!-- Drag Measurement Mode Dialog -->
+    <string name="drag_mode_dialog_title">Какво искате да измерите?</string>
+    <string name="drag_mode_all">Всичко</string>
+    <string name="drag_mode_0to100">0-100</string>
+    <string name="drag_mode_0to200">0-200</string>
+    <string name="drag_mode_100to200">100-200</string>
+    <string name="drag_mode_quarter">0-402m</string>
+    <string name="drag_mode_note">Забележка: За 100-200, стартирайте на 90-95 км/ч</string>
+    <string name="drag_mode_cancel">Отказ</string>
+    
+    <!-- Track Mode Strings -->
+    <string name="track_lap_label">Обиколка #%d</string>
+    <string name="track_lap_header">Обиколка #0</string>
+    <string name="track_laps_header">Обиколки</string>
+    <string name="track_no_laps">Няма записани обиколки</string>
+    <string name="track_button_lap">ОБИКОЛКА</string>
+    <string name="track_button_start">СТАРТ</string>
+    <string name="track_button_stop">СТОП</string>
+    <string name="track_button_resume">ПРОДЪЛЖИ</string>
+    <string name="track_button_cancel">ОТМЯНА</string>
+    <string name="track_button_view">ПРЕГЛЕД</string>
+    <string name="track_time_format">00:00.000</string>
+    <string name="track_data_lost">Данните са изгубени</string>
+    <string name="track_lap_saved">Обиколка %d записана: %s</string>
+    <string name="track_session_saved">Сесия създадена: %d обиколки, най-добра: %s</string>
+    <string name="track_save_error">Грешка при запазване: %s</string>
+    <string name="track_session_deleted">Сесията е изтрита успешно</string>
+    <string name="track_custom_soon">Функцията за персонализирани писти ще бъде добавена скоро...</string>
+    
+    <!-- Track Session Detail Labels -->
+    <string name="track_session_title">Излизане #%d</string>
+    <string name="track_session_info">Информация за сесията</string>
+    <string name="track_label_date">Дата:</string>
+    <string name="track_label_time">Час:</string>
+    <string name="track_label_duration">Времетраене:</string>
+    <string name="track_label_track">Писта:</string>
+    <string name="track_label_laps">Обиколки:</string>
+    <string name="track_vehicle_header">Превозно средство</string>
+    <string name="track_stats_header">Статистики за излизането</string>
+    <string name="track_best_time">Най-добро време:</string>
+    <string name="track_min_speed">Минимална скорост:</string>
+    <string name="track_max_speed">Максимална скорост:</string>
+    <string name="track_avg_speed">Средна скорост:</string>
+    <string name="track_distance">Разстояние:</string>
+    <string name="track_max_acceleration">Макс. ускорение:</string>
+    <string name="track_max_braking">Макс. спиране:</string>
+    <string name="track_max_cornering_left">Макс. завой L:</string>
+    <string name="track_max_cornering_right">Макс. завой R:</string>
+    <string name="track_max_lean_left">Макс. наклон L:</string>
+    <string name="track_max_lean_right">Макс. наклон R:</string>
+    <string name="track_max_cornering">Макс. натоварване завой:</string>
+    <string name="track_laps_section">Обиколки</string>
+    <string name="track_no_sessions">Няма записани трак сесии</string>
+    <string name="track_no_sessions_today">Няма записани сесии за днес</string>
+    <string name="track_selection_title">Избор на писта</string>
+    <string name="track_selection_serres_desc">Професионална писта за мотоциклети и автомобили с 4 timing точки за прецизни измервания.</string>
+    <string name="track_create_custom">Създай собствена писта</string>
+    <string name="track_create_custom_desc">Създай собствена писта като маркираш точки на картата за timing измервания.</string>
+    <string name="track_name_serres">Писта Серес</string>
+    <string name="track_name_sofia">София Ринг</string>
+    <string name="track_name_custom">Персонализирана писта</string>
+    <string name="track_name_unknown">Непозната писта</string>
+    
+    <!-- Placeholder texts -->
+    <string name="placeholder_track_name">Име на писта</string>
+    <string name="placeholder_vehicle_name">Превозно средство</string>
+    <string name="track_best_lap_label">Най-добра обиколка</string>
+    <string name="track_date_time_label">Дата и час</string>
+    <string name="track_duration_label">Времетраене</string>
+    <string name="track_laps_label">Обиколки</string>
+    <string name="track_new_session">+ Нова сесия</string>
+    <string name="track_resume">ПРОДЪЛЖИ</string>
+    <string name="track_delete_session_title">Изтрий сесия</string>
+    <string name="track_delete_session_message">Сигурни ли сте, че искате да изтриете сесията \"%s\"? Това действие не може да бъде отменено.</string>
+    <string name="track_delete_button">Изтрий</string>
+    <string name="track_lap_title">Обиколка #%d</string>
+    <string name="track_prev_lap">Предишна обиколка</string>
+    <string name="track_next_lap">Следваща обиколка</string>
+    <string name="track_tab_speed">Скорост</string>
+    <string name="track_tab_g_force">G-натоварване</string>
+    <string name="track_tab_angle">Ъгъл</string>
+    <string name="track_speed_label">Скорост:</string>
+    
+    <!-- Map mode buttons -->
+    <string name="map_sessions_button">СЕСИИ</string>
+    <string name="map_start_button">СТАРТ</string>
+    <string name="avg_speed">Средна скорост</string>
+    
+    <!-- Settings -->
+    <string name="settings_general_header">═══ ОБЩИ ═══</string>
+    <string name="settings_drag_header">═══ DRAG ═══</string>
+    <string name="settings_drag_calibration">🏁 Калибриране</string>
+    
+    <!-- Garage -->
+    <string name="garage_title">Гараж</string>
+    <string name="garage_add_button">Добави</string>
+    <string name="garage_my_profile">Моят профил</string>
+    <string name="garage_vehicle_car">🚗 Автомобил</string>
+    <string name="garage_vehicle_motorcycle">🏍️ Мотоциклет</string>
+    <string name="garage_change_button">Смени</string>
+    <string name="garage_profile_image">Снимка на профила</string>
+    <string name="garage_select_image">Избери снимка</string>
+    <string name="garage_remove_image">Премахни снимка</string>
+    <string name="garage_my_collection">Моята колекция</string>
+    <string name="garage_sessions_template">⚡ %d сесии</string>
+    <string name="garage_max_speed_template">🏁 %s км/ч макс</string>
+    <string name="garage_confirm_delete">Сигурни ли сте, че искате да изтриете \"%s\"?\n\nВсички %d сесии за този профил също ще бъдат изтрити.</string>
+    <string name="garage_confirm_delete_simple">Сигурни ли сте, че искате да изтриете \"%s\"?</string>
+    <string name="garage_delete_button">Изтрий</string>
+    <string name="garage_cancel_button">Отказ</string>
+    <string name="garage_create_button">Създай</string>
+    <string name="garage_select_brand">Моля изберете марка</string>
+    <string name="garage_select_model">Моля изберете модел</string>
+    <string name="garage_most_popular">Най-популярни</string>
+    <string name="garage_back_press">Натиснете отново за изход</string>
+    
+    <!-- Profile Details -->
+    <string name="profile_detail_session_text">Сесии</string>
+    <string name="profile_detail_distance_format">0,0 км</string>
+    <string name="profile_detail_distance_text">Общо Разстояние</string>
+    <string name="profile_detail_duration_format">%1$dч %2$dм</string>
+    <string name="profile_detail_duration_text">Общо Време</string>
+    <string name="profile_details_stats">Статистика</string>
+    <string name="seconds">секунди</string>
+    <string name="quarter_mile">Четвърт миля</string>
+    <string name="kmh_unit">км/ч</string>
+    <string name="drag_0to100_title">0-100 км/ч</string>
+    <string name="drag_0to200_title">0-200 км/ч</string>
+    <string name="drag_100to200_title">100-200 км/ч</string>
+    <string name="drag_quarter_mile_title">0-402м</string>
+    <string name="profile_detail_reset_title">Нулиране на %s</string>
+    <string name="profile_detail_reset_message">Сигурни ли сте, че искате да нулирате рекорда за %s?\n\nТова ще изтрие най-добрия резултат от всички сесии.</string>
+    <string name="profile_detail_reset_button">Нулирай</string>
+    <string name="profile_detail_max_speed">Максимална скорост</string>
+    <string name="settings_track_header">═══ ПИСТА ═══</string>
+    <string name="settings_language">Език / Language</string>
+    <string name="settings_language_auto">Автоматичен / Auto</string>
+    <string name="settings_units_header">Единици за измерване</string>
+    <string name="settings_speed_unit">Скорост</string>
+    <string name="settings_speed_kmh">км/ч</string>
+    <string name="settings_distance_unit">Разстояние</string>
+    <string name="settings_distance_km">километри</string>
+    <string name="settings_temperature_unit">Температура</string>
+    <string name="settings_temperature_celsius">Целзий</string>
+    <string name="settings_pressure_unit">Налягане</string>
+    <string name="settings_pressure_hpa">хектопаскал</string>
+    <string name="settings_sound_100">Звук при 100 km/h</string>
+    <string name="settings_sound_200">Звук при 200 km/h</string>
+    <string name="settings_sound_402">Звук при 402m</string>
+    <string name="settings_voice_countdown">Гласово обратно броене</string>
+    <string name="settings_lap_complete_sound">Звук при завършване на обиколка</string>
+    <string name="settings_personal_best_sound">Звук при нов личен рекорд</string>
+    
+    <!-- Unit display names -->
+    <string name="unit_kmh">км/ч</string>
+    <string name="unit_mph">мили/ч</string>
+    <string name="unit_ms">м/с</string>
+    <string name="unit_kilometers">километри</string>
+    <string name="unit_miles">мили</string>
+    <string name="unit_meters">метри</string>
+    <string name="unit_celsius">Целзий</string>
+    <string name="unit_fahrenheit">Фаренхайт</string>
+    <string name="unit_hpa">хектопаскал</string>
+    <string name="unit_inhg">инчове живак</string>
+    <string name="unit_mmhg">мм живак</string>
+    <string name="track_select_lap_to_compare">Избери обиколка за сравнение</string>
+    <string name="track_compare_invalid_current_lap">Текущата обиколка е невалидна за сравнение</string>
+    <string name="no_track_laps_to_compare">Няма други обиколки на тази писта за сравнение</string>
+    <string name="track_compare_unknown_profile">Непознат профил</string>
+    <string name="track_compare_vehicle_moto">МОТО</string>
+    <string name="track_compare_vehicle_car">АВТО</string>
+    <string name="track_compare_vehicle_unknown">НЕИЗВЕСТНО</string>
+    <string name="track_compare_session_meta">Сесия #%1$d • %2$s</string>
+    <string name="track_compare_lap_title">Обиколка #%1$d</string>
+
+    <plurals name="track_compare_laps_count">
+        <item quantity="one">%d обиколка</item>
+        <item quantity="other">%d обиколки</item>
+    </plurals>
+
+</resources>

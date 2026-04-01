@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Used as keys for View.setTag(int, Object) to ensure we don't re-scale maneuver UI repeatedly -->
+    <item name="tag_maneuver_scaled_text" type="id" />
+    <item name="tag_maneuver_scaled_icon" type="id" />
+    <item name="tag_maneuver_spacing_adjusted" type="id" />
+    <item name="tag_drag_chart_attempt" type="id" />
+    <item name="tag_drag_chart_mode" type="id" />
+    <item name="tag_drag_chart_marker" type="id" />
+    <item name="tag_system_bars_initial_padding" type="id" />
+</resources>
+
+

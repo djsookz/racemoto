@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="primary_text">#212121</color>
+    <color name="secondary_text">#D3D3D3</color>
+
+
+    <!-- Основни цветове за фона -->
+    <color name="background_primary">#0A0A0A</color>
+    <color name="background_secondary">#F5F7FA</color>
+    <color name="surface_color">#FFFFFF</color>
+
+    <!-- Текстови цветове -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#D3D3D3</color>
+    <color name="text_tertiary">#9CA3AF</color>
+
+    <!-- Акцентен цвят за скоростта -->
+    <color name="accent_color">#FF6020</color>
+    <color name="accent_light">#60A5FA</color>
+
+    <color name="card_background">#1C2128</color>
+    <color name="card_background_secondary">#2A323B</color>
+    <color name="grid_line">#555555</color>
+    <color name="profile_name_text">#212121</color>
+    <color name="profile_type_text">#757575</color>
+    <color name="icon_tint">#000000</color>
+
+    <!-- Бутони -->
+    <color name="reset_button_color">#F59E0B</color>
+    <color name="reset_button_ripple">#FCD34D</color>
+    <color name="stop_button_color">#EF4444</color>
+    <color name="stop_button_ripple">#F87171</color>
+
+    <!-- Разделители и граници -->
+    <color name="divider_color">#E5E7EB</color>
+    <color name="border_color">#D1D5DB</color>
+
+    <!-- Overlay цветове -->
+    <color name="overlay_background">#80000000</color>
+    <color name="overlay_surface">#F3F4F6</color>
+
+    <!-- Градиенти (за бъдещо използване) -->
+    <color name="gradient_start">#667EEA</color>
+    <color name="gradient_end">#764BA2</color>
+
+
+    <color name="card_dark">#1E1E2E</color>
+    <color name="accent_blue">#39E4DB</color>
+    <color name="accent_purple">#AB47BC</color>
+    <color name="accent_green">#66BB6A</color>
+    <color name="accent_orange">#FFEB3B</color>
+    <color name="accent_gold">#FFD700</color>
+    <color name="background_dark">#0F0F17</color>
+    <color name="stat_bg">#2A2A3A</color>
+    <color name="stat_bg_highlight">#2D2D40</color>
+
+    <color name="primary_color">#FF6020</color>
+    <color name="primary_dark">#CC5C09</color>
+
+
+
+    <color name="text_hint">#BDBDBD</color>
+
+
+    <!-- Навигационни цветове -->
+    <color name="nav_icon_active">#FF6020</color>
+    <color name="nav_text_active">#FF6020</color>
+
+
+    <!-- Допълнителни цветове -->
+
+    <color name="shadow_color">#1A000000</color>
+
+    <color name="transparent">#00000000</color>
+
+    <color name="car_card_background">#FF6020</color>
+    <color name="motorcycle_card_background">#FF6020</color>
+
+    <!-- Тъмен background -->
+    <color name="dark_background">#0F0F23</color>
+    <color name="dark_surface">#1A1A2E</color>
+
+    <!-- Светли картели -->
+    <color name="card_background_light">#FFFFFF</color>
+    <color name="card_surface_light">#F8F9FA</color>
+
+    <!-- Текст цветове за тъмен background -->
+    <color name="text_primary_light">#FFFFFF</color>
+    <color name="text_secondary_light">#D3D3D3</color>
+
+    <!-- Текст цветове за светли картели -->
+    <color name="text_primary_dark">#1A1A2E</color>
+    <color name="text_secondary_dark">#6C757D</color>
+
+    <!-- Навигация -->
+    <color name="nav_icon_inactive">#FFFFFF</color>
+    <color name="nav_text_inactive">#FFFFFF</color>
+
+    <!-- Stroke и граници -->
+    <color name="stroke_light">#E9ECEF</color>
+    <color name="stroke_dark">#2E2E48</color>
+
+    <!-- Специални -->
+    <color name="map_placeholder_background">#F1F3F4</color>
+
+    <!-- Градиенти -->
+    <color name="header_gradient_start">#6C63FF</color>
+    <color name="header_gradient_end">#9F7AEA</color>
+
+    <!-- Статус цветове -->
+    <color name="success_color">#28A745</color>
+    <color name="warning_color">#FFC107</color>
+    <color name="error_color">#DC3545</color>
+
+
+    <color name="accent_blue_alpha">#302196F3</color>
+    <color name="accent_red">#F44336</color>
+    <color name="accent_red_alpha">#30F44336</color>
+
+    <color name="divider_gray">#33000000</color>
+
+    <!-- Track Session Colors -->
+    <color name="green">#4CAF50</color>
+    <color name="red">#F44336</color>
+    <color name="orange">#FF9800</color>
+
+    <color name="background_transparent_80">#CC000000</color>
+
+
+</resources>

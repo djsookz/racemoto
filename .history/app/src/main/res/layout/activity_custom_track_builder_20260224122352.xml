@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0F1115">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="12dp"
+        android:background="#161A21">
+
+        <TextView
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:gravity="center"
+            android:text="←"
+            android:textSize="22sp"
+            android:textColor="#FFFFFF"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Custom Писта"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textSize="19sp"
+            android:gravity="center" />
+
+        <View
+            android:layout_width="40dp"
+            android:layout_height="40dp" />
+    </LinearLayout>
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="10dp"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#2A3140"
+        app:strokeWidth="1dp"
+        app:cardBackgroundColor="#171C24">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <EditText
+                android:id="@+id/etTrackName"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:hint="Име на пистата"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#8D97AA"
+                android:background="@drawable/bg_rounded_button"
+                android:paddingHorizontal="12dp"
+                android:inputType="textCapSentences" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnAddStartFinish"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:text="СТАРТ/ФИНИШ"
+                    android:textStyle="bold"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#2563EB" />
+
+                <Button
+                    android:id="@+id/btnAddStart"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="3dp"
+                    android:layout_marginEnd="3dp"
+                    android:text="СТАРТ"
+                    android:textStyle="bold"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#16A34A" />
+
+                <Button
+                    android:id="@+id/btnAddFinish"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:text="ФИНИШ"
+                    android:textStyle="bold"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#DC2626" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnStartDrawing"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:text="CHECKPOINT"
+                    android:textStyle="bold"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#0EA5E9" />
+
+                <Button
+                    android:id="@+id/btnAddSnapHelper"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="3dp"
+                    android:layout_marginEnd="3dp"
+                    android:text="CHECKPOINT"
+                    android:textStyle="bold"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#0284C7" />
+
+                <Button
+                    android:id="@+id/btnStopDrawing"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:text="UNDO"
+                    android:textStyle="bold"
+                    android:textSize="11sp"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#6B7280" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnClear"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:text="Изчисти"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#B91C1C" />
+
+                <Button
+                    android:id="@+id/btnSave"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:text="Запази"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:backgroundTint="#16A34A" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:padding="10dp"
+                android:background="#202938"
+                android:textColor="#8AB4F8"
+                android:textSize="13sp"
+                android:text="Готов за създаване на custom писта" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <FrameLayout
+        android:id="@+id/mapView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginBottom="8dp"
+        android:background="#10151D" />
+
+    <TextView
+        android:id="@+id/tvInstructions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="10dp"
+        android:layout_marginBottom="10dp"
+        android:background="#171C24"
+        android:padding="10dp"
+        android:textColor="#B6C0D2"
+        android:textSize="12sp"
+        android:lineSpacingExtra="2dp"
+        android:text="Инструкции" />
+
+</LinearLayout>
