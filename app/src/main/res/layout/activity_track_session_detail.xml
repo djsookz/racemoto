@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1A1A1A"
+    android:background="@color/background_primary"
     android:fitsSystemWindows="true">
 
     <LinearLayout
@@ -30,145 +30,202 @@
                 android:backgroundTint="@color/card_background"
                 app:cornerRadius="24dp" />
 
-            <TextView
-                android:id="@+id/tvTitle"
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/track_session_title"
-                android:textColor="#FFFFFF"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:gravity="center" />
+                android:gravity="start"
+                android:orientation="vertical"
+                android:paddingHorizontal="8dp">
 
-            <ImageButton
-                android:id="@+id/btnCompare"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:src="@drawable/ic_compare"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/compare_attempts"
-                app:tint="@color/white" />
+                <TextView
+                    android:id="@+id/tvTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:text="@string/placeholder_track_name"
+                    android:textColor="#FFFFFF"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvTitleMeta"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="--.--.----  •  --:--"
+                        android:textAllCaps="true"
+                        android:textColor="#9E9E9E"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.18" />
+
+                    <TextView
+                        android:id="@+id/tvTitleSessionName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="SESSION #1"
+                        android:textAllCaps="true"
+                        android:textColor="#9E9E9E"
+                        android:textSize="11sp"
+                        android:letterSpacing="0.18" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <View
+                android:layout_width="48dp"
+                android:layout_height="48dp" />
 
         </LinearLayout>
 
-        <!-- Session Information Card -->
+        <TextView
+            android:id="@+id/tvHeaderProfileName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/placeholder_vehicle_name"
+            android:textColor="@color/primary_color"
+            android:textSize="18sp"
+            android:paddingStart="16dp"
+            android:textStyle="bold" />
+
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
             app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="12dp"
+            app:cardCornerRadius="14dp"
             app:cardElevation="4dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
+                android:background="@drawable/bg_track_metric_speed"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingTop="14dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="14dp">
 
-                <TextView
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.16"
+                        android:text="@string/track_header_best_lap_time"
+                        android:textAllCaps="true"
+                        android:textColor="#8FB5DA"
+                        android:textSize="11sp" />
+
+                    <TextView
+                        android:id="@+id/tvHeaderBestLapTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
+                        android:text="--:--.---"
+                        android:textColor="@color/primary_color"
+                        android:textSize="50sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvHeaderBestLapMeta"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:letterSpacing="0.12"
+                        android:text="LAP -- OF --"
+                        android:textAllCaps="true"
+                        android:textColor="#86A8CA"
+                        android:textSize="11sp" />
+
+                </LinearLayout>
+
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/track_session_info"
-                    android:textColor="#FFFFFF"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="16dp" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="8dp">
+                    android:layout_marginStart="12dp"
+                    android:gravity="end"
+                    android:orientation="vertical">
 
                     <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/track_label_date"
-                        android:textColor="#9E9E9E"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvSessionDate"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="23.12.2024"
+                        android:letterSpacing="0.14"
+                        android:text="@string/track_header_max_speed"
+                        android:textAllCaps="true"
+                        android:textColor="#8FB5DA"
+                        android:textSize="9sp" />
+
+                    <TextView
+                        android:id="@+id/tvHeaderMaxSpeedValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:text="0km/h"
                         android:textColor="#FFFFFF"
-                        android:textSize="14sp" />
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="8dp">
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
 
                     <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/track_label_time"
-                        android:textColor="#9E9E9E"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvSessionTime"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="16:45"
+                        android:letterSpacing="0.14"
+                        android:text="@string/track_header_avg_lap"
+                        android:textAllCaps="true"
+                        android:textColor="#8FB5DA"
+                        android:textSize="9sp" />
+
+                    <TextView
+                        android:id="@+id/tvHeaderAvgLapValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:text="--:--.---"
+                        android:textColor="#42FF8B"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.14"
+                        android:text="@string/track_header_total_time"
+                        android:textAllCaps="true"
+                        android:textColor="#8FB5DA"
+                        android:textSize="9sp" />
+
+                    <TextView
+                        android:id="@+id/tvHeaderTotalTimeValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--:--"
                         android:textColor="#FFFFFF"
-                        android:textSize="14sp" />
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="8dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/track_label_track"
-                        android:textColor="#9E9E9E"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvTrackName"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/placeholder_track_name"
-                        android:textColor="#FFFFFF"
-                        android:textSize="14sp" />
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/tvTotalLapsLabel"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/track_label_laps"
-                        android:textColor="#9E9E9E"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvTotalLaps"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="8"
-                        android:textColor="#FF9800"
-                        android:textSize="14sp" />
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
 
                 </LinearLayout>
 
@@ -176,7 +233,25 @@
 
         </androidx.cardview.widget.CardView>
 
-        <!-- Vehicle Information Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="10dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.18"
+                android:text="@string/track_overview_header"
+                android:textAllCaps="true"
+                android:textColor="#8FB5DA"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -188,25 +263,506 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:background="@drawable/bg_track_metric_speed"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="10dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageView
+                        android:id="@+id/ivWeatherSessionTemp"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginBottom="4dp"
+                        android:contentDescription="@string/track_weather_temp_label"
+                        android:src="@drawable/ic_weather_cloudy"
+                        app:tint="@color/text_tertiary" />
+
+                    <TextView
+                        android:id="@+id/tvWeatherSessionTemp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:letterSpacing="0.12"
+                        android:text="@string/track_weather_temp_label"
+                        android:textAllCaps="true"
+                        android:textColor="#8FB5DA"
+                        android:textSize="10sp" />
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="36dp"
+                    android:background="#2A384A" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageView
+                        android:id="@+id/ivWeatherSessionHumidity"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginBottom="4dp"
+                        android:contentDescription="@string/track_weather_humidity_label"
+                        android:src="@drawable/ic_humidity_drop"
+                        app:tint="@color/text_tertiary" />
+
+                    <TextView
+                        android:id="@+id/tvWeatherSessionHumidity"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--%"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:letterSpacing="0.12"
+                        android:text="@string/track_weather_humidity_label"
+                        android:textAllCaps="true"
+                        android:textColor="#8FB5DA"
+                        android:textSize="10sp" />
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="36dp"
+                    android:background="#2A384A" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical">
+
+                    <ImageView
+                        android:id="@+id/ivWeatherSessionWind"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginBottom="4dp"
+                        android:contentDescription="@string/track_weather_wind_label"
+                        android:src="@drawable/ic_wind"
+                        app:tint="@color/text_tertiary" />
+
+                    <TextView
+                        android:id="@+id/tvWeatherSessionWind"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="-- km/h"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:letterSpacing="0.12"
+                        android:text="@string/track_weather_wind_label"
+                        android:textAllCaps="true"
+                        android:textColor="#8FB5DA"
+                        android:textSize="10sp" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            android:gravity="center_vertical"
+            android:paddingStart="10dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.18"
+                android:text="@string/track_lap_times_title"
+                android:textAllCaps="true"
+                android:textColor="#8FB5DA"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tvLapTimesCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/bg_track_outing_stat_chip"
+                android:paddingStart="8dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="2dp"
+                android:text="0 LAPS"
+                android:textAllCaps="true"
+                android:textColor="@color/primary_color"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <!-- Laps Card -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardLaps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:cardCornerRadius="12dp"
+            android:layout_marginBottom="16dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_track_metric_speed"
                 android:orientation="vertical"
                 android:padding="20dp">
 
                 <TextView
+                    android:id="@+id/tvLapsSectionTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/track_vehicle_header"
+                    android:text="@string/track_laps_section"
                     android:textColor="#FFFFFF"
                     android:textSize="18sp"
                     android:textStyle="bold"
-                    android:layout_marginBottom="8dp" />
+                    android:layout_marginBottom="0dp"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:orientation="horizontal"
+                    android:paddingStart="6dp"
+                    android:paddingEnd="6dp">
+
+                    <TextView
+                        android:layout_width="36dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="@string/track_lap_column_lap"
+                        android:textAllCaps="true"
+                        android:textColor="#6E88A4"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/track_lap_column_time"
+                        android:textAllCaps="true"
+                        android:textColor="#6E88A4"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="56dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="@string/track_lap_column_max_v"
+                        android:textAllCaps="true"
+                        android:textColor="#6E88A4"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="72dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="end"
+                        android:text="@string/track_lap_column_delta"
+                        android:textAllCaps="true"
+                        android:textColor="#6E88A4"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+                <!-- Dynamic Laps Container -->
+                <LinearLayout
+                    android:id="@+id/llLapsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
 
                 <TextView
-                    android:id="@+id/tvVehicleName"
-                    android:layout_width="wrap_content"
+                    android:id="@+id/tvNoLaps"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/placeholder_vehicle_name"
-                    android:textColor="#FF6020"
-                    android:textSize="16sp" />
+                    android:text="@string/track_no_laps"
+                    android:textColor="#9E9E9E"
+                    android:textSize="16sp"
+                    android:gravity="center"
+                    android:padding="20dp"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="@color/card_background"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_track_metric_speed"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/track_distance"
+                            android:textAllCaps="true"
+                            android:textColor="#8FB5DA"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/tvSessionOverviewDistance"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="0 km"
+                            android:textColor="#FFFFFF"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="42dp"
+                        android:background="#2A384A" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/track_avg_speed"
+                            android:textAllCaps="true"
+                            android:textColor="#8FB5DA"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/tvSessionOverviewAvgSpeed"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="0 km/h"
+                            android:textColor="#FFFFFF"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/viewSessionOverviewBottomSeparator"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:background="#2A384A" />
+
+                <LinearLayout
+                    android:id="@+id/rowSessionOverviewSecondary"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/track_consistency_label"
+                            android:textAllCaps="true"
+                            android:textColor="#8FB5DA"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/tvSessionOverviewConsistency"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="--"
+                            android:textColor="#42FF8B"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="42dp"
+                        android:background="#2A384A" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/track_best_to_avg_label"
+                            android:textAllCaps="true"
+                            android:textColor="#8FB5DA"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/tvSessionOverviewBestToAvg"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="--"
+                            android:textColor="#FFFFFF"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <View
+                    android:id="@+id/viewSessionOverviewMotoSeparator"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:background="#2A384A"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/rowSessionOverviewMotoLeans"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/track_session_overview_max_lean_left"
+                            android:textAllCaps="true"
+                            android:textColor="#8FB5DA"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/tvSessionOverviewMaxLeanLeft"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="--"
+                            android:textColor="#FFFFFF"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="42dp"
+                        android:background="#2A384A" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="12dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/track_session_overview_max_lean_right"
+                            android:textAllCaps="true"
+                            android:textColor="#8FB5DA"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/tvSessionOverviewMaxLeanRight"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="--"
+                            android:textColor="#FFFFFF"
+                            android:textSize="20sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
 
             </LinearLayout>
 
@@ -214,9 +770,10 @@
 
         <!-- Statistics Card -->
         <androidx.cardview.widget.CardView
+            android:id="@+id/cardSessionStatistics"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:visibility="gone"
             app:cardBackgroundColor="@color/card_background"
             app:cardCornerRadius="12dp"
             app:cardElevation="4dp">
@@ -235,127 +792,6 @@
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:layout_marginBottom="16dp" />
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="8dp">
-
-                    <TextView
-                        android:id="@+id/tvBestTimeLabel"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/track_best_time"
-                        android:textColor="#9E9E9E"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvBestLapTime"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="1:23.456"
-                        android:textColor="#4CAF50"
-                        android:textSize="14sp" />
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="8dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/track_min_speed"
-                        android:textColor="#9E9E9E"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvMinSpeed"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="45 km/h"
-                        android:textColor="#FFFFFF"
-                        android:textSize="14sp" />
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="8dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/track_max_speed"
-                        android:textColor="#9E9E9E"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvMaxSpeed"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="285 km/h"
-                        android:textColor="#FF5722"
-                        android:textSize="14sp" />
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="8dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/track_avg_speed"
-                        android:textColor="#9E9E9E"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvAvgSpeed"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0 km/h"
-                        android:textColor="#FFFFFF"
-                        android:textSize="14sp" />
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="8dp">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/track_distance"
-                        android:textColor="#9E9E9E"
-                        android:textSize="14sp" />
-
-                    <TextView
-                        android:id="@+id/tvDistance"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0 km"
-                        android:textColor="#FFFFFF"
-                        android:textSize="14sp" />
-
-                </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -458,52 +894,7 @@
 
         </androidx.cardview.widget.CardView>
 
-        <!-- Laps Card -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/cardLaps"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/card_background"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:id="@+id/tvLapsSectionTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/track_laps_section"
-                    android:textColor="#FFFFFF"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:layout_marginBottom="16dp" />
-
-                <!-- Dynamic Laps Container -->
-                <LinearLayout
-                    android:id="@+id/llLapsContainer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical" />
-
-                <TextView
-                    android:id="@+id/tvNoLaps"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/track_no_laps"
-                    android:textColor="#9E9E9E"
-                    android:textSize="16sp"
-                    android:gravity="center"
-                    android:padding="20dp"
-                    android:visibility="gone" />
-
-            </LinearLayout>
-
-        </androidx.cardview.widget.CardView>
 
     </LinearLayout>
 

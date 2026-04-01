@@ -4,7 +4,7 @@
     android:id="@+id/rootFrame"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0D1117"
+    android:background="@color/background_primary"
     android:fitsSystemWindows="true">
 
     <LinearLayout
@@ -207,6 +207,130 @@
                             android:layout_width="match_parent"
                             android:layout_height="200dp" />
                     </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cardLapSessionStatistics"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="#161B22"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="6dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/track_stats_header"
+                            android:textColor="#FFFFFF"
+                            android:textSize="24sp"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="14dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/track_max_acceleration"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvLapMaxAcceleration"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0.00 G"
+                                android:textColor="#FFB020"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/track_max_braking"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvLapMaxBraking"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0.00 G"
+                                android:textColor="#FFB020"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/track_max_lean_left"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvLapMaxLeanLeft"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0°"
+                                android:textColor="#5AB8FF"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/track_max_lean_right"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvLapMaxLeanRight"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0°"
+                                android:textColor="#5AB8FF"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
                 </androidx.cardview.widget.CardView>
 
                 <!-- Statistics Grid Section -->

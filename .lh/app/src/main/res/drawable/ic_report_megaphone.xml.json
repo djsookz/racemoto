@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/drawable/ic_report_megaphone.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1774698735593,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1774698735593,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<vector xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:width=\"24dp\"\r\n    android:height=\"24dp\"\r\n    android:viewportWidth=\"24\"\r\n    android:viewportHeight=\"24\">\r\n    <!-- Megaphone/Bullhorn icon for reports -->\r\n    <path\r\n        android:fillColor=\"#FFFFFF\"\r\n        android:pathData=\"M12,8H4A2,2 0 0,0 2,10V14A2,2 0 0,0 4,16H5V20A1,1 0 0,0 6,21H8A1,1 0 0,0 9,20V16H12L17,20V4L12,8M21.5,12C21.5,13.71 20.54,15.26 19,16V8C20.54,8.75 21.5,10.3 21.5,12Z\" />\r\n</vector>\r\n"
+        }
+    ]
+}

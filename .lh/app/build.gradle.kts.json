@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 1,
+            "activePatchIndex": 2,
             "patches": [
                 {
                     "date": 1771581388333,
@@ -12,6 +12,10 @@
                 {
                     "date": 1773055575461,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -83,17 +83,17 @@\n         exclude(group = \"com.caverock\", module = \"androidsvg-aar\")\r\n     }\r\n     \r\n     // Mapbox Maps SDK\r\n-    implementation(\"com.mapbox.maps:android:11.10.0\")\r\n-    implementation(\"com.mapbox.extension:maps-compose:11.10.0\")\r\n+    implementation(\"com.mapbox.maps:android:11.17.2\")\r\n+    implementation(\"com.mapbox.extension:maps-compose:11.17.2\")\r\n     \r\n     // Mapbox Navigation SDK - Core and UI components\r\n-    implementation(\"com.mapbox.navigationcore:android:3.17.1\") {\r\n+    implementation(\"com.mapbox.navigationcore:android:3.17.5\") {\r\n         exclude(group = \"com.caverock\", module = \"androidsvg\")\r\n         exclude(group = \"com.caverock\", module = \"androidsvg-aar\")\r\n     }\r\n-    implementation(\"com.mapbox.navigationcore:ui-components:3.17.1\") {\r\n+    implementation(\"com.mapbox.navigationcore:ui-components:3.17.5\") {\r\n         exclude(group = \"com.caverock\", module = \"androidsvg\")\r\n         exclude(group = \"com.caverock\", module = \"androidsvg-aar\")\r\n     }\r\n \r\n"
+                },
+                {
+                    "date": 1774607054681,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,8 +1,9 @@\n plugins {\r\n     alias(libs.plugins.android.application)\r\n     alias(libs.plugins.kotlin.android)\r\n     alias(libs.plugins.kotlin.compose)\r\n+    id(\"com.google.gms.google-services\")\r\n }\r\n \r\n android {\r\n     namespace = \"com.example.clinometer\"\r\n@@ -116,5 +117,17 @@\n     implementation (\"androidx.lifecycle:lifecycle-runtime-ktx:2.6.1\")\r\n     \r\n     // Coil за зареждане на изображения (memory caching)\r\n     implementation(\"io.coil-kt:coil:2.4.0\")\r\n+    \r\n+    // Firebase BoM (Bill of Materials) - управлява версиите автоматично\r\n+    implementation(platform(\"com.google.firebase:firebase-bom:33.7.0\"))\r\n+    \r\n+    // Firebase Firestore (за realtime database)\r\n+    implementation(\"com.google.firebase:firebase-firestore-ktx\")\r\n+    \r\n+    // Firebase Authentication (за anonymous users)\r\n+    implementation(\"com.google.firebase:firebase-auth-ktx\")\r\n+    \r\n+    // Coroutines support за Firebase\r\n+    implementation(\"org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3\")\r\n }\r\n"
                 }
             ],
             "date": 1771581388333,

@@ -251,6 +251,11 @@
     <string name="track_label_track">Πίστα:</string>
     <string name="track_label_laps">Γύροι:</string>
     <string name="track_vehicle_header">Όχημα</string>
+    <string name="track_overview_header">Επισκόπηση εξόδου</string>
+    <string name="track_consistency_label">Σταθερότητα</string>
+    <string name="track_best_to_avg_label">Καλύτερος προς μέσο</string>
+    <string name="track_consistency_not_enough">Ανεπαρκείς γύροι</string>
+    <string name="track_metric_na">Μ/Δ</string>
     <string name="track_stats_header">Στατιστικά Εξόδου</string>
     <string name="track_best_time">Καλύτερος Χρόνος:</string>
     <string name="track_min_speed">Ελάχιστη Ταχύτητα:</string>

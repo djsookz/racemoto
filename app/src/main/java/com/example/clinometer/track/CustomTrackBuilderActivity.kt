@@ -28,10 +28,19 @@ import com.example.clinometer.R
 import com.example.clinometer.TrackSelectionActivity
 import com.example.clinometer.applySystemBarsPaddingToRoot
 import com.example.clinometer.tracking.CustomTrack
+import com.example.clinometer.tracking.CustomTrackDefinitionV2
+import com.example.clinometer.tracking.CustomTrackCreationMode
+import com.example.clinometer.tracking.CustomTrackMode
 import com.example.clinometer.tracking.CustomTrackStorage
+import com.example.clinometer.tracking.GateLine
+import com.example.clinometer.track.session.TrackGateCrossingEngine
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.gson.Gson
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.mapbox.geojson.Point
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.EdgeInsets
@@ -48,6 +57,8 @@ import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.createPolylineAnnotationManager
 import com.mapbox.maps.plugin.gestures.addOnMapClickListener
+import kotlin.math.cos
+import kotlin.math.sin
 
 class CustomTrackBuilderActivity : AppCompatActivity() {
 
@@ -75,6 +86,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
     private lateinit var polylineManager: PolylineAnnotationManager
 
     private var trackType: CustomTrack.TrackType = CustomTrack.TrackType.CIRCUIT
+    private var creationMode: CreationMode = CreationMode.PHONE
     private var activeTool: BuilderTool = BuilderTool.SET_CIRCUIT_GATE
     private var isEditMode: Boolean = false
 
@@ -95,6 +107,16 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
     private val undoStack = ArrayDeque<EditorSnapshot>()
     private var dragSnapshotCaptured = false
     private val gson = Gson()
+    private var isDrivingCaptureActive = false
+    private val drivingRoutePoints = mutableListOf<Point>()
+    private var lastDrivingRoutePoint: Point? = null
+    private var lastDrivingSampleLocation: Location? = null
+    private var drivingRecordedDistanceMeters: Float = 0f
+    private var drivingCaptureStartedAtMs: Long = 0L
+    private var hasMovedAwayFromStartLine: Boolean = false
+    private var followLocationCallback: LocationCallback? = null
+    private var currentLiveLocation: Location? = null
+    private val trackGateCrossingEngine = TrackGateCrossingEngine(lineThresholdMeters = 18.0)
 
     private data class ExchangePoint(
         val lat: Double,
@@ -127,6 +149,16 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         private const val STYLE_URI = "mapbox://styles/djsookz/cmiyer8iu000101s84wqsav5l"
         private const val CIRCUIT_CHECKPOINT_COUNT = 4
         private const val POINT_TO_POINT_MIN_CHECKPOINTS = 2
+        private const val MIN_ROUTE_POINT_DISTANCE_METERS = 8.0
+        private const val DEFAULT_GATE_WIDTH_METERS = 12.0
+        private const val AUTO_STOP_MIN_DISTANCE_METERS = 220f
+        private const val AUTO_STOP_MIN_ELAPSED_MS = 15_000L
+        private const val AUTO_STOP_MIN_AWAY_FROM_LINE_METERS = 45.0
+    }
+
+    private enum class CreationMode {
+        PHONE,
+        DRIVING
     }
 
     private enum class BuilderTool {
@@ -163,6 +195,11 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         applySystemBarsPaddingToRoot()
 
         trackType = CustomTrack.TrackType.valueOf(intent.getStringExtra("track_type") ?: "CIRCUIT")
+        creationMode = try {
+            CreationMode.valueOf(intent.getStringExtra("creation_mode") ?: "PHONE")
+        } catch (_: Exception) {
+            CreationMode.PHONE
+        }
 
         initViews()
         setupMap()
@@ -276,11 +313,18 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             selectedPoint = selected
             redrawAnnotations()
             updateBuilderState()
-            Toast.makeText(this, "Точка избрана: drag за местене, UNDO за изтриване", Toast.LENGTH_SHORT).show()
+            val message = if (creationMode == CreationMode.DRIVING) {
+                "Точка избрана"
+            } else {
+                "Точка избрана: drag за местене, UNDO за изтриване"
+            }
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun handleAnnotationDragged(annotation: PointAnnotation) {
+        if (creationMode == CreationMode.DRIVING) return
+
         if (trackType == CustomTrack.TrackType.CIRCUIT) {
             val gateIndex = gateAnnotationIndexById[annotation.id]
             if (gateIndex != null && gateIndex in circuitGatePoints.indices) {
@@ -348,15 +392,17 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         }
 
         btnStartDrawing.setOnClickListener {
-            activeTool = BuilderTool.SET_CHECKPOINT
-            updateBuilderState()
-            Toast.makeText(this, "Стъпка: добавяне на checkpoint точки", Toast.LENGTH_SHORT).show()
+            toggleDrivingCapture()
         }
 
         btnAddSnapHelper.setOnClickListener {
-            activeTool = BuilderTool.SET_CHECKPOINT
-            updateBuilderState()
-            Toast.makeText(this, "Стъпка: добавяне на checkpoint точки", Toast.LENGTH_SHORT).show()
+            if (creationMode == CreationMode.DRIVING) {
+                autoGenerateCheckpointsFromDrivingRoute()
+            } else {
+                activeTool = BuilderTool.SET_CHECKPOINT
+                updateBuilderState()
+                Toast.makeText(this, "Стъпка: добавяне на checkpoint точки", Toast.LENGTH_SHORT).show()
+            }
         }
 
         btnStopDrawing.setOnClickListener {
@@ -497,40 +543,82 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
     private fun updateUIForTrackType(resetTool: Boolean) {
         btnStartDrawing.text = "CHECKPOINT"
         btnStopDrawing.text = "UNDO"
-        tvTrackModeInfo.text = "Текущ режим: ${trackTypeLabel(trackType).replaceFirstChar { it.titlecase() }}"
+        tvTrackModeInfo.text = "Режим: ${trackTypeLabel(trackType).replaceFirstChar { it.titlecase() }} | Създаване: ${creationModeLabel()}"
+
+        if (creationMode == CreationMode.DRIVING) {
+            btnStartDrawing.text = if (isDrivingCaptureActive) "STOP GPS" else "START GPS"
+            btnAddSnapHelper.text = "AUTO CP"
+            btnAddSnapHelper.visibility = android.view.View.VISIBLE
+            btnAddStartFinish.visibility = android.view.View.GONE
+            btnAddStart.visibility = android.view.View.GONE
+            btnAddFinish.visibility = android.view.View.GONE
+        } else {
+            btnAddSnapHelper.text = "CHECKPOINT"
+        }
 
         when (trackType) {
             CustomTrack.TrackType.CIRCUIT -> {
                 if (resetTool) activeTool = BuilderTool.SET_CIRCUIT_GATE
-                btnAddStartFinish.visibility = android.view.View.VISIBLE
-                btnAddStart.visibility = android.view.View.GONE
-                btnAddFinish.visibility = android.view.View.GONE
-                btnAddSnapHelper.visibility = android.view.View.GONE
+                if (creationMode == CreationMode.PHONE) {
+                    btnAddStartFinish.visibility = android.view.View.VISIBLE
+                    btnAddStart.visibility = android.view.View.GONE
+                    btnAddFinish.visibility = android.view.View.GONE
+                }
+                if (creationMode == CreationMode.PHONE) {
+                    btnAddSnapHelper.visibility = android.view.View.GONE
+                }
 
-                tvInstructions.text =
+                tvInstructions.text = if (creationMode == CreationMode.DRIVING) {
+                    "1) Въведете име на писта\n" +
+                    "2) Застанете на старт/финиш и натиснете START GPS\n" +
+                    "3) Направете една обиколка до същата линия\n" +
+                    "4) GPS спира автоматично при повторно пресичане\n" +
+                    "5) AUTO CP генерира checkpoint-и автоматично\n" +
+                    "5) Запазете"
+                } else {
                     "1) Въведете име на писта\n" +
                     "2) Поставете 2 точки за старт/финиш линия\n" +
                     "3) Местете линията с drag за прецизна позиция\n" +
                     "4) Добавете точно 4 checkpoint точки\n" +
                     "5) Tap на точка за избор, drag за местене, UNDO за изтриване\n" +
                     "6) Запазете"
+                }
             }
 
             CustomTrack.TrackType.POINT_TO_POINT -> {
                 if (resetTool) activeTool = BuilderTool.SET_START
-                btnAddStartFinish.visibility = android.view.View.GONE
-                btnAddStart.visibility = android.view.View.VISIBLE
-                btnAddFinish.visibility = android.view.View.VISIBLE
-                btnAddSnapHelper.visibility = android.view.View.GONE
+                if (creationMode == CreationMode.PHONE) {
+                    btnAddStartFinish.visibility = android.view.View.GONE
+                    btnAddStart.visibility = android.view.View.VISIBLE
+                    btnAddFinish.visibility = android.view.View.VISIBLE
+                }
+                if (creationMode == CreationMode.PHONE) {
+                    btnAddSnapHelper.visibility = android.view.View.GONE
+                }
 
-                tvInstructions.text =
+                tvInstructions.text = if (creationMode == CreationMode.DRIVING) {
+                    "1) Въведете име на трасе\n" +
+                    "2) Застанете на старта и натиснете START GPS\n" +
+                    "3) Минете трасето и натиснете STOP GPS при финала\n" +
+                    "4) Старт и финиш линиите се взимат автоматично от GPS\n" +
+                    "5) AUTO CP генерира checkpoints\n" +
+                    "6) Запазете"
+                } else {
                     "1) Въведете име на трасе\n" +
                     "2) Поставете 2 точки за старт линия\n" +
                     "3) Поставете 2 точки за финиш линия\n" +
                     "4) Добавете поне 2 checkpoint точки\n" +
                     "5) Tap на точка за избор, drag за местене, UNDO за изтриване\n" +
                     "6) Запазете"
+                }
             }
+        }
+    }
+
+    private fun creationModeLabel(): String {
+        return when (creationMode) {
+            CreationMode.PHONE -> "От телефона"
+            CreationMode.DRIVING -> "С каране"
         }
     }
 
@@ -539,6 +627,11 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             selectedPoint = null
             redrawAnnotations()
             updateBuilderState()
+            return
+        }
+
+        if (creationMode == CreationMode.DRIVING) {
+            Toast.makeText(this, "В режим 'С каране' линиите и checkpoints са автоматични", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -650,6 +743,8 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
 
         clearInvalidSelection()
 
+        val allowDrag = creationMode == CreationMode.PHONE
+
         if (trackType == CustomTrack.TrackType.CIRCUIT) {
             circuitGatePoints.forEachIndexed { index, gatePoint ->
                 val annotation = pointManager.create(
@@ -662,7 +757,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                             )
                         )
                         .withIconAnchor(IconAnchor.BOTTOM)
-                        .withDraggable(true)
+                        .withDraggable(allowDrag)
                 )
                 gateAnnotationIndexById[annotation.id] = index
             }
@@ -678,7 +773,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                             )
                         )
                         .withIconAnchor(IconAnchor.BOTTOM)
-                        .withDraggable(true)
+                        .withDraggable(allowDrag)
                 )
                 startGateAnnotationIndexById[annotation.id] = index
             }
@@ -694,7 +789,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                             )
                         )
                         .withIconAnchor(IconAnchor.BOTTOM)
-                        .withDraggable(true)
+                        .withDraggable(allowDrag)
                 )
                 finishGateAnnotationIndexById[annotation.id] = index
             }
@@ -711,7 +806,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                         )
                     )
                     .withIconAnchor(IconAnchor.BOTTOM)
-                    .withDraggable(true)
+                    .withDraggable(allowDrag)
             )
             checkpointAnnotationIndexById[annotation.id] = index
         }
@@ -721,6 +816,15 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
 
     private fun redrawPolylines() {
         polylineManager.deleteAll()
+
+        if (drivingRoutePoints.size >= 2) {
+            polylineManager.create(
+                PolylineAnnotationOptions()
+                    .withPoints(drivingRoutePoints)
+                    .withLineColor("#F59E0B")
+                    .withLineWidth(4.0)
+            )
+        }
 
         if (trackType == CustomTrack.TrackType.CIRCUIT && circuitGatePoints.size == 2) {
             polylineManager.create(
@@ -887,6 +991,12 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                 circuitGatePoints.clear()
                 startGatePoints.clear()
                 finishGatePoints.clear()
+                drivingRoutePoints.clear()
+                lastDrivingRoutePoint = null
+                lastDrivingSampleLocation = null
+                drivingRecordedDistanceMeters = 0f
+                hasMovedAwayFromStartLine = false
+                drivingCaptureStartedAtMs = 0L
                 selectedPoint = null
                 activeTool = if (trackType == CustomTrack.TrackType.CIRCUIT) {
                     BuilderTool.SET_CIRCUIT_GATE
@@ -909,54 +1019,59 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
 
         if (!validateTrack()) return
 
-        val points = mutableListOf<CustomTrack.TrackPoint>()
-
-        checkpointPoints.forEach { checkpoint ->
-            points.add(
-                CustomTrack.TrackPoint(
-                    geoPoint = GeoPoint(checkpoint.latitude(), checkpoint.longitude()),
-                    pointType = CustomTrack.TrackPoint.PointType.SNAP_HELPER
-                )
-            )
-        }
-
-        if (trackType == CustomTrack.TrackType.CIRCUIT) {
-            circuitGatePoints.forEach { gatePoint ->
-                points.add(
-                    CustomTrack.TrackPoint(
-                        geoPoint = GeoPoint(gatePoint.latitude(), gatePoint.longitude()),
-                        pointType = CustomTrack.TrackPoint.PointType.START_FINISH
-                    )
-                )
-            }
+        val trackId = editingTrackId ?: CustomTrackStorage.generateTrackId()
+        val createdAt = if (editingCreatedAt > 0L) editingCreatedAt else System.currentTimeMillis()
+        val mode = if (trackType == CustomTrack.TrackType.CIRCUIT) {
+            CustomTrackMode.CIRCUIT
         } else {
-            startGatePoints.forEach { point ->
-                points.add(
-                    CustomTrack.TrackPoint(
-                        geoPoint = GeoPoint(point.latitude(), point.longitude()),
-                        pointType = CustomTrack.TrackPoint.PointType.START
-                    )
-                )
-            }
-            finishGatePoints.forEach { point ->
-                points.add(
-                    CustomTrack.TrackPoint(
-                        geoPoint = GeoPoint(point.latitude(), point.longitude()),
-                        pointType = CustomTrack.TrackPoint.PointType.FINISH
-                    )
-                )
-            }
+            CustomTrackMode.POINT_TO_POINT
         }
 
-        val track = CustomTrack(
-            id = editingTrackId ?: CustomTrackStorage.generateTrackId(),
+        val startGate = if (trackType == CustomTrack.TrackType.CIRCUIT) {
+            lineFromPoints(circuitGatePoints)
+        } else {
+            lineFromPoints(startGatePoints)
+        }
+        val finishGate = if (trackType == CustomTrack.TrackType.POINT_TO_POINT) {
+            lineFromPoints(finishGatePoints)
+        } else {
+            null
+        }
+
+        val sectorGates = checkpointPoints.map { cp ->
+            val geo = GeoPoint(cp.latitude(), cp.longitude())
+            GateLine(start = geo, end = geo)
+        }
+
+        val referencePath = if (creationMode == CreationMode.DRIVING && drivingRoutePoints.size >= 2) {
+            drivingRoutePoints.map { p -> GeoPoint(p.latitude(), p.longitude()) }
+        } else {
+            checkpointPoints.map { cp -> GeoPoint(cp.latitude(), cp.longitude()) }
+        }
+
+        val measuredDistance = if (creationMode == CreationMode.DRIVING && drivingRecordedDistanceMeters > 50f) {
+            drivingRecordedDistanceMeters
+        } else {
+            null
+        }
+
+        val trackV2 = CustomTrackDefinitionV2(
+            id = trackId,
             name = name,
-            type = trackType,
-            points = points,
-            createdAt = if (editingCreatedAt > 0L) editingCreatedAt else System.currentTimeMillis()
+            mode = mode,
+            creationMode = when (creationMode) {
+                CreationMode.PHONE -> CustomTrackCreationMode.PHONE
+                CreationMode.DRIVING -> CustomTrackCreationMode.DRIVING
+            },
+            createdAt = createdAt,
+            startGate = startGate,
+            finishGate = finishGate,
+            sectorGates = sectorGates,
+            referencePath = referencePath,
+            measuredDistanceMeters = measuredDistance
         )
 
-        CustomTrackStorage.saveCustomTrack(this, track)
+        CustomTrackStorage.saveCustomTrackV2(this, trackV2)
         val toastMessage = if (editingTrackId != null) {
             "Пистата '$name' е обновена"
         } else {
@@ -1020,6 +1135,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                 when {
                     selectedPoint != null -> "✅ Избрана точка: drag за местене, UNDO за изтриване"
                     !hasName -> "Стъпка 1/3: въведете име на писта"
+                    creationMode == CreationMode.DRIVING && circuitGatePoints.size < 2 -> "Стъпка 2/3: натиснете START GPS на старт/финиш"
                     circuitGatePoints.size < 2 -> "Стъпка 2/3: поставете 2 точки за старт/финиш линия"
                     checkpointPoints.size < CIRCUIT_CHECKPOINT_COUNT -> "Стъпка 3/3: добавете checkpoints (${checkpointPoints.size}/4)"
                     else -> "✅ Готово: старт/финиш + 4 checkpoints"
@@ -1029,6 +1145,8 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                 when {
                     selectedPoint != null -> "✅ Избрана точка: drag за местене, UNDO за изтриване"
                     !hasName -> "Стъпка 1/4: въведете име"
+                    creationMode == CreationMode.DRIVING && startGatePoints.size < 2 -> "Стъпка 2/4: натиснете START GPS на старта"
+                    creationMode == CreationMode.DRIVING && finishGatePoints.size < 2 -> "Стъпка 3/4: натиснете STOP GPS при финала"
                     startGatePoints.size < 2 -> "Стъпка 2/4: старт линия (${startGatePoints.size}/2)"
                     finishGatePoints.size < 2 -> "Стъпка 3/4: финиш линия (${finishGatePoints.size}/2)"
                     checkpointPoints.size < POINT_TO_POINT_MIN_CHECKPOINTS -> "Стъпка 4/4: добавете checkpoints"
@@ -1041,42 +1159,419 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         btnAddStart.alpha = if (activeTool == BuilderTool.SET_START) 1f else 0.75f
         btnAddFinish.alpha = if (activeTool == BuilderTool.SET_FINISH) 1f else 0.75f
         val checkpointActive = activeTool == BuilderTool.SET_CHECKPOINT
-        btnStartDrawing.alpha = if (checkpointActive) 1f else 0.75f
-        btnAddSnapHelper.alpha = if (checkpointActive) 1f else 0.75f
+        btnStartDrawing.alpha = if (creationMode == CreationMode.DRIVING || checkpointActive) 1f else 0.75f
+        btnAddSnapHelper.alpha = if (creationMode == CreationMode.DRIVING || checkpointActive) 1f else 0.75f
+
+        if (creationMode == CreationMode.DRIVING) {
+            btnStartDrawing.text = if (isDrivingCaptureActive) "STOP GPS" else "START GPS"
+            btnAddSnapHelper.text = "AUTO CP"
+        }
+    }
+
+    private fun toggleDrivingCapture() {
+        if (creationMode != CreationMode.DRIVING) {
+            activeTool = BuilderTool.SET_CHECKPOINT
+            updateBuilderState()
+            Toast.makeText(this, "Стъпка: добавяне на checkpoint точки", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (!checkLocationPermission()) {
+            requestLocationPermission()
+            return
+        }
+
+        if (isDrivingCaptureActive) {
+            stopDrivingCapture(showToast = true)
+        } else {
+            startDrivingCapture()
+        }
+    }
+
+    private fun startDrivingCapture() {
+        if (trackType == CustomTrack.TrackType.CIRCUIT) {
+            circuitGatePoints.clear()
+        } else {
+            startGatePoints.clear()
+            finishGatePoints.clear()
+        }
+        checkpointPoints.clear()
+        drivingRoutePoints.clear()
+        lastDrivingRoutePoint = null
+        lastDrivingSampleLocation = null
+        drivingRecordedDistanceMeters = 0f
+        drivingCaptureStartedAtMs = System.currentTimeMillis()
+        hasMovedAwayFromStartLine = false
+
+        isDrivingCaptureActive = true
+
+        currentLiveLocation?.let {
+            ensureAutoStartGateFromLocation(it)
+            appendDrivingRoutePoint(it)
+        } ?: fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            if (!isDrivingCaptureActive || location == null) return@addOnSuccessListener
+            ensureAutoStartGateFromLocation(location)
+            appendDrivingRoutePoint(location)
+        }
+
+        Toast.makeText(this, "GPS записът стартира", Toast.LENGTH_SHORT).show()
+        redrawAnnotations()
+        updateBuilderState()
+    }
+
+    private fun stopDrivingCapture(showToast: Boolean) {
+        isDrivingCaptureActive = false
+
+        if (creationMode == CreationMode.DRIVING) {
+            applyAutoFinishGateFromRecordedRoute()
+            autoGenerateCheckpointsFromDrivingRoute(showToast = false)
+            redrawAnnotations()
+        }
+
+        if (showToast) {
+            Toast.makeText(this, "GPS записът е спрян", Toast.LENGTH_SHORT).show()
+        }
+        updateBuilderState()
+    }
+
+    private fun appendDrivingRoutePoint(location: Location) {
+        val previousSample = lastDrivingSampleLocation
+        lastDrivingSampleLocation = Location(location)
+
+        if (creationMode == CreationMode.DRIVING && isDrivingCaptureActive) {
+            ensureAutoStartGateFromLocation(location)
+            if (trackType == CustomTrack.TrackType.CIRCUIT && shouldAutoStopCircuitCapture(previousSample, location)) {
+                stopDrivingCapture(showToast = false)
+                Toast.makeText(this, "Старт/финиш е пресечена повторно. GPS спря автоматично.", Toast.LENGTH_LONG).show()
+                return
+            }
+        }
+
+        val point = Point.fromLngLat(location.longitude, location.latitude)
+        val previous = lastDrivingRoutePoint
+        if (previous != null) {
+            val distance = distanceMeters(previous, point)
+            if (distance < MIN_ROUTE_POINT_DISTANCE_METERS) return
+            drivingRecordedDistanceMeters += distance.toFloat()
+        }
+        drivingRoutePoints.add(point)
+        lastDrivingRoutePoint = point
+        redrawPolylines()
+    }
+
+    private fun shouldAutoStopCircuitCapture(previous: Location?, current: Location): Boolean {
+        if (previous == null || circuitGatePoints.size != 2) return false
+        if (drivingCaptureStartedAtMs <= 0L) return false
+
+        val gateStart = circuitGatePoints[0]
+        val gateEnd = circuitGatePoints[1]
+
+        val distanceToLine = trackGateCrossingEngine.distanceToLineMeters(
+            pointLat = current.latitude,
+            pointLon = current.longitude,
+            lineStartLat = gateStart.latitude(),
+            lineStartLon = gateStart.longitude(),
+            lineEndLat = gateEnd.latitude(),
+            lineEndLon = gateEnd.longitude()
+        )
+        if (distanceToLine >= AUTO_STOP_MIN_AWAY_FROM_LINE_METERS) {
+            hasMovedAwayFromStartLine = true
+        }
+
+        if (!hasMovedAwayFromStartLine) return false
+        if (drivingRecordedDistanceMeters < AUTO_STOP_MIN_DISTANCE_METERS) return false
+        if (System.currentTimeMillis() - drivingCaptureStartedAtMs < AUTO_STOP_MIN_ELAPSED_MS) return false
+
+        return trackGateCrossingEngine.didCrossLine(
+            previousLat = previous.latitude,
+            previousLon = previous.longitude,
+            currentLat = current.latitude,
+            currentLon = current.longitude,
+            lineStartLat = gateStart.latitude(),
+            lineStartLon = gateStart.longitude(),
+            lineEndLat = gateEnd.latitude(),
+            lineEndLon = gateEnd.longitude()
+        )
+    }
+
+    private fun autoGenerateCheckpointsFromDrivingRoute(showToast: Boolean = true) {
+        if (creationMode != CreationMode.DRIVING) return
+
+        if (drivingRoutePoints.size < 5) {
+            if (showToast) {
+                Toast.makeText(this, "Няма достатъчно GPS точки. Направете кратък запис.", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
+
+        when (trackType) {
+            CustomTrack.TrackType.CIRCUIT -> {
+                if (circuitGatePoints.size != 2) {
+                    if (showToast) {
+                        Toast.makeText(this, "Старт/финиш линията ще се създаде автоматично при START GPS", Toast.LENGTH_SHORT).show()
+                    }
+                    return
+                }
+            }
+            CustomTrack.TrackType.POINT_TO_POINT -> {
+                if (startGatePoints.size != 2 || finishGatePoints.size != 2) {
+                    if (showToast) {
+                        Toast.makeText(this, "Старт/финиш линиите се създават автоматично от GPS", Toast.LENGTH_SHORT).show()
+                    }
+                    return
+                }
+            }
+        }
+
+        val fractions = listOf(0.2, 0.4, 0.6, 0.8)
+        val generated = samplePointsAlongRoute(drivingRoutePoints, fractions)
+        if (generated.isEmpty()) {
+            Toast.makeText(this, "Неуспешно генериране на checkpoints", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        pushUndoSnapshot()
+        checkpointPoints.clear()
+        checkpointPoints.addAll(generated)
+        redrawAnnotations()
+        updateBuilderState()
+        if (showToast) {
+            Toast.makeText(this, "Автоматично добавени ${generated.size} checkpoints", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun ensureAutoStartGateFromLocation(location: Location) {
+        val center = Point.fromLngLat(location.longitude, location.latitude)
+        val heading = if (location.hasBearing()) location.bearing.toDouble() else null
+
+        if (trackType == CustomTrack.TrackType.CIRCUIT) {
+            if (circuitGatePoints.size != 2) {
+                circuitGatePoints.clear()
+                circuitGatePoints.addAll(buildGateAroundCenter(center, heading))
+                redrawAnnotations()
+            }
+            return
+        }
+
+        if (startGatePoints.size != 2) {
+            startGatePoints.clear()
+            startGatePoints.addAll(buildGateAroundCenter(center, heading))
+            redrawAnnotations()
+        }
+    }
+
+    private fun applyAutoFinishGateFromRecordedRoute() {
+        if (trackType != CustomTrack.TrackType.POINT_TO_POINT) return
+        val center = drivingRoutePoints.lastOrNull() ?: return
+        val heading = estimateHeadingFromRouteTail()
+        finishGatePoints.clear()
+        finishGatePoints.addAll(buildGateAroundCenter(center, heading))
+    }
+
+    private fun estimateHeadingFromRouteTail(): Double? {
+        if (drivingRoutePoints.size < 2) return null
+        val prev = drivingRoutePoints[drivingRoutePoints.lastIndex - 1]
+        val curr = drivingRoutePoints.last()
+
+        val prevLocation = Location("prev").apply {
+            latitude = prev.latitude()
+            longitude = prev.longitude()
+        }
+        val currLocation = Location("curr").apply {
+            latitude = curr.latitude()
+            longitude = curr.longitude()
+        }
+        return prevLocation.bearingTo(currLocation).toDouble()
+    }
+
+    private fun buildGateAroundCenter(center: Point, travelBearingDegrees: Double?): List<Point> {
+        val lineBearing = ((travelBearingDegrees ?: 0.0) + 90.0) % 360.0
+        val half = DEFAULT_GATE_WIDTH_METERS / 2.0
+        val first = offsetPointByBearing(center, lineBearing, half)
+        val second = offsetPointByBearing(center, (lineBearing + 180.0) % 360.0, half)
+        return listOf(first, second)
+    }
+
+    private fun offsetPointByBearing(center: Point, bearingDegrees: Double, distanceMeters: Double): Point {
+        val lat = center.latitude()
+        val lon = center.longitude()
+        val bearingRad = Math.toRadians(bearingDegrees)
+
+        val dNorth = cos(bearingRad) * distanceMeters
+        val dEast = sin(bearingRad) * distanceMeters
+
+        val dLat = dNorth / 111_320.0
+        val dLon = dEast / (111_320.0 * cos(Math.toRadians(lat)).coerceAtLeast(0.0001))
+
+        return Point.fromLngLat(lon + dLon, lat + dLat)
+    }
+
+    private fun samplePointsAlongRoute(route: List<Point>, fractions: List<Double>): List<Point> {
+        if (route.size < 2) return emptyList()
+
+        val cumulative = DoubleArray(route.size)
+        var total = 0.0
+        for (i in 1 until route.size) {
+            total += distanceMeters(route[i - 1], route[i])
+            cumulative[i] = total
+        }
+        if (total <= 0.0) return emptyList()
+
+        val result = mutableListOf<Point>()
+        for (fraction in fractions) {
+            val target = total * fraction.coerceIn(0.0, 1.0)
+            var index = 1
+            while (index < cumulative.size && cumulative[index] < target) {
+                index++
+            }
+
+            if (index >= route.size) {
+                result.add(route.last())
+                continue
+            }
+
+            val prevDistance = cumulative[index - 1]
+            val segmentDistance = (cumulative[index] - prevDistance).coerceAtLeast(0.000001)
+            val t = ((target - prevDistance) / segmentDistance).coerceIn(0.0, 1.0)
+
+            val a = route[index - 1]
+            val b = route[index]
+            val lon = a.longitude() + (b.longitude() - a.longitude()) * t
+            val lat = a.latitude() + (b.latitude() - a.latitude()) * t
+            result.add(Point.fromLngLat(lon, lat))
+        }
+
+        return result
+    }
+
+    private fun distanceMeters(a: Point, b: Point): Double {
+        val locationA = Location("routeA").apply {
+            latitude = a.latitude()
+            longitude = a.longitude()
+        }
+        val locationB = Location("routeB").apply {
+            latitude = b.latitude()
+            longitude = b.longitude()
+        }
+        return locationA.distanceTo(locationB).toDouble()
+    }
+
+    private fun lineFromPoints(points: List<Point>): GateLine? {
+        if (points.size < 2) return null
+        return GateLine(
+            start = GeoPoint(points[0].latitude(), points[0].longitude()),
+            end = GeoPoint(points[1].latitude(), points[1].longitude())
+        )
     }
 
     private fun loadTrackForEditing(trackId: String) {
+        val trackV2 = CustomTrackStorage.loadCustomTrackV2(this, trackId)
         val track = CustomTrackStorage.loadCustomTrack(this, trackId)
-        if (track == null) {
+        if (trackV2 == null && track == null) {
             Toast.makeText(this, "Неуспешно зареждане на custom писта за редакция", Toast.LENGTH_SHORT).show()
             return
         }
 
-        editingTrackId = track.id
-        editingCreatedAt = track.createdAt
-        trackType = track.type
-        etTrackName.setText(track.name)
+        val resolvedId = trackV2?.id ?: track!!.id
+        val resolvedName = trackV2?.name ?: track!!.name
+        val resolvedCreatedAt = trackV2?.createdAt ?: track!!.createdAt
+
+        editingTrackId = resolvedId
+        editingCreatedAt = resolvedCreatedAt
+        etTrackName.setText(resolvedName)
+
+        if (trackV2 != null) {
+            trackType = when (trackV2.mode) {
+                CustomTrackMode.CIRCUIT -> CustomTrack.TrackType.CIRCUIT
+                CustomTrackMode.POINT_TO_POINT -> CustomTrack.TrackType.POINT_TO_POINT
+            }
+            creationMode = when (trackV2.creationMode) {
+                CustomTrackCreationMode.DRIVING -> CreationMode.DRIVING
+                CustomTrackCreationMode.PHONE -> CreationMode.PHONE
+                null -> if ((trackV2.measuredDistanceMeters ?: 0f) > 50f) CreationMode.DRIVING else CreationMode.PHONE
+            }
+        } else {
+            trackType = track!!.type
+        }
 
         circuitGatePoints.clear()
         checkpointPoints.clear()
         startGatePoints.clear()
         finishGatePoints.clear()
+        drivingRoutePoints.clear()
+        lastDrivingRoutePoint = null
+        lastDrivingSampleLocation = null
+        drivingRecordedDistanceMeters = 0f
+        drivingCaptureStartedAtMs = 0L
+        hasMovedAwayFromStartLine = false
         selectedPoint = null
         undoStack.clear()
         dragSnapshotCaptured = false
 
-        val gatePoints = track.points
-            .filter { it.pointType == CustomTrack.TrackPoint.PointType.START_FINISH }
-            .map { Point.fromLngLat(it.geoPoint.longitude, it.geoPoint.latitude) }
-        val checkpointList = track.points
-            .filter { it.pointType == CustomTrack.TrackPoint.PointType.SNAP_HELPER }
-            .map { Point.fromLngLat(it.geoPoint.longitude, it.geoPoint.latitude) }
-        val startPoints = track.points
-            .filter { it.pointType == CustomTrack.TrackPoint.PointType.START }
-            .map { Point.fromLngLat(it.geoPoint.longitude, it.geoPoint.latitude) }
-        val finishPoints = track.points
-            .filter { it.pointType == CustomTrack.TrackPoint.PointType.FINISH }
-            .map { Point.fromLngLat(it.geoPoint.longitude, it.geoPoint.latitude) }
+        val gatePoints = if (trackV2?.startGate != null && trackType == CustomTrack.TrackType.CIRCUIT) {
+            listOf(
+                Point.fromLngLat(trackV2.startGate.start.longitude, trackV2.startGate.start.latitude),
+                Point.fromLngLat(trackV2.startGate.end.longitude, trackV2.startGate.end.latitude)
+            )
+        } else {
+            track?.points
+                ?.filter { it.pointType == CustomTrack.TrackPoint.PointType.START_FINISH }
+                ?.map { Point.fromLngLat(it.geoPoint.longitude, it.geoPoint.latitude) }
+                ?: emptyList()
+        }
+
+        val checkpointList = if (trackV2 != null) {
+            trackV2.sectorGates.map { gate ->
+                Point.fromLngLat(gate.start.longitude, gate.start.latitude)
+            }
+        } else {
+            track?.points
+                ?.filter { it.pointType == CustomTrack.TrackPoint.PointType.SNAP_HELPER }
+                ?.map { Point.fromLngLat(it.geoPoint.longitude, it.geoPoint.latitude) }
+                ?: emptyList()
+        }
+
+        val routePathList = if (trackV2 != null) {
+            trackV2.referencePath.map { Point.fromLngLat(it.longitude, it.latitude) }
+        } else {
+            emptyList()
+        }
+
+        val startPoints = if (trackV2?.startGate != null && trackType == CustomTrack.TrackType.POINT_TO_POINT) {
+            listOf(
+                Point.fromLngLat(trackV2.startGate.start.longitude, trackV2.startGate.start.latitude),
+                Point.fromLngLat(trackV2.startGate.end.longitude, trackV2.startGate.end.latitude)
+            )
+        } else {
+            track?.points
+                ?.filter { it.pointType == CustomTrack.TrackPoint.PointType.START }
+                ?.map { Point.fromLngLat(it.geoPoint.longitude, it.geoPoint.latitude) }
+                ?: emptyList()
+        }
+
+        val finishPoints = if (trackV2?.finishGate != null && trackType == CustomTrack.TrackType.POINT_TO_POINT) {
+            listOf(
+                Point.fromLngLat(trackV2.finishGate.start.longitude, trackV2.finishGate.start.latitude),
+                Point.fromLngLat(trackV2.finishGate.end.longitude, trackV2.finishGate.end.latitude)
+            )
+        } else {
+            track?.points
+                ?.filter { it.pointType == CustomTrack.TrackPoint.PointType.FINISH }
+                ?.map { Point.fromLngLat(it.geoPoint.longitude, it.geoPoint.latitude) }
+                ?: emptyList()
+        }
+
+        if (creationMode == CreationMode.DRIVING && trackV2 != null) {
+            drivingRoutePoints.addAll(routePathList)
+            lastDrivingRoutePoint = drivingRoutePoints.lastOrNull()
+            drivingRecordedDistanceMeters = trackV2.measuredDistanceMeters ?: run {
+                var total = 0f
+                for (index in 1 until drivingRoutePoints.size) {
+                    total += distanceMeters(drivingRoutePoints[index - 1], drivingRoutePoints[index]).toFloat()
+                }
+                total
+            }
+        }
 
         when (trackType) {
             CustomTrack.TrackType.CIRCUIT -> {
@@ -1106,7 +1601,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             fitCameraToTrackPoints()
         }, 250L)
         updateBuilderState()
-        Toast.makeText(this, "Режим: редакция на '${track.name}'", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Режим: редакция на '$resolvedName'", Toast.LENGTH_SHORT).show()
     }
 
     private fun fitCameraToTrackPoints() {
@@ -1151,10 +1646,51 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
     private fun initializeGPS() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         if (checkLocationPermission()) {
+            startLocationCameraFollow()
             getCurrentLocation()
         } else {
             requestLocationPermission()
         }
+    }
+
+    private fun startLocationCameraFollow() {
+        if (followLocationCallback != null || !checkLocationPermission()) return
+
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
+            .setMinUpdateDistanceMeters(2f)
+            .build()
+
+        followLocationCallback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                for (location in result.locations) {
+                    currentLiveLocation = location
+                    centerCameraOnLocation(location)
+                    if (isDrivingCaptureActive) {
+                        appendDrivingRoutePoint(location)
+                    }
+                }
+            }
+        }
+
+        fusedLocationClient.requestLocationUpdates(request, followLocationCallback!!, Looper.getMainLooper())
+    }
+
+    private fun stopLocationCameraFollow() {
+        followLocationCallback?.let { callback ->
+            fusedLocationClient.removeLocationUpdates(callback)
+        }
+        followLocationCallback = null
+    }
+
+    private fun centerCameraOnLocation(location: Location) {
+        val currentZoom = mapView.mapboxMap.cameraState.zoom
+        val targetZoom = if (currentZoom.isFinite() && currentZoom >= 15.5) currentZoom else 16.5
+        mapView.mapboxMap.setCamera(
+            CameraOptions.Builder()
+                .center(Point.fromLngLat(location.longitude, location.latitude))
+                .zoom(targetZoom)
+                .build()
+        )
     }
 
     private fun checkLocationPermission(): Boolean {
@@ -1179,12 +1715,8 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                         return@addOnSuccessListener
                     }
                     location?.let {
-                        mapView.mapboxMap.setCamera(
-                            CameraOptions.Builder()
-                                .center(Point.fromLngLat(it.longitude, it.latitude))
-                                .zoom(16.5)
-                                .build()
-                        )
+                        currentLiveLocation = it
+                        centerCameraOnLocation(it)
                     }
                 }
                 .addOnFailureListener { error ->
@@ -1203,12 +1735,27 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startLocationCameraFollow()
                 getCurrentLocation()
             }
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (checkLocationPermission()) {
+            startLocationCameraFollow()
+        }
+    }
+
+    override fun onPause() {
+        stopLocationCameraFollow()
+        super.onPause()
+    }
+
     override fun onDestroy() {
+        stopDrivingCapture(showToast = false)
+        stopLocationCameraFollow()
         super.onDestroy()
         pointManager.deleteAll()
         polylineManager.deleteAll()

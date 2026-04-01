@@ -16,8 +16,21 @@
         android:layout_margin="16dp"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_arrow_back"
-        android:contentDescription="Back"
+        android:contentDescription="@string/full_screen_image_back"
         android:tint="#FFFFFF"
+        android:elevation="4dp" />
+
+    <ImageButton
+        android:id="@+id/btnDeleteFullScreen"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="16dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/garage_fuel_entry_receipt_delete_action"
+        android:src="@drawable/ic_close"
+        android:tint="@color/accent_color"
+        android:visibility="gone"
         android:elevation="4dp" />
 
 </FrameLayout>

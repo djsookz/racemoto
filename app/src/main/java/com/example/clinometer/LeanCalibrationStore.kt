@@ -61,16 +61,16 @@ object LeanCalibrationStore {
 
     fun resolveOffset(snapshot: LeanCalibrationSnapshot, isLandscape: Boolean): Pair<Boolean, Float> {
         return if (isLandscape) {
-            when {
-                snapshot.landscapeCalibrated -> true to snapshot.landscapeOffsetDeg
-                snapshot.portraitCalibrated -> true to snapshot.portraitOffsetDeg
-                else -> false to 0f
+            if (snapshot.landscapeCalibrated) {
+                true to snapshot.landscapeOffsetDeg
+            } else {
+                false to 0f
             }
         } else {
-            when {
-                snapshot.portraitCalibrated -> true to snapshot.portraitOffsetDeg
-                snapshot.landscapeCalibrated -> true to snapshot.landscapeOffsetDeg
-                else -> false to 0f
+            if (snapshot.portraitCalibrated) {
+                true to snapshot.portraitOffsetDeg
+            } else {
+                false to 0f
             }
         }
     }

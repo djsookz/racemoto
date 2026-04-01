@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/color/tab_profile_section_icon_tint.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1774871167358,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1774871167358,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<selector xmlns:android=\"http://schemas.android.com/apk/res/android\">\r\n    <item android:state_selected=\"true\" android:color=\"@color/accent_color\" />\r\n    <item android:color=\"@color/text_tertiary\" />\r\n</selector>\r\n"
+        }
+    ]
+}

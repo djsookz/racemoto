@@ -1,5 +1,6 @@
 package com.example.clinometer
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -25,8 +26,9 @@ class FullScreenImageActivity : AppCompatActivity() {
             window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
         }
         
-        val photoPaths = intent.getStringArrayListExtra("photo_paths") ?: emptyList<String>()
-        val currentIndex = intent.getIntExtra("current_index", 0)
+        val photoPaths = intent.getStringArrayListExtra(EXTRA_PHOTO_PATHS) ?: emptyList<String>()
+        val currentIndex = intent.getIntExtra(EXTRA_CURRENT_INDEX, 0)
+        val showDeleteButton = intent.getBooleanExtra(EXTRA_SHOW_DELETE, false)
         
         if (photoPaths.isEmpty()) {
             finish()
@@ -35,15 +37,29 @@ class FullScreenImageActivity : AppCompatActivity() {
         
         val viewPager = findViewById<ViewPager2>(R.id.viewPager)
         val btnBack = findViewById<ImageButton>(R.id.btnBackFullScreen)
+        val btnDelete = findViewById<ImageButton>(R.id.btnDeleteFullScreen)
         
         val adapter = FullScreenImageAdapter(photoPaths)
         viewPager.adapter = adapter
         viewPager.setCurrentItem(currentIndex, false)
+        btnDelete.visibility = if (showDeleteButton) View.VISIBLE else View.GONE
         
         // Back button
         btnBack.setOnClickListener {
             finish()
         }
+
+        btnDelete.setOnClickListener {
+            setResult(RESULT_OK, Intent().putExtra(EXTRA_DELETE_REQUESTED, true))
+            finish()
+        }
+    }
+
+    companion object {
+        const val EXTRA_PHOTO_PATHS = "photo_paths"
+        const val EXTRA_CURRENT_INDEX = "current_index"
+        const val EXTRA_SHOW_DELETE = "show_delete"
+        const val EXTRA_DELETE_REQUESTED = "delete_requested"
     }
     
     private class FullScreenImageAdapter(

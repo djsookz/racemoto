@@ -61,12 +61,12 @@
 
 
         <activity
-            android:name=".FirstProfileActivity"
+            android:name=".garage.FirstProfileActivity"
             android:exported="true"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".VehicleSelectionActivity"
+            android:name=".garage.VehicleSelectionActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
@@ -117,6 +117,9 @@
             android:name=".DragCalibrationActivity"
             android:theme="@style/Theme.DragMe.Calibration"/>
         <activity
+            android:name=".SmartMotionCalibrationActivity"
+            android:theme="@style/Theme.DragMe.Calibration" />
+        <activity
             android:name=".LeanCalibrationActivity"
             android:theme="@style/Theme.DragMe.Calibration" />
         <activity
@@ -135,13 +138,23 @@
             android:name=".TrackTypeSelectionActivity"
             android:exported="false" />
         <activity
+            android:name=".CustomTrackCreationModeActivity"
+            android:exported="false" />
+        <activity
             android:name=".track.CustomTrackBuilderActivity"
             android:exported="false" />
         <activity
             android:name=".TrackSessionActivity"
             android:exported="false" />
         <activity
-            android:name=".ProfileDetailActivity"
+            android:name=".garage.ProfileDetailActivity"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".garage.GarageProfilePageActivity"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".garage.GarageFuelEntryActivity"
+            android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity

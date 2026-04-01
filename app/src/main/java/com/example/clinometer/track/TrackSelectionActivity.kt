@@ -1,12 +1,16 @@
 package com.example.clinometer
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Bundle
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.clinometer.data.ProfileStorage
@@ -66,8 +70,7 @@ class TrackSelectionActivity : AppCompatActivity() {
     
     private fun setupClickListeners() {
         btnCreateCustom.setOnClickListener {
-            // Navigate to track type selection
-            val intent = Intent(this, TrackTypeSelectionActivity::class.java)
+            val intent = Intent(this, CustomTrackCreationModeActivity::class.java)
             startActivity(intent)
         }
     }
@@ -106,7 +109,8 @@ class TrackSelectionActivity : AppCompatActivity() {
     private fun renderOfficialTab() {
         llCreateCustomContainer.visibility = View.GONE
 
-        val items = officialTracks.map { TrackSelectionAdapter.TrackItem.Official(it) }
+        val sortedOfficialTracks = getOfficialTracksSortedByDistance()
+        val items = sortedOfficialTracks.map { TrackSelectionAdapter.TrackItem.Official(it) }
         rvTracks.adapter = TrackSelectionAdapter(
             tracks = items,
             onTrackSelected = { trackItem ->
@@ -123,6 +127,65 @@ class TrackSelectionActivity : AppCompatActivity() {
         )
 
         updateEmptyState(items.isEmpty(), "Няма налични official писти")
+    }
+
+    private fun getOfficialTracksSortedByDistance(): List<TrackDefinition> {
+        val currentLocation = getCurrentLocationForSorting() ?: return officialTracks
+
+        return officialTracks.withIndex()
+            .map { indexedTrack ->
+                val distanceMeters = getTrackAnchorPoint(indexedTrack.value)
+                    ?.distanceToAsDouble(currentLocation)
+                    ?: Double.MAX_VALUE
+                indexedTrack to distanceMeters
+            }
+            .sortedWith(compareBy<Pair<IndexedValue<TrackDefinition>, Double>> { it.second }.thenBy { it.first.index })
+            .map { it.first.value }
+    }
+
+    private fun getCurrentLocationForSorting(): GeoPoint? {
+        if (!hasLocationPermission()) return null
+
+        val locationManager = getSystemService(LOCATION_SERVICE) as? LocationManager ?: return null
+        val candidateProviders = listOf(
+            LocationManager.GPS_PROVIDER,
+            LocationManager.NETWORK_PROVIDER,
+            LocationManager.PASSIVE_PROVIDER
+        )
+
+        val latestLocation = candidateProviders
+            .mapNotNull { provider ->
+                runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull()
+            }
+            .maxByOrNull { it.time }
+
+        return latestLocation?.let { GeoPoint(it.latitude, it.longitude) }
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        val hasFine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCoarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        return hasFine || hasCoarse
+    }
+
+    private fun getTrackAnchorPoint(track: TrackDefinition): GeoPoint? {
+        track.startFinishGate?.let { gate ->
+            return midpoint(gate.start, gate.end)
+        }
+        track.startGate?.let { gate ->
+            return midpoint(gate.start, gate.end)
+        }
+        track.finishGate?.let { gate ->
+            return midpoint(gate.start, gate.end)
+        }
+        return track.lapSequence.firstOrNull()
+    }
+
+    private fun midpoint(a: GeoPoint, b: GeoPoint): GeoPoint {
+        return GeoPoint(
+            latitude = (a.latitude + b.latitude) / 2.0,
+            longitude = (a.longitude + b.longitude) / 2.0
+        )
     }
 
     private fun renderCustomTab() {
@@ -167,9 +230,19 @@ class TrackSelectionActivity : AppCompatActivity() {
     }
 
     private fun editCustomTrack(customTrack: CustomTrack) {
+        val customTrackV2 = CustomTrackStorage.loadCustomTrackV2(this, customTrack.id)
+        val creationMode = when (customTrackV2?.creationMode) {
+            com.example.clinometer.tracking.CustomTrackCreationMode.DRIVING -> "DRIVING"
+            com.example.clinometer.tracking.CustomTrackCreationMode.PHONE -> "PHONE"
+            null -> {
+                if ((customTrackV2?.measuredDistanceMeters ?: 0f) > 50f) "DRIVING" else "PHONE"
+            }
+        }
+
         val intent = Intent(this, CustomTrackBuilderActivity::class.java).apply {
             putExtra("track_type", customTrack.type.name)
             putExtra("edit_track_id", customTrack.id)
+            putExtra("creation_mode", creationMode)
         }
         startActivity(intent)
     }

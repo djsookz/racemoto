@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/drawable/ic_tab_gas_station.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1774940495008,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1774940495008,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<layer-list xmlns:android=\"http://schemas.android.com/apk/res/android\">\r\n    <item\r\n        android:width=\"20dp\"\r\n        android:height=\"20dp\"\r\n        android:gravity=\"center\">\r\n        <bitmap\r\n            android:src=\"@drawable/gas_station\"\r\n            android:antialias=\"true\"\r\n            android:filter=\"true\"\r\n            android:gravity=\"fill\" />\r\n    </item>\r\n</layer-list>\r\n"
+        }
+    ]
+}

@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/drawable/bg_drag_attempt_summary_shell.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1773915036137,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1773915036137,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<shape xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:shape=\"rectangle\">\r\n    <gradient\r\n        android:angle=\"0\"\r\n        android:endColor=\"#121A22\"\r\n        android:startColor=\"#0D131A\" />\r\n    <stroke\r\n        android:width=\"1dp\"\r\n        android:color=\"#22303C\" />\r\n    <corners android:radius=\"18dp\" />\r\n</shape>\r\n"
+        }
+    ]
+}

@@ -14,10 +14,13 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
+import android.view.Surface
 import android.view.View
 import android.widget.PopupMenu
 import android.widget.ProgressBar
@@ -30,14 +33,18 @@ import android.text.style.ForegroundColorSpan
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.preference.PreferenceManager
 import com.google.android.material.button.MaterialButton
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sqrt
 import kotlin.math.atan2
 import kotlin.math.sin
 import kotlin.math.cos
+import kotlin.math.asin
 import kotlin.math.roundToInt
+import kotlin.math.tan
 import android.content.res.Configuration
 import com.example.clinometer.settings.SoundManager
 import com.example.clinometer.settings.UnitsManager
@@ -107,6 +114,10 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private lateinit var llMotoBody: View
     private lateinit var carGForceLayout: View
     private lateinit var gGaugeTrackCar: GGaugeView
+    private lateinit var carGScaleControls: View
+    private lateinit var btnCarScaleNormal: MaterialButton
+    private lateinit var btnCarScaleSport: MaterialButton
+    private lateinit var btnCarScaleRace: MaterialButton
     private lateinit var tvCarLateralLeftValue: TextView
     private lateinit var tvCarLateralRightValue: TextView
     private lateinit var tvCarBrakingValue: TextView
@@ -125,13 +136,18 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private lateinit var viewMotoTickBottom: View
     private lateinit var viewMotoLongitudinalDot: View
     private lateinit var gGaugeTrack: GGaugeView
+    private lateinit var cardCenterTelemetry: View
+    private lateinit var flCenterTelemetry: View
     private lateinit var speedGauge: SpeedGaugeView
     private lateinit var tvLapTime: TextView
     private lateinit var llLapsContainer: LinearLayout
     private lateinit var tvNoLaps: TextView
+    private lateinit var telemetryGapSpacer: View
     private lateinit var btnStartStop: MaterialButton
     private lateinit var btnLap: MaterialButton
     private lateinit var btnTopLeanZero: MaterialButton
+    private var tvTrackWeatherTemp: TextView? = null
+    private var tvTrackWeatherHumidity: TextView? = null
     private var trackId: String = ""
     private var trackName: String = ""
     private var isMotorcycle: Boolean = true
@@ -144,11 +160,15 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private var accelerometer: Sensor? = null
     private var gyroscope: Sensor? = null
     private var rotationVector: Sensor? = null
+    private var geomagneticRotationVector: Sensor? = null
+    private var gravitySensor: Sensor? = null
+    private var magnetometer: Sensor? = null
     private var linearAccelSensor: Sensor? = null
     private lateinit var locationManager: LocationManager
     private val gyroscopeData = mutableListOf<Float>()
     private val speedData = mutableListOf<Float>()
     private val handler = Handler(Looper.getMainLooper())
+    private var trackWakeLock: PowerManager.WakeLock? = null
     private val updateRunnable = object : Runnable {
         override fun run() {
             updateDisplay()
@@ -224,11 +244,20 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private val leanDisplayDeadbandDeg: Float = 1.8f
     private val leanDisplayDirectionThresholdDeg: Float = 2.2f
     private val leanDisplaySmoothingAlpha: Float = 0.16f
+    private val leanDisplaySmoothingAlphaGyro: Float = 0.11f
+    private val forceNoGyroLeanLogicOnGyro: Boolean = false
     private val leanDisplaySnapToZeroDeg: Float = 0.25f
     private var previousLocationForCrossing: Location? = null
     private var lastStartFinishCrossAtMs: Long = 0L
     private val startFinishCrossDebounceMs: Long = 1500L
     private val pointToPointStartHintMeters: Double = 1500.0
+    private var startForwardFilteredMs2: Float = 0f
+    private var startLateralFilteredMs2: Float = 0f
+    private var startDirectionGoodSamples: Int = 0
+    private val startDirectionFilterAlpha = 0.28f
+    private val startDirectionMinForwardMs2 = 0.26f
+    private val startDirectionRatio = 1.55f
+    private val startDirectionRequiredSamples = 3
     private var trackLengthMeters: Float = 0f
     private var currentDistanceToLapLineMeters: Float = Float.NaN
     private var currentDistanceToStartLineMeters: Float = Float.NaN
@@ -238,32 +267,79 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private var progressRouteLengthMeters: Float = 0f
     private var currentProjectedRouteDistanceMeters: Float = Float.NaN
     private var projectedRouteDistanceAtLapStartMeters: Float = Float.NaN
+    private var smoothedLapProgress: Float = 0f
+    private var lastProjectedSegmentIndex: Int = 0
+    private var lastProjectedAlongMeters: Float = Float.NaN
+    private var lastLapProgressUpdateNs: Long = 0L
     private val lapProgressMax = 1000
     companion object {
         private const val LOCATION_PERMISSION_REQUEST = 1001
         private const val MIN_DISTANCE_FOR_UPDATE = 1f
         private const val MIN_TIME_FOR_UPDATE = 100L
+        private const val TRACK_UI_PREFS = "track_ui_prefs"
+        private const val CAR_G_SCALE_PREF_KEY = "car_g_scale_mode"
     }
     private val gravity = FloatArray(3) { 0f }
+    private val gravitySensorValues = FloatArray(3) { 0f }
+    private var gravitySensorTimestampNs: Long = 0L
+    private val magneticFieldValues = FloatArray(3) { 0f }
+    private var magneticFieldTimestampNs: Long = 0L
     private val latestRawAccel = FloatArray(3) { 0f }
     private val linearAccel = FloatArray(3) { 0f }
+    private val linearAccelSensorValues = FloatArray(3) { 0f }
+    private var hasLinearAccelSensorSample = false
+    private var linearAccelSensorTimestampNs: Long = 0L
+    private var noGyroLinearSensorBlend = 0.50f
     private val alphaGravity = 0.8f
+    // Drag-compatible no-gyro gravity LP used for Track parity.
+    private val dragCompatGravity = FloatArray(3) { 0f }
+    private val dragCompatGravityAlpha = 0.8f
+    private val noGyroGravityFromSensorBlend = 0.70f
+    private val noGyroGravityAlpha = 0.88f
+    private val noGyroLinearSensorMaxAgeNs = 120_000_000L
+    private val gravitySensorMaxAgeNs = 220_000_000L
+    private val accelMagRotationMaxSkewNs = 180_000_000L
+    private val minNoGyroLinearBlend = 0.22f
+    private val maxNoGyroLinearBlend = 0.68f
+    // No-gyro gravity freeze: pause gravity LP updates during real acceleration
+    // so the filter doesn't absorb real G into the gravity estimate.
+    private var noGyroGravityFrozen = false
+    private var noGyroFreezeCounter = 0
+    private val noGyroFreezeCountThreshold = 3
+    private var noGyroCalGravityMag = SensorManager.GRAVITY_EARTH
+    private var noGyroFreezeThreshold = 0.45f
+    private val madgwick = MadgwickAHRS(beta = 0.033f)
+    private val latestGyroForMadgwick = FloatArray(3)
+    private var lastMadgwickUpdateNs: Long = 0L
     private val rotationMatrix = FloatArray(9) { 0f }
     private val worldAccel = FloatArray(3) { 0f }
     private var displayLX = 0f
     private var displayLY = 0f
     private var currentLongitudinalG = 0f
     private var currentLateralG = 0f
-    private val minMotoLongAxisMaxG = 0.4f
-    private val maxMotoLongAxisMaxG = 3.2f
     private val maxDisplayG = 3.0f
     // Heading smoothing for projecting world accel into vehicle frame
     private var hasSmoothedBearing = false
     private var smoothedBearingRad = 0f
     private val bearingAlpha = 0.2f
+    // GPS-based G-force for no-gyro devices (vibration-immune kinematics)
+    private var gpsLongG = 0f
+    private var gpsLatG = 0f
+    private var gpsSmoothedLongG = 0f
+    private var gpsSmoothedLatG = 0f
+    private var gpsGTimeMs = 0L
+    private var prevGpsSpeedMs = Float.NaN
+    private var prevGpsBearingRad = Float.NaN
+    private var prevGpsFixTimeMs = 0L
+    private var hasGpsGForce = false
+    private var noGyroGpsLongStatsSmooth = 0f
+    private var noGyroLeanLatGSmooth = 0f
+    private var noGyroMagGSmooth = 0f
     // Stationary bias removal and deadband
     private var forwardBiasG = 0f
     private var lateralBiasG = 0f
+    private var longSignMultiplier = 1f
+    private var longSignMismatchStreak = 0
     private val biasAlpha = 0.02f
     private val deadbandG = 0.05f
     // Prefer hardware linear acceleration if available
@@ -317,10 +393,55 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private var profileLeanOffsetDeg: Float = 0f
     private var hasProfileLeanOffset: Boolean = false
     private var lastLeanOrientationLandscape: Boolean? = null
+    private var leanAutoZeroPending: Boolean = false
+    private var leanAutoZeroAccumDeg: Float = 0f
+    private var leanAutoZeroSampleCount: Int = 0
     private var leanCalibrationSnapshot: LeanCalibrationSnapshot = LeanCalibrationSnapshot()
+    private val gyroBiasRad = FloatArray(3) { 0f }
+    private var hasGyroBiasCompensation: Boolean = false
+    private var hasSmartMotionCalibration: Boolean = false
     private val radToDeg = 57.29578f
     private val minAccelCorrection = 0.03f
     private val maxAccelCorrection = 0.22f
+    private val leanAutoZeroMaxAbsTiltDeg = 22f
+    private val leanAutoZeroMaxRollRateDegPerSec = 4.0f
+    private val leanAutoZeroMaxWorldLinearAccMs2 = 0.40f
+    private val leanAutoZeroRequiredSamples = 8
+    private val noGyroDeadbandScale = 0.52f
+    private val noGyroGScaleFloor = 0.86f
+    private val noGyroDisplayAlphaMin = 0.40f
+    private val noGyroDisplayAlphaRange = 0.42f
+    private val noGyroGSmoothAlpha = 0.52f
+    private val noGyroBiasLearnAlphaScale = 0.30f
+    private val noGyroBiasCompensationBase = 0.46f
+    private val noGyroBiasCompensationRange = 0.26f
+    private val noGyroLowGBoostMax = 1.22f
+    private val noGyroLowGBoostRangeG = 0.28f
+    private var noGyroDeadbandScaleRuntime = noGyroDeadbandScale
+    private var noGyroGScaleFloorRuntime = noGyroGScaleFloor
+    private var noGyroDisplayAlphaMinRuntime = noGyroDisplayAlphaMin
+    private var noGyroDisplayAlphaRangeRuntime = noGyroDisplayAlphaRange
+    private var noGyroGSmoothAlphaRuntime = noGyroGSmoothAlpha
+    private var noGyroBiasLearnAlphaScaleRuntime = noGyroBiasLearnAlphaScale
+    private var noGyroBiasCompensationBaseRuntime = noGyroBiasCompensationBase
+    private var noGyroBiasCompensationRangeRuntime = noGyroBiasCompensationRange
+    private var noGyroLowGBoostMaxRuntime = noGyroLowGBoostMax
+    private var noGyroLowGBoostRangeGRuntime = noGyroLowGBoostRangeG
+
+    private enum class CarGScaleMode(val prefValue: String, val maxG: Float) {
+        NORMAL("normal", 1.2f),
+        SPORT("sport", 2.0f),
+        RACE("race", 3.0f);
+
+        companion object {
+            fun fromPref(value: String?): CarGScaleMode {
+                return entries.firstOrNull { it.prefValue == value } ?: NORMAL
+            }
+        }
+    }
+
+    private var carGScaleMode: CarGScaleMode = CarGScaleMode.NORMAL
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         applySystemBarsPaddingToRoot()
@@ -373,7 +494,9 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 "Mismatched vehicle mode (track_intent=$trackIntentIsMotorcycle, profile=$profileIsMotorcycle); using profile mode"
             )
         }
+        carGScaleMode = loadCarGScaleMode()
         reloadLeanCalibrationForProfile(currentProfileId, forceResetRuntime = true)
+        reloadMotionCalibrationForProfile(currentProfileId)
         val isResumeSession = intent.getBooleanExtra("resume_session", false)
         val sessionId = intent.getStringExtra("session_id") ?: ""
         initializeViews()
@@ -435,6 +558,10 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         llMotoBody = findViewById(R.id.llMotoBody)
         carGForceLayout = findViewById(R.id.carGForceLayout)
         gGaugeTrackCar = findViewById(R.id.gGaugeTrackCar)
+        carGScaleControls = findViewById(R.id.carGScaleControls)
+        btnCarScaleNormal = findViewById(R.id.btnCarScaleNormal)
+        btnCarScaleSport = findViewById(R.id.btnCarScaleSport)
+        btnCarScaleRace = findViewById(R.id.btnCarScaleRace)
         tvCarLateralLeftValue = findViewById(R.id.tvCarLateralLeftValue)
         tvCarLateralRightValue = findViewById(R.id.tvCarLateralRightValue)
         tvCarBrakingValue = findViewById(R.id.tvCarBrakingValue)
@@ -453,18 +580,24 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         viewMotoTickBottom = findViewById(R.id.viewMotoTickBottom)
         viewMotoLongitudinalDot = findViewById(R.id.viewMotoLongitudinalDot)
         gGaugeTrack = findViewById(R.id.gGaugeTrack)
+        cardCenterTelemetry = findViewById(R.id.cardCenterTelemetry)
+        flCenterTelemetry = findViewById(R.id.flCenterTelemetry)
         speedGauge = findViewById(R.id.speedGauge)
         tvLapTime = findViewById(R.id.tvLapTime)
         llLapsContainer = findViewById(R.id.llLapsContainer)
         tvNoLaps = findViewById(R.id.tvNoLaps)
+        telemetryGapSpacer = findViewById(R.id.telemetryGapSpacer)
         btnStartStop = findViewById(R.id.btnStartStop)
         btnLap = findViewById(R.id.btnLap)
         btnTopLeanZero = findViewById(R.id.btnTopLeanZero)
+        tvTrackWeatherTemp = findViewById(R.id.tvTrackWeatherTemp)
+        tvTrackWeatherHumidity = findViewById(R.id.tvTrackWeatherHumidity)
         topTelemetryRow.visibility = View.VISIBLE
         cardPredictiveLap.visibility = View.VISIBLE
         cardTopLeanTelemetry.visibility = if (isMotorcycle) View.VISIBLE else View.GONE
         btnTopLeanZero.visibility = if (isMotorcycle) View.VISIBLE else View.GONE
         configureTelemetryProfileUi()
+        setupCarGScaleControls()
         // Keep one authoritative G-force surface from XML for all profiles.
         motoGForceContainer.visibility = View.VISIBLE
         speedGauge.visibility = View.GONE
@@ -476,6 +609,28 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         updateTopLeanTelemetry(0f)
         updateMotoGForceCard()
         updateLapSummaryCards()
+        updateTopRightWeatherHeader()
+    }
+
+    private fun updateTopRightWeatherHeader() {
+        val tempView = tvTrackWeatherTemp ?: return
+        val humidityView = tvTrackWeatherHumidity ?: return
+        val prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        val cachedTemp = prefs.getFloat("cached_temperature", Float.NaN)
+        val cachedHumidity = prefs.getInt("cached_humidity", -1)
+
+        tempView.text = if (!cachedTemp.isNaN()) {
+            "TEMP ${UnitsManager.formatTemperature(cachedTemp, this, decimals = 0)}"
+        } else {
+            val unit = UnitsManager.getTemperatureUnit(this)
+            "TEMP --${unit.symbol}"
+        }
+
+        humidityView.text = if (cachedHumidity in 0..100) {
+            "HUM ${cachedHumidity}%"
+        } else {
+            "HUM --%"
+        }
     }
 
     private fun configureTelemetryProfileUi() {
@@ -498,6 +653,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
 
         llMotoBody.visibility = if (showMotoBody) View.VISIBLE else View.GONE
         carGForceLayout.visibility = if (showCarBody) View.VISIBLE else View.GONE
+        carGScaleControls.visibility = if (showCarBody) View.VISIBLE else View.GONE
         llTopSpeedMotoBody.visibility = if (isMotorcycle) View.VISIBLE else View.GONE
         rlTopSpeedCarBody.visibility = if (isMotorcycle) View.GONE else View.VISIBLE
         llMotoTotalValue.visibility = if (showMotoBody) View.VISIBLE else View.GONE
@@ -509,6 +665,8 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         viewMotoTickMid.visibility = if (showMotoAxis) View.VISIBLE else View.GONE
         viewMotoTickBottom.visibility = if (showMotoAxis) View.VISIBLE else View.GONE
         viewMotoLongitudinalDot.visibility = if (showMotoAxis) View.VISIBLE else View.GONE
+        updateCenterTelemetrySizing()
+        updateTelemetryGapSpacer()
 
         if (isMotorcycle) {
             tvMotoGHeader.text = "G-FORCE - LONGITUDINAL"
@@ -525,6 +683,69 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             tvMotoMaxBrakingValue.setTextColor(Color.parseColor("#54B8FF"))
             tvMotoMaxAccelValue.setTextColor(Color.parseColor("#8CCBFF"))
         }
+    }
+
+    private fun updateTelemetryGapSpacer() {
+        val params = telemetryGapSpacer.layoutParams as? LinearLayout.LayoutParams ?: return
+        params.height = 0
+        params.weight = 0f
+        telemetryGapSpacer.layoutParams = params
+        telemetryGapSpacer.visibility = View.GONE
+    }
+
+    private fun updateCenterTelemetrySizing() {
+        val density = resources.displayMetrics.density
+        val frameMinHeight = if (isMotorcycle) 0 else (156f * density).roundToInt()
+        flCenterTelemetry.minimumHeight = frameMinHeight
+
+        val cardParams = cardCenterTelemetry.layoutParams as? LinearLayout.LayoutParams ?: return
+        cardParams.bottomMargin = if (isMotorcycle) (2f * density).roundToInt() else (8f * density).roundToInt()
+        cardCenterTelemetry.layoutParams = cardParams
+    }
+
+    private fun setupCarGScaleControls() {
+        btnCarScaleNormal.setOnClickListener { setCarGScaleMode(CarGScaleMode.NORMAL, persist = true) }
+        btnCarScaleSport.setOnClickListener { setCarGScaleMode(CarGScaleMode.SPORT, persist = true) }
+        btnCarScaleRace.setOnClickListener { setCarGScaleMode(CarGScaleMode.RACE, persist = true) }
+        setCarGScaleMode(carGScaleMode, persist = false)
+    }
+
+    private fun setCarGScaleMode(mode: CarGScaleMode, persist: Boolean) {
+        carGScaleMode = mode
+        gGaugeTrackCar.visualMaxG = mode.maxG
+        applyCarGScaleButtonState()
+        if (persist) {
+            getSharedPreferences(TRACK_UI_PREFS, MODE_PRIVATE)
+                .edit()
+                .putString(CAR_G_SCALE_PREF_KEY, mode.prefValue)
+                .apply()
+        }
+    }
+
+    private fun loadCarGScaleMode(): CarGScaleMode {
+        val prefValue = getSharedPreferences(TRACK_UI_PREFS, MODE_PRIVATE)
+            .getString(CAR_G_SCALE_PREF_KEY, CarGScaleMode.NORMAL.prefValue)
+        return CarGScaleMode.fromPref(prefValue)
+    }
+
+    private fun applyCarGScaleButtonState() {
+        setScaleButtonStyle(btnCarScaleNormal, carGScaleMode == CarGScaleMode.NORMAL)
+        setScaleButtonStyle(btnCarScaleSport, carGScaleMode == CarGScaleMode.SPORT)
+        setScaleButtonStyle(btnCarScaleRace, carGScaleMode == CarGScaleMode.RACE)
+    }
+
+    private fun setScaleButtonStyle(button: MaterialButton, selected: Boolean) {
+        val primaryOrange = ContextCompat.getColor(this, R.color.primary_color)
+        val darkSurface = ContextCompat.getColor(this, R.color.dark_surface)
+        val textLight = ContextCompat.getColor(this, R.color.white)
+
+        val background = if (selected) primaryOrange else darkSurface
+        val foreground = if (selected) textLight else primaryOrange
+
+        button.backgroundTintList = ColorStateList.valueOf(background)
+        button.strokeColor = ColorStateList.valueOf(primaryOrange)
+        button.strokeWidth = if (selected) 0 else 2
+        button.setTextColor(foreground)
     }
 
     private fun updateLapSummaryCards(currentLapElapsedMs: Long? = null) {
@@ -562,6 +783,11 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         return String.format(Locale.US, "%d:%02d.%03d", minutes, seconds, millis)
     }
 
+    private fun resolveMotoAxisMaxG(): Float {
+        val dynamic = max(maxBraking, maxAcceleration)
+        return dynamic.coerceIn(0.9f, maxDisplayG)
+    }
+
     private fun updateMotoGForceCard() {
         val brakingG = max(0f, currentLongitudinalG)
         val accelG = max(0f, -currentLongitudinalG)
@@ -571,7 +797,6 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
 
         if (isMotorcycle) {
             val totalLongitudinal = maxBraking + maxAcceleration
-            val dynamicAxisMaxG = resolveDynamicMotoLongitudinalAxisMaxG()
 
             tvMotoBrakingValue.text = String.format(Locale.US, "%.1f", brakingG)
             tvMotoAccelValue.text = String.format(Locale.US, "%.1f", accelG)
@@ -583,16 +808,21 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             pbMotoAccel.progress = (accelG * 100f).roundToInt().coerceIn(0, pbMotoAccel.max)
 
             val dotColor = if (currentLongitudinalG >= 0f) {
-                ContextCompat.getColor(this, R.color.accent_red)
+                Color.parseColor("#EB3E23")
             } else {
-                ContextCompat.getColor(this, R.color.track_neon_green)
+                Color.parseColor("#00E985")
             }
             viewMotoLongitudinalDot.backgroundTintList = ColorStateList.valueOf(dotColor)
 
+            val axisMaxG = resolveMotoAxisMaxG()
+            val normalized = (currentLongitudinalG / axisMaxG).coerceIn(-1f, 1f)
             rlMotoAxis.post {
-                val travel = ((rlMotoAxis.height - viewMotoLongitudinalDot.height) / 2f).coerceAtLeast(0f)
-                val normalized = (currentLongitudinalG / dynamicAxisMaxG).coerceIn(-1f, 1f)
-                viewMotoLongitudinalDot.translationY = -normalized * travel
+                val axisHeight = viewMotoAxisLine.height
+                val dotHeight = viewMotoLongitudinalDot.height
+                if (axisHeight > 0 && dotHeight > 0) {
+                    val halfTravel = ((axisHeight - dotHeight) / 2f).coerceAtLeast(1f)
+                    viewMotoLongitudinalDot.translationY = -normalized * halfTravel
+                }
             }
             return
         }
@@ -613,12 +843,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
 
         gGaugeTrackCar.gForceX = currentLateralG
         gGaugeTrackCar.gForceY = currentLongitudinalG
-    }
-
-    private fun resolveDynamicMotoLongitudinalAxisMaxG(): Float {
-        val longPeak = max(maxBraking, maxAcceleration)
-        val liveLong = abs(currentLongitudinalG)
-        return max(longPeak, liveLong).coerceIn(minMotoLongAxisMaxG, maxMotoLongAxisMaxG)
+        gGaugeTrackCar.peakGForce = maxCarResultG
     }
 
     private fun updateTopSpeedTelemetry(currentSpeedKmh: Float? = null) {
@@ -645,11 +870,16 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         if (!isMotorcycle) return
 
         val targetLean = if (abs(leanAngle) < leanDisplayDeadbandDeg) 0f else leanAngle
+        val leanSmoothingAlpha = if (gyroscope != null && hasSmartMotionCalibration) {
+            if (forceNoGyroLeanLogicOnGyro) leanDisplaySmoothingAlpha else leanDisplaySmoothingAlphaGyro
+        } else {
+            leanDisplaySmoothingAlpha
+        }
         if (!hasDisplayLeanAngle) {
             displayLeanAngle = targetLean
             hasDisplayLeanAngle = true
         } else {
-            displayLeanAngle += leanDisplaySmoothingAlpha * (targetLean - displayLeanAngle)
+            displayLeanAngle += leanSmoothingAlpha * (targetLean - displayLeanAngle)
         }
         if (targetLean == 0f && abs(displayLeanAngle) < leanDisplaySnapToZeroDeg) {
             displayLeanAngle = 0f
@@ -680,6 +910,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         leanCalibrationSnapshot = LeanCalibrationStore.loadSnapshot(this, profileId)
         if (forceResetRuntime || profileChanged) {
             runtimeLeanOffsetDeg = 0f
+            resetLeanAutoZeroState()
         }
         lastLeanOrientationLandscape = null
         updateProfileLeanOffsetForOrientation(
@@ -687,17 +918,149 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         )
     }
 
+    private fun reloadMotionCalibrationForProfile(profileId: Long) {
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val hasOrientationCalibration = DragCalibration.activateOrientationRuntime(isLandscape)
+        val snapshot = MotionCalibrationStore.loadSnapshot(this, profileId, isLandscape)
+        hasSmartMotionCalibration = snapshot.calibrated && hasOrientationCalibration
+        val hasSmartUniversalCalibration = hasSmartMotionCalibration
+        hasGyroBiasCompensation = hasSmartUniversalCalibration && snapshot.hasGyroBias && gyroscope != null
+        if (hasGyroBiasCompensation) {
+            gyroBiasRad[0] = snapshot.gyroBiasX
+            gyroBiasRad[1] = snapshot.gyroBiasY
+            gyroBiasRad[2] = snapshot.gyroBiasZ
+        } else {
+            gyroBiasRad[0] = 0f
+            gyroBiasRad[1] = 0f
+            gyroBiasRad[2] = 0f
+        }
+
+        applyNoGyroRuntimeTuning(snapshot)
+
+        // Compute calibrated gravity magnitude for no-gyro gravity freeze
+        if (gyroscope == null && DragCalibration.isUniversalCalibrated) {
+            val gv = DragCalibration.gravityVector
+            val gMag = sqrt(gv[0] * gv[0] + gv[1] * gv[1] + gv[2] * gv[2])
+            if (gMag in 8.0f..11.0f) noGyroCalGravityMag = gMag
+            noGyroFreezeThreshold = (DragCalibration.maxVibrationBaseline * 1.4f + 0.15f)
+                .coerceIn(0.30f, 1.0f)
+        }
+    }
+
+    private fun applyNoGyroRuntimeTuning(snapshot: MotionCalibrationStore.Snapshot) {
+        // Keep defaults when calibration quality is low or unavailable.
+        if (!snapshot.calibrated) {
+            noGyroDeadbandScaleRuntime = noGyroDeadbandScale
+            noGyroGScaleFloorRuntime = noGyroGScaleFloor
+            noGyroDisplayAlphaMinRuntime = noGyroDisplayAlphaMin
+            noGyroDisplayAlphaRangeRuntime = noGyroDisplayAlphaRange
+            noGyroGSmoothAlphaRuntime = noGyroGSmoothAlpha
+            noGyroBiasLearnAlphaScaleRuntime = noGyroBiasLearnAlphaScale
+            noGyroBiasCompensationBaseRuntime = noGyroBiasCompensationBase
+            noGyroBiasCompensationRangeRuntime = noGyroBiasCompensationRange
+            noGyroLowGBoostMaxRuntime = noGyroLowGBoostMax
+            noGyroLowGBoostRangeGRuntime = noGyroLowGBoostRangeG
+            return
+        }
+
+        val quality = snapshot.qualityScore.coerceIn(0f, 1f)
+        val stillScore = (snapshot.stillSamples / 220f).coerceIn(0f, 1f)
+        val forwardScore = (snapshot.forwardSamples / 20f).coerceIn(0f, 1f)
+        val sampleScore = (0.6f * stillScore + 0.4f * forwardScore).coerceIn(0f, 1f)
+
+        val noiseFloor = max(
+            snapshot.stillVibrationMag,
+            max(snapshot.forwardNoiseFloor, snapshot.stillLinearAvg)
+        )
+        val noiseScore = (1f - (noiseFloor / 0.28f)).coerceIn(0f, 1f)
+
+        val responsiveness = (
+            0.45f * quality +
+                0.35f * sampleScore +
+                0.20f * noiseScore
+            ).coerceIn(0f, 1f)
+
+        // Higher responsiveness -> lower deadband and snappier display response.
+        noGyroDeadbandScaleRuntime = (0.66f - 0.30f * responsiveness).coerceIn(0.34f, 0.66f)
+        noGyroGScaleFloorRuntime = (0.82f + 0.14f * responsiveness).coerceIn(0.82f, 0.96f)
+        noGyroDisplayAlphaMinRuntime = (0.44f + 0.20f * responsiveness).coerceIn(0.44f, 0.68f)
+        noGyroDisplayAlphaRangeRuntime = (0.30f + 0.22f * responsiveness).coerceIn(0.30f, 0.54f)
+        noGyroGSmoothAlphaRuntime = (0.52f + 0.24f * responsiveness).coerceIn(0.52f, 0.78f)
+        noGyroBiasLearnAlphaScaleRuntime = (0.16f + 0.14f * responsiveness).coerceIn(0.16f, 0.30f)
+        noGyroBiasCompensationBaseRuntime = (0.32f + 0.12f * responsiveness).coerceIn(0.32f, 0.50f)
+        noGyroBiasCompensationRangeRuntime = (0.14f + 0.12f * responsiveness).coerceIn(0.14f, 0.30f)
+        noGyroLowGBoostMaxRuntime = (1.18f + 0.14f * responsiveness).coerceIn(1.18f, 1.34f)
+        noGyroLowGBoostRangeGRuntime = (0.24f + 0.06f * responsiveness).coerceIn(0.24f, 0.34f)
+    }
+
     private fun updateProfileLeanOffsetForOrientation(isLandscape: Boolean) {
-        val (hasOffset, resolvedOffset) = LeanCalibrationStore.resolveOffset(leanCalibrationSnapshot, isLandscape)
-        hasProfileLeanOffset = hasOffset
-        profileLeanOffsetDeg = if (hasOffset) resolvedOffset else 0f
+        val baseline = DragCalibration.getBaselineForOrientation(isLandscape)
+        hasProfileLeanOffset = baseline != null
+        profileLeanOffsetDeg = if (baseline != null) {
+            computeLeanOffsetDegFromBaseline(baseline, isLandscape)
+        } else {
+            0f
+        }
         offsetAngle = profileLeanOffsetDeg + runtimeLeanOffsetDeg
+    }
+
+    private fun computeLeanOffsetDegFromBaseline(baseline: FloatArray, isLandscape: Boolean): Float {
+        val mag = sqrt(
+            baseline[0] * baseline[0] +
+                baseline[1] * baseline[1] +
+                baseline[2] * baseline[2]
+        ).coerceAtLeast(0.0001f)
+
+        // Ако използваме advanced fusion с rightVector, изчисляваме offset по СЪЩИЯ начин
+        val useAdvancedLeanFusion =
+            gyroscope != null &&
+                DragCalibration.isUniversalCalibrated &&
+                hasSmartMotionCalibration &&
+                !forceNoGyroLeanLogicOnGyro
+        
+        if (useAdvancedLeanFusion) {
+            // Проекция на baseline върху rightVector (същата логика като за текущия lean)
+            val rv = DragCalibration.rightVector
+            val baselineRightComponent = (baseline[0] * rv[0] + baseline[1] * rv[1] + baseline[2] * rv[2]) / mag
+            return (Math.toDegrees(asin(baselineRightComponent.coerceIn(-1f, 1f).toDouble()))).toFloat()
+                .coerceIn(-89f, 89f)
+        }
+
+        // Старата логика за fallback (без advanced fusion)
+        val leanSign = resolveLeanDirectionSign(isLandscape)
+        val normalizedComponent = if (isLandscape) {
+            (leanSign * baseline[1]) / mag
+        } else {
+            baseline[0] / mag
+        }
+
+        return (-Math.toDegrees(asin(normalizedComponent.coerceIn(-1f, 1f).toDouble()))).toFloat()
+            .coerceIn(-89f, 89f)
+    }
+
+    private fun resolveLeanDirectionSign(isLandscape: Boolean): Float {
+        if (!isLandscape) return 1f
+        return when (resolveDisplayRotation()) {
+            Surface.ROTATION_90 -> -1f
+            Surface.ROTATION_270 -> 1f
+            else -> 1f
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun resolveDisplayRotation(): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display?.rotation ?: windowManager.defaultDisplay.rotation
+        } else {
+            windowManager.defaultDisplay.rotation
+        }
     }
 
     private fun calibrateLeanZero() {
         if (!isMotorcycle) return
         runtimeLeanOffsetDeg = filteredAngle - profileLeanOffsetDeg
         offsetAngle = profileLeanOffsetDeg + runtimeLeanOffsetDeg
+        resetLeanAutoZeroState()
         currentCalibratedLean = 0f
         displayLeanAngle = 0f
         hasDisplayLeanAngle = false
@@ -706,6 +1069,49 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         maxLeanRightAngle = 0f
         speedGauge.setLeanAngle(0f)
         updateTopLeanTelemetry(0f)
+    }
+
+    private fun resetLeanAutoZeroState() {
+        leanAutoZeroPending = false
+        leanAutoZeroAccumDeg = 0f
+        leanAutoZeroSampleCount = 0
+    }
+
+    private fun beginLeanAutoZeroWindow() {
+        if (!isMotorcycle) return
+        leanAutoZeroPending = true
+        leanAutoZeroAccumDeg = 0f
+        leanAutoZeroSampleCount = 0
+    }
+
+    private fun updateLeanAutoZero(
+        accelReferenceTilt: Float,
+        worldLinearMagMs2: Float,
+        rollRateDegPerSec: Float,
+        candidateRuntimeOffsetDeg: Float
+    ) {
+        if (!leanAutoZeroPending || !isMotorcycle) return
+
+        val stableTilt = abs(accelReferenceTilt) <= leanAutoZeroMaxAbsTiltDeg
+        val stableRollRate = abs(rollRateDegPerSec) <= leanAutoZeroMaxRollRateDegPerSec
+        val stableLinear = worldLinearMagMs2 <= leanAutoZeroMaxWorldLinearAccMs2
+
+        if (!(stableTilt && stableRollRate && stableLinear)) {
+            if (leanAutoZeroSampleCount > 0) {
+                leanAutoZeroSampleCount = (leanAutoZeroSampleCount - 1).coerceAtLeast(0)
+                leanAutoZeroAccumDeg *= 0.85f
+            }
+            return
+        }
+
+        leanAutoZeroAccumDeg += candidateRuntimeOffsetDeg
+        leanAutoZeroSampleCount += 1
+
+        if (leanAutoZeroSampleCount >= leanAutoZeroRequiredSamples) {
+            runtimeLeanOffsetDeg = leanAutoZeroAccumDeg / leanAutoZeroSampleCount
+            offsetAngle = profileLeanOffsetDeg + runtimeLeanOffsetDeg
+            resetLeanAutoZeroState()
+        }
     }
 
     private fun updateCurrentLapBadge(lapNumber: Int) {
@@ -753,6 +1159,10 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         progressRouteLengthMeters = 0f
         currentProjectedRouteDistanceMeters = Float.NaN
         projectedRouteDistanceAtLapStartMeters = Float.NaN
+        smoothedLapProgress = 0f
+        lastProjectedSegmentIndex = 0
+        lastProjectedAlongMeters = Float.NaN
+        lastLapProgressUpdateNs = 0L
 
         if (points.size < 2) return
 
@@ -786,7 +1196,8 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     }
 
     private fun projectLocationToRouteDistance(location: Location): Float {
-        if (progressRoutePoints.size < 2 || progressRouteCumulativeMeters.size != progressRoutePoints.size) {
+        val nSeg = progressRoutePoints.size - 1
+        if (nSeg < 1 || progressRouteCumulativeMeters.size != progressRoutePoints.size) {
             return Float.NaN
         }
 
@@ -798,15 +1209,49 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         fun toLocalX(lon: Double): Double = (lon - origin.longitude) * metersPerDegLon
         fun toLocalY(lat: Double): Double = (lat - origin.latitude) * metersPerDegLat
 
+        fun normalizeBearingDiffDeg(a: Float, b: Float): Float {
+            var diff = abs(a - b) % 360f
+            if (diff > 180f) diff = 360f - diff
+            return diff
+        }
+
+        fun circularAlongDeltaMeters(a: Float, b: Float, length: Float): Float {
+            val d1 = abs(a - b)
+            val d2 = abs((a + length) - b)
+            val d3 = abs((a - length) - b)
+            return min(d1, min(d2, d3))
+        }
+
         val px = toLocalX(location.longitude)
         val py = toLocalY(location.latitude)
 
-        var bestDistanceSq = Double.POSITIVE_INFINITY
-        var bestAlong = Float.NaN
+        val isCircuit = currentTrackMode == TrackMode.CIRCUIT
+        val speedMs = location.speed.coerceAtLeast(0f)
+        val hasHeading = location.hasBearing() && speedMs > 8f
+        val bearingDeg = location.bearing
 
-        for (index in 0 until progressRoutePoints.lastIndex) {
-            val a = progressRoutePoints[index]
-            val b = progressRoutePoints[index + 1]
+        val avgSegLen = (progressRouteLengthMeters / nSeg.toFloat()).coerceAtLeast(1f)
+        val lookAheadMeters = (70f + speedMs * 1.8f).coerceIn(70f, 220f)
+        val lookBackMeters = 55f
+        val lookAheadMin = min(20, nSeg).coerceAtLeast(1)
+        val lookBackMin = min(10, nSeg).coerceAtLeast(1)
+        val lookAhead = ((lookAheadMeters / avgSegLen).toInt()).coerceIn(lookAheadMin, nSeg)
+        val lookBack = ((lookBackMeters / avgSegLen).toInt()).coerceIn(lookBackMin, nSeg)
+
+        if (lastProjectedSegmentIndex < 0 || lastProjectedSegmentIndex >= nSeg) {
+            lastProjectedSegmentIndex = 0
+        }
+
+        var bestScore = Double.POSITIVE_INFINITY
+        var bestDistSq = Double.POSITIVE_INFINITY
+        var bestAlong = Float.NaN
+        var bestSegIdx = lastProjectedSegmentIndex
+
+        fun evaluateSegment(index: Int) {
+            val i = if (isCircuit) ((index % nSeg) + nSeg) % nSeg else index
+            if (i < 0 || i >= nSeg) return
+            val a = progressRoutePoints[i]
+            val b = progressRoutePoints[i + 1]
 
             val ax = toLocalX(a.longitude)
             val ay = toLocalY(a.latitude)
@@ -815,23 +1260,60 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
 
             val dx = bx - ax
             val dy = by - ay
-            val segmentLenSq = dx * dx + dy * dy
-            if (segmentLenSq <= 1e-6) continue
+            val segLenSq = dx * dx + dy * dy
+            if (segLenSq <= 1e-6) return
 
-            val tRaw = ((px - ax) * dx + (py - ay) * dy) / segmentLenSq
-            val t = tRaw.coerceIn(0.0, 1.0)
-
+            val t = (((px - ax) * dx + (py - ay) * dy) / segLenSq).coerceIn(0.0, 1.0)
             val projX = ax + t * dx
             val projY = ay + t * dy
-            val distSq = (px - projX) * (px - projX) + (py - projY) * (py - projY)
+            val dSq = (px - projX) * (px - projX) + (py - projY) * (py - projY)
+            val segLen = kotlin.math.sqrt(segLenSq).toFloat()
+            val along = progressRouteCumulativeMeters[i] + (t.toFloat() * segLen)
 
-            if (distSq < bestDistanceSq) {
-                bestDistanceSq = distSq
-                val segLen = kotlin.math.sqrt(segmentLenSq).toFloat()
-                bestAlong = progressRouteCumulativeMeters[index] + (t.toFloat() * segLen)
+            var score = dSq
+
+            if (hasHeading) {
+                val segBearing = Math.toDegrees(atan2(dx, dy)).toFloat().let { if (it < 0f) it + 360f else it }
+                val headingDiff = normalizeBearingDiffDeg(bearingDeg, segBearing)
+                val headingPenaltyMeters = (headingDiff / 90f) * 28f
+                score += headingPenaltyMeters * headingPenaltyMeters
+            }
+
+            if (lastProjectedAlongMeters.isFinite()) {
+                val deltaMeters = if (isCircuit && progressRouteLengthMeters > 50f) {
+                    circularAlongDeltaMeters(along, lastProjectedAlongMeters, progressRouteLengthMeters)
+                } else {
+                    abs(along - lastProjectedAlongMeters)
+                }
+                val freeDelta = 28f + speedMs * 1.5f
+                val excess = (deltaMeters - freeDelta).coerceAtLeast(0f)
+                score += excess * excess
+            }
+
+            if (score < bestScore) {
+                bestScore = score
+                bestDistSq = dSq
+                bestAlong = along
+                bestSegIdx = i
             }
         }
 
+        // Search local window around last known segment
+        for (offset in -lookBack..lookAhead) {
+            evaluateSegment(lastProjectedSegmentIndex + offset)
+        }
+
+        // If local match is poor (>60m), fall back to global search
+        if (bestDistSq > 3600.0) {
+            for (i in 0 until nSeg) {
+                evaluateSegment(i)
+            }
+        }
+
+        lastProjectedSegmentIndex = bestSegIdx
+        if (bestAlong.isFinite()) {
+            lastProjectedAlongMeters = bestAlong
+        }
         return bestAlong
     }
 
@@ -843,6 +1325,9 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             projectedRouteDistanceAtLapStartMeters.isNaN()
         ) {
             projectedRouteDistanceAtLapStartMeters = currentProjectedRouteDistanceMeters
+            if (currentProjectedRouteDistanceMeters.isFinite()) {
+                lastProjectedAlongMeters = currentProjectedRouteDistanceMeters
+            }
         }
     }
 
@@ -879,28 +1364,70 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
 
     private fun resolveLapDistanceTargetMeters(): Float {
         return when {
-            bestLapDistance > 100f -> bestLapDistance
             trackLengthMeters > 100f -> trackLengthMeters
+            progressRouteLengthMeters > 100f -> progressRouteLengthMeters
+            bestLapDistance > 100f -> bestLapDistance
             else -> 0f
         }
     }
 
     private fun updateLapDistanceProgress(forcedProgress: Float? = null) {
-        val progress01 = forcedProgress?.coerceIn(0f, 1f) ?: run {
+        val nowNs = SystemClock.elapsedRealtimeNanos()
+        val rawTarget = forcedProgress?.coerceIn(0f, 1f) ?: run {
             if (!isRecording || awaitingStart || lapStartTime <= 0L) {
                 0f
             } else {
-                resolveProjectedLapProgress() ?: run {
-                    val targetDistance = resolveLapDistanceTargetMeters()
-                    if (targetDistance <= 0f || lapDistanceAccum <= 0f) {
-                        0f
-                    } else {
-                        (lapDistanceAccum / targetDistance).coerceIn(0f, 0.998f)
-                    }
+                val targetDistance = resolveLapDistanceTargetMeters()
+                val progressDistance = if (currentTrackMode == TrackMode.POINT_TO_POINT) {
+                    resolveProjectedLapProgress()?.let { projected ->
+                        (projected * targetDistance).coerceAtLeast(lapDistanceAccum)
+                    } ?: lapDistanceAccum
+                } else {
+                    lapDistanceAccum
+                }
+                if (targetDistance <= 0f || progressDistance <= 0f) {
+                    0f
+                } else {
+                    (progressDistance / targetDistance).coerceIn(0f, 0.998f)
                 }
             }
         }
-        progressLapDistance.progress = (progress01 * lapProgressMax).toInt()
+
+        if (forcedProgress != null) {
+            // Forced resets (0f on new lap, 1f on finish) — snap immediately
+            smoothedLapProgress = rawTarget
+        } else {
+            val dtSec = if (lastLapProgressUpdateNs > 0L) {
+                ((nowNs - lastLapProgressUpdateNs) / 1_000_000_000.0).toFloat().coerceIn(0.05f, 1.2f)
+            } else {
+                0.10f
+            }
+            val speedMs = (lastLocation?.speed ?: 0f).coerceAtLeast(0f)
+            val referenceMeters = when {
+                currentTrackMode == TrackMode.CIRCUIT && progressRouteLengthMeters > 100f -> progressRouteLengthMeters
+                resolveLapDistanceTargetMeters() > 100f -> resolveLapDistanceTargetMeters()
+                progressRouteLengthMeters > 100f -> progressRouteLengthMeters
+                else -> 1000f
+            }
+
+            val maxForwardMeters = max(4f, speedMs * dtSec * 1.9f + 10f)
+            val maxForwardStep = (maxForwardMeters / referenceMeters).coerceIn(0.004f, 0.20f)
+            val cappedTarget = rawTarget
+                .coerceAtMost(smoothedLapProgress + maxForwardStep)
+                .coerceAtLeast(smoothedLapProgress)
+
+            val jump = cappedTarget - smoothedLapProgress
+            val alpha = when {
+                jump > 0.06f -> 0.72f
+                jump > 0.02f -> 0.58f
+                else -> 0.42f
+            }
+            smoothedLapProgress += alpha * jump
+        }
+
+        lastLapProgressUpdateNs = nowNs
+
+        progressLapDistance.progress = (smoothedLapProgress * lapProgressMax).toInt()
     }
 
     private fun updateDistanceToLapLine(location: Location) {
@@ -962,6 +1489,11 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         customTrackV2: com.example.clinometer.tracking.CustomTrackDefinitionV2,
         mode: TrackMode
     ): Float {
+        val measuredDistance = customTrackV2.measuredDistanceMeters
+        if (measuredDistance != null && measuredDistance > 50f) {
+            return measuredDistance
+        }
+
         val route = buildCustomRoutePoints(customTrackV2, mode)
 
         val routeDistance = calculatePathDistanceMeters(route, closeLoop = false)
@@ -972,6 +1504,31 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         return calculatePathDistanceMeters(
             customTrackV2.referencePath,
             closeLoop = mode == TrackMode.CIRCUIT
+        )
+    }
+
+    private fun maybePersistCustomMeasuredDistance(measuredMeters: Float) {
+        if (!trackId.startsWith("custom_")) return
+        if (!measuredMeters.isFinite() || measuredMeters < 100f) return
+
+        val customTrack = com.example.clinometer.tracking.CustomTrackStorage.loadCustomTrackV2(this, trackId)
+            ?: return
+        val existing = customTrack.measuredDistanceMeters
+        val shouldPersist = when {
+            existing == null -> true
+            existing < 100f -> true
+            else -> kotlin.math.abs(existing - measuredMeters) / existing > 0.08f
+        }
+        if (!shouldPersist) return
+
+        com.example.clinometer.tracking.CustomTrackStorage.saveCustomTrackV2(
+            this,
+            customTrack.copy(measuredDistanceMeters = measuredMeters)
+        )
+        setTrackLengthMeters(measuredMeters)
+        android.util.Log.d(
+            "TrackSessionActivity",
+            "Updated custom measured distance for $trackId: ${existing ?: -1f}m -> ${measuredMeters}m"
         )
     }
 
@@ -1199,6 +1756,9 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private fun setupSensors() {
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         linearAccelSensor = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
+        gravitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
+        geomagneticRotationVector = sensorManager.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)
+        magnetometer = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
         preferLinearAccel = linearAccelSensor != null
         // ВИНАГИ получаваме ACCELEROMETER сензора (за g-сили), дори когато има TYPE_LINEAR_ACCELERATION
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
@@ -1216,10 +1776,15 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             Log.i("TrackSession", "Gyroscope available - advanced lean fusion enabled when calibration exists")
         }
         
-        // Регистрираме ACCELEROMETER сензора ВИНАГИ (не само когато записваме)
-        // за да може g-силите да се обновяват винаги (както в drag сесиите)
+        // Keep motion sensors active while screen is open so lean feels immediate
+        // before/after recording too.
         accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         linearAccelSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        rotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        geomagneticRotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        gravitySensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        magnetometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
     }
     
     private fun setupLocation() {
@@ -1239,6 +1804,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         trackPoints.clear()
         trackPointTypes.clear()
         startFinishLineIndices.clear()
+        trackLengthMeters = 0f
         progressRoutePoints.clear()
         progressRouteCumulativeMeters.clear()
         progressRouteLengthMeters = 0f
@@ -1275,6 +1841,9 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 else -> emptyList()
             }
             rebuildProgressRoute(officialRoutePoints, closeLoop = currentTrackMode == TrackMode.CIRCUIT)
+            if (trackLengthMeters <= 50f && progressRouteLengthMeters > 50f) {
+                trackLengthMeters = progressRouteLengthMeters
+            }
 
             val startFinishGate = trackDefinition?.startFinishGate
             val startGate = trackDefinition?.startGate
@@ -1352,6 +1921,9 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 setTrackLengthMeters(
                     calculateCustomTrackLengthMeters(customTrackV2, currentTrackMode)
                 )
+                if (trackLengthMeters <= 50f && progressRouteLengthMeters > 50f) {
+                    trackLengthMeters = progressRouteLengthMeters
+                }
 
                 when (currentTrackMode) {
                     TrackMode.CIRCUIT -> {
@@ -1517,12 +2089,16 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         }
 
         isRecording = true
+        acquireTrackWakeLock()
         sessionStartTime = System.currentTimeMillis()
         btnStartStop.text = getString(R.string.track_button_stop)
         btnStartStop.setBackgroundColor(ContextCompat.getColor(this, R.color.red))
         linearAccelSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         // ACCELEROMETER вече е регистриран в setupSensors() (винаги активен за g-сили)
         rotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        geomagneticRotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        gravitySensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        magnetometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         handler.post(updateRunnable)
         currentLap = 0
@@ -1571,16 +2147,33 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         smoothedConfidence = 1f
         forwardBiasG = 0f
         lateralBiasG = 0f
+        longSignMultiplier = 1f
+        longSignMismatchStreak = 0
         displayLY = 0f
         displayLX = 0f
         forwardGSmooth = 0f
         lateralGSmooth = 0f
+        dragCompatGravity[0] = 0f
+        dragCompatGravity[1] = 0f
+        dragCompatGravity[2] = 0f
+        noGyroGpsLongStatsSmooth = 0f
+        noGyroLeanLatGSmooth = 0f
         latestRollRateDegPerSec = 0f
         gyroIntegratedLeanDeg = 0f
         hasGyroIntegratedLean = false
         leanGyroIntegrationTimestampNs = 0L
+        lastMadgwickUpdateNs = 0L
+        latestGyroForMadgwick[0] = 0f
+        latestGyroForMadgwick[1] = 0f
+        latestGyroForMadgwick[2] = 0f
+        madgwick.reset()
         filteredAngle = 0f
+        runtimeLeanOffsetDeg = 0f
         offsetAngle = profileLeanOffsetDeg + runtimeLeanOffsetDeg
+        beginLeanAutoZeroWindow()
+        startForwardFilteredMs2 = 0f
+        startLateralFilteredMs2 = 0f
+        startDirectionGoodSamples = 0
         currentLongitudinalG = 0f
         currentLateralG = 0f
         applyPredictiveGapSourceUi()
@@ -1603,6 +2196,8 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     }
     private fun stopRecording() {
         isRecording = false
+        resetLeanAutoZeroState()
+        releaseTrackWakeLock()
         sessionEndTime = System.currentTimeMillis()
         updateLapDistanceProgress(0f)
         
@@ -1612,8 +2207,6 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         btnStartStop.text = getString(R.string.track_button_start)
         btnStartStop.setBackgroundColor(ContextCompat.getColor(this, R.color.green))
         // Не премахваме ACCELEROMETER сензора, защото се нуждаем от него за g-сили
-        rotationVector?.let { sensorManager.unregisterListener(this, it) }
-        gyroscope?.let { sensorManager.unregisterListener(this, it) }
         handler.removeCallbacks(updateRunnable)
         locationManager.removeUpdates(this)
         updateLapSummaryCards()
@@ -1621,6 +2214,8 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     }
     private fun stopRecordingWithoutSaving() {
         isRecording = false
+        resetLeanAutoZeroState()
+        releaseTrackWakeLock()
         sessionEndTime = System.currentTimeMillis()
         updateLapDistanceProgress(0f)
         
@@ -1630,8 +2225,6 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         btnStartStop.text = getString(R.string.track_button_start)
         btnStartStop.setBackgroundColor(ContextCompat.getColor(this, R.color.green))
         // Не премахваме ACCELEROMETER сензора, защото се нуждаем от него за g-сили
-        rotationVector?.let { sensorManager.unregisterListener(this, it) }
-        gyroscope?.let { sensorManager.unregisterListener(this, it) }
         handler.removeCallbacks(updateRunnable)
         locationManager.removeUpdates(this)
         clearActiveSession()
@@ -1676,6 +2269,13 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 bestLapDistance = sectorDistances.sum()
                 applyPredictiveGapSourceUi()
             }
+
+            // Learn real lap distance from first valid custom lap and persist for next sessions.
+            val completedLapDistanceMeters = lapDistanceAccum
+            if (currentLap == 1 && currentTrackMode == TrackMode.CIRCUIT) {
+                maybePersistCustomMeasuredDistance(completedLapDistanceMeters)
+            }
+
             addLapToUI(currentLap, lapTimeFormatted, isNewBest)
             updateLapSummaryCards(0L)
             lapStartTime = System.currentTimeMillis()
@@ -1686,6 +2286,9 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             lapDistanceAccum = 0f
             sectorDistanceAccum = 0f
             projectedRouteDistanceAtLapStartMeters = currentProjectedRouteDistanceMeters
+            if (currentProjectedRouteDistanceMeters.isFinite()) {
+                lastProjectedAlongMeters = currentProjectedRouteDistanceMeters
+            }
             resetPredictiveEstimatorState(clearGauge = true)
             speedGauge.unlockPredictiveColor()
             
@@ -1786,7 +2389,8 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
 
         val gyroStability = (1f - ((lastGyroMagnitude - 2.5f) / 5.5f)).coerceIn(0f, 1f)
         val speedMs = lastLocation?.speed ?: 0f
-        val speedScore = if (speedMs > 5f) 1f else if (speedMs > 1.5f) 0.85f else 0.7f
+        // Keep confidence from collapsing at low speed; low-speed driving still needs stable G output.
+        val speedScore = if (speedMs > 5f) 1f else if (speedMs > 1.5f) 0.95f else 0.90f
 
         val weighted = 0.28f * gravityScore +
             0.20f * accelFreshness +
@@ -1822,10 +2426,39 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         maxCorneringRightG = updatePeakDetector(corneringRightPeakDetector, corneringRightSample, nowMs)
     }
 
+    private fun updateNoGyroSessionStatistics(liveLatG: Float) {
+        if (!isRecording || awaitingStart || lapStartTime <= 0L) return
+
+        val nowMs = SystemClock.elapsedRealtime()
+
+        // Left/right maxima follow the same live lateral signal used by the UI.
+        statsFilteredLatG = statsFilterAlpha * liveLatG + (1f - statsFilterAlpha) * statsFilteredLatG
+        val lateral = applyStatsDeadband(statsFilteredLatG)
+        val corneringLeftSample = max(0f, lateral)
+        val corneringRightSample = max(0f, -lateral)
+        maxCorneringLeftG = updatePeakDetector(corneringLeftPeakDetector, corneringLeftSample, nowMs)
+        maxCorneringRightG = updatePeakDetector(corneringRightPeakDetector, corneringRightSample, nowMs)
+
+        // Accel/braking maxima are GPS-only for no-gyro car profiles.
+        if (!hasGpsGForce) return
+        noGyroGpsLongStatsSmooth = 0.22f * gpsLongG + 0.78f * noGyroGpsLongStatsSmooth
+        val longitudinal = applyStatsDeadband(noGyroGpsLongStatsSmooth)
+        val accelerationSample = max(0f, -longitudinal)
+        val brakingSample = max(0f, longitudinal)
+        maxAcceleration = updatePeakDetector(accelerationPeakDetector, accelerationSample, nowMs)
+        maxBraking = updatePeakDetector(brakingPeakDetector, brakingSample, nowMs)
+    }
+
     private fun updateInertialForcesFromLinearAcceleration(deviceLinearAccel: FloatArray) {
-        val isCalibrated = DragCalibration.isUniversalCalibrated
+        val isCalibrated = DragCalibration.isUniversalCalibrated && hasSmartMotionCalibration
+        val hasGyroSensor = gyroscope != null
         val nowNs = SystemClock.elapsedRealtimeNanos()
         val confidence = computeSampleConfidence(nowNs)
+        val confidenceForFiltering = if (hasGyroSensor) {
+            confidence.coerceAtLeast(0.72f)
+        } else {
+            confidence.coerceAtLeast(0.58f)
+        }
         val speedMs = lastLocation?.speed ?: 0f
 
         val calibratedLatG: Float
@@ -1840,6 +2473,58 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         } else {
             calibratedLatG = deviceLinearAccel[0] / 9.81f
             calibratedLongG = deviceLinearAccel[1] / 9.81f
+        }
+
+        if (!hasGyroSensor) {
+            // Track no-gyro UI: use the exact Drag-style G-force pipeline.
+            val rawX = latestRawAccel[0]
+            val rawY = latestRawAccel[1]
+            val rawZ = latestRawAccel[2]
+
+            var uiRawLatG: Float
+            var uiRawLongG: Float
+
+            if (DragCalibration.isUniversalCalibrated) {
+                val rawAccel = floatArrayOf(rawX, rawY, rawZ)
+                val calibratedGravity = DragCalibration.gravityVector
+                val forwardAccel = DragCalibration.getSignedForwardAcceleration(rawAccel, calibratedGravity)
+                val lateralAccel = DragCalibration.getSignedLateralAcceleration(rawAccel, calibratedGravity)
+
+                uiRawLatG = -lateralAccel / 9.81f
+                uiRawLongG = -forwardAccel / 9.81f
+            } else {
+                dragCompatGravity[0] = dragCompatGravityAlpha * dragCompatGravity[0] + (1f - dragCompatGravityAlpha) * rawX
+                dragCompatGravity[1] = dragCompatGravityAlpha * dragCompatGravity[1] + (1f - dragCompatGravityAlpha) * rawY
+                dragCompatGravity[2] = dragCompatGravityAlpha * dragCompatGravity[2] + (1f - dragCompatGravityAlpha) * rawZ
+
+                val linearX = rawX - dragCompatGravity[0]
+                val linearY = rawY - dragCompatGravity[1]
+                uiRawLatG = linearX / 9.81f
+                uiRawLongG = linearY / 9.81f
+            }
+
+            val deltaX = abs(uiRawLatG - displayLX)
+            val deltaY = abs(uiRawLongG - displayLY)
+            val alphaX = if (deltaX > 0.5f) 0.3f else 0.5f
+            val alphaY = if (deltaY > 0.5f) 0.3f else 0.5f
+
+            displayLX = alphaX * uiRawLatG + (1f - alphaX) * displayLX
+            displayLY = alphaY * uiRawLongG + (1f - alphaY) * displayLY
+
+            forwardGSmooth = displayLY
+            lateralGSmooth = displayLX
+
+            val finalLongG = clamp(forwardGSmooth, -maxDisplayG, maxDisplayG)
+            val finalLatG = clamp(lateralGSmooth, -maxDisplayG, maxDisplayG)
+
+            currentLongitudinalG = finalLongG
+            currentLateralG = finalLatG
+            speedGauge.gForceX = finalLatG
+            speedGauge.gForceY = finalLongG
+
+            updateNoGyroSessionStatistics(finalLatG)
+            runOnUiThread { updateMotoGForceCard() }
+            return
         }
 
         var fusedLatG = calibratedLatG
@@ -1866,10 +2551,31 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             }
             val gyroPenalty = (lastGyroMagnitude / 5.5f).coerceIn(0f, 1f)
             val blendQuality = (confidence * speedQuality * (1f - 0.45f * gyroPenalty)).coerceIn(0f, 1f)
-            val baseLatBlend = if (isCalibrated) 0.18f else 0.45f
-            val baseLongBlend = if (isCalibrated) 0.10f else 0.30f
+            val baseLatBlend = if (isCalibrated) {
+                0.18f
+            } else if (hasGyroSensor) {
+                0.45f
+            } else {
+                0.58f
+            }
+            val baseLongBlend = if (isCalibrated) {
+                0.06f
+            } else if (hasGyroSensor) {
+                0.14f
+            } else {
+                0.42f
+            }
             val latBlend = (baseLatBlend * blendQuality).coerceIn(0f, baseLatBlend)
-            val longBlend = (baseLongBlend * blendQuality).coerceIn(0f, baseLongBlend)
+            var longBlend = (baseLongBlend * blendQuality).coerceIn(0f, baseLongBlend)
+
+            // Do not let heading projection flatten or flip real longitudinal acceleration.
+            if (hasGyroSensor) {
+                val headingTooWeak = kotlin.math.abs(headingLongG) < kotlin.math.abs(fusedLongG) * 0.45f
+                val oppositeDirection = (headingLongG * fusedLongG) < 0f
+                if (headingTooWeak || oppositeDirection) {
+                    longBlend *= 0.28f
+                }
+            }
 
             fusedLatG = (1f - latBlend) * fusedLatG + latBlend * headingLatG
             fusedLongG = (1f - longBlend) * fusedLongG + longBlend * headingLongG
@@ -1879,19 +2585,61 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         // Including !isRecording here causes sustained cornering G to be absorbed as "bias"
         // during test rides and the dot snaps back to center.
         val nearZeroDynamicG = abs(fusedLongG) < 0.08f && abs(fusedLatG) < 0.08f
-        val canLearnBias = isStationary ||
-            (awaitingStart && speedMs < 2.0f) ||
-            (speedMs < 0.5f && nearZeroDynamicG)
+        val biasLearningSpeedLimit = if (hasGyroSensor) 0.45f else 0.35f
+        val gyroStableForBias = !hasGyroSensor || lastGyroMagnitude < 0.45f
+        val strictNearIdle = speedMs < biasLearningSpeedLimit && nearZeroDynamicG && gyroStableForBias
+        val canLearnBias = strictNearIdle ||
+            (awaitingStart && speedMs < 1.2f && nearZeroDynamicG && gyroStableForBias)
         if (canLearnBias) {
-            forwardBiasG = (1f - biasAlpha) * forwardBiasG + biasAlpha * fusedLongG
-            lateralBiasG = (1f - biasAlpha) * lateralBiasG + biasAlpha * fusedLatG
+            val effectiveBiasAlpha = if (hasGyroSensor) {
+                biasAlpha
+            } else {
+                biasAlpha * noGyroBiasLearnAlphaScaleRuntime
+            }
+            forwardBiasG = (1f - effectiveBiasAlpha) * forwardBiasG + effectiveBiasAlpha * fusedLongG
+            lateralBiasG = (1f - effectiveBiasAlpha) * lateralBiasG + effectiveBiasAlpha * fusedLatG
         }
 
-        var correctedLongG = fusedLongG - forwardBiasG
-        var correctedLatG = fusedLatG - lateralBiasG
+        var correctedLongG = if (hasGyroSensor) {
+            fusedLongG - forwardBiasG
+        } else {
+            // Use gentler center compensation on no-gyro phones to preserve low-G motion.
+            val lowGBlend = (abs(fusedLongG) / 0.35f).coerceIn(0f, 1f)
+            val compensation = (noGyroBiasCompensationBaseRuntime + noGyroBiasCompensationRangeRuntime * lowGBlend)
+                .coerceIn(0.28f, 1f)
+            fusedLongG - forwardBiasG * compensation
+        }
+        var correctedLatG = if (hasGyroSensor) {
+            fusedLatG - lateralBiasG
+        } else {
+            val lowGBlend = (abs(fusedLatG) / 0.35f).coerceIn(0f, 1f)
+            val compensation = (noGyroBiasCompensationBaseRuntime + noGyroBiasCompensationRangeRuntime * lowGBlend)
+                .coerceIn(0.28f, 1f)
+            fusedLatG - lateralBiasG * compensation
+        }
 
-        var adaptiveLongDeadband = deadbandG + (1f - confidence) * 0.08f
-        var adaptiveLatDeadband = deadbandG + (1f - confidence) * 0.08f
+        // Motorcycle gyro path: auto-correct occasional sign inversion using GPS longitudinal direction.
+        if (hasGyroSensor && isMotorcycle && hasGpsGForce) {
+            val gpsReliable = kotlin.math.abs(gpsLongG) > 0.035f && speedMs > 4.5f
+            val sensorReliable = kotlin.math.abs(correctedLongG) > 0.04f
+            if (gpsReliable && sensorReliable) {
+                val signMismatch = correctedLongG * gpsLongG < 0f
+                longSignMismatchStreak = if (signMismatch) {
+                    (longSignMismatchStreak + 1).coerceAtMost(20)
+                } else {
+                    (longSignMismatchStreak - 1).coerceAtLeast(0)
+                }
+                if (longSignMismatchStreak >= 6) {
+                    longSignMultiplier *= -1f
+                    longSignMismatchStreak = 0
+                }
+            }
+            correctedLongG *= longSignMultiplier
+        }
+
+        val confidenceDeadbandBoost = if (hasGyroSensor) 0.03f else 0.045f
+        var adaptiveLongDeadband = deadbandG + (1f - confidenceForFiltering) * confidenceDeadbandBoost
+        var adaptiveLatDeadband = deadbandG + (1f - confidenceForFiltering) * confidenceDeadbandBoost
         if (isCalibrated) {
             // Project baseline vibration envelope onto calibrated axes for axis-specific deadbands.
             val vibrationLongMs2 = abs(
@@ -1909,23 +2657,125 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             adaptiveLongDeadband = max(adaptiveLongDeadband, (vibrationLongG * 1.35f).coerceAtLeast(deadbandG))
             adaptiveLatDeadband = max(adaptiveLatDeadband, (vibrationLatG * 1.20f).coerceAtLeast(deadbandG))
         }
-        if (abs(correctedLongG) < adaptiveLongDeadband) correctedLongG = 0f
-        if (abs(correctedLatG) < adaptiveLatDeadband) correctedLatG = 0f
-        if (confidence < 0.45f && abs(correctedLongG) < 0.12f) correctedLongG = 0f
+        if (!hasGyroSensor) {
+            // No-gyro devices need a slightly softer deadband to avoid feeling sluggish.
+            adaptiveLongDeadband *= noGyroDeadbandScaleRuntime
+            adaptiveLatDeadband *= noGyroDeadbandScaleRuntime
+        } else {
+            // Gyro devices: keep vibration filtering, but avoid zero-lock during real accel/brake.
+            val hasRealLongSignal = kotlin.math.abs(correctedLongG) > 0.035f || kotlin.math.abs(gpsLongG) > 0.03f
+            if (hasRealLongSignal) {
+                adaptiveLongDeadband = adaptiveLongDeadband.coerceAtMost(0.02f)
+            }
+        }
+        fun applySoftDeadband(value: Float, deadband: Float): Float {
+            val magnitude = abs(value)
+            if (magnitude <= 0.002f) return 0f
+            if (deadband <= 0f || magnitude >= deadband) return value
+            val t = (magnitude / deadband).coerceIn(0f, 1f)
+            return value * t * t
+        }
+        correctedLongG = applySoftDeadband(correctedLongG, adaptiveLongDeadband)
+        correctedLatG = applySoftDeadband(correctedLatG, adaptiveLatDeadband)
+        val lowConfidenceLongSuppressThreshold = if (hasGyroSensor) 0.14f else 0.10f
+        val lowConfidenceLongSuppressG = if (hasGyroSensor) 0.03f else 0.02f
+        if (confidence < lowConfidenceLongSuppressThreshold && abs(correctedLongG) < lowConfidenceLongSuppressG) {
+            correctedLongG = applySoftDeadband(correctedLongG, lowConfidenceLongSuppressG)
+        }
+
+        if (!hasGyroSensor) {
+            // Boost only low amplitudes so no-gyro devices react earlier around 0.1-0.2g.
+            fun boostLowG(value: Float): Float {
+                val mag = abs(value)
+                if (mag <= 0f || mag >= noGyroLowGBoostRangeGRuntime) return value
+                val t = 1f - (mag / noGyroLowGBoostRangeGRuntime)
+                val gain = 1f + (noGyroLowGBoostMaxRuntime - 1f) * t * t
+                return value * gain
+            }
+            correctedLongG = boostLowG(correctedLongG)
+            correctedLatG = boostLowG(correctedLatG)
+
+            if (!isMotorcycle) {
+                // Reuse the no-gyro lean channel as a stable left/right source for cars.
+                // Left lean is negative in lean UI, while car lateral left is positive.
+                val leanLateralRaw = (-tan(Math.toRadians(currentCalibratedLean.toDouble()))).toFloat()
+                    .coerceIn(-2.2f, 2.2f)
+                val leanAlpha = if (speedMs >= 8f) 0.24f else 0.16f
+                noGyroLeanLatGSmooth += leanAlpha * (leanLateralRaw - noGyroLeanLatGSmooth)
+
+                val leanWeight = ((speedMs - 1.5f) / 8f).coerceIn(0.35f, 0.82f)
+                correctedLatG = leanWeight * noGyroLeanLatGSmooth + (1f - leanWeight) * correctedLatG
+            }
+
+            // Hybrid GPS+Sensor: GPS leads for longitudinal (accel/brake),
+            // sensors lead for lateral (cornering). Between GPS ticks sensors
+            // fill in; when a fresh GPS tick arrives we crossfade smoothly.
+            if (hasGpsGForce) {
+                val ageMs = (System.currentTimeMillis() - gpsGTimeMs).coerceAtLeast(0)
+                val gpsFreshness = (1f - ageMs / 1800f).coerceIn(0f, 1f)
+
+                // Smoothly track GPS G values at accel rate for fluid crossfade
+                val gpsTrkAlpha = 0.15f
+                gpsSmoothedLongG += gpsTrkAlpha * (gpsLongG - gpsSmoothedLongG)
+                gpsSmoothedLatG += gpsTrkAlpha * (gpsLatG - gpsSmoothedLatG)
+
+                // Longitudinal: GPS dominant (80%) — accel/brake is very accurate from dv/dt
+                // Freshness scales GPS weight: fresh tick → 80% GPS, stale → falls to sensor
+                val gpsLongWeight = 0.80f * gpsFreshness
+                correctedLongG = gpsLongWeight * gpsSmoothedLongG + (1f - gpsLongWeight) * correctedLongG
+
+                // Lateral: Sensor dominant — GPS bearing is unreliable at low speed
+                // At high speed GPS lateral can contribute ~20%, at low speed → 0%
+                val latSpeedFactor = ((speedMs - 3f) / 8f).coerceIn(0f, 1f)
+                val gpsLatWeight = 0.20f * gpsFreshness * latSpeedFactor
+                correctedLatG = gpsLatWeight * gpsSmoothedLatG + (1f - gpsLatWeight) * correctedLatG
+
+                // When GPS says near-zero and sensor agrees roughly, suppress residual vibration
+                val gpsTotalG = sqrt(gpsSmoothedLongG * gpsSmoothedLongG + gpsSmoothedLatG * gpsSmoothedLatG)
+                val sensorTotalG = sqrt(correctedLongG * correctedLongG + correctedLatG * correctedLatG)
+                if (gpsTotalG < 0.04f && sensorTotalG < 0.12f && gpsFreshness > 0.3f) {
+                    val suppressBlend = 0.60f * gpsFreshness
+                    correctedLongG *= (1f - suppressBlend)
+                    correctedLatG *= (1f - suppressBlend)
+                }
+            }
+            // If no GPS G available yet, falls through with sensor-only values
+        }
 
         val statsLongG = correctedLongG
         val statsLatG = correctedLatG
 
-        val confidenceScale = (0.65f + 0.35f * confidence).coerceIn(0.65f, 1f)
+        val confidenceScale = if (hasGyroSensor) {
+            (0.94f + 0.06f * confidenceForFiltering).coerceIn(0.94f, 1f)
+        } else {
+            val noGyroScaleFloor = noGyroGScaleFloorRuntime.coerceAtLeast(0.92f)
+            (noGyroScaleFloor + (1f - noGyroScaleFloor) * confidenceForFiltering)
+                .coerceIn(noGyroScaleFloor, 1f)
+        }
         correctedLongG *= confidenceScale
         correctedLatG *= confidenceScale
 
-        val adaptiveDisplayAlpha = (0.25f + 0.35f * confidence).coerceIn(0.25f, 0.60f)
+        val adaptiveDisplayAlpha = if (hasGyroSensor) {
+            (0.36f + 0.24f * confidenceForFiltering).coerceIn(0.36f, 0.62f)
+        } else if (hasGpsGForce) {
+            // Hybrid mode: GPS keeps signal stable, respond reasonably fast
+            0.62f
+        } else {
+            val baseAlpha = noGyroDisplayAlphaMinRuntime + noGyroDisplayAlphaRangeRuntime * confidenceForFiltering
+            val frozenBoost = if (noGyroGravityFrozen) 0.15f else 0f
+            (baseAlpha + frozenBoost).coerceIn(noGyroDisplayAlphaMinRuntime, 0.82f)
+        }
         displayLY = adaptiveDisplayAlpha * correctedLongG + (1f - adaptiveDisplayAlpha) * displayLY
         displayLX = adaptiveDisplayAlpha * correctedLatG + (1f - adaptiveDisplayAlpha) * displayLX
 
-        forwardGSmooth = gSmoothAlpha * displayLY + (1f - gSmoothAlpha) * forwardGSmooth
-        lateralGSmooth = gSmoothAlpha * displayLX + (1f - gSmoothAlpha) * lateralGSmooth
+        val gResponseAlpha = if (hasGyroSensor) gSmoothAlpha else if (hasGpsGForce) {
+            0.48f
+        } else {
+            val base = noGyroGSmoothAlphaRuntime.coerceIn(0.34f, 0.46f)
+            if (noGyroGravityFrozen) (base + 0.12f).coerceAtMost(0.58f) else base
+        }
+        forwardGSmooth = gResponseAlpha * displayLY + (1f - gResponseAlpha) * forwardGSmooth
+        lateralGSmooth = gResponseAlpha * displayLX + (1f - gResponseAlpha) * lateralGSmooth
 
         val finalLongG = clamp(forwardGSmooth, -maxDisplayG, maxDisplayG)
         val finalLatG = clamp(lateralGSmooth, -maxDisplayG, maxDisplayG)
@@ -1945,20 +2795,93 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         val milliseconds = (timeMs % 1000) / 10
         return String.format("%02d:%02d.%02d", minutes, seconds, milliseconds)
     }
+
+    private fun formatTimeWithMillis3(timeMs: Long): String {
+        val totalSeconds = timeMs / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        val milliseconds = timeMs % 1000
+        return String.format(Locale.getDefault(), "%02d:%02d.%03d", minutes, seconds, milliseconds)
+    }
     override fun onSensorChanged(event: SensorEvent?) {
         event?.let { ev ->
             // Използваме същата логика като в ForegroundService.kt за g-сили
             // Това трябва да работи винаги, не само когато записваме
             if (ev.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-                // Update live gravity filter (за lean angle и др.)
-                gravity[0] = alphaGravity * gravity[0] + (1 - alphaGravity) * ev.values[0]
-                gravity[1] = alphaGravity * gravity[1] + (1 - alphaGravity) * ev.values[1]
-                gravity[2] = alphaGravity * gravity[2] + (1 - alphaGravity) * ev.values[2]
+                if (gyroscope != null) {
+                    // Coarse alignment: seed Madgwick from first accel reading
+                    if (!madgwick.isInitialized) {
+                        madgwick.seedFromAccelerometer(ev.values[0], ev.values[1], ev.values[2])
+                        val mg = madgwick.getGravityVector()
+                        gravity[0] = mg[0]
+                        gravity[1] = mg[1]
+                        gravity[2] = mg[2]
+                    }
+                    // Gyro phones: stable gravity via Madgwick, resistant to short lateral jerks.
+                    val dtSec = if (lastMadgwickUpdateNs > 0L) {
+                        ((ev.timestamp - lastMadgwickUpdateNs) / 1_000_000_000.0).toFloat().coerceIn(0.001f, 0.05f)
+                    } else {
+                        0.01f
+                    }
+                    madgwick.samplePeriodSec = dtSec
+                    madgwick.update(
+                        latestGyroForMadgwick[0],
+                        latestGyroForMadgwick[1],
+                        latestGyroForMadgwick[2],
+                        ev.values[0],
+                        ev.values[1],
+                        ev.values[2]
+                    )
+                    lastMadgwickUpdateNs = ev.timestamp
+
+                    val mg = madgwick.getGravityVector()
+                    gravity[0] = mg[0]
+                    gravity[1] = mg[1]
+                    gravity[2] = mg[2]
+                } else {
+                    // No-gyro phones: freeze gravity LP during real acceleration.
+                    // When raw magnitude deviates from calibrated gravity, the user is
+                    // accelerating — don't let the LP absorb it into gravity.
+                    val rawMag = sqrt(ev.values[0] * ev.values[0] + ev.values[1] * ev.values[1] + ev.values[2] * ev.values[2])
+                    val magDeviation = abs(rawMag - noGyroCalGravityMag)
+                    if (magDeviation > noGyroFreezeThreshold) {
+                        noGyroFreezeCounter = (noGyroFreezeCounter + 1).coerceAtMost(30)
+                    } else {
+                        noGyroFreezeCounter = (noGyroFreezeCounter - 2).coerceAtLeast(0)
+                    }
+                    noGyroGravityFrozen = noGyroFreezeCounter >= noGyroFreezeCountThreshold
+
+                    if (!noGyroGravityFrozen) {
+                        // Safe to update gravity: near 1G means no significant acceleration
+                        val gravityFresh = gravitySensorTimestampNs > 0L &&
+                            (ev.timestamp - gravitySensorTimestampNs) <= gravitySensorMaxAgeNs
+                        if (gravityFresh) {
+                            val targetX = noGyroGravityFromSensorBlend * gravitySensorValues[0] +
+                                (1f - noGyroGravityFromSensorBlend) * ev.values[0]
+                            val targetY = noGyroGravityFromSensorBlend * gravitySensorValues[1] +
+                                (1f - noGyroGravityFromSensorBlend) * ev.values[1]
+                            val targetZ = noGyroGravityFromSensorBlend * gravitySensorValues[2] +
+                                (1f - noGyroGravityFromSensorBlend) * ev.values[2]
+                            gravity[0] = noGyroGravityAlpha * gravity[0] + (1f - noGyroGravityAlpha) * targetX
+                            gravity[1] = noGyroGravityAlpha * gravity[1] + (1f - noGyroGravityAlpha) * targetY
+                            gravity[2] = noGyroGravityAlpha * gravity[2] + (1f - noGyroGravityAlpha) * targetZ
+                        } else {
+                            gravity[0] = alphaGravity * gravity[0] + (1 - alphaGravity) * ev.values[0]
+                            gravity[1] = alphaGravity * gravity[1] + (1 - alphaGravity) * ev.values[1]
+                            gravity[2] = alphaGravity * gravity[2] + (1 - alphaGravity) * ev.values[2]
+                        }
+                    }
+                    // When frozen: gravity[] keeps last good values → raw - gravity = real acceleration
+                }
                 accelTimestampNs = ev.timestamp
 
                 latestRawAccel[0] = ev.values[0]
                 latestRawAccel[1] = ev.values[1]
                 latestRawAccel[2] = ev.values[2]
+
+                if (gyroscope == null && rotationVector == null && geomagneticRotationVector == null) {
+                    updateRotationMatrixFromAccelMag(ev.timestamp)
+                }
             }
             
             // Останалата логика работи само когато записваме
@@ -1969,62 +2892,136 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                     rotationTimestampNs = ev.timestamp
                     SensorManager.getRotationMatrixFromVector(rotationMatrix, ev.values)
                 }
-                Sensor.TYPE_LINEAR_ACCELERATION -> {
-                    if (preferLinearAccel) {
-                        linearAccel[0] = ev.values[0]
-                        linearAccel[1] = ev.values[1]
-                        linearAccel[2] = ev.values[2]
-                        updateInertialForcesFromLinearAcceleration(linearAccel)
-                        processLinearAccelerationAndUpdate(linearAccel, ev.timestamp)
+                Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR -> {
+                    // Stable orientation fallback for devices without gyroscope.
+                    rotationTimestampNs = ev.timestamp
+                    SensorManager.getRotationMatrixFromVector(rotationMatrix, ev.values)
+                }
+                Sensor.TYPE_GRAVITY -> {
+                    gravitySensorValues[0] = ev.values[0]
+                    gravitySensorValues[1] = ev.values[1]
+                    gravitySensorValues[2] = ev.values[2]
+                    gravitySensorTimestampNs = ev.timestamp
+                }
+                Sensor.TYPE_MAGNETIC_FIELD -> {
+                    magneticFieldValues[0] = ev.values[0]
+                    magneticFieldValues[1] = ev.values[1]
+                    magneticFieldValues[2] = ev.values[2]
+                    magneticFieldTimestampNs = ev.timestamp
+                    if (gyroscope == null && rotationVector == null && geomagneticRotationVector == null) {
+                        updateRotationMatrixFromAccelMag(ev.timestamp)
                     }
+                }
+                Sensor.TYPE_LINEAR_ACCELERATION -> {
+                    // Keep sensor-linear sample as one input, but compute final G pipeline on
+                    // accelerometer events where we can also fuse against raw-accel-derived linear.
+                    linearAccelSensorValues[0] = ev.values[0]
+                    linearAccelSensorValues[1] = ev.values[1]
+                    linearAccelSensorValues[2] = ev.values[2]
+                    hasLinearAccelSensorSample = true
+                    linearAccelSensorTimestampNs = ev.timestamp
                     
                     // Единен pipeline: G-силите се изчисляват в processLinearAccelerationAndUpdate
                     
                     // SDK handles sensor data - no need to collect
                 }
                 Sensor.TYPE_ACCELEROMETER -> {
-                    // Fallback path when no dedicated linear acceleration (за processLinearAccelerationAndUpdate)
-                    if (!preferLinearAccel) {
-                    linearAccel[0] = ev.values[0] - gravity[0]
-                    linearAccel[1] = ev.values[1] - gravity[1]
-                    linearAccel[2] = ev.values[2] - gravity[2]
-                    updateInertialForcesFromLinearAcceleration(linearAccel)
-                    processLinearAccelerationAndUpdate(linearAccel, ev.timestamp)
+                    // Always build linear acceleration from raw accel; when hardware linear sensor
+                    // exists, blend both sources to avoid transient-only peak behavior.
+                    val fallbackLinearX = ev.values[0] - gravity[0]
+                    val fallbackLinearY = ev.values[1] - gravity[1]
+                    val fallbackLinearZ = ev.values[2] - gravity[2]
+
+                    if (preferLinearAccel && hasLinearAccelSensorSample) {
+                        if (gyroscope == null) {
+                            val sensorFresh = linearAccelSensorTimestampNs > 0L &&
+                                (ev.timestamp - linearAccelSensorTimestampNs) <= noGyroLinearSensorMaxAgeNs
+
+                            if (sensorFresh) {
+                                val dx = linearAccelSensorValues[0] - fallbackLinearX
+                                val dy = linearAccelSensorValues[1] - fallbackLinearY
+                                val dz = linearAccelSensorValues[2] - fallbackLinearZ
+                                val disagreement = sqrt(dx * dx + dy * dy + dz * dz)
+                                val targetBlend = (maxNoGyroLinearBlend - (disagreement / 2.8f).coerceIn(0f, 0.46f))
+                                    .coerceIn(minNoGyroLinearBlend, maxNoGyroLinearBlend)
+                                noGyroLinearSensorBlend = 0.18f * targetBlend + 0.82f * noGyroLinearSensorBlend
+
+                                linearAccel[0] = noGyroLinearSensorBlend * linearAccelSensorValues[0] +
+                                    (1f - noGyroLinearSensorBlend) * fallbackLinearX
+                                linearAccel[1] = noGyroLinearSensorBlend * linearAccelSensorValues[1] +
+                                    (1f - noGyroLinearSensorBlend) * fallbackLinearY
+                                linearAccel[2] = noGyroLinearSensorBlend * linearAccelSensorValues[2] +
+                                    (1f - noGyroLinearSensorBlend) * fallbackLinearZ
+                            } else {
+                                linearAccel[0] = fallbackLinearX
+                                linearAccel[1] = fallbackLinearY
+                                linearAccel[2] = fallbackLinearZ
+                            }
+                        } else {
+                            // Gyro phones: keep longitudinal signal closer to raw-gravity subtraction.
+                            // TYPE_LINEAR_ACCELERATION can suppress sustained acceleration on some devices.
+                            linearAccel[0] = 0.45f * linearAccelSensorValues[0] + 0.55f * fallbackLinearX
+                            linearAccel[1] = 0.25f * linearAccelSensorValues[1] + 0.75f * fallbackLinearY
+                            linearAccel[2] = 0.45f * linearAccelSensorValues[2] + 0.55f * fallbackLinearZ
+                        }
+                    } else {
+                        linearAccel[0] = fallbackLinearX
+                        linearAccel[1] = fallbackLinearY
+                        linearAccel[2] = fallbackLinearZ
                     }
+                    updateInertialForcesFromLinearAcceleration(linearAccel)
+                    updateStartDirectionGate(linearAccel)
+                    processLinearAccelerationAndUpdate(linearAccel, ev.timestamp)
                     
                     // Единен pipeline: G-силите се изчисляват в processLinearAccelerationAndUpdate
                     
                     // SDK handles sensor data - no need to collect
                 }
                 Sensor.TYPE_GYROSCOPE -> {
+                    val gx = ev.values[0] - if (hasGyroBiasCompensation) gyroBiasRad[0] else 0f
+                    val gy = ev.values[1] - if (hasGyroBiasCompensation) gyroBiasRad[1] else 0f
+                    val gz = ev.values[2] - if (hasGyroBiasCompensation) gyroBiasRad[2] else 0f
+
+                    latestGyroForMadgwick[0] = gx
+                    latestGyroForMadgwick[1] = gy
+                    latestGyroForMadgwick[2] = gz
                     gyroTimestampNs = ev.timestamp
-                    val gyroMag = sqrt(ev.values[0] * ev.values[0] + ev.values[1] * ev.values[1] + ev.values[2] * ev.values[2])
+                    val gyroMag = sqrt(gx * gx + gy * gy + gz * gz)
                     lastGyroMagnitude = 0.2f * gyroMag + 0.8f * lastGyroMagnitude
 
                     val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-                    val rawRollRateRad = if (DragCalibration.isUniversalCalibrated) {
+                    val leanSign = resolveLeanDirectionSign(isLandscape)
+                    val rawRollRateRad = if (DragCalibration.isUniversalCalibrated && hasSmartMotionCalibration) {
                         // Roll around bike forward axis, independent of phone mounting orientation.
                         val fw = DragCalibration.forwardVector
-                        ev.values[0] * fw[0] + ev.values[1] * fw[1] + ev.values[2] * fw[2]
-                    } else if (isLandscape) ev.values[0] else ev.values[1]
+                        gx * fw[0] + gy * fw[1] + gz * fw[2]
+                    } else if (isLandscape) gx * leanSign else gy
                     val rollRateDeg = -rawRollRateRad * radToDeg
-                    latestRollRateDegPerSec = 0.25f * rollRateDeg + 0.75f * latestRollRateDegPerSec
+                    val rollRateFilterAlpha = if (DragCalibration.isUniversalCalibrated && hasSmartMotionCalibration) 0.16f else 0.25f
+                    latestRollRateDegPerSec =
+                        rollRateFilterAlpha * rollRateDeg +
+                            (1f - rollRateFilterAlpha) * latestRollRateDegPerSec
 
-                    if (hasGyroIntegratedLean && leanGyroIntegrationTimestampNs > 0L) {
+                    val useGyroLeanIntegration = !forceNoGyroLeanLogicOnGyro
+                    if (useGyroLeanIntegration && hasGyroIntegratedLean && leanGyroIntegrationTimestampNs > 0L) {
                         val dtSec = ((ev.timestamp - leanGyroIntegrationTimestampNs) / 1_000_000_000f).coerceIn(0f, 0.06f)
                         if (dtSec > 0f) {
                             gyroIntegratedLeanDeg = (gyroIntegratedLeanDeg + latestRollRateDegPerSec * dtSec).coerceIn(-89f, 89f)
                         }
                     }
-                    leanGyroIntegrationTimestampNs = ev.timestamp
+                    leanGyroIntegrationTimestampNs = if (useGyroLeanIntegration) ev.timestamp else 0L
 
-                    gyroscopeData.addAll(ev.values.sliceArray(0..2).toList())
+                    gyroscopeData.add(gx)
+                    gyroscopeData.add(gy)
+                    gyroscopeData.add(gz)
                     if (gyroscopeData.size > 1000) {
                         gyroscopeData.removeAt(0)
                     }
                     // Add to current lap data
                     if (isRecording && lapStartTime > 0L) {
-                        currentLapData.gyroscopeData.addAll(ev.values.sliceArray(0..2).toList())
+                        currentLapData.gyroscopeData.add(gx)
+                        currentLapData.gyroscopeData.add(gy)
+                        currentLapData.gyroscopeData.add(gz)
                         android.util.Log.d("TrackSessionActivity", "Added gyro data to lap: ${ev.values.size} values")
                         
                         // SDK handles sensor data - no need to collect
@@ -2036,6 +3033,25 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         // Update gauge with current data including predictive gap
         updateGauge()
     }
+
+    private fun updateRotationMatrixFromAccelMag(timestampNs: Long) {
+        val accelFresh = accelTimestampNs > 0L && (timestampNs - accelTimestampNs) <= accelMagRotationMaxSkewNs
+        val magFresh = magneticFieldTimestampNs > 0L && (timestampNs - magneticFieldTimestampNs) <= accelMagRotationMaxSkewNs
+        if (!accelFresh || !magFresh) return
+
+        val accelVector = if (gravitySensorTimestampNs > 0L && (timestampNs - gravitySensorTimestampNs) <= gravitySensorMaxAgeNs) {
+            gravitySensorValues
+        } else {
+            latestRawAccel
+        }
+
+        val candidate = FloatArray(9)
+        if (SensorManager.getRotationMatrix(candidate, null, accelVector, magneticFieldValues)) {
+            System.arraycopy(candidate, 0, rotationMatrix, 0, 9)
+            rotationTimestampNs = timestampNs
+        }
+    }
+
     private fun processLinearAccelerationAndUpdate(deviceAccel: FloatArray, timestampNs: Long) {
         // Transform device linear acceleration into world ENU frame
         if (!rotationMatrix.all { it == 0f }) {
@@ -2073,41 +3089,74 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         val z = gravity[2]
         val totalGravity = kotlin.math.sqrt((x * x + y * y + z * z).toDouble()).toFloat()
         val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val leanSign = resolveLeanDirectionSign(isLandscape)
         if (lastLeanOrientationLandscape == null || lastLeanOrientationLandscape != isLandscape) {
             updateProfileLeanOffsetForOrientation(isLandscape)
+            if (selectedProfileId != -1L) {
+                reloadMotionCalibrationForProfile(selectedProfileId)
+            }
             lastLeanOrientationLandscape = isLandscape
         }
 
-        val useAdvancedLeanFusion = gyroscope != null && DragCalibration.isUniversalCalibrated
+        val useAdvancedLeanFusion =
+            gyroscope != null &&
+                DragCalibration.isUniversalCalibrated &&
+                hasSmartMotionCalibration &&
+                !forceNoGyroLeanLogicOnGyro
         val accelReferenceTilt = if (totalGravity > 0f) {
             if (useAdvancedLeanFusion) {
                 // Lean from gravity projection on calibrated bike RIGHT axis.
                 val rv = DragCalibration.rightVector
                 val rightComponent = ((x * rv[0] + y * rv[1] + z * rv[2]) / totalGravity).toDouble().coerceIn(-1.0, 1.0)
-                (-Math.toDegrees(Math.asin(rightComponent))).toFloat()
+                (Math.toDegrees(Math.asin(rightComponent))).toFloat()
             } else if (isLandscape) {
-                (-Math.toDegrees(Math.asin((y / totalGravity).toDouble().coerceIn(-1.0, 1.0)))).toFloat()
+                (-Math.toDegrees(Math.asin(((leanSign * y) / totalGravity).toDouble().coerceIn(-1.0, 1.0)))).toFloat()
             } else {
                 (-Math.toDegrees(Math.asin((x / totalGravity).toDouble().coerceIn(-1.0, 1.0)))).toFloat()
             }
         } else 0f
 
-        if (!hasGyroIntegratedLean) {
-            gyroIntegratedLeanDeg = accelReferenceTilt
-            hasGyroIntegratedLean = true
+        if (useAdvancedLeanFusion) {
+            // Madgwick AHRS already fuses gyro + accel into a vibration-resistant
+            // quaternion.  Use its gravity projection on the calibrated RIGHT axis
+            // directly — no separate gyro integration needed.
+            if (!hasGyroIntegratedLean) {
+                filteredAngle = accelReferenceTilt
+                hasGyroIntegratedLean = true
+            } else {
+                filteredAngle += 0.35f * (accelReferenceTilt - filteredAngle)
+            }
+        } else {
+            if (!hasGyroIntegratedLean) {
+                gyroIntegratedLeanDeg = accelReferenceTilt
+                hasGyroIntegratedLean = true
+            }
+
+            val dynamicLoadG = (worldMag / SensorManager.GRAVITY_EARTH).coerceAtLeast(0f)
+            val accelMotionTrust = (1f - dynamicLoadG * 0.55f).coerceIn(0.18f, 1f)
+            val gyroSpinPenalty = (lastGyroMagnitude / 4.0f).coerceIn(0f, 1f)
+            val accelTrust = (accelMotionTrust * (1f - 0.25f * gyroSpinPenalty)).coerceIn(0.15f, 1f)
+            val correctionGain = (minAccelCorrection + (maxAccelCorrection - minAccelCorrection) * accelTrust)
+                .coerceIn(minAccelCorrection, maxAccelCorrection)
+
+            gyroIntegratedLeanDeg += correctionGain * (accelReferenceTilt - gyroIntegratedLeanDeg)
+            filteredAngle = gyroIntegratedLeanDeg
         }
 
-        val dynamicLoadG = (worldMag / SensorManager.GRAVITY_EARTH).coerceAtLeast(0f)
-        val accelMotionTrust = (1f - dynamicLoadG * 0.55f).coerceIn(0.18f, 1f)
-        val gyroSpinPenalty = (lastGyroMagnitude / 4.0f).coerceIn(0f, 1f)
-        val accelTrust = (accelMotionTrust * (1f - 0.25f * gyroSpinPenalty)).coerceIn(0.15f, 1f)
-        val minCorrection = if (useAdvancedLeanFusion) 0.07f else minAccelCorrection
-        val maxCorrection = if (useAdvancedLeanFusion) 0.35f else maxAccelCorrection
-        val correctionGain = (minCorrection + (maxCorrection - minCorrection) * accelTrust)
-            .coerceIn(minCorrection, maxCorrection)
+        val shouldApplyRuntimeAutoZero =
+            isMotorcycle &&
+                leanAutoZeroPending &&
+                !(gyroscope != null && hasSmartMotionCalibration && hasProfileLeanOffset)
 
-        gyroIntegratedLeanDeg += correctionGain * (accelReferenceTilt - gyroIntegratedLeanDeg)
-        filteredAngle = gyroIntegratedLeanDeg
+        if (shouldApplyRuntimeAutoZero) {
+            val candidateRuntimeOffsetDeg = filteredAngle - profileLeanOffsetDeg
+            updateLeanAutoZero(
+                accelReferenceTilt = accelReferenceTilt,
+                worldLinearMagMs2 = worldMag,
+                rollRateDegPerSec = latestRollRateDegPerSec,
+                candidateRuntimeOffsetDeg = candidateRuntimeOffsetDeg
+            )
+        }
         currentCalibratedLean = (filteredAngle - offsetAngle).coerceIn(-90f, 90f)
 
         if (isRecording && !awaitingStart && lapStartTime > 0L) {
@@ -2120,11 +3169,10 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         }
 
         if (isMotorcycle) {
-            runOnUiThread {
-                // НЕ извикваме setGForces тук защото те вече са зададени в onSensorChanged!
-                speedGauge.setLeanAngle(currentCalibratedLean)
-                updateTopLeanTelemetry(currentCalibratedLean)
-            }
+            // Sensor callbacks are delivered on the main looper here; avoid posting
+            // another UI task per sample because it introduces visible lean lag.
+            updateTopLeanTelemetry(currentCalibratedLean)
+            speedGauge.setLeanAngle(displayLeanAngle)
         }
 
         // Keep small history if needed elsewhere
@@ -2217,7 +3265,39 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 smoothedBearingRad + bearingAlpha * delta
             }
         }
-        
+
+        // GPS-based G-force for no-gyro phones: pure kinematics, immune to vibrations
+        if (gyroscope == null) {
+            val gpsNowMs = location.time
+            val currentSpeedMs = location.speed
+            if (!prevGpsSpeedMs.isNaN() && prevGpsFixTimeMs > 0L) {
+                val dt = ((gpsNowMs - prevGpsFixTimeMs) / 1000.0).coerceIn(0.08, 3.0).toFloat()
+
+                // Longitudinal G: speed change → acceleration/braking
+                // Convention: negative = accelerating, positive = braking
+                gpsLongG = -((currentSpeedMs - prevGpsSpeedMs) / dt / SensorManager.GRAVITY_EARTH)
+
+                // Lateral G: heading rate × speed → cornering force
+                if (location.hasBearing() && currentSpeedMs > 2.5f && !prevGpsBearingRad.isNaN()) {
+                    val bRad = Math.toRadians(location.bearing.toDouble()).toFloat()
+                    val dBearing = atan2(sin(bRad - prevGpsBearingRad), cos(bRad - prevGpsBearingRad))
+                    val turnRate = dBearing / dt
+                    gpsLatG = -(currentSpeedMs * turnRate / SensorManager.GRAVITY_EARTH)
+                } else if (currentSpeedMs < 1.5f) {
+                    // Decay lateral at very low speed where bearing is unreliable
+                    gpsLatG *= 0.5f
+                }
+
+                hasGpsGForce = true
+                gpsGTimeMs = System.currentTimeMillis()
+            }
+            if (location.hasBearing() && currentSpeedMs > 2.5f) {
+                prevGpsBearingRad = Math.toRadians(location.bearing.toDouble()).toFloat()
+            }
+            prevGpsSpeedMs = currentSpeedMs
+            prevGpsFixTimeMs = gpsNowMs
+        }
+
         // Only check track point proximity if we're actually recording
         if (isRecording) {
             checkTrackPointProximity(location)
@@ -2346,7 +3426,11 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 // Check initial start/finish line (indices 0 and 1)
                 val crossed = checkStartFinishLineCrossing(location, trackPoints[0], trackPoints[1])
                 if (crossed) {
-                    beginTimedSession(location)
+                    if (isStartDirectionConfirmed()) {
+                        beginTimedSession(location)
+                    } else {
+                        tvLapTime.text = "Потегли напред през линията"
+                    }
                 }
                 return
             } else if (lapStartTime == 0L) {
@@ -2539,6 +3623,8 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         maxLeanRightAngle = 0f
         currentLongitudinalG = 0f
         currentLateralG = 0f
+        noGyroGpsLongStatsSmooth = 0f
+        noGyroLeanLatGSmooth = 0f
         speedGauge.resetGForceHistory()
         resetPeakDetectors()
         smoothedConfidence = 1f
@@ -2552,7 +3638,10 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         linearAccelSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         rotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
-        gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
+        geomagneticRotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        gravitySensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        magnetometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         handler.post(updateRunnable)
         sectorDistanceAccum = 0f
         lapDistanceAccum = 0f
@@ -2590,9 +3679,51 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         )
 
         if (strictCrossed) {
-            android.util.Log.d("TrackSessionActivity", "POINT_TO_POINT start line crossed - run started")
-            beginTimedSession(location)
+            if (isStartDirectionConfirmed()) {
+                android.util.Log.d("TrackSessionActivity", "POINT_TO_POINT start line crossed - run started")
+                beginTimedSession(location)
+            } else {
+                tvLapTime.text = "Потегли напред през линията"
+            }
         }
+    }
+
+    private fun updateStartDirectionGate(deviceLinearAccel: FloatArray) {
+        if (!isRecording || !awaitingStart) return
+
+        val hasDirectionalCalibration = DragCalibration.isUniversalCalibrated && hasSmartMotionCalibration
+        if (!hasDirectionalCalibration) {
+            startForwardFilteredMs2 = 0f
+            startLateralFilteredMs2 = 0f
+            startDirectionGoodSamples = 0
+            return
+        }
+
+        val forwardMs2 = DragCalibration.getSignedForwardAccelerationFromLinear(deviceLinearAccel).coerceAtLeast(0f)
+        val lateralMs2 = kotlin.math.abs(DragCalibration.getSignedLateralAccelerationFromLinear(deviceLinearAccel))
+
+        startForwardFilteredMs2 =
+            startDirectionFilterAlpha * forwardMs2 + (1f - startDirectionFilterAlpha) * startForwardFilteredMs2
+        startLateralFilteredMs2 =
+            startDirectionFilterAlpha * lateralMs2 + (1f - startDirectionFilterAlpha) * startLateralFilteredMs2
+
+        val directionalPulse =
+            startForwardFilteredMs2 > startDirectionMinForwardMs2 &&
+                startForwardFilteredMs2 > startLateralFilteredMs2 * startDirectionRatio
+
+        if (directionalPulse) {
+            startDirectionGoodSamples = (startDirectionGoodSamples + 1).coerceAtMost(startDirectionRequiredSamples + 2)
+        } else {
+            startDirectionGoodSamples = (startDirectionGoodSamples - 1).coerceAtLeast(0)
+        }
+    }
+
+    private fun isStartDirectionConfirmed(): Boolean {
+        val hasDirectionalCalibration = DragCalibration.isUniversalCalibrated && hasSmartMotionCalibration
+        if (!hasDirectionalCalibration) {
+            return true
+        }
+        return startDirectionGoodSamples >= startDirectionRequiredSamples
     }
 
     private fun updateAwaitingStartDialog(distanceToStartLineMeters: Double) {
@@ -2656,6 +3787,8 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             lapData[lapData.lastIndex] = currentLapData
         }
 
+        maybePersistCustomMeasuredDistance(lapDistanceAccum)
+
         showToast("Финиш! Време: ${formatTime(runElapsedMs)}")
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -2668,29 +3801,55 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     }
     override fun onResume() {
         super.onResume()
+        updateTopRightWeatherHeader()
         val latestProfileId = ProfileStorage.getSelectedProfileId(this)
         if (latestProfileId != -1L) {
-            reloadLeanCalibrationForProfile(latestProfileId)
+            reloadLeanCalibrationForProfile(latestProfileId, forceResetRuntime = !isRecording)
+            reloadMotionCalibrationForProfile(latestProfileId)
         }
-        // ACCELEROMETER вече е регистриран в setupSensors() (винаги активен за g-сили)
+        // Re-register while activity is visible for immediate lean response.
+        accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         linearAccelSensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
-        if (isRecording) {
-            rotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
-            gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
-        }
+        rotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        geomagneticRotationVector?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        gravitySensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        magnetometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
     }
     override fun onPause() {
         super.onPause()
-        // Не премахваме ACCELEROMETER сензора, защото се нуждаем от него за g-сили
+        // Keep sensors active while recording so tracking continues with locked screen.
+        if (isRecording) return
+        accelerometer?.let { sensorManager.unregisterListener(this, it) }
         linearAccelSensor?.let { sensorManager.unregisterListener(this, it) }
         rotationVector?.let { sensorManager.unregisterListener(this, it) }
+        geomagneticRotationVector?.let { sensorManager.unregisterListener(this, it) }
+        gravitySensor?.let { sensorManager.unregisterListener(this, it) }
+        magnetometer?.let { sensorManager.unregisterListener(this, it) }
         gyroscope?.let { sensorManager.unregisterListener(this, it) }
     }
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(updateRunnable)
         locationManager.removeUpdates(this)
+        releaseTrackWakeLock()
         soundManager.release()
+    }
+
+    private fun acquireTrackWakeLock() {
+        if (trackWakeLock?.isHeld == true) return
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        trackWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "$packageName:TrackSessionWakeLock").apply {
+            setReferenceCounted(false)
+            acquire()
+        }
+    }
+
+    private fun releaseTrackWakeLock() {
+        trackWakeLock?.let { lock ->
+            if (lock.isHeld) lock.release()
+        }
+        trackWakeLock = null
     }
     private fun addLapToUI(lapNumber: Int, lapTime: String, isBestLap: Boolean) {
         tvNoLaps.visibility = android.view.View.GONE
@@ -2927,9 +4086,31 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 val finalMaxLeanLeft = maxLeanLeftAngle
                 val finalMaxLeanRight = maxLeanRightAngle
                 val finalMaxLeanAngle = max(maxLeanAngle, max(finalMaxLeanLeft, finalMaxLeanRight))
-                val sessionDuration = sessionEndTime - sessionStartTime
-                val sessionDurationFormatted = formatTime(sessionDuration)
-                val bestLapFormatted = if (bestLapTime == Long.MAX_VALUE) "--:--.---" else formatTime(bestLapTime)
+                // Requested behavior: duration must be the sum of all recorded lap times.
+                val totalLapDurationMs = lapTimes.sum()
+                val sessionDurationFormatted = formatTimeWithMillis3(totalLapDurationMs)
+                val bestLapFormatted = if (bestLapTime == Long.MAX_VALUE) "--:--.---" else formatTimeWithMillis3(bestLapTime)
+                val envPrefs = PreferenceManager.getDefaultSharedPreferences(this)
+                val cachedTemperature = envPrefs.getFloat("cached_temperature", Float.NaN)
+                val cachedHumidity = envPrefs.getInt("cached_humidity", -1)
+                val cachedWindKph = envPrefs.getFloat("cached_wind_kph", Float.NaN)
+                val cachedWeatherIcon = envPrefs.getInt("cached_weather_icon", -1)
+                val sessionTemperature = if (!cachedTemperature.isNaN()) {
+                    UnitsManager.formatTemperature(cachedTemperature, this, decimals = 0)
+                } else {
+                    val unit = UnitsManager.getTemperatureUnit(this)
+                    "--${unit.symbol}"
+                }
+                val sessionHumidity = if (cachedHumidity in 0..100) {
+                    "${cachedHumidity}%"
+                } else {
+                    "--%"
+                }
+                val sessionWindSpeed = if (!cachedWindKph.isNaN()) {
+                    String.format(Locale.getDefault(), "%.0f km/h", cachedWindKph)
+                } else {
+                    "-- km/h"
+                }
                 val outingData = mapOf(
                     "trackName" to trackName,
                     "mode" to if (currentTrackMode == TrackMode.POINT_TO_POINT) "point_to_point" else "circuit",
@@ -2938,7 +4119,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                     "duration" to sessionDurationFormatted,
                     "totalLaps" to totalLaps.toString(),
                     "bestLapTime" to bestLapFormatted,
-                    "maxSpeed" to String.format("%.1f km/h", maxSpeed),
+                    "maxSpeed" to String.format(Locale.getDefault(), "%.0f km/h", maxSpeed),
                     "maxAcceleration" to String.format("%.2f G", maxAcceleration),
                     "maxBraking" to String.format("%.2f G", maxBraking),
                     "maxCorneringLeftG" to String.format("%.2f G", maxCorneringLeftG),
@@ -2946,7 +4127,11 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                     "maxCorneringG" to String.format("%.2f G", max(maxCorneringLeftG, maxCorneringRightG)),
                     "maxLeanAngle" to String.format("%.1f°", finalMaxLeanAngle),
                     "maxLeanLeftAngle" to String.format("%.1f°", finalMaxLeanLeft),
-                    "maxLeanRightAngle" to String.format("%.1f°", finalMaxLeanRight)
+                    "maxLeanRightAngle" to String.format("%.1f°", finalMaxLeanRight),
+                    "temperature" to sessionTemperature,
+                    "humidity" to sessionHumidity,
+                    "windSpeed" to sessionWindSpeed,
+                    "weatherIcon" to cachedWeatherIcon.toString()
                 )
                 val isResumeSession = intent.getBooleanExtra("resume_session", false)
                 val sessionIdRaw = if (isResumeSession) {
@@ -3025,6 +4210,10 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         editor.putString("${sessionId}_outing_${outingNumber}_max_lean_angle", outingData["maxLeanAngle"])
         editor.putString("${sessionId}_outing_${outingNumber}_max_lean_left", outingData["maxLeanLeftAngle"])
         editor.putString("${sessionId}_outing_${outingNumber}_max_lean_right", outingData["maxLeanRightAngle"])
+        editor.putString("${sessionId}_outing_${outingNumber}_temperature", outingData["temperature"])
+        editor.putString("${sessionId}_outing_${outingNumber}_humidity", outingData["humidity"])
+        editor.putString("${sessionId}_outing_${outingNumber}_wind_speed", outingData["windSpeed"])
+        editor.putInt("${sessionId}_outing_${outingNumber}_weather_icon", outingData["weatherIcon"]?.toIntOrNull() ?: -1)
         editor.putInt("${sessionId}_outing_count", outingNumber)
         for (i in lapTimes.indices) {
             editor.putString("${sessionId}_outing_${outingNumber}_lap_${i + 1}", formatTime(lapTimes[i]))

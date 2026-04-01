@@ -106,6 +106,16 @@ object CustomTrackStorage {
         ensureMigrated(context)
         return loadV2Tracks(context).firstOrNull { it.id == trackId }
     }
+
+    fun saveCustomTrackV2(context: Context, track: CustomTrackDefinitionV2) {
+        ensureMigrated(context)
+        val allTracks = loadV2Tracks(context)
+        allTracks.removeAll { it.id == track.id }
+        allTracks.add(track)
+        saveV2Tracks(context, allTracks)
+
+        Log.d("CustomTrackStorage", "Saved custom track V2: ${track.name} (${track.mode})")
+    }
     
     /**
      * Delete a custom track

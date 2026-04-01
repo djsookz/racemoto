@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 6,
+            "activePatchIndex": 11,
             "patches": [
                 {
                     "date": 1771575193360,
@@ -32,6 +32,26 @@
                 {
                     "date": 1772833705331,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -116,8 +116,11 @@\n         <activity\r\n             android:name=\".DragCalibrationActivity\"\r\n             android:theme=\"@style/Theme.DragMe.Calibration\"/>\r\n         <activity\r\n+            android:name=\".LeanCalibrationActivity\"\r\n+            android:theme=\"@style/Theme.DragMe.Calibration\" />\r\n+        <activity\r\n             android:name=\".TrackSessionDetailActivity\"\r\n             android:exported=\"false\" />\r\n         <activity\r\n             android:name=\".TrackLapCompareActivity\"\r\n"
+                },
+                {
+                    "date": 1773150478950,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -116,8 +116,11 @@\n         <activity\r\n             android:name=\".DragCalibrationActivity\"\r\n             android:theme=\"@style/Theme.DragMe.Calibration\"/>\r\n         <activity\r\n+            android:name=\".SmartMotionCalibrationActivity\"\r\n+            android:theme=\"@style/Theme.DragMe.Calibration\" />\r\n+        <activity\r\n             android:name=\".LeanCalibrationActivity\"\r\n             android:theme=\"@style/Theme.DragMe.Calibration\" />\r\n         <activity\r\n             android:name=\".TrackSessionDetailActivity\"\r\n"
+                },
+                {
+                    "date": 1774284342107,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -137,8 +137,11 @@\n         <activity\r\n             android:name=\".TrackTypeSelectionActivity\"\r\n             android:exported=\"false\" />\r\n         <activity\r\n+            android:name=\".CustomTrackCreationModeActivity\"\r\n+            android:exported=\"false\" />\r\n+        <activity\r\n             android:name=\".track.CustomTrackBuilderActivity\"\r\n             android:exported=\"false\" />\r\n         <activity\r\n             android:name=\".TrackSessionActivity\"\r\n"
+                },
+                {
+                    "date": 1774786703969,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -60,14 +60,14 @@\n             android:screenOrientation=\"portrait\" />\r\n \r\n \r\n         <activity\r\n-            android:name=\".FirstProfileActivity\"\r\n+            android:name=\".garage.FirstProfileActivity\"\r\n             android:exported=\"true\"\r\n             android:screenOrientation=\"portrait\" />\r\n \r\n         <activity\r\n-            android:name=\".VehicleSelectionActivity\"\r\n+            android:name=\".garage.VehicleSelectionActivity\"\r\n             android:exported=\"false\"\r\n             android:screenOrientation=\"portrait\" />\r\n \r\n         <activity\r\n@@ -146,9 +146,9 @@\n         <activity\r\n             android:name=\".TrackSessionActivity\"\r\n             android:exported=\"false\" />\r\n         <activity\r\n-            android:name=\".ProfileDetailActivity\"\r\n+            android:name=\".garage.ProfileDetailActivity\"\r\n             android:screenOrientation=\"portrait\" />\r\n \r\n         <activity\r\n             android:name=\".drag.DragRunPageActivity\"\r\n"
+                },
+                {
+                    "date": 1774788312426,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -148,8 +148,11 @@\n             android:exported=\"false\" />\r\n         <activity\r\n             android:name=\".garage.ProfileDetailActivity\"\r\n             android:screenOrientation=\"portrait\" />\r\n+        <activity\r\n+            android:name=\".garage.GarageProfilePageActivity\"\r\n+            android:screenOrientation=\"portrait\" />\r\n \r\n         <activity\r\n             android:name=\".drag.DragRunPageActivity\"\r\n             android:configChanges=\"orientation|screenSize|keyboardHidden\" />\r\n"
+                },
+                {
+                    "date": 1774948721410,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -151,8 +151,12 @@\n             android:screenOrientation=\"portrait\" />\r\n         <activity\r\n             android:name=\".garage.GarageProfilePageActivity\"\r\n             android:screenOrientation=\"portrait\" />\r\n+        <activity\r\n+            android:name=\".garage.GarageFuelEntryActivity\"\r\n+            android:exported=\"false\"\r\n+            android:screenOrientation=\"portrait\" />\r\n \r\n         <activity\r\n             android:name=\".drag.DragRunPageActivity\"\r\n             android:configChanges=\"orientation|screenSize|keyboardHidden\" />\r\n"
                 }
             ],
             "date": 1771575193360,

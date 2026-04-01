@@ -4,10 +4,10 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.example.clinometer.DragFragment
-import com.example.clinometer.GarageFragment
 import com.example.clinometer.RacesFragment
 import com.example.clinometer.SettingsFragment
 import com.example.clinometer.TrackFragment
+import com.example.clinometer.garage.GarageFragment
 import com.example.clinometer.main.map.MapFragment
 
 /**

@@ -147,6 +147,21 @@
         </LinearLayout>
     </LinearLayout>
 
+    <!-- Report Alert Panel (Waze-style) - vertical pill on left side -->
+    <FrameLayout
+        android:id="@+id/reportAlertContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="220dp"
+        android:elevation="16dp"
+        android:visibility="gone">
+
+        <include layout="@layout/view_report_alert" />
+    </FrameLayout>
+
     <!-- Search button (visible only after destination selection, above motorway options) -->
     <ImageButton
         android:id="@+id/btnSearchRoute"
@@ -788,6 +803,25 @@
             app:tint="#FFFFFF"/>
     </FrameLayout>
 
+    <!-- Report Button (Police, Camera, etc.) - Positioned after fabMyLocation for proper z-order -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabReport"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="140dp"
+        android:src="@drawable/ic_report_megaphone"
+        android:contentDescription="Докладвай"
+        app:tint="@color/primary_color"
+        android:background="@drawable/fab_stroke"
+        android:backgroundTint="#000000"
+        app:elevation="18dp"
+        app:borderWidth="1dp"
+        app:backgroundTint="#ffffff"
+        android:visibility="visible" />
+
     <!-- Map controls (top-right) -->
     <LinearLayout
         android:id="@+id/mapControlsContainer"
@@ -929,64 +963,131 @@
         </LinearLayout>
 
         <!-- Button Container -->
-        <LinearLayout
+        <FrameLayout
             android:id="@+id/buttonContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
             android:paddingHorizontal="16dp"
             android:paddingVertical="8dp">
 
-            <Button
-                android:id="@+id/btnReset"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:saveEnabled="false"
-                android:text="@string/reset_button"
-                android:textColor="#000"
-                android:textSize="12sp"
-                app:backgroundTint="#FFF"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.1"
-                android:stateListAnimator="@null"
-                android:background="@drawable/rounded_button" />
+            <LinearLayout
+                android:id="@+id/buttonActionsRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
 
-            <Button
-                android:id="@+id/btnZero"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:saveEnabled="false"
-                android:text="@string/zero_button"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                app:backgroundTint="#4CAF50"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.1"
-                android:stateListAnimator="@null"
-                android:background="@drawable/rounded_button" />
+                <Button
+                    android:id="@+id/btnReset"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:saveEnabled="false"
+                    android:text="@string/reset_button"
+                    android:textColor="#000"
+                    android:textSize="12sp"
+                    app:backgroundTint="#FFF"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.1"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/rounded_button" />
 
-            <Button
-                android:id="@+id/btnStop"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:saveEnabled="false"
-                android:text="@string/stop_button"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                app:backgroundTint="#E53935"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.1"
-                android:stateListAnimator="@null"
-                android:background="@drawable/rounded_button" />
-        </LinearLayout>
+                <Button
+                    android:id="@+id/btnZero"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:saveEnabled="false"
+                    android:text="@string/zero_button"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    app:backgroundTint="#4CAF50"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.1"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/rounded_button" />
+
+                <Button
+                    android:id="@+id/btnStop"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:saveEnabled="false"
+                    android:text="@string/stop_button"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    app:backgroundTint="#E53935"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.1"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/rounded_button" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/arrivalActionContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:visibility="gone"
+                android:alpha="0"
+                android:translationY="120dp">
+
+                <Button
+                    android:id="@+id/btnArrivalSaveFinish"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:saveEnabled="false"
+                    android:text="ЗАПАЗИ И КРАЙ"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    app:backgroundTint="#FF9800"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.05"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/rounded_button" />
+
+                <Button
+                    android:id="@+id/btnArrivalContinue"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:saveEnabled="false"
+                    android:text="ПРОДЪЛЖИ"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    app:backgroundTint="#4CAF50"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.05"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/rounded_button" />
+
+                <Button
+                    android:id="@+id/btnArrivalDelete"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:saveEnabled="false"
+                    android:text="ИЗТРИЙ"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    app:backgroundTint="#E53935"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.05"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/rounded_button" />
+            </LinearLayout>
+        </FrameLayout>
     </LinearLayout>
 
 
@@ -1114,15 +1215,360 @@
                 android:padding="0dp" />
         </LinearLayout>
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvSearchResults"
+        <LinearLayout
+            android:id="@+id/quickPanelContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:clipToPadding="false"
-            android:visibility="gone"
+            android:layout_marginTop="8dp"
             android:background="@color/background_primary"
-            android:elevation="20dp" />
+            android:orientation="vertical"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp">
+
+            <!-- Category Shortcuts -->
+            <HorizontalScrollView
+                android:id="@+id/quickCategoriesContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:paddingVertical="4dp"
+                android:paddingHorizontal="8dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <!-- Любими -->
+                    <LinearLayout
+                        android:id="@+id/btnCategoryFavorites"
+                        android:layout_width="72dp"
+                        android:layout_height="72dp"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:background="?attr/selectableItemBackground"
+                        android:layout_marginEnd="6dp"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@android:drawable/btn_star_big_on"
+                            android:tint="@color/primary_color" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Любими"
+                            android:textColor="#FFFFFF"
+                                android:textSize="11sp"
+                                android:layout_marginTop="4dp"
+                            android:gravity="center" />
+                    </LinearLayout>
+
+                    <!-- Бензиностанции -->
+                    <LinearLayout
+                        android:id="@+id/btnCategoryGas"
+                        android:layout_width="72dp"
+                        android:layout_height="72dp"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:background="?attr/selectableItemBackground"
+                        android:layout_marginEnd="6dp"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <TextView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:text="⛽"
+                            android:textSize="18sp"
+                            android:gravity="center" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Бензино-\nстанции"
+                            android:textColor="#FFFFFF"
+                                android:textSize="10sp"
+                                android:layout_marginTop="1dp"
+                            android:gravity="center" />
+                    </LinearLayout>
+
+                    <!-- Паркинги -->
+                    <LinearLayout
+                        android:id="@+id/btnCategoryParking"
+                        android:layout_width="72dp"
+                        android:layout_height="72dp"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:background="?attr/selectableItemBackground"
+                        android:layout_marginEnd="6dp"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <TextView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:text="🅿️"
+                            android:textSize="18sp"
+                            android:gravity="center" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Паркинги"
+                            android:textColor="#FFFFFF"
+                                android:textSize="11sp"
+                                android:layout_marginTop="4dp"
+                            android:gravity="center" />
+                    </LinearLayout>
+
+                    <!-- Храна -->
+                    <LinearLayout
+                        android:id="@+id/btnCategoryFood"
+                        android:layout_width="72dp"
+                        android:layout_height="72dp"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:background="?attr/selectableItemBackground"
+                        android:layout_marginEnd="6dp"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <TextView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:text="🍽️"
+                            android:textSize="18sp"
+                            android:gravity="center" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Храна"
+                            android:textColor="#FFFFFF"
+                                android:textSize="11sp"
+                                android:layout_marginTop="4dp"
+                            android:gravity="center" />
+                    </LinearLayout>
+
+                    <!-- Кафе -->
+                    <LinearLayout
+                        android:id="@+id/btnCategoryCoffee"
+                        android:layout_width="72dp"
+                        android:layout_height="72dp"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <TextView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:text="☕"
+                            android:textSize="18sp"
+                            android:gravity="center" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Кафе"
+                            android:textColor="#FFFFFF"
+                                android:textSize="11sp"
+                                android:layout_marginTop="4dp"
+                            android:gravity="center" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <!-- Divider -->
+            <View
+                android:id="@+id/quickDividerTop"
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#333333"
+                android:layout_marginVertical="4dp" />
+
+            <!-- Home -->
+            <LinearLayout
+                android:id="@+id/btnQuickHome"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="?attr/selectableItemBackground"
+                android:padding="12dp"
+                android:gravity="center_vertical"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:text="🏠"
+                    android:textSize="24sp"
+                    android:gravity="center" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/quick_suggestion_home"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvQuickHomeSubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/search_set_location"
+                        android:textColor="#888888"
+                        android:textSize="13sp"
+                        android:layout_marginTop="2dp"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Work -->
+            <LinearLayout
+                android:id="@+id/btnQuickWork"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="?attr/selectableItemBackground"
+                android:padding="12dp"
+                android:gravity="center_vertical"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:text="💼"
+                    android:textSize="24sp"
+                    android:gravity="center" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/quick_suggestion_work"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvQuickWorkSubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/search_set_location"
+                        android:textColor="#888888"
+                        android:textSize="13sp"
+                        android:layout_marginTop="2dp"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Divider -->
+            <View
+                android:id="@+id/quickDividerBottom"
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#333333"
+                android:layout_marginVertical="4dp" />
+
+            <TextView
+                android:id="@+id/tvQuickListHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="12dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="6dp"
+                android:text="@string/nav_history"
+                android:textColor="#DDE1E8"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvSearchResults"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:visibility="gone"
+                android:background="@android:color/transparent"
+                android:elevation="20dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Category POI bottom sheet (shown after selecting POI category) -->
+    <LinearLayout
+        android:id="@+id/poiBottomSheetContainer"
+        android:layout_width="match_parent"
+        android:layout_height="320dp"
+        android:layout_alignParentBottom="true"
+        android:layout_above="@id/bottomContainer"
+        android:orientation="vertical"
+        android:background="@drawable/bg_poi_bottom_sheet"
+        android:elevation="26dp"
+        android:visibility="gone"
+        android:paddingTop="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:id="@+id/tvPoiBottomSheetTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="POI"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btnPoiBottomSheetClose"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_close"
+                android:contentDescription="Затвори"
+                app:tint="#FFFFFF" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvPoiBottomSheetResults"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:paddingBottom="8dp"
+            android:background="@android:color/transparent" />
     </LinearLayout>
 
 </RelativeLayout>

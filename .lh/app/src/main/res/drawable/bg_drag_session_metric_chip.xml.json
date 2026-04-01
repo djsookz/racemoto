@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/drawable/bg_drag_session_metric_chip.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1774019859799,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1774019859799,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<shape xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:shape=\"rectangle\">\r\n    <solid android:color=\"#101A23\" />\r\n    <stroke\r\n        android:width=\"1dp\"\r\n        android:color=\"#33506B\" />\r\n    <corners android:radius=\"9dp\" />\r\n</shape>\r\n"
+        }
+    ]
+}

@@ -3,6 +3,7 @@ package com.example.clinometer
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
@@ -12,6 +13,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
@@ -29,6 +31,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.Locale
 
 /**
  * Fragment за Track страницата - конвертиран от TrackActivity
@@ -258,13 +261,13 @@ class TrackFragment : Fragment(), LocationListener {
         activeSessionTrackName = null
     }
     
-    private fun showDeleteConfirmationDialog(sessionId: String, trackName: String, sessionCard: View) {
+    private fun showDeleteConfirmationDialog(sessionId: String, trackName: String) {
         val builder = androidx.appcompat.app.AlertDialog.Builder(requireContext())
         builder.setTitle(getString(R.string.track_delete_session_title))
         builder.setMessage(getString(R.string.track_delete_session_message, trackName))
         
         builder.setPositiveButton(getString(R.string.track_delete_button)) { _, _ ->
-            deleteSession(sessionId, sessionCard)
+            deleteSession(sessionId)
         }
         
         builder.setNegativeButton(getString(R.string.cancel), null)
@@ -280,7 +283,7 @@ class TrackFragment : Fragment(), LocationListener {
         )
     }
     
-    private fun deleteSession(sessionId: String, sessionCard: View) {
+    private fun deleteSession(sessionId: String) {
         val sharedPrefs = requireContext().getSharedPreferences("track_outings", Context.MODE_PRIVATE)
         val editor = sharedPrefs.edit()
         
@@ -296,7 +299,7 @@ class TrackFragment : Fragment(), LocationListener {
         }
         
         editor.apply()
-        llSessionsContainer.removeView(sessionCard)
+        loadAllSessions()
         showToast(getString(R.string.track_session_deleted))
         showNoSessionsMessage()
     }
@@ -320,6 +323,31 @@ class TrackFragment : Fragment(), LocationListener {
         val sessionDate: String,
         val sessionTime: String,
         val timestamp: Long?
+    )
+
+    private data class TrackAggregateStats(
+        val totalSessions: Int,
+        val totalLaps: Int,
+        val totalDurationMs: Long,
+        val bestLapMs: Long?,
+        val bestLapSessionId: String?,
+        val bestLapOutingNumber: Int?
+    )
+
+    private data class SessionCardSummaryStats(
+        val totalSessions: Int,
+        val totalLaps: Int,
+        val totalDurationMs: Long
+    )
+
+    private data class MutableTrackAggregateStats(
+        var totalSessions: Int = 0,
+        var totalLaps: Int = 0,
+        var totalDurationMs: Long = 0L,
+        var bestLapMs: Long? = null,
+        var bestLapSessionId: String? = null,
+        var bestLapOutingNumber: Int? = null,
+        var bestLapSessionTimestamp: Long = Long.MIN_VALUE
     )
 
     private fun parseSessionIdMetadata(sessionIdFull: String): SessionIdMetadata {
@@ -352,6 +380,24 @@ class TrackFragment : Fragment(), LocationListener {
     private fun extractTrackIdFromSessionId(sessionIdFull: String): String {
         return parseSessionIdMetadata(sessionIdFull).trackId
     }
+
+    private fun resolveSessionTimestamp(sessionIdFull: String): Long {
+        val metadata = parseSessionIdMetadata(sessionIdFull)
+        return metadata.timestamp ?: run {
+            if (metadata.sessionDate.isNotEmpty() && metadata.sessionTime.isNotEmpty()) {
+                try {
+                    val normalizedTime = metadata.sessionTime.replace(":", "")
+                    val dateTime = "${metadata.sessionDate} $normalizedTime"
+                    val formatter = java.text.SimpleDateFormat("dd.MM.yyyy HHmm", java.util.Locale.getDefault())
+                    formatter.parse(dateTime)?.time ?: 0L
+                } catch (e: Exception) {
+                    0L
+                }
+            } else {
+                0L
+            }
+        }
+    }
     
     private fun loadAllSessions() {
         val sharedPrefs = requireContext().getSharedPreferences("track_outings", Context.MODE_PRIVATE)
@@ -373,30 +419,144 @@ class TrackFragment : Fragment(), LocationListener {
         if (sessionIds.isEmpty()) {
             showNoSessionsMessage()
         } else {
+            val trackAggregateStats = buildTrackAggregateStats(sessionIds, sharedPrefs)
             val sortedSessionIds = sessionIds.sortedByDescending { sessionIdFull ->
-                val metadata = parseSessionIdMetadata(sessionIdFull)
-                metadata.timestamp ?: run {
-                    if (metadata.sessionDate.isNotEmpty() && metadata.sessionTime.isNotEmpty()) {
-                        try {
-                            val normalizedTime = metadata.sessionTime.replace(":", "")
-                            val dateTime = "${metadata.sessionDate} $normalizedTime"
-                            val formatter = java.text.SimpleDateFormat("dd.MM.yyyy HHmm", java.util.Locale.getDefault())
-                            formatter.parse(dateTime)?.time ?: 0L
-                        } catch (e: Exception) {
-                            0L
-                        }
-                    } else {
-                        0L
-                    }
-                }
+                resolveSessionTimestamp(sessionIdFull)
             }
             
             for (sessionIdFull in sortedSessionIds) {
                 val trackId = extractTrackIdFromSessionId(sessionIdFull)
                 val trackName = getTrackName(trackId)
-                createSession(sessionIdFull, trackName)
+                createSession(sessionIdFull, trackName, trackAggregateStats[trackId])
             }
         }
+    }
+
+    private fun buildTrackAggregateStats(
+        sessionIds: Set<String>,
+        sharedPrefs: SharedPreferences
+    ): Map<String, TrackAggregateStats> {
+        val statsByTrack = mutableMapOf<String, MutableTrackAggregateStats>()
+
+        for (sessionId in sessionIds) {
+            val trackId = extractTrackIdFromSessionId(sessionId)
+            val trackStats = statsByTrack.getOrPut(trackId) { MutableTrackAggregateStats() }
+            val sessionTimestamp = resolveSessionTimestamp(sessionId)
+            val outingCount = sharedPrefs.getInt("${sessionId}_outing_count", 0)
+            // Summary "Sessions" should reflect saved outings/runs, not only raw session-id buckets.
+            trackStats.totalSessions += outingCount.coerceAtLeast(1)
+            for (outingNumber in 1..outingCount) {
+                val lapsRaw = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_laps", "0") ?: "0"
+                trackStats.totalLaps += parseLapsCount(lapsRaw)
+
+                val durationRaw = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_duration", "") ?: ""
+                parseFlexibleTimeToMs(durationRaw)?.let { durationMs ->
+                    trackStats.totalDurationMs += durationMs
+                }
+
+                val bestLapRaw = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_best_lap", "") ?: ""
+                val bestLapMs = parseFlexibleTimeToMs(bestLapRaw)
+                if (bestLapMs != null) {
+                    val currentBestMs = trackStats.bestLapMs
+                    val isNewBestTime = currentBestMs == null || bestLapMs < currentBestMs
+                    val isEqualBestButNewer = currentBestMs != null && bestLapMs == currentBestMs && (
+                        sessionTimestamp > trackStats.bestLapSessionTimestamp ||
+                            (
+                                sessionTimestamp == trackStats.bestLapSessionTimestamp &&
+                                    outingNumber > (trackStats.bestLapOutingNumber ?: Int.MIN_VALUE)
+                                )
+                        )
+
+                    if (isNewBestTime || isEqualBestButNewer) {
+                        trackStats.bestLapMs = bestLapMs
+                        trackStats.bestLapSessionId = sessionId
+                        trackStats.bestLapOutingNumber = outingNumber
+                        trackStats.bestLapSessionTimestamp = sessionTimestamp
+                    }
+                }
+            }
+        }
+
+        return statsByTrack.mapValues { (_, value) ->
+            TrackAggregateStats(
+                totalSessions = value.totalSessions,
+                totalLaps = value.totalLaps,
+                totalDurationMs = value.totalDurationMs,
+                bestLapMs = value.bestLapMs,
+                bestLapSessionId = value.bestLapSessionId,
+                bestLapOutingNumber = value.bestLapOutingNumber
+            )
+        }
+    }
+
+    private fun parseLapsCount(rawValue: String): Int {
+        val direct = rawValue.trim().toIntOrNull()
+        if (direct != null) return direct
+        val digitsOnly = rawValue.filter { it.isDigit() }
+        return digitsOnly.toIntOrNull() ?: 0
+    }
+
+    private fun parseFlexibleTimeToMs(value: String): Long? {
+        val trimmed = value.trim()
+        if (trimmed.isEmpty() || trimmed.contains("--")) return null
+
+        val match = Regex("^(\\d+):(\\d{1,2})\\.(\\d{1,3})$").find(trimmed) ?: return null
+        val minutes = match.groupValues[1].toLongOrNull() ?: return null
+        val seconds = match.groupValues[2].toLongOrNull() ?: return null
+        val fraction = match.groupValues[3]
+        val millis = when (fraction.length) {
+            1 -> "${fraction}00"
+            2 -> "${fraction}0"
+            else -> fraction.take(3)
+        }.toLongOrNull() ?: return null
+
+        return (minutes * 60_000L) + (seconds * 1_000L) + millis
+    }
+
+    private fun formatTimeMs(totalMs: Long): String {
+        val safeMs = totalMs.coerceAtLeast(0L)
+        val minutes = safeMs / 60_000L
+        val seconds = (safeMs % 60_000L) / 1_000L
+        val millis = safeMs % 1_000L
+        return String.format(Locale.getDefault(), "%d:%02d.%03d", minutes, seconds, millis)
+    }
+
+    private fun formatSummaryDuration(totalMs: Long): String {
+        if (totalMs <= 0L) return "--"
+
+        val hours = totalMs / 3_600_000L
+        val minutes = (totalMs % 3_600_000L) / 60_000L
+
+        return if (hours > 0L) {
+            getString(R.string.track_summary_time_hours_minutes, hours.toInt(), minutes.toInt())
+        } else {
+            getString(R.string.track_summary_time_minutes, minutes.toInt())
+        }
+    }
+
+    private fun buildSessionCardSummaryStats(
+        sessionId: String,
+        sharedPrefs: SharedPreferences
+    ): SessionCardSummaryStats {
+        val outingCount = sharedPrefs.getInt("${sessionId}_outing_count", 0)
+        var totalLaps = 0
+        var totalDurationMs = 0L
+
+        for (outingNumber in 1..outingCount) {
+            val lapsRaw = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_laps", "0") ?: "0"
+            totalLaps += parseLapsCount(lapsRaw)
+
+            val durationRaw = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_duration", "") ?: ""
+            parseFlexibleTimeToMs(durationRaw)?.let { durationMs ->
+                totalDurationMs += durationMs
+            }
+        }
+
+        return SessionCardSummaryStats(
+            totalSessions = outingCount.coerceAtLeast(1),
+            totalLaps = totalLaps,
+            totalDurationMs = totalDurationMs
+        )
     }
     
     private fun getTrackName(trackId: String): String {
@@ -449,9 +609,9 @@ class TrackFragment : Fragment(), LocationListener {
         return selectedProfile.vehicleType == Profile.VehicleType.MOTORCYCLE
     }
     
-    private fun createSession(sessionIdFull: String, trackName: String) {
+    private fun createSession(sessionIdFull: String, trackName: String, trackAggregateStats: TrackAggregateStats?) {
         if (!sessionExists(sessionIdFull)) {
-            val sessionCard = createSessionCard(sessionIdFull, trackName)
+            val sessionCard = createSessionCard(sessionIdFull, trackName, trackAggregateStats)
             llSessionsContainer.addView(sessionCard)
             showNoSessionsMessage()
         }
@@ -467,7 +627,11 @@ class TrackFragment : Fragment(), LocationListener {
         return false
     }
     
-    private fun createSessionCard(sessionIdFull: String, trackName: String): View {
+    private fun createSessionCard(
+        sessionIdFull: String,
+        trackName: String,
+        trackAggregateStats: TrackAggregateStats?
+    ): View {
         val inflater = LayoutInflater.from(requireContext())
         val sessionCard = inflater.inflate(R.layout.session_card_template, llSessionsContainer, false)
         
@@ -494,6 +658,24 @@ class TrackFragment : Fragment(), LocationListener {
         } else {
             tvTrackDetails.text = "Нова сесия"
         }
+
+        val sharedPrefs = requireContext().getSharedPreferences("track_outings", Context.MODE_PRIVATE)
+        val effectiveTrackStats = trackAggregateStats
+            ?: buildTrackAggregateStats(setOf(sessionIdFull), sharedPrefs)[trackId]
+        val sessionSummaryStats = buildSessionCardSummaryStats(sessionIdFull, sharedPrefs)
+
+        val tvTrackAllTimeBestValue = sessionCard.findViewById<TextView>(R.id.tvTrackAllTimeBestValue)
+        val tvTrackPbBadge = sessionCard.findViewById<TextView>(R.id.tvTrackPbBadge)
+        val tvTrackSummarySessionsValue = sessionCard.findViewById<TextView>(R.id.tvTrackSummarySessionsValue)
+        val tvTrackSummaryLapsValue = sessionCard.findViewById<TextView>(R.id.tvTrackSummaryLapsValue)
+        val tvTrackSummaryTimeValue = sessionCard.findViewById<TextView>(R.id.tvTrackSummaryTimeValue)
+
+        tvTrackAllTimeBestValue.text = effectiveTrackStats?.bestLapMs?.let { formatTimeMs(it) } ?: "--:--.---"
+        tvTrackPbBadge.text = getString(R.string.drag_run_indicator_pb)
+        tvTrackPbBadge.visibility = if (effectiveTrackStats?.bestLapMs != null) View.VISIBLE else View.GONE
+        tvTrackSummarySessionsValue.text = sessionSummaryStats.totalSessions.toString()
+        tvTrackSummaryLapsValue.text = sessionSummaryStats.totalLaps.toString()
+        tvTrackSummaryTimeValue.text = formatSummaryDuration(sessionSummaryStats.totalDurationMs)
         
         val btnResume = sessionCard.findViewById<MaterialButton>(R.id.btnResume)
         btnResume.setOnClickListener {
@@ -502,7 +684,7 @@ class TrackFragment : Fragment(), LocationListener {
         
         val btnDeleteSession = sessionCard.findViewById<ImageButton>(R.id.btnDeleteSession)
         btnDeleteSession.setOnClickListener {
-            showDeleteConfirmationDialog(sessionIdFull, trackName, sessionCard)
+            showDeleteConfirmationDialog(sessionIdFull, trackName)
         }
         
         val headerLayout = sessionCard.findViewById<LinearLayout>(R.id.headerLayout)
@@ -513,12 +695,16 @@ class TrackFragment : Fragment(), LocationListener {
             toggleSessionExpansion(contentLayout, arrow)
         }
         
-        loadOutingsForSession(sessionCard, sessionIdFull)
+        loadOutingsForSession(sessionCard, sessionIdFull, effectiveTrackStats)
         
         return sessionCard
     }
     
-    private fun loadOutingsForSession(sessionCard: View, sessionId: String) {
+    private fun loadOutingsForSession(
+        sessionCard: View,
+        sessionId: String,
+        trackAggregateStats: TrackAggregateStats?
+    ) {
         val sharedPrefs = requireContext().getSharedPreferences("track_outings", Context.MODE_PRIVATE)
         val outingCount = sharedPrefs.getInt("${sessionId}_outing_count", 0)
         val contentLayout = sessionCard.findViewById<LinearLayout>(R.id.contentLayout)
@@ -528,39 +714,151 @@ class TrackFragment : Fragment(), LocationListener {
             tvNoOutings.visibility = View.VISIBLE
         } else {
             tvNoOutings.visibility = View.GONE
+            val spacingPx = (10 * resources.displayMetrics.density).toInt()
             
             for (i in outingCount downTo 1) {
-                val outingView = createOutingView(sessionId, i, sharedPrefs)
+                val isTrackPbOuting = trackAggregateStats?.bestLapSessionId == sessionId &&
+                    trackAggregateStats.bestLapOutingNumber == i
+                val outingView = createOutingView(sessionId, i, sharedPrefs, isTrackPbOuting)
+                val lp = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                if (contentLayout.childCount > 0) {
+                    lp.topMargin = spacingPx
+                }
+                outingView.layoutParams = lp
                 contentLayout.addView(outingView)
             }
         }
     }
     
-    private fun createOutingView(sessionId: String, outingNumber: Int, sharedPrefs: android.content.SharedPreferences): View {
+    private fun createOutingView(
+        sessionId: String,
+        outingNumber: Int,
+        sharedPrefs: android.content.SharedPreferences,
+        isTrackPbOuting: Boolean
+    ): View {
         val outingView = LayoutInflater.from(requireContext()).inflate(R.layout.outing_item_template, null)
         
         val tvOutingTitle = outingView.findViewById<TextView>(R.id.tvOutingTitle)
+        val tvOutingPbBadge = outingView.findViewById<TextView>(R.id.tvOutingPbBadge)
+        val tvOutingTopTime = outingView.findViewById<TextView>(R.id.tvOutingTopTime)
         val tvOutingDateTime = outingView.findViewById<TextView>(R.id.tvOutingDateTime)
         val tvOutingLaps = outingView.findViewById<TextView>(R.id.tvOutingLaps)
         val tvOutingBestLap = outingView.findViewById<TextView>(R.id.tvOutingBestLap)
+        val tvOutingMaxSpeed = outingView.findViewById<TextView>(R.id.tvOutingMaxSpeed)
+        val tvOutingDuration = outingView.findViewById<TextView>(R.id.tvOutingDuration)
+        val ivOutingWeather = outingView.findViewById<ImageView>(R.id.ivOutingWeather)
+        val ivOutingHumidity = outingView.findViewById<ImageView>(R.id.ivOutingHumidity)
+        val ivOutingWind = outingView.findViewById<ImageView>(R.id.ivOutingWind)
+        val tvOutingWeatherTemp = outingView.findViewById<TextView>(R.id.tvOutingWeatherTemp)
+        val tvOutingHumidity = outingView.findViewById<TextView>(R.id.tvOutingHumidity)
+        val tvOutingWind = outingView.findViewById<TextView>(R.id.tvOutingWind)
         
         tvOutingTitle.text = getString(R.string.track_session_title, outingNumber)
         val outingDate = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_date", "") ?: ""
         val outingTime = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_time", "") ?: ""
-        tvOutingDateTime.text = when {
-            outingDate.isNotBlank() && outingTime.isNotBlank() -> "$outingDate $outingTime"
-            outingDate.isNotBlank() -> outingDate
-            outingTime.isNotBlank() -> outingTime
-            else -> "--"
-        }
+        val outingDuration = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_duration", "") ?: ""
+        val outingMaxSpeed = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_max_speed", "") ?: ""
+        val outingTemperature = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_temperature", "") ?: ""
+        val outingHumidityText = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_humidity", "") ?: ""
+        val outingWind = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_wind_speed", "") ?: ""
+        val outingWeatherIcon = sharedPrefs.getInt("${sessionId}_outing_${outingNumber}_weather_icon", -1)
+
+        tvOutingPbBadge.text = getString(R.string.drag_run_indicator_pb)
+        tvOutingPbBadge.visibility = if (isTrackPbOuting) View.VISIBLE else View.GONE
+
+        tvOutingDateTime.text = if (outingDate.isNotBlank()) outingDate else "--"
+        tvOutingTopTime.text = if (outingTime.isNotBlank()) outingTime else "--:--"
         tvOutingLaps.text = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_laps", "0")
-        tvOutingBestLap.text = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_best_lap", "--:--.---")
+        tvOutingBestLap.text = formatDurationDisplay(
+            sharedPrefs.getString("${sessionId}_outing_${outingNumber}_best_lap", "--:--.---") ?: "--:--.---"
+        )
+        tvOutingDuration.text = formatDurationDisplay(outingDuration)
+        tvOutingMaxSpeed.text = formatSpeedDisplayWhole(outingMaxSpeed)
+
+        val weatherTemp = if (outingTemperature.isNotBlank()) outingTemperature else "--"
+        val humidityText = if (outingHumidityText.isNotBlank()) outingHumidityText else "--%"
+        val windText = if (outingWind.isNotBlank()) outingWind else "-- km/h"
+        val humidityPercent = outingHumidityText.filter { it.isDigit() }.toIntOrNull()
+        val (weatherIconRes, weatherTintRes) = resolveWeatherIconStyle(outingWeatherIcon, humidityPercent)
+
+        ivOutingWeather.setImageResource(weatherIconRes)
+        ivOutingWeather.setColorFilter(ContextCompat.getColor(requireContext(), weatherTintRes))
+        ivOutingHumidity.setImageResource(R.drawable.ic_humidity_drop)
+        ivOutingHumidity.setColorFilter(ContextCompat.getColor(requireContext(), R.color.text_tertiary))
+        ivOutingWind.setImageResource(R.drawable.ic_wind)
+        ivOutingWind.setColorFilter(ContextCompat.getColor(requireContext(), R.color.text_tertiary))
+
+        tvOutingWeatherTemp.text = weatherTemp
+        tvOutingHumidity.text = humidityText
+        tvOutingWind.text = windText
         
         outingView.setOnClickListener {
             openOutingDetail(sessionId, outingNumber, sharedPrefs)
         }
         
         return outingView
+    }
+
+    private fun formatSpeedDisplayWhole(rawSpeed: String): String {
+        if (rawSpeed.isBlank()) return "-- km/h"
+        val numeric = rawSpeed.substringBefore(" ").replace(',', '.').toDoubleOrNull()
+        return if (numeric != null) {
+            String.format(Locale.getDefault(), "%.0f km/h", numeric)
+        } else {
+            rawSpeed
+        }
+    }
+
+    private fun formatDurationDisplay(rawDuration: String): String {
+        if (rawDuration.isBlank()) return "--:--.---"
+        val threeDigitRegex = Regex("""^(\\d{2,}):(\\d{2})\\.(\\d{3})$""")
+        if (threeDigitRegex.matches(rawDuration)) return rawDuration
+
+        val twoDigitRegex = Regex("""^(\\d{2,}):(\\d{2})\\.(\\d{2})$""")
+        val twoDigitMatch = twoDigitRegex.find(rawDuration)
+        if (twoDigitMatch != null) {
+            val min = twoDigitMatch.groupValues[1]
+            val sec = twoDigitMatch.groupValues[2]
+            val centi = twoDigitMatch.groupValues[3]
+            return "$min:$sec.${centi}0"
+        }
+
+        return rawDuration
+    }
+
+    private fun resolveWeatherIconStyle(iconRes: Int, humidityPercent: Int?): Pair<Int, Int> {
+        val baseIcon = when (iconRes) {
+            R.drawable.ic_weather_sunny -> R.drawable.ic_weather_sunny
+            R.drawable.ic_weather_clear_night -> R.drawable.ic_weather_clear_night
+            R.drawable.ic_weather_partly_cloudy,
+            R.drawable.ic_weather_partly_cloudy_night -> R.drawable.ic_weather_partly_cloudy
+            R.drawable.ic_weather_cloudy -> R.drawable.ic_weather_cloudy
+            R.drawable.ic_weather_rainy -> R.drawable.ic_weather_rainy
+            R.drawable.ic_weather_snowy -> R.drawable.ic_weather_snowy
+            else -> R.drawable.ic_weather_cloudy
+        }
+
+        // If saved icon says "sunny" but humidity is high, prefer cloudy as a safer visual fallback.
+        val finalIcon = if (baseIcon == R.drawable.ic_weather_sunny && (humidityPercent ?: 0) >= 70) {
+            R.drawable.ic_weather_cloudy
+        } else {
+            baseIcon
+        }
+
+        val tintRes = when (finalIcon) {
+            R.drawable.ic_weather_sunny -> R.color.warning_color
+            R.drawable.ic_weather_rainy -> R.color.accent_light
+            R.drawable.ic_weather_snowy -> R.color.accent_light
+            R.drawable.ic_weather_clear_night -> R.color.text_secondary_light
+            R.drawable.ic_weather_partly_cloudy -> R.color.text_secondary_light
+            R.drawable.ic_weather_cloudy -> R.color.text_secondary_light
+            else -> R.color.text_secondary_light
+        }
+
+        return finalIcon to tintRes
     }
     
     private fun openOutingDetail(sessionIdFull: String, outingNumber: Int, sharedPrefs: android.content.SharedPreferences) {

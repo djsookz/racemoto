@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
 import android.view.View
+import java.util.Locale
 import kotlin.math.*
 
 class GGaugeView @JvmOverloads constructor(
@@ -32,6 +33,13 @@ class GGaugeView @JvmOverloads constructor(
     var peakGForce: Float = 0f
         set(value) {
             field = value
+            invalidate()
+        }
+
+    var visualMaxG: Float = 2.5f
+        set(value) {
+            field = value.coerceAtLeast(0.6f)
+            trailPoints.clear()
             invalidate()
         }
 
@@ -104,10 +112,16 @@ class GGaugeView @JvmOverloads constructor(
         bgPaint.strokeWidth = 2f
         bgPaint.color = Color.WHITE
         
-        // Draw concentric circles for 0.5g, 1.0g, 2.0g
-        canvas.drawCircle(centerX, centerY, graphRadius * 0.5f, bgPaint)
-        canvas.drawCircle(centerX, centerY, graphRadius, bgPaint)
-        canvas.drawCircle(centerX, centerY, graphRadius * 1.5f, bgPaint)
+        val level1G = visualMaxG / 3f
+        val level2G = visualMaxG * (2f / 3f)
+        val level3G = visualMaxG
+        val level1Radius = graphRadius * (level1G / visualMaxG)
+        val level2Radius = graphRadius * (level2G / visualMaxG)
+        val level3Radius = graphRadius
+
+        canvas.drawCircle(centerX, centerY, level1Radius, bgPaint)
+        canvas.drawCircle(centerX, centerY, level2Radius, bgPaint)
+        canvas.drawCircle(centerX, centerY, level3Radius, bgPaint)
 
         // Draw cross lines
         canvas.drawLine(centerX - graphRadius, centerY, centerX + graphRadius, centerY, bgPaint)
@@ -116,9 +130,9 @@ class GGaugeView @JvmOverloads constructor(
         // Draw labels
         smallTextPaint.textSize = 18f
         smallTextPaint.color = Color.WHITE
-        canvas.drawText("0.5g", centerX + graphRadius * 0.5f + 8f, centerY - 8f, smallTextPaint)
-        canvas.drawText("1.0g", centerX + graphRadius + 8f, centerY - 8f, smallTextPaint)
-        canvas.drawText("2.0g", centerX + graphRadius * 1.5f + 8f, centerY - 8f, smallTextPaint)
+        canvas.drawText(formatGLabel(level1G), centerX + level1Radius + 8f, centerY - 8f, smallTextPaint)
+        canvas.drawText(formatGLabel(level2G), centerX + level2Radius + 8f, centerY - 8f, smallTextPaint)
+        canvas.drawText(formatGLabel(level3G), centerX + level3Radius + 8f, centerY - 8f, smallTextPaint)
 
         // Draw current G-force point with proper scaling
         // Scale G-forces to fit within the graph (max 2.5g)
@@ -127,13 +141,14 @@ class GGaugeView @JvmOverloads constructor(
         // - gForceY < 0 (forward force) → точка нагоре (negative Y в координатната система)
         // - gForceX > 0 (left force) → точка надясно (positive X)
         // - gForceX < 0 (right force) → точка наляво (negative X)
-        val maxG = 2.5f
-        val threshold = 0.10f // align with deadband to eliminate rest jumps
+        val threshold = 0.04f // soft threshold to avoid low-G snapping
         
         val rawCorner = gForceX
         val rawLong = gForceY
-        val scaledCorneringG = if (abs(rawCorner) <= threshold) 0f else (rawCorner / maxG).coerceIn(-1f, 1f)
-        val scaledAccelG = if (abs(rawLong) <= threshold) 0f else (rawLong / maxG).coerceIn(-1f, 1f)
+        val smoothCorner = applyVisualSoftDeadband(rawCorner, threshold)
+        val smoothLong = applyVisualSoftDeadband(rawLong, threshold)
+        val scaledCorneringG = (smoothCorner / visualMaxG).coerceIn(-1f, 1f)
+        val scaledAccelG = (smoothLong / visualMaxG).coerceIn(-1f, 1f)
         
         // Директна визуализация (без обръщане, знаците вече са правилни от Service-а)
         val gX = centerX - scaledCorneringG * graphRadius
@@ -208,5 +223,17 @@ class GGaugeView @JvmOverloads constructor(
                 break
             }
         }
+    }
+
+    private fun applyVisualSoftDeadband(value: Float, threshold: Float): Float {
+        val magnitude = abs(value)
+        if (magnitude <= 0.002f) return 0f
+        if (threshold <= 0f || magnitude >= threshold) return value
+        val t = (magnitude / threshold).coerceIn(0f, 1f)
+        return value * t * t
+    }
+
+    private fun formatGLabel(value: Float): String {
+        return String.format(Locale.US, "%.1fg", value)
     }
 }

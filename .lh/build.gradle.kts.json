@@ -1,0 +1,18 @@
+{
+    "sourceFile": "build.gradle.kts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1774607054374,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1774607054374,
+            "name": "Commit-0",
+            "content": "// Top-level build file where you can add configuration options common to all sub-projects/modules.\r\nplugins {\r\n    alias(libs.plugins.android.application) apply false\r\n    alias(libs.plugins.kotlin.android) apply false\r\n    alias(libs.plugins.kotlin.compose) apply false\r\n    id(\"com.google.gms.google-services\") version \"4.4.2\" apply false\r\n}"
+        }
+    ]
+}

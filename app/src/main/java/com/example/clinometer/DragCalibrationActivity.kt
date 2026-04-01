@@ -21,6 +21,8 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.abs
 import kotlin.math.sqrt
+import kotlin.math.max
+import kotlin.math.min
 
 class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     
@@ -97,6 +99,15 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     private var maxVibrZ = 0f
     private var baselineNoiseRms = 0f
     private val VIBRATION_BUFFER = 0.05f
+    private var forwardLearningStartTime = 0L
+    private var forwardReferenceUnit: FloatArray? = null
+    private var forwardRejectedDirectionSamples = 0
+    private var forwardDotAccumulator = 0f
+    private var forwardDotCount = 0
+    private var forwardMagnitudeAccumulator = 0f
+    private var forwardMagnitudeSquaredAccumulator = 0f
+    private val FORWARD_PHASE_TIMEOUT_MS = 5000L
+    private val FORWARD_DIRECTION_MIN_COS = 0.75f
     
     private var profileId: Long = -1L
     private var isFirstProfile: Boolean = false
@@ -278,6 +289,12 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
         forwardSamplesX.clear()
         forwardSamplesY.clear()
         forwardSamplesZ.clear()
+        forwardReferenceUnit = null
+        forwardRejectedDirectionSamples = 0
+        forwardDotAccumulator = 0f
+        forwardDotCount = 0
+        forwardMagnitudeAccumulator = 0f
+        forwardMagnitudeSquaredAccumulator = 0f
         
         baselineCollected = false
         isLearningForward = false
@@ -373,6 +390,13 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     
     private fun startLearningForward() {
         isLearningForward = true
+        forwardLearningStartTime = System.currentTimeMillis()
+        forwardReferenceUnit = null
+        forwardRejectedDirectionSamples = 0
+        forwardDotAccumulator = 0f
+        forwardDotCount = 0
+        forwardMagnitudeAccumulator = 0f
+        forwardMagnitudeSquaredAccumulator = 0f
         val statusView = if (calibratingOrientation == "portrait") tvPortraitStatus else tvLandscapeStatus
         statusView.text = "🚗 ${getString(R.string.calibration_drive_forward)}"
         statusView.setTextColor(ContextCompat.getColor(this, android.R.color.holo_blue_light))
@@ -397,6 +421,21 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     }
     
     private fun detectForwardAcceleration() {
+        if (System.currentTimeMillis() - forwardLearningStartTime > FORWARD_PHASE_TIMEOUT_MS) {
+            forwardSamplesX.clear()
+            forwardSamplesY.clear()
+            forwardSamplesZ.clear()
+            forwardReferenceUnit = null
+            forwardRejectedDirectionSamples = 0
+            forwardDotAccumulator = 0f
+            forwardDotCount = 0
+            forwardMagnitudeAccumulator = 0f
+            forwardMagnitudeSquaredAccumulator = 0f
+            forwardLearningStartTime = System.currentTimeMillis()
+            Log.w("DragCalibration", "⏱️ Forward phase timeout - restarting sample collection")
+            return
+        }
+
         // ИЗВАЖДАМЕ BASELINE (gravity + шум) от RAW данните
         val cleanAccel = floatArrayOf(
             rawAcceleration[0] - baselineVector[0],
@@ -411,11 +450,13 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
             cleanAccel[2] * cleanAccel[2]
         )
         
-        // Максимална вибрация (от фаза 1)
-        val maxVibrationBaseline = sqrt(maxVibrX * maxVibrX + maxVibrY * maxVibrY + maxVibrZ * maxVibrZ)
-        
-        // 🎯 THRESHOLD: Директно maxVibration (БЕЗ margin за максимална чувствителност!)
-        val forwardThreshold = maxVibrationBaseline
+        val forwardThreshold = DragCalibration.getCalibrationWeightedThreshold(
+            linearAccel = cleanAccel,
+            maxVibrX = maxVibrX,
+            maxVibrY = maxVibrY,
+            maxVibrZ = maxVibrZ,
+            minFloor = 0.6f
+        )
         
         // Игнорираме много малки стойности (под шума)
         if (cleanMagnitude < 0.05f) return
@@ -423,10 +464,37 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
         // 🔥 СЪБИРАМЕ FORWARD SAMPLES (не записваме веднага!)
         // Детектираме ускорение НАД вибрациите
         if (cleanMagnitude > forwardThreshold) {
+            val unitX = cleanAccel[0] / cleanMagnitude
+            val unitY = cleanAccel[1] / cleanMagnitude
+            val unitZ = cleanAccel[2] / cleanMagnitude
+
+            val reference = forwardReferenceUnit
+            if (reference == null) {
+                forwardReferenceUnit = floatArrayOf(unitX, unitY, unitZ)
+                forwardDotAccumulator += 1f
+                forwardDotCount++
+            } else {
+                val cosine = unitX * reference[0] + unitY * reference[1] + unitZ * reference[2]
+                if (cosine < FORWARD_DIRECTION_MIN_COS) {
+                    forwardRejectedDirectionSamples++
+                    if (forwardRejectedDirectionSamples % 5 == 0) {
+                        Log.d(
+                            "DragCalibration",
+                            "↩️ Rejected off-direction sample: cos=${"%.3f".format(cosine)} (< ${"%.2f".format(FORWARD_DIRECTION_MIN_COS)})"
+                        )
+                    }
+                    return
+                }
+                forwardDotAccumulator += cosine
+                forwardDotCount++
+            }
+
             // Добавяме sample
             forwardSamplesX.add(cleanAccel[0])
             forwardSamplesY.add(cleanAccel[1])
             forwardSamplesZ.add(cleanAccel[2])
+            forwardMagnitudeAccumulator += cleanMagnitude
+            forwardMagnitudeSquaredAccumulator += cleanMagnitude * cleanMagnitude
             
             if (forwardSamplesX.size % 5 == 0) {  // Лог на всеки 5 samples
                 Log.d("DragCalibration", "📊 Forward sample #${forwardSamplesX.size}/$FORWARD_SAMPLES_NEEDED: magnitude=${"%.3f".format(cleanMagnitude)} (threshold=${"%.3f".format(forwardThreshold)})")
@@ -446,6 +514,11 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     }
     
     private fun completeForwardPhase() {
+        if (forwardSamplesX.isEmpty()) {
+            Log.w("DragCalibration", "⚠️ Forward phase completed with zero samples - abort")
+            return
+        }
+
         // Изчисляваме средния forward vector от всички samples
         val avgForwardX = forwardSamplesX.average().toFloat()
         val avgForwardY = forwardSamplesY.average().toFloat()
@@ -459,20 +532,57 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
             avgForwardY / magnitude,
             avgForwardZ / magnitude
         )
+
+        val acceptedSamples = forwardSamplesX.size
+        val attemptedSamples = acceptedSamples + forwardRejectedDirectionSamples
+        val acceptRatio = if (attemptedSamples > 0) acceptedSamples.toFloat() / attemptedSamples.toFloat() else 0f
+        val meanDot = if (forwardDotCount > 0) forwardDotAccumulator / forwardDotCount else 0f
+        val meanMag = if (acceptedSamples > 0) forwardMagnitudeAccumulator / acceptedSamples else 0f
+        val varianceMag = if (acceptedSamples > 0) {
+            (forwardMagnitudeSquaredAccumulator / acceptedSamples) - (meanMag * meanMag)
+        } else {
+            0f
+        }
+        val stdMag = sqrt(max(0f, varianceMag))
+
+        // Прост confidence score за quality на calibration (0..100)
+        val coherenceScore = ((meanDot + 1f) / 2f).coerceIn(0f, 1f)
+        val noiseScore = (1f - (baselineNoiseRms / 1.6f)).coerceIn(0f, 1f)
+        val stabilityScore = (1f - (stdMag / max(0.3f, meanMag))).coerceIn(0f, 1f)
+        val confidence = ((0.45f * coherenceScore) + (0.25f * acceptRatio) + (0.15f * noiseScore) + (0.15f * stabilityScore)) * 100f
         
         Log.d("DragCalibration", "✅ Forward phase COMPLETE!")
         Log.d("DragCalibration", "📊 Collected ${forwardSamplesX.size} samples over ~${FORWARD_SAMPLES_NEEDED * 10}ms")
+        Log.d("DragCalibration", "📊 Rejected off-direction samples: $forwardRejectedDirectionSamples")
         Log.d("DragCalibration", "📍 Average Forward Vector: [${forwardAxis[0]}, ${forwardAxis[1]}, ${forwardAxis[2]}]")
         Log.d("DragCalibration", "📍 Magnitude: ${"%.3f".format(magnitude)} m/s²")
+        Log.d("DragCalibration", "📍 Coherence: ${"%.3f".format(meanDot)}, acceptRatio=${"%.3f".format(acceptRatio)}")
+        Log.d("DragCalibration", "📍 Confidence: ${"%.1f".format(confidence.coerceIn(0f, 100f))}%")
 
         // Lateral axis не ни трябва
         val dummyLateralAxis = floatArrayOf(0f, 1f, 0f)
         
         // Lock axes and save based on orientation!
         if (calibratingOrientation == "portrait") {
-            DragCalibration.lockPortraitAxes(forwardAxis, dummyLateralAxis, baselineVector, maxVibrX, maxVibrY, maxVibrZ)
+            DragCalibration.lockPortraitAxes(
+                forward = forwardAxis,
+                lateral = dummyLateralAxis,
+                baseline = baselineVector,
+                maxVibrX = maxVibrX,
+                maxVibrY = maxVibrY,
+                maxVibrZ = maxVibrZ,
+                confidence = confidence.coerceIn(0f, 100f)
+            )
         } else {
-            DragCalibration.lockLandscapeAxes(forwardAxis, dummyLateralAxis, baselineVector, maxVibrX, maxVibrY, maxVibrZ)
+            DragCalibration.lockLandscapeAxes(
+                forward = forwardAxis,
+                lateral = dummyLateralAxis,
+                baseline = baselineVector,
+                maxVibrX = maxVibrX,
+                maxVibrY = maxVibrY,
+                maxVibrZ = maxVibrZ,
+                confidence = confidence.coerceIn(0f, 100f)
+            )
         }
         
         isCalibrating = false

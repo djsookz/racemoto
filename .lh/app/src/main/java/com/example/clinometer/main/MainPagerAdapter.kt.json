@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 1,
+            "activePatchIndex": 2,
             "patches": [
                 {
                     "date": 1771575193356,
@@ -12,6 +12,10 @@
                 {
                     "date": 1771577994261,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,7 +1,6 @@\n package com.example.clinometer.main\r\n \r\n-import com.example.clinometer.*\r\n import androidx.fragment.app.Fragment\r\n import androidx.fragment.app.FragmentActivity\r\n import androidx.viewpager2.adapter.FragmentStateAdapter\r\n import com.example.clinometer.DragFragment\r\n"
+                },
+                {
+                    "date": 1774786703968,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -3,12 +3,12 @@\n import androidx.fragment.app.Fragment\r\n import androidx.fragment.app.FragmentActivity\r\n import androidx.viewpager2.adapter.FragmentStateAdapter\r\n import com.example.clinometer.DragFragment\r\n-import com.example.clinometer.GarageFragment\r\n import com.example.clinometer.RacesFragment\r\n import com.example.clinometer.SettingsFragment\r\n import com.example.clinometer.TrackFragment\r\n+import com.example.clinometer.garage.GarageFragment\r\n import com.example.clinometer.main.map.MapFragment\r\n \r\n /**\r\n  * Adapter за ViewPager2 който държи всички основни Fragments\r\n"
                 }
             ],
             "date": 1771575193356,

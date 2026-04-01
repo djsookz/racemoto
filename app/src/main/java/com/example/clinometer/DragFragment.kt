@@ -42,6 +42,7 @@ import com.example.clinometer.settings.SoundManager
 import com.example.clinometer.settings.UnitsManager
 import com.example.clinometer.network.WeatherApiService
 import com.example.clinometer.network.OpenMeteoService
+import com.example.clinometer.utils.WeatherIconMapper
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import kotlinx.coroutines.launch
@@ -74,6 +75,9 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
     private var pressureSensor: Sensor? = null
     private var currentTemperature: Float? = null
     private var currentAltitude: Float? = null
+    private var currentHumidity: Int? = null
+    private var currentWindKph: Float? = null
+    private var currentWeatherIcon: Int = R.drawable.ic_weather_cloudy
     private val weatherRefreshHandler = Handler(Looper.getMainLooper())
     private var weatherRefreshRunnable: Runnable? = null
     private var sessions: MutableList<DragSession> = mutableListOf()
@@ -303,6 +307,9 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
         val cachedTemp = prefs.getFloat("cached_temperature", Float.NaN)
         val cachedAlt = prefs.getFloat("cached_altitude", Float.NaN)
+        val cachedHumidity = prefs.getInt("cached_humidity", -1)
+        val cachedWindKph = prefs.getFloat("cached_wind_kph", Float.NaN)
+        val cachedWeatherIcon = prefs.getInt("cached_weather_icon", -1)
         val cachedLat = prefs.getFloat("cached_location_lat", Float.NaN)
         val cachedLon = prefs.getFloat("cached_location_lon", Float.NaN)
         
@@ -313,6 +320,18 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         if (currentAltitude == null && !cachedAlt.isNaN() && !cachedLat.isNaN() && !cachedLon.isNaN()) {
             currentAltitude = cachedAlt
         }
+
+        if (currentHumidity == null && cachedHumidity >= 0 && !cachedLat.isNaN() && !cachedLon.isNaN()) {
+            currentHumidity = cachedHumidity
+        }
+
+        if (currentWindKph == null && !cachedWindKph.isNaN() && !cachedLat.isNaN() && !cachedLon.isNaN()) {
+            currentWindKph = cachedWindKph
+        }
+
+        if (cachedWeatherIcon != -1) {
+            currentWeatherIcon = cachedWeatherIcon
+        }
     }
     
     private fun cacheWeatherData(location: Location) {
@@ -321,6 +340,9 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         
         currentTemperature?.let { editor.putFloat("cached_temperature", it) }
         currentAltitude?.let { editor.putFloat("cached_altitude", it) }
+        currentHumidity?.let { editor.putInt("cached_humidity", it) }
+        currentWindKph?.let { editor.putFloat("cached_wind_kph", it) }
+        editor.putInt("cached_weather_icon", currentWeatherIcon)
         editor.putLong("cached_weather_time", System.currentTimeMillis())
         editor.putFloat("cached_location_lat", location.latitude.toFloat())
         editor.putFloat("cached_location_lon", location.longitude.toFloat())
@@ -364,6 +386,13 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
                         if (weatherResponse.isSuccessful && weatherResponse.body() != null) {
                             val weather = weatherResponse.body()!!
                             currentTemperature = weather.current.temp_c.toFloat()
+                            currentHumidity = weather.current.humidity
+                            currentWindKph = weather.current.wind_kph.toFloat()
+                            currentWeatherIcon = WeatherIconMapper.getWeatherApiIcon(
+                                weather.current.condition.code,
+                                weather.current.cloud,
+                                weather.current.is_day == 1
+                            )
                             updateEnvironmentDisplay()
                         }
                         
@@ -390,7 +419,9 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
     }
     
     private fun startCountdown(mode: MeasurementMode) {
-        showCountdownDialog(mode)
+        startLocationUpdates()
+        preStartDragService(mode)
+        startDragRun(mode)
     }
     
     private fun showCountdownDialog(mode: MeasurementMode) {
@@ -580,6 +611,9 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         intent.putExtra("PROFILE_ID", currentProfile?.id)
         intent.putExtra("TEMPERATURE", currentTemperature)
         intent.putExtra("ALTITUDE", currentAltitude)
+        intent.putExtra("HUMIDITY", currentHumidity ?: -1)
+        intent.putExtra("WIND_KPH", currentWindKph ?: Float.NaN)
+        intent.putExtra("WEATHER_ICON", currentWeatherIcon)
         intent.putExtra("MEASUREMENT_MODE", mode.name)
         
         if (currentLatitude != null && currentLongitude != null) {

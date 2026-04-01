@@ -21,6 +21,7 @@ import androidx.preference.PreferenceManager
 import com.example.clinometer.settings.LanguageManager
 import com.example.clinometer.settings.UnitsManager
 import com.example.clinometer.track.TrackMapIntegration
+import com.example.clinometer.track.TrackMapExtras
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
@@ -250,6 +251,7 @@ class MapActivity : AppCompatActivity() {
         chart = findViewById(R.id.chart)
         tabLayout = findViewById(R.id.tabs)
         trackMapIntegration.configureTrackUi(this, chart, raceId, race)
+        updateLapSessionStatisticsCard()
         
         setupMapboxMap()
         setupZoomButtons()
@@ -293,6 +295,70 @@ class MapActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "Chart error: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun updateLapSessionStatisticsCard() {
+        val card = findViewById<View?>(R.id.cardLapSessionStatistics) ?: return
+        val isTrackContext = intent.getBooleanExtra(TrackMapExtras.EXTRA_TRACK_CONTEXT, false)
+        if (!isTrackContext) {
+            card.visibility = View.GONE
+            return
+        }
+
+        card.visibility = View.VISIBLE
+
+        val tvLapMaxAcceleration = findViewById<TextView>(R.id.tvLapMaxAcceleration)
+        val tvLapMaxBraking = findViewById<TextView>(R.id.tvLapMaxBraking)
+        val tvLapMaxLeanLeft = findViewById<TextView>(R.id.tvLapMaxLeanLeft)
+        val tvLapMaxLeanRight = findViewById<TextView>(R.id.tvLapMaxLeanRight)
+
+        val gravity = 9.80665f
+        var maxAccelerationG = 0f
+        var maxBrakingG = 0f
+
+        for (i in 1 until routePoints.size) {
+            val previous = routePoints[i - 1]
+            val current = routePoints[i]
+            val deltaTimeMs = current.timestamp - previous.timestamp
+            if (deltaTimeMs <= 0L) continue
+
+            val deltaTimeSec = deltaTimeMs / 1000f
+            val previousSpeedMs = previous.speed / 3.6f
+            val currentSpeedMs = current.speed / 3.6f
+            val accelerationMs2 = (currentSpeedMs - previousSpeedMs) / deltaTimeSec
+
+            if (accelerationMs2 > 0f) {
+                val accelerationG = accelerationMs2 / gravity
+                if (accelerationG > maxAccelerationG) {
+                    maxAccelerationG = accelerationG
+                }
+            } else {
+                val brakingG = abs(accelerationMs2) / gravity
+                if (brakingG > maxBrakingG) {
+                    maxBrakingG = brakingG
+                }
+            }
+        }
+
+        val maxLeanLeft = routePoints
+            .asSequence()
+            .map { it.angle }
+            .filter { it < 0f }
+            .minOrNull()
+            ?.let { abs(it) }
+            ?: 0f
+
+        val maxLeanRight = routePoints
+            .asSequence()
+            .map { it.angle }
+            .filter { it > 0f }
+            .maxOrNull()
+            ?: 0f
+
+        tvLapMaxAcceleration.text = String.format(Locale.getDefault(), "%.2f G", maxAccelerationG)
+        tvLapMaxBraking.text = String.format(Locale.getDefault(), "%.2f G", maxBrakingG)
+        tvLapMaxLeanLeft.text = String.format(Locale.getDefault(), "%.0f°", maxLeanLeft)
+        tvLapMaxLeanRight.text = String.format(Locale.getDefault(), "%.0f°", maxLeanRight)
     }
 
     private fun setupMapboxMap() {

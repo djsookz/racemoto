@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/layout/sheet_report_confirmation.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1774618826940,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1774618826940,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"wrap_content\"\r\n    android:orientation=\"vertical\"\r\n    android:padding=\"24dp\"\r\n    android:background=\"@android:color/white\">\r\n    \r\n    <!-- Question Text -->\r\n    <TextView\r\n        android:id=\"@+id/tvConfirmationQuestion\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"Все още тук ли е\\n🚔 полицията?\"\r\n        android:textSize=\"20sp\"\r\n        android:textStyle=\"bold\"\r\n        android:textColor=\"@android:color/black\"\r\n        android:gravity=\"center\"\r\n        android:layout_marginBottom=\"24dp\" />\r\n    \r\n    <!-- Buttons Row -->\r\n    <LinearLayout\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:orientation=\"horizontal\"\r\n        android:gravity=\"center\"\r\n        android:layout_marginBottom=\"16dp\">\r\n        \r\n        <!-- YES Button -->\r\n        <Button\r\n            android:id=\"@+id/btnConfirmYes\"\r\n            android:layout_width=\"0dp\"\r\n            android:layout_height=\"60dp\"\r\n            android:layout_weight=\"1\"\r\n            android:layout_marginEnd=\"8dp\"\r\n            android:text=\"✅ ДА\"\r\n            android:textSize=\"18sp\"\r\n            android:textStyle=\"bold\"\r\n            android:backgroundTint=\"#4CAF50\" />\r\n        \r\n        <!-- NO Button -->\r\n        <Button\r\n            android:id=\"@+id/btnConfirmNo\"\r\n            android:layout_width=\"0dp\"\r\n            android:layout_height=\"60dp\"\r\n            android:layout_weight=\"1\"\r\n            android:layout_marginStart=\"8dp\"\r\n            android:text=\"❌ НЕ\"\r\n            android:textSize=\"18sp\"\r\n            android:textStyle=\"bold\"\r\n            android:backgroundTint=\"#F44336\" />\r\n    \r\n    </LinearLayout>\r\n    \r\n    <!-- Countdown Text -->\r\n    <TextView\r\n        android:id=\"@+id/tvCountdown\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"Изчезва след: 10 сек\"\r\n        android:textSize=\"14sp\"\r\n        android:textColor=\"@android:color/darker_gray\"\r\n        android:gravity=\"center\" />\r\n\r\n</LinearLayout>\r\n"
+        }
+    ]
+}

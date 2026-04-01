@@ -38,9 +38,19 @@
                     android:textColor="@color/text_primary" />
 
                 <TextView
+                    android:id="@+id/tvSessionProfile"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Profile: ZX10R"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary" />
+
+                <TextView
                     android:id="@+id/tvSessionDate"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
                     android:text="01.01.2024 14:30"
                     android:textSize="14sp"
                     android:textColor="@color/text_secondary" />

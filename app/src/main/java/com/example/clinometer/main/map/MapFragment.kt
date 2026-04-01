@@ -45,6 +45,12 @@ import com.mapbox.maps.EdgeInsets
 import com.mapbox.maps.ImageHolder
 import com.mapbox.maps.MapView as MapboxMapView
 import com.mapbox.maps.Style
+import com.mapbox.maps.extension.style.layers.addLayer
+import com.mapbox.maps.extension.style.layers.generated.circleLayer
+import com.mapbox.maps.extension.style.layers.generated.symbolLayer
+import com.mapbox.maps.extension.style.layers.properties.generated.IconAnchor
+import com.mapbox.maps.extension.style.sources.addSource
+import com.mapbox.maps.extension.style.sources.generated.geoJsonSource
 import com.mapbox.maps.plugin.animation.camera
 import com.mapbox.maps.plugin.LocationPuck2D
 import com.mapbox.maps.plugin.compass.compass
@@ -93,6 +99,8 @@ import com.mapbox.navigation.ui.maps.route.arrow.model.RouteArrowOptions
 import com.mapbox.navigation.base.trip.model.RouteProgress
 import com.example.clinometer.navigation.MapboxGeocodingService
 import com.example.clinometer.navigation.GeocodingFeature
+import com.example.clinometer.navigation.CategoryFeature
+import com.example.clinometer.navigation.CategoryResponse
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.clinometer.data.ProfileStorage
@@ -105,6 +113,8 @@ import com.example.clinometer.network.WeatherApiService
 import com.example.clinometer.network.WeatherApiHour
 import com.example.clinometer.preview.RouteWeatherPreviewOverlay
 import com.example.clinometer.utils.WeatherIconMapper
+import com.mapbox.geojson.Feature
+import com.mapbox.geojson.FeatureCollection
 import com.mapbox.geojson.LineString
 import com.mapbox.maps.plugin.animation.easeTo
 import com.mapbox.maps.plugin.animation.MapAnimationOptions
@@ -116,15 +126,37 @@ import com.example.clinometer.RouteStorage
 import com.example.clinometer.RouteSnapshotGenerator
 import com.example.clinometer.Race
 import com.example.clinometer.GeoPoint
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
+import com.example.clinometer.reports.ReportsIntegration
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 @OptIn(ExperimentalPreviewMapboxNavigationAPI::class)
 class MapFragment : Fragment() {
+
+    private data class SavedDestination(
+        val name: String,
+        val latitude: Double,
+        val longitude: Double
+    )
+
+    private enum class QuickListMode {
+        RECENT,
+        FAVORITES
+    }
     
     // Map views
     private var mapboxMapView: MapboxMapView? = null // Mapbox MapView (nullable)
+    
+    // Reports System
+    private var reportsIntegration: ReportsIntegration? = null
+    private lateinit var fabReport: FloatingActionButton
+    private var lastReportsQueryLocation: Location? = null // За throttling на Firebase queries
+    private val MIN_DISTANCE_FOR_REPORTS_UPDATE = 5000f // 5 км в метри
     
     // UI Elements
     private lateinit var btnStartSession: MaterialButton
@@ -132,11 +164,41 @@ class MapFragment : Fragment() {
     private lateinit var destinationSearchContainer: LinearLayout
     private lateinit var searchContainer: LinearLayout
     private lateinit var searchInputContainer: LinearLayout
+    private var quickPanelContainer: View? = null
+    private var quickCategoriesContainer: View? = null
+    private var quickDividerTop: View? = null
+    private var quickDividerBottom: View? = null
     private lateinit var etSearch: TextInputEditText
+    private var quickHomeButton: LinearLayout? = null
+    private var quickWorkButton: LinearLayout? = null
+    // Category buttons
+    private var btnCategoryFavorites: View? = null
+    private var btnCategoryGas: View? = null
+    private var btnCategoryParking: View? = null
+    private var btnCategoryFood: View? = null
+    private var btnCategoryCoffee: View? = null
+    private var tvQuickHomeSubtitle: TextView? = null
+    private var tvQuickWorkSubtitle: TextView? = null
+    private var tvQuickListHeader: TextView? = null
     private lateinit var rvSearchResults: RecyclerView
+    private var poiBottomSheetContainer: LinearLayout? = null
+    private var tvPoiBottomSheetTitle: TextView? = null
+    private var rvPoiBottomSheetResults: RecyclerView? = null
     private lateinit var searchResultsAdapter: SearchResultsAdapter
+    private var poiResultsAdapter: SearchResultsAdapter? = null
     private lateinit var geocodingService: MapboxGeocodingService
     private var mapboxAccessToken: String = ""
+    private var quickListMode: QuickListMode = QuickListMode.RECENT
+    private var isCategorySearchOverlayActive: Boolean = false
+    private var isPoiCategoryModeActive: Boolean = false
+    private var activePOICategoryId: String? = null
+    private var activePOISearchFeatures: List<GeocodingFeature> = emptyList()
+    private var pendingMapPickCategory: QuickDestinationCategory? = null
+    private var pendingSearchAssignmentCategory: QuickDestinationCategory? = null
+    private var inlineSearchRequestId: Long = 0L
+    private val inlineSearchDebounceHandler = Handler(Looper.getMainLooper())
+    private var inlineSearchDebounceRunnable: Runnable? = null
+    private var suppressInlineSearchFocusRestore: Boolean = false
     private lateinit var routeInfoContainer: LinearLayout
     private lateinit var tvDestinationName: TextView
     private lateinit var tvRouteDistance: TextView
@@ -232,10 +294,16 @@ class MapFragment : Fragment() {
     private var carModeContainer: LinearLayout? = null
     private var distanceTextCar: TextView? = null
     private var chronometerCar: Chronometer? = null
-    private var buttonContainer: LinearLayout? = null
+    private var buttonContainer: ViewGroup? = null
+    private var buttonActionsRow: LinearLayout? = null
+    private var arrivalActionContainer: LinearLayout? = null
     private var btnReset: View? = null
     private var btnZero: View? = null
     private var btnStop: View? = null
+    private var btnArrivalSaveFinish: View? = null
+    private var btnArrivalContinue: View? = null
+    private var btnArrivalDelete: View? = null
+    private var isArrivalActionVisible: Boolean = false
     private var angleContainerMoto: LinearLayout? = null
     private var angleTextMoto: TextView? = null
     private var linearGaugeView: LinearGaugeView? = null
@@ -330,6 +398,25 @@ class MapFragment : Fragment() {
 
             currentLocation = androidLoc
             mapStateViewModel.saveLastLocation(androidLoc)
+
+            // Update reports only when moved 5+ km (optimize Firebase queries)
+            val lastQueryLoc = lastReportsQueryLocation
+            if (lastQueryLoc == null || androidLoc.distanceTo(lastQueryLoc) > MIN_DISTANCE_FOR_REPORTS_UPDATE) {
+                reportsIntegration?.startObservingReports(
+                    centerLatitude = androidLoc.latitude,
+                    centerLongitude = androidLoc.longitude,
+                    radiusKm = 100.0 // Максимален радиус за POLICE/CAMERA типове
+                )
+                lastReportsQueryLocation = androidLoc
+                Log.d("MapFragment", "📍 Updated reports query (moved ${lastQueryLoc?.distanceTo(androidLoc)?.div(1000)}+ km)")
+            }
+            // Realtime listener continues to push updates automatically
+            
+            // Check for navigation alerts (500m warnings + confirmation prompts)
+            if (isNavigationActive) {
+                val bearing = androidLoc.bearing
+                reportsIntegration?.checkForNavigationAlerts(androidLoc, bearing)
+            }
 
             if (pendingFirstWeatherFetch && !isWeatherFirstOpenDone()) {
                 fetchWeatherFromAPI(androidLoc)
@@ -592,12 +679,20 @@ class MapFragment : Fragment() {
 
         navBackPressedCallback = object : OnBackPressedCallback(false) {
             override fun handleOnBackPressed() {
+                if (isArrivalActionVisible) {
+                    showArrivalDiscardSessionDialog()
+                    return
+                }
                 if (navSessionActive) {
                     showExitNormalSessionDialog()
                     return
                 }
                 if (isNavigationActive) {
                     showExitNavigationDialog()
+                    return
+                }
+                if (isPoiCategoryModeActive || isCategorySearchOverlayActive || poiBottomSheetContainer?.visibility == View.VISIBLE) {
+                    exitPOICategoryModeToSearch()
                     return
                 }
                 if (searchContainer.visibility == View.VISIBLE) {
@@ -641,8 +736,28 @@ class MapFragment : Fragment() {
         destinationSearchContainer = view.findViewById(R.id.destinationSearchContainer)
         searchContainer = view.findViewById(R.id.searchContainer)
         searchInputContainer = view.findViewById(R.id.searchInputContainer)
+        quickPanelContainer = view.findViewById(R.id.quickPanelContainer)
+        quickCategoriesContainer = view.findViewById(R.id.quickCategoriesContainer)
+        quickDividerTop = view.findViewById(R.id.quickDividerTop)
+        quickDividerBottom = view.findViewById(R.id.quickDividerBottom)
         etSearch = view.findViewById(R.id.etSearch)
+        quickHomeButton = view.findViewById(R.id.btnQuickHome)
+        quickWorkButton = view.findViewById(R.id.btnQuickWork)
+        btnCategoryFavorites = view.findViewById(R.id.btnCategoryFavorites)
+        btnCategoryGas = view.findViewById(R.id.btnCategoryGas)
+        btnCategoryParking = view.findViewById(R.id.btnCategoryParking)
+        btnCategoryFood = view.findViewById(R.id.btnCategoryFood)
+        btnCategoryCoffee = view.findViewById(R.id.btnCategoryCoffee)
+        tvQuickHomeSubtitle = view.findViewById(R.id.tvQuickHomeSubtitle)
+        tvQuickWorkSubtitle = view.findViewById(R.id.tvQuickWorkSubtitle)
+        tvQuickListHeader = view.findViewById(R.id.tvQuickListHeader)
         rvSearchResults = view.findViewById(R.id.rvSearchResults)
+        poiBottomSheetContainer = view.findViewById(R.id.poiBottomSheetContainer)
+        tvPoiBottomSheetTitle = view.findViewById(R.id.tvPoiBottomSheetTitle)
+        rvPoiBottomSheetResults = view.findViewById(R.id.rvPoiBottomSheetResults)
+        view.findViewById<View?>(R.id.btnPoiBottomSheetClose)?.setOnClickListener {
+            exitPOICategoryModeToSearch()
+        }
         tvHeaderModelName = view.findViewById(R.id.tvHeaderModelName)
         ivHeaderProfileImage = view.findViewById(R.id.ivHeaderProfileImage)
         llActiveProfileHeader = view.findViewById(R.id.llActiveProfileHeader)
@@ -665,6 +780,9 @@ class MapFragment : Fragment() {
         btnPreviewOverview = view.findViewById(R.id.btnPreviewOverview)
         btnPreviewRecenter = view.findViewById(R.id.btnPreviewRecenter)
         
+        // Reports System - NEW
+        fabReport = view.findViewById(R.id.fabReport)
+         
         // Initialize map control buttons
         btnOverview = view.findViewById(R.id.btnOverview)
         btnRecenter = view.findViewById(R.id.btnRecenter)
@@ -688,9 +806,14 @@ class MapFragment : Fragment() {
         distanceTextCar = view.findViewById(R.id.distanceTextCar)
         chronometerCar = view.findViewById(R.id.chronometerCar)
         buttonContainer = view.findViewById(R.id.buttonContainer)
+        buttonActionsRow = view.findViewById(R.id.buttonActionsRow)
+        arrivalActionContainer = view.findViewById(R.id.arrivalActionContainer)
         btnReset = view.findViewById(R.id.btnReset)
         btnZero = view.findViewById(R.id.btnZero)
         btnStop = view.findViewById(R.id.btnStop)
+        btnArrivalSaveFinish = view.findViewById(R.id.btnArrivalSaveFinish)
+        btnArrivalContinue = view.findViewById(R.id.btnArrivalContinue)
+        btnArrivalDelete = view.findViewById(R.id.btnArrivalDelete)
         angleContainerMoto = view.findViewById(R.id.angleContainerMoto)
         angleTextMoto = view.findViewById(R.id.angleTextMoto)
         linearGaugeView = view.findViewById(R.id.linearGaugeView)
@@ -722,6 +845,20 @@ class MapFragment : Fragment() {
             } else {
                 stopNavigationInline()
             }
+        }
+        btnArrivalSaveFinish?.setOnClickListener {
+            hideArrivalActionPanel(animated = false)
+            if (serviceBound) {
+                saveAndFinishSession()
+            } else {
+                stopNavigationInline()
+            }
+        }
+        btnArrivalContinue?.setOnClickListener {
+            continueSessionAsNormalAfterArrival()
+        }
+        btnArrivalDelete?.setOnClickListener {
+            showArrivalDiscardSessionDialog()
         }
 
         // Ensure camera buttons are wired after views are bound
@@ -757,7 +894,28 @@ class MapFragment : Fragment() {
         btnSessions.setOnClickListener { navigateToSessions() }
         fabMyLocationContainer.setOnClickListener { centerOnCurrentLocation() }
         llTemperature.setOnClickListener { toggleWeatherExpansion() }
-        llAltitude.setOnClickListener { toggleAltitudeExpansion() }
+       llAltitude.setOnClickListener { toggleAltitudeExpansion() }
+        
+        // Reports System integration
+        mapboxMapView?.let { mapView ->
+            reportsIntegration = ReportsIntegration(requireActivity(), mapView)
+            reportsIntegration?.initialize()
+            Log.d("MapFragment", "✅ Reports System initialized")
+        }
+        
+        fabReport.setOnClickListener {
+            val currentLat = currentLocation?.latitude ?: mapStateViewModel.lastKnownLocation?.latitude
+            val currentLon = currentLocation?.longitude ?: mapStateViewModel.lastKnownLocation?.longitude
+            
+            if (currentLat != null && currentLon != null) {
+                reportsIntegration?.showCreateReportDialog(currentLat, currentLon)
+            } else {
+                Toast.makeText(requireContext(), "Няма GPS координати", Toast.LENGTH_SHORT).show()
+            }
+        }
+        
+        // Position FAB Report correctly on initial load
+        repositionFabReport()
         
         val bottomContainer = view.findViewById<LinearLayout>(R.id.bottomContainer)
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(bottomContainer) { v, insets ->
@@ -824,11 +982,79 @@ class MapFragment : Fragment() {
             .build()
         geocodingService = retrofit.create(MapboxGeocodingService::class.java)
 
-        searchResultsAdapter = SearchResultsAdapter { feature ->
-            selectDestinationInline(feature)
-        }
+        searchResultsAdapter = SearchResultsAdapter(
+            onItemClick = { feature ->
+                selectDestinationInline(feature)
+            },
+            onQuickDestinationClick = { quickDestination ->
+                handleQuickDestinationSelection(quickDestination)
+            },
+            onQuickDestinationRemove = { quickDestination ->
+                removeRecentDestination(quickDestination)
+            },
+            onSearchResultLongClick = { feature ->
+                showSearchResultSaveDialog(feature)
+            },
+            isSearchResultFavorite = { feature ->
+                isFeatureInFavorites(feature)
+            },
+            onSearchResultFavoriteToggle = { feature, shouldBeFavorite ->
+                toggleFavoriteForFeature(feature, shouldBeFavorite)
+            }
+        )
         rvSearchResults.layoutManager = LinearLayoutManager(requireContext())
         rvSearchResults.adapter = searchResultsAdapter
+
+        poiResultsAdapter = SearchResultsAdapter(
+            onItemClick = { feature ->
+                selectDestinationInline(feature)
+            },
+            onQuickDestinationClick = null,
+            onSearchResultLongClick = null,
+            distanceTextProvider = { feature ->
+                formatPoiDistanceFromCurrentLocation(feature)
+            }
+        )
+        rvPoiBottomSheetResults?.layoutManager = LinearLayoutManager(requireContext())
+        rvPoiBottomSheetResults?.adapter = poiResultsAdapter
+
+        quickHomeButton?.setOnClickListener { onHomeShortcutClicked() }
+        quickHomeButton?.setOnLongClickListener {
+            showHomeWorkManageDialog(
+                key = PREF_HOME_DESTINATION,
+                category = QuickDestinationCategory.HOME,
+                titleRes = R.string.search_manage_home_title
+            )
+            true
+        }
+        quickWorkButton?.setOnClickListener { onWorkShortcutClicked() }
+        quickWorkButton?.setOnLongClickListener {
+            showHomeWorkManageDialog(
+                key = PREF_WORK_DESTINATION,
+                category = QuickDestinationCategory.WORK,
+                titleRes = R.string.search_manage_work_title
+            )
+            true
+        }
+        btnCategoryFavorites?.setOnClickListener { onFavoritesShortcutClicked() }
+        btnCategoryFavorites?.setOnLongClickListener {
+            showFavoriteSourceDialog()
+            true
+        }
+        
+        // POI Category Search Handlers
+        btnCategoryGas?.setOnClickListener {
+            searchPOICategory("gas_station", "Бензиностанции")
+        }
+        btnCategoryParking?.setOnClickListener {
+            searchPOICategory("parking", "Паркинги")
+        }
+        btnCategoryFood?.setOnClickListener {
+            searchPOICategory("restaurant", "Ресторанти")
+        }
+        btnCategoryCoffee?.setOnClickListener {
+            searchPOICategory("coffee", "Кафенета")
+        }
 
         // Tap on collapsed pill -> expand inline search
         destinationSearchContainer.setOnClickListener { showInlineSearch() }
@@ -840,41 +1066,106 @@ class MapFragment : Fragment() {
             override fun afterTextChanged(s: android.text.Editable?) {
                 val q = s?.toString()?.trim().orEmpty()
                 if (q.length >= 2) {
-                    performInlineSearch(q)
+                    if (isCategorySearchOverlayActive) {
+                        clearPOISearchMarkers()
+                        setPOIVisibility(true)
+                    }
+                    showSearchResultsMode()
+                    scheduleInlineSearch(q)
                 } else {
-                    searchResultsAdapter.updateResults(emptyList())
-                    rvSearchResults.visibility = View.GONE
+                    cancelInlineSearchDebounce()
+                    inlineSearchRequestId++
+                    if (isCategorySearchOverlayActive) {
+                        clearPOISearchMarkers()
+                        setPOIVisibility(true)
+                    }
+                    showQuickDestinationSuggestions()
                 }
             }
         })
 
         etSearch.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus && currentDestination == null) {
+            if (hasFocus) {
+                val q = etSearch.text?.toString()?.trim().orEmpty()
+                if (q.length < 2) {
+                    showQuickDestinationSuggestions()
+                }
+            } else if (currentDestination == null) {
+                if (suppressInlineSearchFocusRestore) {
+                    suppressInlineSearchFocusRestore = false
+                    return@setOnFocusChangeListener
+                }
                 restoreInitialMapUi()
+            }
+        }
+
+        etSearch.setOnClickListener {
+            val q = etSearch.text?.toString()?.trim().orEmpty()
+            if (q.length < 2) {
+                showQuickDestinationSuggestions()
             }
         }
     }
 
     private fun showInlineSearch() {
+        hidePOIBottomSheet()
+        if (isCategorySearchOverlayActive) {
+            clearPOISearchMarkers()
+            setPOIVisibility(true)
+        }
+        pendingMapPickCategory = null
         destinationSearchContainer.visibility = View.GONE
         searchContainer.visibility = View.VISIBLE
         etSearch.requestFocus()
         val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.showSoftInput(etSearch, InputMethodManager.SHOW_IMPLICIT)
+
+        quickListMode = QuickListMode.RECENT
+
+        val query = etSearch.text?.toString()?.trim().orEmpty()
+        if (query.length < 2) {
+            showQuickDestinationSuggestions()
+        } else {
+            showSearchResultsMode()
+            scheduleInlineSearch(query)
+        }
     }
 
     private fun hideInlineSearch() {
+        cancelInlineSearchDebounce()
+        inlineSearchRequestId++
+        isPoiCategoryModeActive = false
+        hidePOIBottomSheet()
         val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(etSearch.windowToken, 0)
         rvSearchResults.visibility = View.GONE
         searchContainer.visibility = View.GONE
         destinationSearchContainer.visibility = View.VISIBLE
         etSearch.clearFocus()
+        clearPOISearchMarkers()
+        
+        // Restore default POI icons when closing search
+        setPOIVisibility(true)
+    }
+
+    private fun scheduleInlineSearch(query: String) {
+        cancelInlineSearchDebounce()
+        inlineSearchDebounceRunnable = Runnable {
+            performInlineSearch(query)
+        }
+        inlineSearchDebounceRunnable?.let {
+            inlineSearchDebounceHandler.postDelayed(it, SEARCH_DEBOUNCE_MS)
+        }
+    }
+
+    private fun cancelInlineSearchDebounce() {
+        inlineSearchDebounceRunnable?.let { inlineSearchDebounceHandler.removeCallbacks(it) }
+        inlineSearchDebounceRunnable = null
     }
 
     private fun setupDismissSearchOnOutsideTap(root: View) {
         val dismissListener = View.OnTouchListener { _, _ ->
-            if (searchContainer.visibility == View.VISIBLE && currentDestination == null) {
+            if (searchContainer.visibility == View.VISIBLE && currentDestination == null && !isCategorySearchOverlayActive) {
                 restoreInitialMapUi()
                 return@OnTouchListener true
             }
@@ -889,6 +1180,10 @@ class MapFragment : Fragment() {
     }
 
     private fun restoreInitialMapUi() {
+        pendingMapPickCategory = null
+        pendingSearchAssignmentCategory = null
+        isPoiCategoryModeActive = false
+        hidePOIBottomSheet()
         hideInlineSearch()
         if (currentDestination == null) {
             val tv = destinationSearchContainer.findViewById<TextView>(R.id.tvDestinationPlaceholder)
@@ -908,6 +1203,8 @@ class MapFragment : Fragment() {
         llTemperature.visibility = View.VISIBLE
         llAltitude.visibility = View.VISIBLE
         fabMyLocationContainer.visibility = View.VISIBLE
+        fabReport?.visibility = View.VISIBLE
+        repositionFabReport()
         view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = View.VISIBLE
         requireActivity().findViewById<View>(R.id.bottomNavigationContainer)?.visibility = View.VISIBLE
         destinationSearchContainer.visibility = View.VISIBLE
@@ -915,28 +1212,136 @@ class MapFragment : Fragment() {
 
     private fun performInlineSearch(query: String) {
         if (mapboxAccessToken.isBlank()) return
+        if (query.length < 2) {
+            showQuickDestinationSuggestions()
+            return
+        }
+        val compactQuery = query.trim().replace(Regex("\\s+"), " ")
+        val countryFilter = determineInlineSearchCountryFilter(compactQuery)
+        val languagePreference = determineInlineSearchLanguages(compactQuery)
+        val requestId = ++inlineSearchRequestId
         lifecycleScope.launch {
             try {
                 val proximity = currentLocation?.let { "${it.longitude},${it.latitude}" }
-                val response = withContext(Dispatchers.IO) {
-                    geocodingService.searchPlaces(query, mapboxAccessToken, proximity, 10)
+                val features = withContext(Dispatchers.IO) {
+                    val merged = LinkedHashMap<String, GeocodingFeature>()
+                    val searchQueries = buildSearchQueries(query)
+
+                    searchQueries.forEachIndexed { index, variant ->
+                        val response = geocodingService.searchPlaces(
+                            query = variant,
+                            accessToken = mapboxAccessToken,
+                            proximity = proximity,
+                            limit = if (index == 0) 10 else 6,
+                            language = languagePreference,
+                            country = countryFilter,
+                            autocomplete = true,
+                            fuzzyMatch = true,
+                            types = "address,poi,place,locality,neighborhood"
+                        )
+                        if (response.isSuccessful) {
+                            response.body()?.features.orEmpty().forEach { feature ->
+                                merged.putIfAbsent(feature.id, feature)
+                            }
+                        }
+                    }
+
+                    sortInlineFeatures(merged.values.toList(), compactQuery).take(10)
                 }
-                if (response.isSuccessful && response.body() != null) {
-                    val features = response.body()!!.features
-                    searchResultsAdapter.updateResults(features)
-                    rvSearchResults.visibility = if (features.isNotEmpty()) View.VISIBLE else View.GONE
-                } else {
-                    searchResultsAdapter.updateResults(emptyList())
-                    rvSearchResults.visibility = View.GONE
-                }
+
+                if (requestId != inlineSearchRequestId) return@launch
+
+                searchResultsAdapter.updateResults(features)
+                rvSearchResults.visibility = if (features.isNotEmpty()) View.VISIBLE else View.GONE
             } catch (e: Exception) {
+                if (requestId != inlineSearchRequestId) return@launch
                 searchResultsAdapter.updateResults(emptyList())
                 rvSearchResults.visibility = View.GONE
             }
         }
     }
 
+    private fun buildSearchQueries(rawQuery: String): List<String> {
+        val compactQuery = rawQuery.trim().replace(Regex("\\s+"), " ")
+        if (compactQuery.isBlank()) return emptyList()
+
+        // Single-query strategy: users type ul./bul. explicitly when needed.
+        return listOf(compactQuery)
+    }
+
+    private fun determineInlineSearchCountryFilter(compactQuery: String): String? {
+        return if (shouldHardFilterToBulgaria(compactQuery)) "bg" else null
+    }
+
+    private fun determineInlineSearchLanguages(compactQuery: String): String {
+        val hasCyrillic = compactQuery.any { it.code in 0x0400..0x04FF }
+        return if (hasCyrillic) "bg,en,el" else "en,bg,el"
+    }
+
+    private fun shouldHardFilterToBulgaria(compactQuery: String): Boolean {
+        if (compactQuery.isBlank()) return false
+
+        val hasCyrillic = compactQuery.any { it.code in 0x0400..0x04FF }
+        val streetPrefixRegex = Regex("^(ул\\.?|улица|бул\\.?|булевард)\\s+", RegexOption.IGNORE_CASE)
+        val hasBulgarianStreetPrefix = streetPrefixRegex.containsMatchIn(compactQuery)
+        val startsWithDigit = compactQuery.firstOrNull()?.isDigit() == true
+
+        return hasBulgarianStreetPrefix || (hasCyrillic && startsWithDigit)
+    }
+
+    private fun sortInlineFeatures(features: List<GeocodingFeature>, compactQuery: String): List<GeocodingFeature> {
+        if (features.isEmpty()) return features
+
+        val isLikelyStreetOrAddress = shouldHardFilterToBulgaria(compactQuery) || compactQuery.any { it.isDigit() }
+        if (!isLikelyStreetOrAddress) {
+            // Keep Mapbox relevance order for city/place style queries (e.g. Thessaloniki/Солун).
+            return features
+        }
+
+        return sortFeaturesByDistance(features)
+    }
+
+    private fun sortFeaturesByDistance(features: List<GeocodingFeature>): List<GeocodingFeature> {
+        val anchor = currentLocation ?: mapStateViewModel.lastKnownLocation ?: return features
+        return features.sortedBy { feature ->
+            distanceToFeatureMeters(anchor, feature) ?: Double.MAX_VALUE
+        }
+    }
+
+    private fun distanceToFeatureMeters(origin: Location, feature: GeocodingFeature): Double? {
+        if (feature.center == null || feature.center.size < 2) return null
+        val result = FloatArray(1)
+        Location.distanceBetween(
+            origin.latitude,
+            origin.longitude,
+            feature.center[1],
+            feature.center[0],
+            result
+        )
+        return result.firstOrNull()?.toDouble()
+    }
+
+    private fun formatPoiDistanceFromCurrentLocation(feature: GeocodingFeature): String? {
+        val origin = currentLocation ?: mapStateViewModel.lastKnownLocation ?: return null
+        val distanceMeters = distanceToFeatureMeters(origin, feature) ?: return null
+        return if (distanceMeters < 1000.0) {
+            "${distanceMeters.roundToInt()} м"
+        } else {
+            String.format(java.util.Locale.getDefault(), "%.1f км", distanceMeters / 1000.0)
+        }
+    }
+
     private fun selectDestinationInline(feature: GeocodingFeature) {
+        val assignmentCategory = pendingSearchAssignmentCategory
+        if (assignmentCategory != null) {
+            val destination = feature.toSavedDestination() ?: return
+            saveShortcutDestination(assignmentCategory, destination)
+            pendingSearchAssignmentCategory = null
+            etSearch.text?.clear()
+            showQuickDestinationSuggestions()
+            return
+        }
+
         // Update the collapsed pill text to destination name
         val tv = destinationSearchContainer.findViewById<TextView>(R.id.tvDestinationPlaceholder)
         currentDestinationName = feature.placeName
@@ -944,16 +1349,957 @@ class MapFragment : Fragment() {
         hideInlineSearch()
 
         val center = feature.center
-        if (center.size >= 2) {
+        if (center != null && center.size >= 2) {
             val destination = Point.fromLngLat(center[0], center[1])
             setDestinationAndFindRoute(destination, currentDestinationName)
         }
+    }
+
+    private fun showQuickDestinationSuggestions() {
+        hidePOIBottomSheet()
+        showQuickPanelMode()
+        updateQuickActionSubtitles()
+        renderQuickList()
+    }
+
+    private fun showSearchResultsMode() {
+        hidePOIBottomSheet()
+        quickPanelContainer?.visibility = View.VISIBLE
+        setQuickShortcutSectionsVisible(false)
+        tvQuickListHeader?.visibility = View.GONE
+    }
+
+    private fun showQuickPanelMode() {
+        hidePOIBottomSheet()
+        quickPanelContainer?.visibility = View.VISIBLE
+        setQuickShortcutSectionsVisible(true)
+        tvQuickListHeader?.visibility = View.VISIBLE
+    }
+
+    private fun setQuickShortcutSectionsVisible(visible: Boolean) {
+        val sectionVisibility = if (visible) View.VISIBLE else View.GONE
+        quickCategoriesContainer?.visibility = sectionVisibility
+        quickDividerTop?.visibility = sectionVisibility
+        quickHomeButton?.visibility = sectionVisibility
+        quickWorkButton?.visibility = sectionVisibility
+        quickDividerBottom?.visibility = sectionVisibility
+    }
+
+    private fun showPOIBottomSheet(title: String, features: List<GeocodingFeature>) {
+        tvPoiBottomSheetTitle?.text = title
+        poiResultsAdapter?.updateResults(features)
+        rvPoiBottomSheetResults?.visibility = if (features.isNotEmpty()) View.VISIBLE else View.GONE
+        poiBottomSheetContainer?.visibility = if (features.isNotEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun hidePOIBottomSheet() {
+        poiResultsAdapter?.updateResults(emptyList())
+        rvPoiBottomSheetResults?.visibility = View.GONE
+        poiBottomSheetContainer?.visibility = View.GONE
+    }
+
+    private fun buildFavoriteQuickItems(): List<QuickDestinationItem> {
+        return readSavedDestinationList(PREF_FAVORITE_DESTINATIONS).mapIndexed { index, saved ->
+            QuickDestinationItem(
+                id = "favorite_$index",
+                title = saved.name,
+                subtitle = getString(R.string.quick_suggestion_favorites),
+                category = QuickDestinationCategory.FAVORITE,
+                latitude = saved.latitude,
+                longitude = saved.longitude,
+                destinationName = saved.name
+            )
+        }
+    }
+
+    private fun buildRecentQuickItems(): List<QuickDestinationItem> {
+        return readSavedDestinationList(PREF_RECENT_DESTINATIONS)
+            .take(MAX_RECENT_DESTINATIONS)
+            .mapIndexed { index, saved ->
+            QuickDestinationItem(
+                id = "recent_$index",
+                title = saved.name,
+                subtitle = getString(R.string.search_recent_destination_subtitle),
+                category = QuickDestinationCategory.RECENT,
+                latitude = saved.latitude,
+                longitude = saved.longitude,
+                destinationName = saved.name
+            )
+        }
+    }
+
+    private fun renderQuickList() {
+        val items = when (quickListMode) {
+            QuickListMode.RECENT -> {
+                tvQuickListHeader?.text = getString(R.string.search_quick_header_recent)
+                buildRecentQuickItems()
+            }
+            QuickListMode.FAVORITES -> {
+                tvQuickListHeader?.text = getString(R.string.search_quick_header_favorites)
+                buildFavoriteQuickItems()
+            }
+        }
+
+        searchResultsAdapter.showQuickItems(items)
+        rvSearchResults.visibility = if (items.isNotEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun updateQuickActionSubtitles() {
+        val home = readSavedDestination(PREF_HOME_DESTINATION)
+        val work = readSavedDestination(PREF_WORK_DESTINATION)
+
+        tvQuickHomeSubtitle?.text = home?.name ?: getString(R.string.search_set_location)
+        tvQuickWorkSubtitle?.text = work?.name ?: getString(R.string.search_set_location)
+    }
+
+    private fun onHomeShortcutClicked() {
+        handleHomeWorkShortcutClick(
+            key = PREF_HOME_DESTINATION,
+            category = QuickDestinationCategory.HOME,
+            titleRes = R.string.search_select_home_source_title
+        )
+    }
+
+    private fun onWorkShortcutClicked() {
+        handleHomeWorkShortcutClick(
+            key = PREF_WORK_DESTINATION,
+            category = QuickDestinationCategory.WORK,
+            titleRes = R.string.search_select_work_source_title
+        )
+    }
+
+    private fun handleHomeWorkShortcutClick(key: String, category: QuickDestinationCategory, titleRes: Int) {
+        val saved = readSavedDestination(key)
+        if (saved != null) {
+            handleQuickDestinationSelection(
+                QuickDestinationItem(
+                    id = "${category.name.lowercase()}_saved",
+                    title = saved.name,
+                    subtitle = "",
+                    category = category,
+                    latitude = saved.latitude,
+                    longitude = saved.longitude,
+                    destinationName = saved.name
+                )
+            )
+            return
+        }
+
+        showHomeWorkSourceDialog(category, titleRes)
+    }
+
+    private fun showHomeWorkSourceDialog(category: QuickDestinationCategory, titleRes: Int) {
+        val options = arrayOf(
+            getString(R.string.search_pick_current_location),
+            getString(R.string.search_pick_by_address)
+        )
+        AlertDialog.Builder(requireContext())
+            .setTitle(titleRes)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> saveShortcutFromCurrentLocation(category)
+                    1 -> startAddressSearchForShortcut(category)
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun showHomeWorkManageDialog(key: String, category: QuickDestinationCategory, titleRes: Int) {
+        val actions = mutableListOf<Pair<String, () -> Unit>>()
+        actions += getString(R.string.search_pick_current_location) to { saveShortcutFromCurrentLocation(category) }
+        actions += getString(R.string.search_pick_by_address) to { startAddressSearchForShortcut(category) }
+
+        val hasSaved = readSavedDestination(key) != null
+        if (hasSaved) {
+            actions += getString(R.string.search_clear_shortcut) to {
+                writeSavedDestination(key, null)
+                val label = when (category) {
+                    QuickDestinationCategory.HOME -> getString(R.string.quick_suggestion_home)
+                    QuickDestinationCategory.WORK -> getString(R.string.quick_suggestion_work)
+                    QuickDestinationCategory.FAVORITE -> getString(R.string.quick_suggestion_favorites)
+                    QuickDestinationCategory.RECENT -> getString(R.string.search_quick_header_recent)
+                }
+                Toast.makeText(
+                    requireContext(),
+                    getString(R.string.search_shortcut_cleared, label),
+                    Toast.LENGTH_SHORT
+                ).show()
+                refreshQuickSuggestionsIfVisible()
+            }
+        }
+
+        val labels = actions.map { it.first }.toTypedArray()
+        AlertDialog.Builder(requireContext())
+            .setTitle(titleRes)
+            .setItems(labels) { _, which ->
+                actions.getOrNull(which)?.second?.invoke()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun onFavoritesShortcutClicked() {
+        val favorites = buildFavoriteQuickItems()
+        if (favorites.isEmpty()) {
+            showFavoriteSourceDialog()
+            return
+        }
+
+        quickListMode = if (quickListMode == QuickListMode.FAVORITES) {
+            QuickListMode.RECENT
+        } else {
+            QuickListMode.FAVORITES
+        }
+        showQuickDestinationSuggestions()
+    }
+    
+    private fun searchPOICategory(categoryId: String, displayName: String) {
+        val location = currentLocation ?: run {
+            Toast.makeText(requireContext(), "Изчакайте локацията да се зареди...", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (mapboxAccessToken.isBlank()) {
+            Toast.makeText(requireContext(), "Липсва Mapbox token", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        collapseInlineSearchForCategoryMode()
+        
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val proximity = "${location.longitude},${location.latitude}"
+
+                // Use Category Search API with canonical category ID
+                val response = withContext(Dispatchers.IO) {
+                    geocodingService.searchCategory(
+                        category = categoryId,
+                        proximity = proximity,
+                        accessToken = mapboxAccessToken,
+                        limit = 25,
+                        language = "en"
+                    )
+                }
+                
+                if (response.isSuccessful && response.body() != null) {
+                    val categoryFeatures = response.body()!!.features
+                    Log.d("MapFragment", "Category search response: ${categoryFeatures.size} results")
+                    
+                    if (categoryFeatures.isNotEmpty()) {
+                        // Convert CategoryFeature to GeocodingFeature for adapter
+                        val geocodingFeatures = categoryFeatures.map { categoryFeature ->
+                            GeocodingFeature(
+                                id = categoryFeature.properties.mapboxId,
+                                placeName = categoryFeature.properties.fullAddress 
+                                    ?: categoryFeature.properties.name,
+                                center = categoryFeature.geometry.coordinates,  // [longitude, latitude]
+                                text = categoryFeature.properties.name,
+                                properties = com.example.clinometer.navigation.GeocodingProperties(
+                                    address = categoryFeature.properties.fullAddress,
+                                    category = categoryId
+                                )
+                            )
+                        }
+                        
+                        // Sort by distance - closest first (Waze style)
+                        val sortedFeatures = geocodingFeatures.sortedBy { feature ->
+                            distanceToFeatureMeters(location, feature) ?: Double.MAX_VALUE
+                        }
+                        
+                        showPOIBottomSheet(displayName, sortedFeatures)
+                        
+                        // Fit camera to show all POI results (like Waze)
+                        fitCameraToPOIResults(sortedFeatures)
+                        
+                        // Hide default POI icons and draw only category results
+                        setPOIVisibility(false)
+                        showPOISearchMarkers(sortedFeatures, categoryId)
+
+                    } else {
+                        exitPOICategoryModeToSearch()
+                        Toast.makeText(requireContext(), "Няма намерени $displayName наблизо", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    Log.e("MapFragment", "Category search failed: ${response.code()} ${response.message()}")
+                    exitPOICategoryModeToSearch()
+                    Toast.makeText(requireContext(), "Грешка при търсене: ${response.code()}", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e("MapFragment", "Category search error", e)
+                exitPOICategoryModeToSearch()
+                Toast.makeText(requireContext(), "Грешка: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun collapseInlineSearchForCategoryMode() {
+        cancelInlineSearchDebounce()
+        inlineSearchRequestId++
+        isPoiCategoryModeActive = true
+        hidePOIBottomSheet()
+
+        suppressInlineSearchFocusRestore = true
+        val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(etSearch.windowToken, 0)
+        etSearch.clearFocus()
+
+        searchContainer.visibility = View.GONE
+        destinationSearchContainer.visibility = View.GONE
+    }
+
+    private fun exitPOICategoryModeToSearch() {
+        if (!isPoiCategoryModeActive && !isCategorySearchOverlayActive && poiBottomSheetContainer?.visibility != View.VISIBLE) {
+            return
+        }
+
+        isPoiCategoryModeActive = false
+        clearPOISearchMarkers()
+        setPOIVisibility(true)
+        hidePOIBottomSheet()
+
+        val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(etSearch.windowToken, 0)
+        etSearch.clearFocus()
+
+        destinationSearchContainer.visibility = View.GONE
+        searchContainer.visibility = View.VISIBLE
+
+        val query = etSearch.text?.toString()?.trim().orEmpty()
+        if (query.length < 2) {
+            showQuickDestinationSuggestions()
+        } else {
+            showSearchResultsMode()
+            scheduleInlineSearch(query)
+        }
+    }
+    
+    private fun fitCameraToPOIResults(features: List<GeocodingFeature>) {
+        val location = currentLocation ?: return
+        if (features.isEmpty()) return
+        
+        try {
+            val pointsForFraming = features
+                .mapNotNull { feature ->
+                    val center = feature.center
+                    if (center != null && center.size >= 2) {
+                        Pair(center[0], center[1])
+                    } else {
+                        null
+                    }
+                }
+                .sortedBy { point ->
+                    val result = FloatArray(1)
+                    Location.distanceBetween(
+                        location.latitude,
+                        location.longitude,
+                        point.second,
+                        point.first,
+                        result
+                    )
+                    result.firstOrNull()?.toDouble() ?: Double.MAX_VALUE
+                }
+                .take(20)
+
+            if (pointsForFraming.isEmpty()) {
+                return
+            }
+            
+            var minLat = location.latitude
+            var maxLat = location.latitude
+            var minLon = location.longitude
+            var maxLon = location.longitude
+
+            var farthestMeters = 0.0
+            pointsForFraming.forEach { point ->
+                val lon = point.first
+                val lat = point.second
+
+                minLat = minOf(minLat, lat)
+                maxLat = maxOf(maxLat, lat)
+                minLon = minOf(minLon, lon)
+                maxLon = maxOf(maxLon, lon)
+
+                val result = FloatArray(1)
+                Location.distanceBetween(location.latitude, location.longitude, lat, lon, result)
+                val distance = result.firstOrNull()?.toDouble() ?: 0.0
+                farthestMeters = maxOf(farthestMeters, distance)
+            }
+
+            // Add wider bounds padding so category results do not feel cramped.
+            val latSpanRaw = (maxLat - minLat).coerceAtLeast(0.0002)
+            val lonSpanRaw = (maxLon - minLon).coerceAtLeast(0.0002)
+            val latPadding = latSpanRaw * 0.32
+            val lonPadding = lonSpanRaw * 0.24
+            minLat -= latPadding
+            maxLat += latPadding
+            minLon -= lonPadding
+            maxLon += lonPadding
+
+            val latSpan = (maxLat - minLat).coerceAtLeast(0.0002)
+            val centerLat = ((minLat + maxLat) / 2) + (latSpan * 0.18)
+            val centerLon = (minLon + maxLon) / 2
+
+            val targetZoom = when {
+                farthestMeters > 9000.0 -> 10.2
+                farthestMeters > 7000.0 -> 10.8
+                farthestMeters > 5000.0 -> 11.4
+                farthestMeters > 3200.0 -> 12.0
+                farthestMeters > 2200.0 -> 12.6
+                farthestMeters > 1500.0 -> 13.1
+                farthestMeters > 1000.0 -> 13.6
+                farthestMeters > 600.0 -> 14.1
+                farthestMeters > 300.0 -> 14.6
+                else -> 15.0
+            }
+
+            mapboxMapView?.mapboxMap?.setCamera(
+                CameraOptions.Builder()
+                    .center(MapboxPoint.fromLngLat(centerLon, centerLat))
+                    .zoom(targetZoom)
+                    .pitch(0.0)
+                    .bearing(0.0)
+                    .build(),
+            )
+        } catch (e: Exception) {
+            Log.e("MapFragment", "Error fitting camera to POI results", e)
+        }
+    }
+
+    private fun getPOIMarkerTapThresholdMeters(): Double {
+        val zoom = mapboxMapView?.mapboxMap?.cameraState?.zoom ?: 14.0
+        return when {
+            zoom >= 17.0 -> 85.0
+            zoom >= 16.0 -> 130.0
+            zoom >= 15.0 -> 180.0
+            zoom >= 14.0 -> 240.0
+            else -> 320.0
+        }
+    }
+
+    private fun resolvePOIIconRes(categoryId: String?): Int {
+        return when (categoryId?.lowercase()) {
+            "gas_station" -> R.drawable.gas_station
+            "parking" -> R.drawable.parking
+            "restaurant" -> R.drawable.cutlery
+            "coffee" -> R.drawable.coffee_cup
+            else -> R.drawable.gas_station
+        }
+    }
+
+    private fun resolvePOIStyleImageId(categoryId: String?): String {
+        return when (categoryId?.lowercase()) {
+            "gas_station" -> POI_ICON_IMAGE_GAS
+            "parking" -> POI_ICON_IMAGE_PARKING
+            "restaurant" -> POI_ICON_IMAGE_FOOD
+            "coffee" -> POI_ICON_IMAGE_COFFEE
+            else -> POI_ICON_IMAGE_DEFAULT
+        }
+    }
+
+    private fun buildPOIIconBitmap(iconRes: Int): Bitmap {
+        val sizePx = (16f * resources.displayMetrics.density).toInt().coerceAtLeast(14)
+        val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val iconDrawable = ContextCompat.getDrawable(requireContext(), iconRes)
+            ?: ContextCompat.getDrawable(requireContext(), R.drawable.gas_station)
+
+        if (iconDrawable != null) {
+            iconDrawable.mutate().setTint(Color.WHITE)
+            iconDrawable.setBounds(0, 0, sizePx, sizePx)
+            iconDrawable.draw(canvas)
+        }
+
+        return bitmap
+    }
+
+    private fun ensurePOIStyleImage(style: Style, categoryId: String?) {
+        val imageId = resolvePOIStyleImageId(categoryId)
+        val alreadyAdded = try {
+            style.getStyleImage(imageId) != null
+        } catch (_: Exception) {
+            false
+        }
+
+        if (alreadyAdded) return
+
+        try {
+            style.addImage(imageId, buildPOIIconBitmap(resolvePOIIconRes(categoryId)))
+        } catch (e: Exception) {
+            Log.e("MapFragment", "Error adding POI style image", e)
+        }
+    }
+
+    private fun handlePOISearchMarkerTap(clickPoint: Point): Boolean {
+        if (!isCategorySearchOverlayActive || activePOICategoryId.isNullOrEmpty() || activePOISearchFeatures.isEmpty()) return false
+
+        val tapLocation = Location("poi-marker-tap").apply {
+            latitude = clickPoint.latitude()
+            longitude = clickPoint.longitude()
+        }
+
+        val nearest = activePOISearchFeatures
+            .mapNotNull { feature ->
+                val distance = distanceToFeatureMeters(tapLocation, feature) ?: return@mapNotNull null
+                feature to distance
+            }
+            .minByOrNull { it.second }
+            ?: return false
+
+        if (nearest.second > getPOIMarkerTapThresholdMeters()) {
+            return false
+        }
+
+        selectDestinationInline(nearest.first)
+        return true
+    }
+    
+    private fun setPOIVisibility(show: Boolean) {
+        try {
+            mapboxMapView?.mapboxMap?.getStyle { style ->
+                style.setStyleImportConfigProperty(
+                    "basemap", // Mapbox Standard import ID
+                    "showPointOfInterestLabels",
+                    com.mapbox.bindgen.Value.valueOf(show)
+                )
+            }
+        } catch (e: Exception) {
+            Log.e("MapFragment", "Error setting POI visibility", e)
+        }
+    }
+
+    private fun showPOISearchMarkers(features: List<GeocodingFeature>, categoryId: String?) {
+        val markerFeatures = features.mapNotNull { feature ->
+            val center = feature.center
+            if (center != null && center.size >= 2) {
+                Feature.fromGeometry(MapboxPoint.fromLngLat(center[0], center[1]))
+            } else {
+                null
+            }
+        }
+
+        if (markerFeatures.isEmpty()) {
+            clearPOISearchMarkers()
+            return
+        }
+
+        val featureCollection = FeatureCollection.fromFeatures(markerFeatures)
+        try {
+            mapboxMapView?.mapboxMap?.getStyle { style ->
+                try {
+                    if (style.styleLayerExists(POI_SEARCH_ICON_LAYER_ID)) {
+                        style.removeStyleLayer(POI_SEARCH_ICON_LAYER_ID)
+                    }
+                    if (style.styleLayerExists(POI_SEARCH_LAYER_ID)) {
+                        style.removeStyleLayer(POI_SEARCH_LAYER_ID)
+                    }
+                    if (style.styleSourceExists(POI_SEARCH_SOURCE_ID)) {
+                        style.removeStyleSource(POI_SEARCH_SOURCE_ID)
+                    }
+
+                    style.addSource(
+                        geoJsonSource(POI_SEARCH_SOURCE_ID) {
+                            featureCollection(featureCollection)
+                        }
+                    )
+
+                    style.addLayer(
+                        circleLayer(POI_SEARCH_LAYER_ID, POI_SEARCH_SOURCE_ID) {
+                            circleColor("#FF7A00")
+                            circleRadius(10.0)
+                            circleStrokeColor("#FFFFFF")
+                            circleStrokeWidth(1.8)
+                            circleOpacity(0.95)
+                        }
+                    )
+
+                    ensurePOIStyleImage(style, categoryId)
+                    style.addLayer(
+                        symbolLayer(POI_SEARCH_ICON_LAYER_ID, POI_SEARCH_SOURCE_ID) {
+                            iconImage(resolvePOIStyleImageId(categoryId))
+                            iconSize(0.9)
+                            iconAnchor(IconAnchor.CENTER)
+                            iconAllowOverlap(true)
+                            iconIgnorePlacement(true)
+                        }
+                    )
+
+                    isCategorySearchOverlayActive = true
+                    activePOICategoryId = categoryId
+                    activePOISearchFeatures = features
+                } catch (e: Exception) {
+                    Log.e("MapFragment", "Error rendering POI search markers", e)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MapFragment", "Error preparing POI search markers", e)
+        }
+    }
+
+    private fun clearPOISearchMarkers() {
+        isCategorySearchOverlayActive = false
+        activePOICategoryId = null
+        activePOISearchFeatures = emptyList()
+
+        try {
+            mapboxMapView?.mapboxMap?.getStyle { style ->
+                try {
+                    if (style.styleLayerExists(POI_SEARCH_ICON_LAYER_ID)) {
+                        style.removeStyleLayer(POI_SEARCH_ICON_LAYER_ID)
+                    }
+                    if (style.styleLayerExists(POI_SEARCH_LAYER_ID)) {
+                        style.removeStyleLayer(POI_SEARCH_LAYER_ID)
+                    }
+                    if (style.styleSourceExists(POI_SEARCH_SOURCE_ID)) {
+                        style.removeStyleSource(POI_SEARCH_SOURCE_ID)
+                    }
+                } catch (e: Exception) {
+                    Log.e("MapFragment", "Error clearing POI search markers", e)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MapFragment", "Error preparing POI marker cleanup", e)
+        }
+    }
+
+    private fun showFavoriteSourceDialog() {
+        val options = arrayOf(
+            getString(R.string.search_pick_current_location),
+            getString(R.string.search_pick_on_map)
+        )
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.search_select_favorite_source_title)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        quickListMode = QuickListMode.FAVORITES
+                        saveShortcutFromCurrentLocation(QuickDestinationCategory.FAVORITE)
+                    }
+                    1 -> {
+                        quickListMode = QuickListMode.FAVORITES
+                        startMapPickForShortcut(QuickDestinationCategory.FAVORITE)
+                    }
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun saveShortcutFromCurrentLocation(category: QuickDestinationCategory) {
+        val location = currentLocation
+        if (location == null) {
+            Toast.makeText(requireContext(), getString(R.string.location_not_found), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val point = Point.fromLngLat(location.longitude, location.latitude)
+        lifecycleScope.launch {
+            val fallback = getString(R.string.search_current_location_fallback)
+            val name = reverseGeocodeName(point) ?: fallback
+            val destination = SavedDestination(name, point.latitude(), point.longitude())
+            saveShortcutDestination(category, destination)
+        }
+    }
+
+    private fun startMapPickForShortcut(category: QuickDestinationCategory) {
+        pendingSearchAssignmentCategory = null
+        pendingMapPickCategory = category
+        hideInlineSearch()
+        val label = when (category) {
+            QuickDestinationCategory.HOME -> getString(R.string.quick_suggestion_home)
+            QuickDestinationCategory.WORK -> getString(R.string.quick_suggestion_work)
+            QuickDestinationCategory.FAVORITE -> getString(R.string.quick_suggestion_favorites)
+            QuickDestinationCategory.RECENT -> getString(R.string.search_quick_header_recent)
+        }
+        Toast.makeText(
+            requireContext(),
+            getString(R.string.search_pick_on_map_hint, label),
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    private fun startAddressSearchForShortcut(category: QuickDestinationCategory) {
+        pendingMapPickCategory = null
+        pendingSearchAssignmentCategory = category
+        showInlineSearch()
+        etSearch.text?.clear()
+        val label = when (category) {
+            QuickDestinationCategory.HOME -> getString(R.string.quick_suggestion_home)
+            QuickDestinationCategory.WORK -> getString(R.string.quick_suggestion_work)
+            QuickDestinationCategory.FAVORITE -> getString(R.string.quick_suggestion_favorites)
+            QuickDestinationCategory.RECENT -> getString(R.string.search_quick_header_recent)
+        }
+        Toast.makeText(
+            requireContext(),
+            getString(R.string.search_pick_by_address_hint, label),
+            Toast.LENGTH_LONG
+        ).show()
+    }
+
+    private fun saveShortcutDestination(category: QuickDestinationCategory, destination: SavedDestination) {
+        when (category) {
+            QuickDestinationCategory.HOME -> writeSavedDestination(PREF_HOME_DESTINATION, destination)
+            QuickDestinationCategory.WORK -> writeSavedDestination(PREF_WORK_DESTINATION, destination)
+            QuickDestinationCategory.FAVORITE -> addFavoriteDestination(destination)
+            QuickDestinationCategory.RECENT -> addRecentDestination(destination)
+        }
+
+        val label = when (category) {
+            QuickDestinationCategory.HOME -> getString(R.string.quick_suggestion_home)
+            QuickDestinationCategory.WORK -> getString(R.string.quick_suggestion_work)
+            QuickDestinationCategory.FAVORITE -> getString(R.string.quick_suggestion_favorites)
+            QuickDestinationCategory.RECENT -> getString(R.string.search_quick_header_recent)
+        }
+        Toast.makeText(requireContext(), getString(R.string.search_shortcut_saved, label), Toast.LENGTH_SHORT).show()
+
+        if (searchContainer.visibility == View.VISIBLE) {
+            showQuickDestinationSuggestions()
+        }
+    }
+
+    private fun handleQuickDestinationSelection(item: QuickDestinationItem) {
+        val latitude = item.latitude
+        val longitude = item.longitude
+        if (latitude == null || longitude == null) {
+            Toast.makeText(requireContext(), getString(R.string.search_quick_item_not_set), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        hideInlineSearch()
+        val point = Point.fromLngLat(longitude, latitude)
+        val destinationName = item.destinationName ?: item.title
+        setDestinationAndFindRoute(point, destinationName)
+    }
+
+    private fun showSearchResultSaveDialog(feature: GeocodingFeature) {
+        val destination = feature.toSavedDestination() ?: return
+        val options = arrayOf(
+            getString(R.string.search_action_add_favorite),
+            getString(R.string.search_action_set_home),
+            getString(R.string.search_action_set_work)
+        )
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(destination.name)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> {
+                        addFavoriteDestination(destination)
+                        Toast.makeText(requireContext(), getString(R.string.search_saved_as_favorite), Toast.LENGTH_SHORT).show()
+                    }
+                    1 -> {
+                        writeSavedDestination(PREF_HOME_DESTINATION, destination)
+                        Toast.makeText(requireContext(), getString(R.string.search_saved_as_home), Toast.LENGTH_SHORT).show()
+                    }
+                    2 -> {
+                        writeSavedDestination(PREF_WORK_DESTINATION, destination)
+                        Toast.makeText(requireContext(), getString(R.string.search_saved_as_work), Toast.LENGTH_SHORT).show()
+                    }
+                }
+                refreshQuickSuggestionsIfVisible()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun isFeatureInFavorites(feature: GeocodingFeature): Boolean {
+        val destination = feature.toSavedDestination() ?: return false
+        return readSavedDestinationList(PREF_FAVORITE_DESTINATIONS)
+            .any { it.isSameDestination(destination) }
+    }
+
+    private fun toggleFavoriteForFeature(feature: GeocodingFeature, shouldBeFavorite: Boolean) {
+        val destination = feature.toSavedDestination() ?: return
+        if (shouldBeFavorite) {
+            addFavoriteDestination(destination)
+            Toast.makeText(requireContext(), getString(R.string.search_saved_as_favorite), Toast.LENGTH_SHORT).show()
+        } else {
+            val removed = removeFavoriteDestination(destination)
+            if (removed) {
+                Toast.makeText(requireContext(), getString(R.string.search_removed_from_favorites), Toast.LENGTH_SHORT).show()
+            }
+        }
+        refreshQuickSuggestionsIfVisible()
+    }
+
+    private fun refreshQuickSuggestionsIfVisible() {
+        if (searchContainer.visibility != View.VISIBLE) return
+        val query = etSearch.text?.toString()?.trim().orEmpty()
+        if (query.length < 2) {
+            showQuickDestinationSuggestions()
+        }
+    }
+
+    private suspend fun reverseGeocodeName(point: Point): String? {
+        if (mapboxAccessToken.isBlank()) return null
+        return try {
+            val response = withContext(Dispatchers.IO) {
+                geocodingService.reverseGeocode(
+                    point.longitude(),
+                    point.latitude(),
+                    mapboxAccessToken,
+                    1
+                )
+            }
+            val feature = response.body()?.features?.firstOrNull()
+            feature?.placeName ?: feature?.text
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun GeocodingFeature.toSavedDestination(): SavedDestination? {
+        if (center == null || center.size < 2) return null
+        val destinationName = placeName.ifBlank { text }.ifBlank { getString(R.string.destination_placeholder) }
+        return SavedDestination(
+            name = destinationName,
+            latitude = center[1],
+            longitude = center[0]
+        )
+    }
+
+    private fun getSearchPrefs() = PreferenceManager.getDefaultSharedPreferences(requireContext())
+
+    private fun readSavedDestination(key: String): SavedDestination? {
+        val raw = getSearchPrefs().getString(key, null) ?: return null
+        return try {
+            val obj = JSONObject(raw)
+            SavedDestination(
+                name = obj.optString("name"),
+                latitude = obj.optDouble("lat"),
+                longitude = obj.optDouble("lon")
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun writeSavedDestination(key: String, destination: SavedDestination?) {
+        val editor = getSearchPrefs().edit()
+        if (destination == null) {
+            editor.remove(key).apply()
+            return
+        }
+
+        val obj = JSONObject()
+            .put("name", destination.name)
+            .put("lat", destination.latitude)
+            .put("lon", destination.longitude)
+        editor.putString(key, obj.toString()).apply()
+    }
+
+    private fun readSavedDestinationList(key: String): MutableList<SavedDestination> {
+        val raw = getSearchPrefs().getString(key, null) ?: return mutableListOf()
+        return try {
+            val array = JSONArray(raw)
+            val list = mutableListOf<SavedDestination>()
+            for (i in 0 until array.length()) {
+                val obj = array.optJSONObject(i) ?: continue
+                list += SavedDestination(
+                    name = obj.optString("name"),
+                    latitude = obj.optDouble("lat"),
+                    longitude = obj.optDouble("lon")
+                )
+            }
+            if (key == PREF_RECENT_DESTINATIONS && list.size > MAX_RECENT_DESTINATIONS) {
+                val trimmed = list.take(MAX_RECENT_DESTINATIONS).toMutableList()
+                writeSavedDestinationList(key, trimmed)
+                trimmed
+            } else {
+                list
+            }
+        } catch (_: Exception) {
+            mutableListOf()
+        }
+    }
+
+    private fun writeSavedDestinationList(key: String, destinations: List<SavedDestination>) {
+        val array = JSONArray()
+        destinations.forEach { destination ->
+            array.put(
+                JSONObject()
+                    .put("name", destination.name)
+                    .put("lat", destination.latitude)
+                    .put("lon", destination.longitude)
+            )
+        }
+        getSearchPrefs().edit().putString(key, array.toString()).apply()
+    }
+
+    private fun addFavoriteDestination(destination: SavedDestination) {
+        val favorites = readSavedDestinationList(PREF_FAVORITE_DESTINATIONS)
+        favorites.removeAll { it.isSameDestination(destination) }
+        favorites.add(0, destination)
+        if (favorites.size > MAX_FAVORITE_DESTINATIONS) {
+            favorites.subList(MAX_FAVORITE_DESTINATIONS, favorites.size).clear()
+        }
+        writeSavedDestinationList(PREF_FAVORITE_DESTINATIONS, favorites)
+    }
+
+    private fun removeFavoriteDestination(destination: SavedDestination): Boolean {
+        val favorites = readSavedDestinationList(PREF_FAVORITE_DESTINATIONS)
+        val removed = favorites.removeAll { it.isSameDestination(destination) }
+        if (removed) {
+            writeSavedDestinationList(PREF_FAVORITE_DESTINATIONS, favorites)
+        }
+        return removed
+    }
+
+    private fun addRecentDestination(destination: SavedDestination) {
+        val recent = readSavedDestinationList(PREF_RECENT_DESTINATIONS)
+        recent.removeAll { it.isSameDestination(destination) }
+        recent.add(0, destination)
+        if (recent.size > MAX_RECENT_DESTINATIONS) {
+            recent.subList(MAX_RECENT_DESTINATIONS, recent.size).clear()
+        }
+        writeSavedDestinationList(PREF_RECENT_DESTINATIONS, recent)
+    }
+
+    private fun removeRecentDestination(item: QuickDestinationItem) {
+        if (item.category != QuickDestinationCategory.RECENT) return
+
+        val latitude = item.latitude ?: return
+        val longitude = item.longitude ?: return
+        val target = SavedDestination(
+            name = item.destinationName ?: item.title,
+            latitude = latitude,
+            longitude = longitude
+        )
+
+        val recent = readSavedDestinationList(PREF_RECENT_DESTINATIONS)
+        val removed = recent.removeAll { it.isSameDestination(target) }
+        if (!removed) return
+
+        writeSavedDestinationList(PREF_RECENT_DESTINATIONS, recent)
+        if (quickListMode == QuickListMode.RECENT) {
+            renderQuickList()
+        }
+    }
+
+    private fun SavedDestination.isSameDestination(other: SavedDestination): Boolean {
+        return abs(latitude - other.latitude) < 0.00001 && abs(longitude - other.longitude) < 0.00001
     }
     
     private fun setDestinationAndFindRoute(destination: Point, destinationName: String?) {
         currentDestination = destination
         currentDestinationName = destinationName
         tvDestinationName.text = destinationName ?: "Дестинация"
+
+        val nameForHistory = destinationName?.trim().orEmpty().ifBlank {
+            String.format(
+                java.util.Locale.getDefault(),
+                "%.5f, %.5f",
+                destination.latitude(),
+                destination.longitude()
+            )
+        }
+        addRecentDestination(
+            SavedDestination(
+                name = nameForHistory,
+                latitude = destination.latitude(),
+                longitude = destination.longitude()
+            )
+        )
         
         // Update collapsed pill text
         val tv = destinationSearchContainer.findViewById<TextView>(R.id.tvDestinationPlaceholder)
@@ -970,7 +2316,10 @@ class MapFragment : Fragment() {
     }
     
     private fun handleLongPressDestination(point: com.mapbox.geojson.Point) {
+        val pendingCategory = pendingMapPickCategory
+
         if (mapboxAccessToken.isBlank()) {
+            pendingMapPickCategory = null
             Toast.makeText(requireContext(), "Mapbox token not available", Toast.LENGTH_SHORT).show()
             return
         }
@@ -1000,8 +2349,21 @@ class MapFragment : Fragment() {
                         // Set destination and find route
                         withContext(Dispatchers.Main) {
                             loadingToast.cancel()
-                            setDestinationAndFindRoute(point, destinationName)
-                            Toast.makeText(requireContext(), "Дестинация зададена: $destinationName", Toast.LENGTH_SHORT).show()
+                            if (pendingCategory != null) {
+                                saveShortcutDestination(
+                                    pendingCategory,
+                                    SavedDestination(
+                                        name = destinationName,
+                                        latitude = point.latitude(),
+                                        longitude = point.longitude()
+                                    )
+                                )
+                                pendingMapPickCategory = null
+                                showInlineSearch()
+                            } else {
+                                setDestinationAndFindRoute(point, destinationName)
+                                Toast.makeText(requireContext(), "Дестинация зададена: $destinationName", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     } else {
                         withContext(Dispatchers.Main) {
@@ -1013,8 +2375,21 @@ class MapFragment : Fragment() {
                                 point.latitude(),
                                 point.longitude()
                             )
-                            setDestinationAndFindRoute(point, destinationName)
-                            Toast.makeText(requireContext(), "Дестинация зададена", Toast.LENGTH_SHORT).show()
+                            if (pendingCategory != null) {
+                                saveShortcutDestination(
+                                    pendingCategory,
+                                    SavedDestination(
+                                        name = destinationName,
+                                        latitude = point.latitude(),
+                                        longitude = point.longitude()
+                                    )
+                                )
+                                pendingMapPickCategory = null
+                                showInlineSearch()
+                            } else {
+                                setDestinationAndFindRoute(point, destinationName)
+                                Toast.makeText(requireContext(), "Дестинация зададена", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 } else {
@@ -1027,8 +2402,21 @@ class MapFragment : Fragment() {
                             point.latitude(),
                             point.longitude()
                         )
-                        setDestinationAndFindRoute(point, destinationName)
-                        Toast.makeText(requireContext(), "Дестинация зададена", Toast.LENGTH_SHORT).show()
+                        if (pendingCategory != null) {
+                            saveShortcutDestination(
+                                pendingCategory,
+                                SavedDestination(
+                                    name = destinationName,
+                                    latitude = point.latitude(),
+                                    longitude = point.longitude()
+                                )
+                            )
+                            pendingMapPickCategory = null
+                            showInlineSearch()
+                        } else {
+                            setDestinationAndFindRoute(point, destinationName)
+                            Toast.makeText(requireContext(), "Дестинация зададена", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             } catch (e: Exception) {
@@ -1042,8 +2430,21 @@ class MapFragment : Fragment() {
                         point.latitude(),
                         point.longitude()
                     )
-                    setDestinationAndFindRoute(point, destinationName)
-                    Toast.makeText(requireContext(), "Дестинация зададена", Toast.LENGTH_SHORT).show()
+                    if (pendingCategory != null) {
+                        saveShortcutDestination(
+                            pendingCategory,
+                            SavedDestination(
+                                name = destinationName,
+                                latitude = point.latitude(),
+                                longitude = point.longitude()
+                            )
+                        )
+                        pendingMapPickCategory = null
+                        showInlineSearch()
+                    } else {
+                        setDestinationAndFindRoute(point, destinationName)
+                        Toast.makeText(requireContext(), "Дестинация зададена", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
@@ -1135,6 +2536,8 @@ class MapFragment : Fragment() {
             llTemperature.visibility = View.VISIBLE
             llAltitude.visibility = View.VISIBLE
             fabMyLocationContainer.visibility = View.VISIBLE
+            fabReport?.visibility = View.VISIBLE
+            repositionFabReport()
             
             // Show bottom navigation
             requireActivity().findViewById<View>(R.id.bottomNavigationContainer)?.visibility = View.VISIBLE
@@ -1268,12 +2671,24 @@ class MapFragment : Fragment() {
     }
 
     companion object {
+        private const val POI_SEARCH_SOURCE_ID = "poi-search-source"
+        private const val POI_SEARCH_LAYER_ID = "poi-search-layer"
+        private const val POI_SEARCH_ICON_LAYER_ID = "poi-search-icon-layer"
+        private const val POI_ICON_IMAGE_GAS = "poi-icon-gas"
+        private const val POI_ICON_IMAGE_PARKING = "poi-icon-parking"
+        private const val POI_ICON_IMAGE_FOOD = "poi-icon-food"
+        private const val POI_ICON_IMAGE_COFFEE = "poi-icon-coffee"
+        private const val POI_ICON_IMAGE_DEFAULT = "poi-icon-default"
         private const val KEY_NAV_ACTIVE = "nav_active"
         private const val KEY_SESSION_ACTIVE = "session_active"
         private const val KEY_PREVIEW_ACTIVE = "preview_active"
         private const val KEY_PREVIEW_DEST_LAT = "preview_dest_lat"
         private const val KEY_PREVIEW_DEST_LON = "preview_dest_lon"
         private const val KEY_PREVIEW_DEST_NAME = "preview_dest_name"
+        private const val PREF_HOME_DESTINATION = "map_home_destination"
+        private const val PREF_WORK_DESTINATION = "map_work_destination"
+        private const val PREF_FAVORITE_DESTINATIONS = "map_favorite_destinations"
+        private const val PREF_RECENT_DESTINATIONS = "map_recent_destinations"
         private const val WEATHER_API_KEY = "547cc84c36a447ab8fe131642251808"
         private const val WEATHER_REFRESH_INTERVAL_MS = 15 * 60 * 1000L
         private const val CACHE_WEATHER_MAX_AGE_MS = 15 * 60 * 1000L
@@ -1282,6 +2697,10 @@ class MapFragment : Fragment() {
         private const val LOCATION_PERMISSION_REQUEST_CODE = 1001
         private const val ZOOM_CHANGE_DELAY = 3000L
         private const val NORMAL_STARTUP_CAMERA_ANIMATION_MS = 2400L
+        private const val NORMAL_CONTINUE_HANDOFF_ANIMATION_MS = 900L
+        private const val MAX_FAVORITE_DESTINATIONS = 12
+        private const val MAX_RECENT_DESTINATIONS = 10
+        private const val SEARCH_DEBOUNCE_MS = 800L
         private const val NORMAL_FOLLOW_FORWARD_OFFSET_DP_PORTRAIT = 46.0
         private const val NORMAL_FOLLOW_FORWARD_OFFSET_DP_LANDSCAPE = 30.0
     }
@@ -1574,10 +2993,66 @@ class MapFragment : Fragment() {
         view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = View.GONE
     }
 
+    private fun repositionFabReport() {
+        val fabReportParams = fabReport?.layoutParams as? android.widget.RelativeLayout.LayoutParams ?: return
+        val density = resources.displayMetrics.density
+        
+        when {
+            isNavigationActive -> {
+                // Navigation mode: right side, 5dp above ETA pills
+                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_START)
+                fabReportParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_END)
+                fabReportParams.marginEnd = (12 * density).toInt()
+                fabReportParams.bottomMargin = (200 * density).toInt()
+                fabReportParams.marginStart = 0
+                fabReport?.visibility = View.VISIBLE
+            }
+            navSessionActive -> {
+                // Session mode: right side, lower position
+                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_START)
+                fabReportParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_END)
+                fabReportParams.marginEnd = (10 * density).toInt()
+                fabReportParams.bottomMargin = (140 * density).toInt()
+                fabReportParams.marginStart = 0
+                fabReport?.visibility = View.VISIBLE
+            }
+            else -> {
+                // Free driving mode: left side, same height as fabMyLocation
+                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_END)
+                fabReportParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_START)
+                fabReportParams.marginStart = (16 * density).toInt()
+                fabReportParams.bottomMargin = (140 * density).toInt() // Match fabMyLocation height
+                fabReportParams.marginEnd = 0
+                fabReport?.visibility = View.VISIBLE
+            }
+        }
+        
+        fabReport?.layoutParams = fabReportParams
+    }
+
     private fun setNavigationActive(active: Boolean) {
         if (active == isNavigationActive) return
         isNavigationActive = active
         hasReachedDestination = false
+        
+        // Notify reports integration about navigation state change
+        if (active) {
+            // Get current route geometry for on-route checking
+            try {
+                val geometryString = mapboxNavigation.getNavigationRoutes().firstOrNull()?.directionsRoute?.geometry()
+                val routeGeometry = geometryString?.let { LineString.fromPolyline(it, 6) }
+                reportsIntegration?.setNavigationState(true, routeGeometry)
+            } catch (e: Exception) {
+                Log.e("MapFragment", "Failed to parse route geometry", e)
+                reportsIntegration?.setNavigationState(true, null)
+            }
+        } else {
+            reportsIntegration?.setNavigationState(false, null)
+        }
+        
+        if (!active) {
+            hideArrivalActionPanel(animated = false)
+        }
         navBackPressedCallback?.isEnabled = active
 
         if (active) {
@@ -1675,6 +3150,9 @@ class MapFragment : Fragment() {
                 }
             }
         }
+        
+        // Reposition FAB Report button based on mode
+        repositionFabReport()
     }
 
     private fun showExitNavigationDialog() {
@@ -1703,7 +3181,186 @@ class MapFragment : Fragment() {
         dialog.show()
     }
 
+    private fun showArrivalActionPanel() {
+        val panel = arrivalActionContainer ?: return
+        if (isArrivalActionVisible) return
+        isArrivalActionVisible = true
+        setButtonRowEnabled(false)
+
+        panel.clearAnimation()
+        panel.visibility = View.VISIBLE
+        panel.bringToFront()
+        panel.post {
+            if (!isAdded || !isArrivalActionVisible) return@post
+            val hiddenOffset = panel.height.toFloat().takeIf { it > 0f }
+                ?: (72f * resources.displayMetrics.density)
+            panel.translationY = hiddenOffset
+            panel.alpha = 0f
+            panel.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(230L)
+                .setInterpolator(DecelerateInterpolator())
+                .start()
+        }
+    }
+
+    private fun hideArrivalActionPanel(animated: Boolean) {
+        val panel = arrivalActionContainer ?: return
+        if (!isArrivalActionVisible && panel.visibility != View.VISIBLE) return
+        isArrivalActionVisible = false
+        setButtonRowEnabled(true)
+
+        panel.clearAnimation()
+        if (!animated || panel.height == 0) {
+            panel.alpha = 0f
+            panel.visibility = View.GONE
+            return
+        }
+
+        panel.animate()
+            .translationY(panel.height.toFloat())
+            .alpha(0f)
+            .setDuration(180L)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                panel.visibility = View.GONE
+                panel.translationY = 0f
+            }
+            .start()
+    }
+
+    private fun setButtonRowEnabled(enabled: Boolean) {
+        buttonActionsRow?.isEnabled = enabled
+        btnReset?.isEnabled = enabled
+        btnZero?.isEnabled = enabled
+        btnStop?.isEnabled = enabled
+        buttonActionsRow?.let { row ->
+            for (i in 0 until row.childCount) {
+                row.getChildAt(i).isEnabled = enabled
+            }
+        }
+    }
+
+    private fun showArrivalDiscardSessionDialog() {
+        val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
+            .setTitle("Изтриване на сесия?")
+            .setMessage("Сигурни ли сте, че искате да излезете от сесията? Тя ще бъде изтрита и няма да бъде запазена.")
+            .setPositiveButton("Да") { _, _ ->
+                hideArrivalActionPanel(animated = false)
+                stopNormalSessionWithoutSave()
+            }
+            .setNegativeButton("Не", null)
+            .create()
+        DialogHelper.styleDialogButtons(dialog)
+        dialog.show()
+    }
+
+    private fun continueSessionAsNormalAfterArrival() {
+        hideArrivalActionPanel(animated = true)
+
+        mapboxNavigation.setNavigationRoutes(emptyList())
+        if (navigationObserversRegistered) {
+            mapboxNavigation.unregisterRoutesObserver(sdkRoutesObserver)
+            mapboxNavigation.unregisterRouteProgressObserver(sdkRouteProgressObserver)
+            mapboxNavigation.unregisterArrivalObserver(sdkArrivalObserver)
+            navigationObserversRegistered = false
+        }
+
+        val mapView = mapboxMapView
+        if (mapView != null) {
+            val locationPlugin = mapView.getPlugin(Plugin.MAPBOX_LOCATION_COMPONENT_PLUGIN_ID) as? LocationComponentPlugin
+            if (locationPlugin != null) {
+                onIndicatorPositionChangedListener?.let { locationPlugin.removeOnIndicatorPositionChangedListener(it) }
+            }
+        }
+
+        isNavigationActive = false
+        hasReachedDestination = false
+        resetNavigationUiAfterStop()
+        setNormalSessionUiActive(true)
+        navBackPressedCallback?.isEnabled = true
+
+        enforcePitchZero = false
+        resetNormalDrivingCameraState()
+        smoothHandoffToNormalDrivingCamera()
+        startMapboxRenderLoop()
+    }
+
+    private fun smoothHandoffToNormalDrivingCamera() {
+        val mapView = mapboxMapView ?: return
+        val location = currentLocation ?: mapStateViewModel.lastKnownLocation ?: return
+
+        val speedKmh = (location.speed * 3.6f).coerceAtLeast(0f)
+        lastSpeedKmh = speedKmh
+
+        val bearing = when {
+            isNorthUpMode -> 0f
+            location.hasBearing() -> location.bearing
+            else -> mapView.mapboxMap.cameraState.bearing.toFloat()
+        }
+
+        val cameraState = mapView.mapboxMap.cameraState
+        val targetZoomValue = cameraState.zoom.coerceIn(15.5, 19.5)
+        val targetPitchValue = getNormalDrivingPitchForSpeed(speedKmh)
+
+        val isLandscape = resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val baseOffsetDp = if (isLandscape) {
+            NORMAL_FOLLOW_FORWARD_OFFSET_DP_LANDSCAPE
+        } else {
+            NORMAL_FOLLOW_FORWARD_OFFSET_DP_PORTRAIT
+        }
+
+        val metersPerPixel = 156543.03392 *
+            cos(Math.toRadians(location.latitude)) /
+            Math.pow(2.0, targetZoomValue)
+        val offsetMeters = if (isNorthUpMode) 0.0 else baseOffsetDp * resources.displayMetrics.density * metersPerPixel
+        val bearingRad = Math.toRadians(bearing.toDouble())
+        val offsetLat = (offsetMeters * cos(bearingRad)) / 111320.0
+        val offsetLon = (offsetMeters * sin(bearingRad)) / (111320.0 * cos(Math.toRadians(location.latitude)))
+
+        val anchorPoint = GeoPoint(location.latitude, location.longitude)
+        val centerPoint = if (isNorthUpMode) {
+            anchorPoint
+        } else {
+            GeoPoint(location.latitude + offsetLat, location.longitude + offsetLon)
+        }
+
+        mapboxTargetPosition = anchorPoint
+        mapboxSmoothedTargetPosition = anchorPoint
+        mapboxCurrentPosition = anchorPoint
+        mapboxCurrentCameraCenter = centerPoint
+        mapboxTargetBearing = bearing
+        mapboxCurrentBearing = bearing
+        targetMapOrientation = if (isNorthUpMode) 0f else -bearing
+        currentMapOrientation = targetMapOrientation
+        targetZoom = targetZoomValue
+        currentZoom = targetZoomValue
+        targetPitch = if (isNorthUpMode) 0.0 else targetPitchValue
+        currentPitch = targetPitch
+        mapboxLastUpdateTime = SystemClock.elapsedRealtime()
+        isFirstLocation = false
+
+        val now = SystemClock.elapsedRealtime()
+        suppressMapCameraUpdatesUntil = now + NORMAL_CONTINUE_HANDOFF_ANIMATION_MS + 80L
+        startupCameraHandoffUntil = suppressMapCameraUpdatesUntil
+        startupFollowStabilizeUntil = suppressMapCameraUpdatesUntil
+
+        mapView.camera.easeTo(
+            CameraOptions.Builder()
+                .center(MapboxPoint.fromLngLat(centerPoint.longitude, centerPoint.latitude))
+                .zoom(targetZoomValue)
+                .bearing(if (isNorthUpMode) 0.0 else bearing.toDouble())
+                .pitch(if (isNorthUpMode) 0.0 else targetPitch)
+                .build(),
+            MapAnimationOptions.Builder()
+                .duration(NORMAL_CONTINUE_HANDOFF_ANIMATION_MS)
+                .build()
+        )
+    }
+
     private fun stopNormalSessionWithoutSave() {
+        hideArrivalActionPanel(animated = false)
         if (isNavigationActive) {
             mapboxNavigation.setNavigationRoutes(emptyList())
             setNavigationActive(false)
@@ -1733,6 +3390,9 @@ class MapFragment : Fragment() {
         updateZeroButtonVisibility()
         startLeanAngleUpdates()
         startMapboxRenderLoop()
+        
+        // Reposition FAB Report button for session mode
+        repositionFabReport()
     }
 
     private fun stopNavSessionTracking() {
@@ -1741,6 +3401,9 @@ class MapFragment : Fragment() {
         chronometerCar?.stop()
         stopLeanAngleUpdates()
         stopMapboxRenderLoop()
+        
+        // Reposition FAB Report button back to free driving mode
+        repositionFabReport()
     }
 
     private fun resetNavSessionMetrics(resetTime: Boolean) {
@@ -2101,9 +3764,7 @@ class MapFragment : Fragment() {
     private fun onDestinationReached() {
         if (hasReachedDestination) return
         hasReachedDestination = true
-
-        setNavigationActive(false)
-        resetNavigationUiAfterStop()
+        showArrivalActionPanel()
     }
 
     private fun setCompactRouteMode(enabled: Boolean) {
@@ -2111,6 +3772,12 @@ class MapFragment : Fragment() {
         llTemperature.visibility = if (enabled) View.GONE else View.VISIBLE
         llAltitude.visibility = if (enabled) View.GONE else View.VISIBLE
         fabMyLocationContainer.visibility = if (enabled) View.GONE else View.VISIBLE
+        fabReport?.visibility = if (enabled) View.GONE else View.VISIBLE
+
+        // If exiting preview mode, reposition FAB Report to ensure correct visibility/position
+        if (!enabled) {
+            repositionFabReport()
+        }
 
         // Hide bottom container (sessions/start)
         view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = if (enabled) View.GONE else View.VISIBLE
@@ -2391,7 +4058,9 @@ class MapFragment : Fragment() {
 
             // Enable alternative route selection by tapping on a route (same UX as TestNavigationActivity)
             mv.mapboxMap.addOnMapClickListener { clickPoint ->
-                if (routeInfoContainer.visibility == View.VISIBLE && currentRoutesOriginal.size > 1) {
+                if (handlePOISearchMarkerTap(clickPoint)) {
+                    true
+                } else if (routeInfoContainer.visibility == View.VISIBLE && currentRoutesOriginal.size > 1) {
                     handleRouteClick(clickPoint)
                     true
                 } else {
@@ -2401,8 +4070,9 @@ class MapFragment : Fragment() {
             
             // Enable long press to set destination (like Google Maps)
             mv.mapboxMap.addOnMapLongClickListener { longPressPoint ->
-                // Only allow long press when not in route preview mode
-                if (routeInfoContainer.visibility == View.GONE) {
+                // Allow map pick for Home/Work/Favorites even if route preview is visible.
+                val isShortcutMapPickActive = pendingMapPickCategory != null
+                if (isShortcutMapPickActive || routeInfoContainer.visibility == View.GONE) {
                     handleLongPressDestination(longPressPoint)
                     true // Consume the event
                 } else {
@@ -2657,6 +4327,9 @@ class MapFragment : Fragment() {
     }
 
     private fun setNormalSessionUiActive(active: Boolean) {
+        if (!active) {
+            hideArrivalActionPanel(animated = false)
+        }
         navSessionContainer?.visibility = if (active) View.VISIBLE else View.GONE
         carModeContainer?.visibility = if (active) View.VISIBLE else View.GONE
         bottomHudRow?.visibility = if (active) View.VISIBLE else View.GONE
@@ -3159,6 +4832,26 @@ class MapFragment : Fragment() {
         
         mapboxMapView?.onResume()
         tryEnableMapboxLocationComponent()
+
+        // If the screen was locked while a normal session was active, onStop() has already stopped
+        // the render loop. Force a one-shot camera resync and restart follow rendering.
+        if (navSessionActive && !isNavigationActive) {
+            suppressMapCameraUpdatesUntil = 0L
+            startupCameraHandoffUntil = 0L
+            startupFollowStabilizeUntil = 0L
+            mapboxLastUpdateTime = 0L
+
+            val resumeLocation = currentLocation ?: mapStateViewModel.lastKnownLocation
+            if (resumeLocation != null) {
+                processNormalDrivingLocation(resumeLocation)
+                updateMapboxMapAnimation()
+            } else {
+                displayLastKnownLocationInstantly()
+            }
+
+            startMapboxRenderLoop()
+        }
+
         triggerFirstOpenWeatherFetchIfNeeded()
         startWeatherRefreshTimer()
 
@@ -3227,10 +4920,14 @@ class MapFragment : Fragment() {
         super.onDestroyView()
         // КРИТИЧНО: НЕ унищожаваме MapView тук - той се запазва в паметта за instant navigation
         // MapView ще се унищожи само когато Fragment се унищожи напълно
+        cancelInlineSearchDebounce()
         stopLeanAngleUpdates()
         stopMapboxRenderLoop()
         stopWeatherRefreshTimer()
         routeWeatherPreviewOverlay?.clear()
+        reportsIntegration?.cleanup()
+        reportsIntegration = null
+        lastReportsQueryLocation = null // Reset для следващ път
     }
     
     override fun onDestroy() {
@@ -3513,12 +5210,24 @@ class MapFragment : Fragment() {
     }
 
     fun handleBackPressedFromActivity(): Boolean {
+        if (isArrivalActionVisible) {
+            showArrivalDiscardSessionDialog()
+            return true
+        }
         if (navSessionActive) {
             showExitNormalSessionDialog()
             return true
         }
         if (isNavigationActive) {
             showExitNavigationDialog()
+            return true
+        }
+        if (isPoiCategoryModeActive || isCategorySearchOverlayActive || poiBottomSheetContainer?.visibility == View.VISIBLE) {
+            exitPOICategoryModeToSearch()
+            return true
+        }
+        if (searchContainer.visibility == View.VISIBLE) {
+            restoreInitialMapUi()
             return true
         }
         if (currentDestination != null) {

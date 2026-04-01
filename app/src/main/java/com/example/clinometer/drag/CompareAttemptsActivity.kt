@@ -9,6 +9,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -28,10 +29,12 @@ import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.listener.OnChartGestureListener
 import com.github.mikephil.charting.listener.ChartTouchListener
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener
 import com.github.mikephil.charting.highlight.Highlight
 import com.github.mikephil.charting.utils.MPPointF
-import java.text.SimpleDateFormat
 import java.util.*
 
 class CompareAttemptsActivity : AppCompatActivity() {
@@ -50,17 +53,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
     private lateinit var btnGForce: Button
     private lateinit var llChartMode: LinearLayout
     
-    // Comparison stats views
-    private lateinit var tvCurrentMax: TextView
-    private lateinit var tvCurrent0to100: TextView
-    private lateinit var tvCurrent0to200: TextView
-    private lateinit var tvCurrent100to200: TextView
-    private lateinit var tvCurrent0to402: TextView
-    private lateinit var tvCompareMax: TextView
-    private lateinit var tvCompare0to100: TextView
-    private lateinit var tvCompare0to200: TextView
-    private lateinit var tvCompare100to200: TextView
-    private lateinit var tvCompare0to402: TextView
+    // Comparison row views bound inline in bindCmpRow()
     
     private var currentSessionId: Long = -1
     private var currentAttemptId: Long = -1
@@ -111,19 +104,9 @@ class CompareAttemptsActivity : AppCompatActivity() {
         btnSpeed = findViewById(R.id.btnSpeed)
         btnAcceleration = findViewById(R.id.btnAcceleration)
         btnGForce = findViewById(R.id.btnGForce)
+        btnGForce.visibility = View.GONE
+        btnGForce.isEnabled = false
         llChartMode = findViewById(R.id.llChartMode)
-        
-        // Comparison stats views
-        tvCurrentMax = findViewById(R.id.tvCurrentMax)
-        tvCurrent0to100 = findViewById(R.id.tvCurrent0to100)
-        tvCurrent0to200 = findViewById(R.id.tvCurrent0to200)
-        tvCurrent100to200 = findViewById(R.id.tvCurrent100to200)
-        tvCurrent0to402 = findViewById(R.id.tvCurrent0to402)
-        tvCompareMax = findViewById(R.id.tvCompareMax)
-        tvCompare0to100 = findViewById(R.id.tvCompare0to100)
-        tvCompare0to200 = findViewById(R.id.tvCompare0to200)
-        tvCompare100to200 = findViewById(R.id.tvCompare100to200)
-        tvCompare0to402 = findViewById(R.id.tvCompare0to402)
         
         setupChart()
         setupChartModeButtons()
@@ -313,163 +296,365 @@ class CompareAttemptsActivity : AppCompatActivity() {
     private fun updateSessionInfo() {
         val currentSessionName = currentSession?.name ?: "Current Session"
         val compareSessionName = compareSession?.name ?: "Compare Session"
-        
+
         findViewById<TextView>(R.id.tvCurrentSession).text = currentSessionName
         findViewById<TextView>(R.id.tvCompareSession).text = compareSessionName
+
+        val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+
+        currentSession?.timestamp?.let { ts ->
+            val dateView = findViewById<TextView>(R.id.tvCurrentSessionDate)
+            dateView.text = dateFormat.format(Date(ts))
+            dateView.visibility = View.VISIBLE
+        }
+
+        compareSession?.timestamp?.let { ts ->
+            val dateView = findViewById<TextView>(R.id.tvCompareSessionDate)
+            dateView.text = dateFormat.format(Date(ts))
+            dateView.visibility = View.VISIBLE
+        }
+
+        currentAttempt?.let { attempt ->
+            if (attempt.temperature != null || attempt.humidity != null || attempt.windKph != null) {
+                val weatherLayout = findViewById<LinearLayout>(R.id.llCurrentWeather)
+                weatherLayout.visibility = View.VISIBLE
+                val (iconRes, tintRes) = resolveWeatherIconStyle(attempt.weatherIcon ?: -1, attempt.humidity)
+                val ivCondition = findViewById<ImageView>(R.id.ivCurrentWeatherCondition)
+                ivCondition.setImageResource(iconRes)
+                ivCondition.imageTintList = android.content.res.ColorStateList.valueOf(
+                    ContextCompat.getColor(this, tintRes)
+                )
+                attempt.temperature?.let {
+                    findViewById<TextView>(R.id.tvCurrentWeatherTemp).text =
+                        UnitsManager.formatTemperature(it, this, decimals = 0)
+                }
+                attempt.humidity?.let {
+                    findViewById<TextView>(R.id.tvCurrentWeatherHumidity).text = "$it%"
+                }
+                attempt.windKph?.let {
+                    val speedUnit = UnitsManager.getSpeedUnit(this)
+                    val converted = UnitsManager.convertSpeed(it, speedUnit)
+                    findViewById<TextView>(R.id.tvCurrentWeatherWind).text =
+                        "${converted.toInt()} ${speedUnit.symbol}"
+                }
+            }
+        }
+
+        compareAttempt?.let { attempt ->
+            if (attempt.temperature != null || attempt.humidity != null || attempt.windKph != null) {
+                val weatherLayout = findViewById<LinearLayout>(R.id.llCompareWeather)
+                weatherLayout.visibility = View.VISIBLE
+                val (iconRes, tintRes) = resolveWeatherIconStyle(attempt.weatherIcon ?: -1, attempt.humidity)
+                val ivCondition = findViewById<ImageView>(R.id.ivCompareWeatherCondition)
+                ivCondition.setImageResource(iconRes)
+                ivCondition.imageTintList = android.content.res.ColorStateList.valueOf(
+                    ContextCompat.getColor(this, tintRes)
+                )
+                attempt.temperature?.let {
+                    findViewById<TextView>(R.id.tvCompareWeatherTemp).text =
+                        UnitsManager.formatTemperature(it, this, decimals = 0)
+                }
+                attempt.humidity?.let {
+                    findViewById<TextView>(R.id.tvCompareWeatherHumidity).text = "$it%"
+                }
+                attempt.windKph?.let {
+                    val speedUnit = UnitsManager.getSpeedUnit(this)
+                    val converted = UnitsManager.convertSpeed(it, speedUnit)
+                    findViewById<TextView>(R.id.tvCompareWeatherWind).text =
+                        "${converted.toInt()} ${speedUnit.symbol}"
+                }
+            }
+        }
+    }
+
+    private fun resolveWeatherIconStyle(iconRes: Int, humidityPercent: Int?): Pair<Int, Int> {
+        val baseIcon = when (iconRes) {
+            R.drawable.ic_weather_sunny -> R.drawable.ic_weather_sunny
+            R.drawable.ic_weather_clear_night -> R.drawable.ic_weather_clear_night
+            R.drawable.ic_weather_partly_cloudy,
+            R.drawable.ic_weather_partly_cloudy_night -> R.drawable.ic_weather_partly_cloudy
+            R.drawable.ic_weather_cloudy -> R.drawable.ic_weather_cloudy
+            R.drawable.ic_weather_rainy -> R.drawable.ic_weather_rainy
+            R.drawable.ic_weather_snowy -> R.drawable.ic_weather_snowy
+            else -> R.drawable.ic_weather_cloudy
+        }
+
+        val finalIcon = if (baseIcon == R.drawable.ic_weather_sunny && (humidityPercent ?: 0) >= 70) {
+            R.drawable.ic_weather_cloudy
+        } else {
+            baseIcon
+        }
+
+        val tintRes = when (finalIcon) {
+            R.drawable.ic_weather_sunny -> R.color.warning_color
+            R.drawable.ic_weather_rainy,
+            R.drawable.ic_weather_snowy -> R.color.accent_light
+            R.drawable.ic_weather_clear_night,
+            R.drawable.ic_weather_cloudy,
+            R.drawable.ic_weather_partly_cloudy -> R.color.text_tertiary
+            else -> R.color.text_tertiary
+        }
+
+        return finalIcon to tintRes
     }
     
     private fun updateComparisonStats() {
-        if (currentAttempt == null || compareAttempt == null) return
-        
-        when (currentMode) {
-            ChartMode.SPEED -> updateSpeedStats()
-            ChartMode.ACCELERATION -> updateAccelerationStats()
-            ChartMode.G_FORCE -> updateGForceStats()
+        val curAttempt = currentAttempt ?: return
+        val cmpAttempt = compareAttempt ?: return
+        val speedUnit = UnitsManager.getSpeedUnit(this)
+
+        fun nanoToSec(nanos: Long) = if (nanos > 0) nanos / 1_000_000_000.0 else -1.0
+        fun fmtTime(secs: Double) = if (secs > 0) String.format("%.3f", secs) else "--"
+        fun fmtDeltaSec(delta: Double): String {
+            val sign = if (delta < 0) "\u2212" else "+"
+            return "$sign${String.format("%.3f", Math.abs(delta))}s"
+        }
+        fun fmtDeltaSpeed(deltaKmh: Float): String {
+            val conv = UnitsManager.convertSpeed(Math.abs(deltaKmh), speedUnit)
+            val sign = if (deltaKmh < 0) "\u2212" else "+"
+            return "$sign${conv.toInt()} ${speedUnit.symbol}"
+        }
+
+        val cur0to100   = nanoToSec(curAttempt.time0to100)
+        val cmp0to100   = nanoToSec(cmpAttempt.time0to100)
+        val cur0to200   = nanoToSec(curAttempt.time0to200)
+        val cmp0to200   = nanoToSec(cmpAttempt.time0to200)
+        val cur100to200 = if (cur0to200 > 0 && cur0to100 > 0) cur0to200 - cur0to100 else -1.0
+        val cmp100to200 = if (cmp0to200 > 0 && cmp0to100 > 0) cmp0to200 - cmp0to100 else -1.0
+        val cur0to402   = nanoToSec(curAttempt.time0to402)
+        val cmp0to402   = nanoToSec(cmpAttempt.time0to402)
+        val curTrap     = curAttempt.maxSpeed
+        val cmpTrap     = cmpAttempt.maxSpeed
+
+        val orangeDot = ContextCompat.getColor(this, R.color.primary_color)
+        val blueDot   = ContextCompat.getColor(this, R.color.accent_light)
+
+        val isPB0to100   = curAttempt.time0to100 > 0 && curAttempt.time0to100 == (currentSession?.best0to100 ?: -1L)
+        val isPB0to200   = curAttempt.time0to200 > 0 && curAttempt.time0to200 == (currentSession?.best0to200 ?: -1L)
+        val rawT100to200 = if (curAttempt.time0to200 > 0 && curAttempt.time0to100 > 0) curAttempt.time0to200 - curAttempt.time0to100 else -1L
+        val isPB100to200 = rawT100to200 > 0 && rawT100to200 == (currentSession?.best100to200 ?: -1L)
+        val isPB0to402   = curAttempt.time0to402 > 0 && curAttempt.time0to402 == (currentSession?.best0to402 ?: -1L)
+
+        bindCmpRow(R.id.tvCmpLeftVal0to100, R.id.tvCmpLeftStatus0to100, R.id.tvCmpLeftPB0to100,
+            R.id.vCmpDot0to100, R.id.tvCmpMidDelta0to100,
+            R.id.tvCmpRightVal0to100, R.id.tvCmpRightStatus0to100,
+            cur0to100, cmp0to100,
+            if (cur0to100 > 0) fmtTime(cur0to100) + "s" else "--",
+            if (cmp0to100 > 0) fmtTime(cmp0to100) else "--",
+            if (cur0to100 > 0 && cmp0to100 > 0) fmtDeltaSec(cur0to100 - cmp0to100) else "--",
+            isPB0to100, lowerIsBetter = true, orangeDot)
+
+        bindCmpRow(R.id.tvCmpLeftVal100to200, R.id.tvCmpLeftStatus100to200, R.id.tvCmpLeftPB100to200,
+            R.id.vCmpDot100to200, R.id.tvCmpMidDelta100to200,
+            R.id.tvCmpRightVal100to200, R.id.tvCmpRightStatus100to200,
+            cur100to200, cmp100to200,
+            if (cur100to200 > 0) fmtTime(cur100to200) + "s" else "--",
+            if (cmp100to200 > 0) fmtTime(cmp100to200) else "--",
+            if (cur100to200 > 0 && cmp100to200 > 0) fmtDeltaSec(cur100to200 - cmp100to200) else "--",
+            isPB100to200, lowerIsBetter = true, orangeDot)
+
+        bindCmpRow(R.id.tvCmpLeftVal0to200, R.id.tvCmpLeftStatus0to200, R.id.tvCmpLeftPB0to200,
+            R.id.vCmpDot0to200, R.id.tvCmpMidDelta0to200,
+            R.id.tvCmpRightVal0to200, R.id.tvCmpRightStatus0to200,
+            cur0to200, cmp0to200,
+            if (cur0to200 > 0) fmtTime(cur0to200) + "s" else "--",
+            if (cmp0to200 > 0) fmtTime(cmp0to200) else "--",
+            if (cur0to200 > 0 && cmp0to200 > 0) fmtDeltaSec(cur0to200 - cmp0to200) else "--",
+            isPB0to200, lowerIsBetter = true, orangeDot)
+
+        bindCmpRow(R.id.tvCmpLeftVal0to402, R.id.tvCmpLeftStatus0to402, R.id.tvCmpLeftPB0to402,
+            R.id.vCmpDot0to402, R.id.tvCmpMidDelta0to402,
+            R.id.tvCmpRightVal0to402, R.id.tvCmpRightStatus0to402,
+            cur0to402, cmp0to402,
+            if (cur0to402 > 0) fmtTime(cur0to402) + "s" else "--",
+            if (cmp0to402 > 0) fmtTime(cmp0to402) else "--",
+            if (cur0to402 > 0 && cmp0to402 > 0) fmtDeltaSec(cur0to402 - cmp0to402) else "--",
+            isPB0to402, lowerIsBetter = true, orangeDot)
+
+        val curTrapConv = UnitsManager.convertSpeed(curTrap, speedUnit)
+        val cmpTrapConv = UnitsManager.convertSpeed(cmpTrap, speedUnit)
+        bindCmpRow(R.id.tvCmpLeftValTrap, R.id.tvCmpLeftStatusTrap, null,
+            R.id.vCmpDotTrap, R.id.tvCmpMidDeltaTrap,
+            R.id.tvCmpRightValTrap, R.id.tvCmpRightStatusTrap,
+            curTrap.toDouble(), cmpTrap.toDouble(),
+            if (curTrap > 0) "${curTrapConv.toInt()} ${speedUnit.symbol}" else "--",
+            if (cmpTrap > 0) "${cmpTrapConv.toInt()} ${speedUnit.symbol}" else "--",
+            if (curTrap > 0 && cmpTrap > 0) fmtDeltaSpeed(curTrap - cmpTrap) else "--",
+            false, lowerIsBetter = false, blueDot)
+
+        updateSplitsComparison()
+    }
+
+    // ─── Distance-based splits (50m, 100m, 200m, 300m, 402m) ──────────────────
+
+    /** Integrates speedSamples (km/h) + speedTimeStamps (nanos) using the trapezoidal
+     *  rule and returns the elapsed time in nanos at each distance checkpoint,
+     *  along with the interpolated speed (km/h) at that checkpoint. */
+    private fun computeDistanceSplitsNs(
+        attempt: DragAttempt
+    ): Map<Int, Pair<Long, Float>> {
+        val speeds = attempt.speedSamples
+        val times  = attempt.speedTimeStamps
+        if (speeds.size < 2 || times.size < 2 || speeds.size != times.size) return emptyMap()
+
+        val markers = listOf(50, 100, 200, 300, 402)
+        val result  = mutableMapOf<Int, Pair<Long, Float>>()
+
+        val startNs = times.first()
+        var cumDistM = 0.0
+
+        for (i in 1 until speeds.size) {
+            val dtS        = (times[i] - times[i - 1]) / 1_000_000_000.0
+            if (dtS <= 0) continue
+            val avgSpeedMs = (speeds[i] + speeds[i - 1]) / 2.0 / 3.6
+            val prevDist   = cumDistM
+            cumDistM      += avgSpeedMs * dtS
+
+            for (marker in markers) {
+                if (marker in result) continue
+                if (prevDist < marker && cumDistM >= marker) {
+                    val fraction     = if (cumDistM - prevDist > 0) (marker - prevDist) / (cumDistM - prevDist) else 0.0
+                    val interpNs     = times[i - 1] + ((times[i] - times[i - 1]) * fraction).toLong()
+                    val interpSpeedKmh = (speeds[i - 1] + (speeds[i] - speeds[i - 1]) * fraction).toFloat()
+                    result[marker]   = Pair(interpNs - startNs, interpSpeedKmh)
+                }
+            }
+            if (result.size == markers.size) break
+        }
+        return result
+    }
+
+    /** Populates the splits comparison card. Card is shown only when both
+     *  attempts have full 402m data with speed samples. */
+    private fun updateSplitsComparison() {
+        val curAttempt = currentAttempt
+        val cmpAttempt = compareAttempt
+        val card       = findViewById<androidx.cardview.widget.CardView>(R.id.cvSplitsComparison)
+
+        val bothHave402 = (curAttempt?.time0to402 ?: -1L) > 0L &&
+                          (cmpAttempt?.time0to402 ?: -1L) > 0L &&
+                          (curAttempt?.speedSamples?.size ?: 0) > 1 &&
+                          (cmpAttempt?.speedSamples?.size ?: 0) > 1
+
+        if (!bothHave402 || curAttempt == null || cmpAttempt == null) {
+            card.visibility = View.GONE
+            return
+        }
+
+        card.visibility = View.VISIBLE
+
+        val curSplits = computeDistanceSplitsNs(curAttempt)
+        val cmpSplits = computeDistanceSplitsNs(cmpAttempt)
+        val speedUnit = UnitsManager.getSpeedUnit(this)
+
+        val orangeColor  = ContextCompat.getColor(this, R.color.primary_color)
+        val purpleColor  = ContextCompat.getColor(this, R.color.drag_run_purple)
+        val greenColor   = ContextCompat.getColor(this, R.color.drag_run_green)
+        val redColor     = ContextCompat.getColor(this, R.color.accent_red)
+        val neutralColor = ContextCompat.getColor(this, R.color.text_secondary)
+
+        data class SplitRowDef(val distance: Int, val label: String, val rowId: Int)
+        val rows = listOf(
+            SplitRowDef(50,  "50M",  R.id.splitRow50m),
+            SplitRowDef(100, "100M", R.id.splitRow100m),
+            SplitRowDef(200, "200M", R.id.splitRow200m),
+            SplitRowDef(300, "300M", R.id.splitRow300m),
+            SplitRowDef(402, "402M", R.id.splitRow402m)
+        )
+
+        for (row in rows) {
+            val rowView = findViewById<android.view.View>(row.rowId)
+            val tvLabel    = rowView.findViewById<TextView>(R.id.tvSplitLabel)
+            val tvCurTime  = rowView.findViewById<TextView>(R.id.tvSplitCurTime)
+            val tvCurSpeed = rowView.findViewById<TextView>(R.id.tvSplitCurSpeed)
+            val tvCmpTime  = rowView.findViewById<TextView>(R.id.tvSplitCmpTime)
+            val tvCmpSpeed = rowView.findViewById<TextView>(R.id.tvSplitCmpSpeed)
+            val tvDelta    = rowView.findViewById<TextView>(R.id.tvSplitDelta)
+
+            tvLabel.text = row.label
+
+            val curData = curSplits[row.distance]
+            val cmpData = cmpSplits[row.distance]
+
+            fun fmtTime(nanos: Long) = String.format("%.3f", nanos / 1_000_000_000.0) + "s"
+            fun fmtSpd(kmh: Float): String {
+                val conv = UnitsManager.convertSpeed(kmh, speedUnit)
+                return "${conv.toInt()} ${speedUnit.symbol}"
+            }
+
+            tvCurTime.text  = if (curData != null) fmtTime(curData.first) else "--"
+            tvCurSpeed.text = if (curData != null) fmtSpd(curData.second) else ""
+            tvCmpTime.text  = if (cmpData != null) fmtTime(cmpData.first) else "--"
+            tvCmpSpeed.text = if (cmpData != null) fmtSpd(cmpData.second) else ""
+
+            if (curData != null && cmpData != null) {
+                val deltaSec = (curData.first - cmpData.first) / 1_000_000_000.0
+                val curWins  = deltaSec < 0
+                val sign     = if (deltaSec < 0) "\u2212" else "+"
+                tvDelta.text = "$sign${String.format("%.3f", Math.abs(deltaSec))}s"
+                tvDelta.setTextColor(if (curWins) greenColor else redColor)
+                tvCurTime.setTextColor(orangeColor)
+                tvCmpTime.setTextColor(purpleColor)
+            } else {
+                tvDelta.text = ""
+                tvCurTime.setTextColor(orangeColor)
+                tvCmpTime.setTextColor(purpleColor)
+            }
         }
     }
-    
-    private fun updateSpeedStats() {
-        val speedUnit = UnitsManager.getSpeedUnit(this)
-        
-        // Current attempt stats - използваме реалните данни
-        val (currentSpeeds, _) = getAlignedSpeedData(currentAttempt!!)
-        val currentMaxSpeed = currentSpeeds.maxOrNull() ?: 0f
-        val currentMaxSpeedConverted = UnitsManager.convertSpeed(currentMaxSpeed, speedUnit)
-        val currentTime0to100 = if (currentAttempt!!.time0to100 > 0) currentAttempt!!.time0to100 / 1_000_000_000.0 else 0.0
-        val currentTime0to200 = if (currentAttempt!!.time0to200 > 0) currentAttempt!!.time0to200 / 1_000_000_000.0 else 0.0
-        val currentTime100to200 = if (currentTime0to200 > 0 && currentTime0to100 > 0) currentTime0to200 - currentTime0to100 else 0.0
-        val currentTime0to402 = if (currentAttempt!!.time0to402 > 0) currentAttempt!!.time0to402 / 1_000_000_000.0 else 0.0
-        
-        // Compare attempt stats - използваме реалните данни
-        val (compareSpeeds, _) = getAlignedSpeedData(compareAttempt!!)
-        val compareMaxSpeed = compareSpeeds.maxOrNull() ?: 0f
-        val compareMaxSpeedConverted = UnitsManager.convertSpeed(compareMaxSpeed, speedUnit)
-        val compareTime0to100 = if (compareAttempt!!.time0to100 > 0) compareAttempt!!.time0to100 / 1_000_000_000.0 else 0.0
-        val compareTime0to200 = if (compareAttempt!!.time0to200 > 0) compareAttempt!!.time0to200 / 1_000_000_000.0 else 0.0
-        val compareTime100to200 = if (compareTime0to200 > 0 && compareTime0to100 > 0) compareTime0to200 - compareTime0to100 else 0.0
-        val compareTime0to402 = if (compareAttempt!!.time0to402 > 0) compareAttempt!!.time0to402 / 1_000_000_000.0 else 0.0
-        
-        // Update UI
-        val currentColor = 0xFFFF6020.toInt() // #FF6020 - оранжев като бутона Speed
-        val compareColor = 0xFFA64CEB.toInt() // #A64CEB - лилав винаги за Compare
-        
-        tvCurrentMax.text = "Max: ${currentMaxSpeedConverted.toInt()} ${speedUnit.symbol}"
-        tvCurrentMax.setTextColor(currentColor)
-        tvCurrent0to100.text = "0-100: ${String.format("%.3f", currentTime0to100)}s"
-        tvCurrent0to100.setTextColor(android.graphics.Color.WHITE)
-        tvCurrent0to200.text = "0-200: ${String.format("%.3f", currentTime0to200)}s"
-        tvCurrent0to200.setTextColor(android.graphics.Color.WHITE)
-        tvCurrent100to200.text = "100-200: ${String.format("%.3f", currentTime100to200)}s"
-        tvCurrent100to200.setTextColor(android.graphics.Color.WHITE)
-        tvCurrent0to402.text = "0-402m: ${String.format("%.3f", currentTime0to402)}s"
-        tvCurrent0to402.setTextColor(android.graphics.Color.WHITE)
-        
-        tvCompareMax.text = "Max: ${compareMaxSpeedConverted.toInt()} ${speedUnit.symbol}"
-        tvCompareMax.setTextColor(compareColor)
-        tvCompare0to100.text = "0-100: ${String.format("%.3f", compareTime0to100)}s"
-        tvCompare0to100.setTextColor(android.graphics.Color.WHITE)
-        tvCompare0to200.text = "0-200: ${String.format("%.3f", compareTime0to200)}s"
-        tvCompare0to200.setTextColor(android.graphics.Color.WHITE)
-        tvCompare100to200.text = "100-200: ${String.format("%.3f", compareTime100to200)}s"
-        tvCompare100to200.setTextColor(android.graphics.Color.WHITE)
-        tvCompare0to402.text = "0-402m: ${String.format("%.3f", compareTime0to402)}s"
-        tvCompare0to402.setTextColor(android.graphics.Color.WHITE)
+
+    private fun bindCmpRow(
+        leftValId: Int, leftStatusId: Int, leftPBId: Int?,
+        dotId: Int, midDeltaId: Int,
+        rightValId: Int, rightStatusId: Int,
+        curRaw: Double, cmpRaw: Double,
+        curDisplay: String, cmpDisplay: String,
+        delta: String, isPB: Boolean, lowerIsBetter: Boolean, dotColor: Int
+    ) {
+        val fasterColor  = ContextCompat.getColor(this, R.color.drag_run_green)
+        val cmpWinColor  = ContextCompat.getColor(this, R.color.drag_run_purple)
+        val redColor     = ContextCompat.getColor(this, R.color.accent_red)
+        val orangeColor  = ContextCompat.getColor(this, R.color.primary_color)
+
+        val hasData        = curRaw > 0 && cmpRaw > 0
+        val currentIsBetter = hasData && if (lowerIsBetter) curRaw < cmpRaw else curRaw > cmpRaw
+
+        val leftVal     = findViewById<TextView>(leftValId)
+        val leftStatus  = findViewById<TextView>(leftStatusId)
+        val midDelta    = findViewById<TextView>(midDeltaId)
+        val rightVal    = findViewById<TextView>(rightValId)
+        val rightStatus = findViewById<TextView>(rightStatusId)
+        val dot         = findViewById<View>(dotId)
+
+        leftVal.text = curDisplay
+        leftVal.setTextColor(orangeColor)
+        if (hasData) {
+            leftStatus.text = if (currentIsBetter) "\u25B2 FASTER" else "\u25BC SLOWER"
+            leftStatus.setTextColor(if (currentIsBetter) fasterColor else redColor)
+        } else {
+            leftStatus.text = ""
+        }
+
+        leftPBId?.let { id ->
+            findViewById<TextView>(id).visibility = if (isPB) View.VISIBLE else View.GONE
+        }
+
+        dot.background = android.graphics.drawable.GradientDrawable().apply {
+            shape = android.graphics.drawable.GradientDrawable.OVAL
+            setColor(dotColor)
+        }
+        midDelta.text = delta
+
+        rightVal.text = cmpDisplay
+        rightVal.setTextColor(cmpWinColor)
+        if (hasData) {
+            rightStatus.text = if (currentIsBetter) "\u25BC SLOWER" else "\u25B2 FASTER"
+            rightStatus.setTextColor(if (currentIsBetter) redColor else fasterColor)
+        } else {
+            rightStatus.text = ""
+        }
     }
-    
-    private fun updateAccelerationStats() {
-        // Използваме реалните данни
-        val (currentAccels, _) = getAlignedAccelData(currentAttempt!!)
-        val (compareAccels, _) = getAlignedAccelData(compareAttempt!!)
-        
-        val currentMaxAccel = currentAccels.maxOrNull() ?: 0f
-        val compareMaxAccel = compareAccels.maxOrNull() ?: 0f
-        
-        // Намираме ускорението на ключовите точки
-        val currentAccelAt100 = findValueAtTimeInterpolated(currentAttempt!!, currentAttempt!!.time0to100 / 1_000_000_000.0f, ChartMode.ACCELERATION)
-        val currentAccelAt200 = findValueAtTimeInterpolated(currentAttempt!!, currentAttempt!!.time0to200 / 1_000_000_000.0f, ChartMode.ACCELERATION)
-        val currentAccelAt402 = findValueAtTimeInterpolated(currentAttempt!!, currentAttempt!!.time0to402 / 1_000_000_000.0f, ChartMode.ACCELERATION)
-        
-        val compareAccelAt100 = findValueAtTimeInterpolated(compareAttempt!!, compareAttempt!!.time0to100 / 1_000_000_000.0f, ChartMode.ACCELERATION)
-        val compareAccelAt200 = findValueAtTimeInterpolated(compareAttempt!!, compareAttempt!!.time0to200 / 1_000_000_000.0f, ChartMode.ACCELERATION)
-        val compareAccelAt402 = findValueAtTimeInterpolated(compareAttempt!!, compareAttempt!!.time0to402 / 1_000_000_000.0f, ChartMode.ACCELERATION)
-        
-        // Намираме максималното ускорение в интервала 100-200 km/h
-        val currentMaxAccel100to200 = findMaxValueInRange(currentAttempt!!, currentAttempt!!.time0to100 / 1_000_000_000.0f, currentAttempt!!.time0to200 / 1_000_000_000.0f, ChartMode.ACCELERATION)
-        val compareMaxAccel100to200 = findMaxValueInRange(compareAttempt!!, compareAttempt!!.time0to100 / 1_000_000_000.0f, compareAttempt!!.time0to200 / 1_000_000_000.0f, ChartMode.ACCELERATION)
-        
-        val currentColor = 0xFF3486A9.toInt() // #3486A9 - син-зелен като бутона Acceleration
-        val compareColor = 0xFFA64CEB.toInt() // #A64CEB - лилав винаги за Compare
-        
-        tvCurrentMax.text = "Max: ${String.format("%.1f", currentMaxAccel)} m/s²"
-        tvCurrentMax.setTextColor(currentColor)
-        tvCurrent0to100.text = "0-100: ${String.format("%.1f", currentAccelAt100)} m/s²"
-        tvCurrent0to100.setTextColor(currentColor)
-        tvCurrent0to200.text = "0-200: ${String.format("%.1f", currentAccelAt200)} m/s²"
-        tvCurrent0to200.setTextColor(currentColor)
-        tvCurrent100to200.text = "100-200: ${String.format("%.1f", currentMaxAccel100to200)} m/s²"
-        tvCurrent100to200.setTextColor(currentColor)
-        tvCurrent0to402.text = "0-402m: ${String.format("%.1f", currentAccelAt402)} m/s²"
-        tvCurrent0to402.setTextColor(currentColor)
-        
-        tvCompareMax.text = "Max: ${String.format("%.1f", compareMaxAccel)} m/s²"
-        tvCompareMax.setTextColor(compareColor)
-        tvCompare0to100.text = "0-100: ${String.format("%.1f", compareAccelAt100)} m/s²"
-        tvCompare0to100.setTextColor(compareColor)
-        tvCompare0to200.text = "0-200: ${String.format("%.1f", compareAccelAt200)} m/s²"
-        tvCompare0to200.setTextColor(compareColor)
-        tvCompare100to200.text = "100-200: ${String.format("%.1f", compareMaxAccel100to200)} m/s²"
-        tvCompare100to200.setTextColor(compareColor)
-        tvCompare0to402.text = "0-402m: ${String.format("%.1f", compareAccelAt402)} m/s²"
-        tvCompare0to402.setTextColor(compareColor)
-    }
-    
-    private fun updateGForceStats() {
-        // Използваме реалните данни
-        val (currentGs, _) = getAlignedGData(currentAttempt!!)
-        val (compareGs, _) = getAlignedGData(compareAttempt!!)
-        
-        val currentMaxG = currentGs.maxOrNull() ?: 0f
-        val compareMaxG = compareGs.maxOrNull() ?: 0f
-        
-        // Намираме G-силата на ключовите точки
-        val currentGAt100 = findValueAtTimeInterpolated(currentAttempt!!, currentAttempt!!.time0to100 / 1_000_000_000.0f, ChartMode.G_FORCE)
-        val currentGAt200 = findValueAtTimeInterpolated(currentAttempt!!, currentAttempt!!.time0to200 / 1_000_000_000.0f, ChartMode.G_FORCE)
-        val currentGAt402 = findValueAtTimeInterpolated(currentAttempt!!, currentAttempt!!.time0to402 / 1_000_000_000.0f, ChartMode.G_FORCE)
-        
-        val compareGAt100 = findValueAtTimeInterpolated(compareAttempt!!, compareAttempt!!.time0to100 / 1_000_000_000.0f, ChartMode.G_FORCE)
-        val compareGAt200 = findValueAtTimeInterpolated(compareAttempt!!, compareAttempt!!.time0to200 / 1_000_000_000.0f, ChartMode.G_FORCE)
-        val compareGAt402 = findValueAtTimeInterpolated(compareAttempt!!, compareAttempt!!.time0to402 / 1_000_000_000.0f, ChartMode.G_FORCE)
-        
-        // Намираме максималната G-сила в интервала 100-200 km/h
-        val currentMaxG100to200 = findMaxValueInRange(currentAttempt!!, currentAttempt!!.time0to100 / 1_000_000_000.0f, currentAttempt!!.time0to200 / 1_000_000_000.0f, ChartMode.G_FORCE)
-        val compareMaxG100to200 = findMaxValueInRange(compareAttempt!!, compareAttempt!!.time0to100 / 1_000_000_000.0f, compareAttempt!!.time0to200 / 1_000_000_000.0f, ChartMode.G_FORCE)
-        
-        val currentColor = 0xFFE68894.toInt() // #E68894 - розов като бутона G-Force
-        val compareColor = 0xFFA64CEB.toInt() // #A64CEB - лилав винаги за Compare
-        
-        tvCurrentMax.text = "Max: ${String.format("%.2f", currentMaxG)} G"
-        tvCurrentMax.setTextColor(currentColor)
-        tvCurrent0to100.text = "0-100: ${String.format("%.2f", currentGAt100)} G"
-        tvCurrent0to100.setTextColor(currentColor)
-        tvCurrent0to200.text = "0-200: ${String.format("%.2f", currentGAt200)} G"
-        tvCurrent0to200.setTextColor(currentColor)
-        tvCurrent100to200.text = "100-200: ${String.format("%.2f", currentMaxG100to200)} G"
-        tvCurrent100to200.setTextColor(currentColor)
-        tvCurrent0to402.text = "0-402m: ${String.format("%.2f", currentGAt402)} G"
-        tvCurrent0to402.setTextColor(currentColor)
-        
-        tvCompareMax.text = "Max: ${String.format("%.2f", compareMaxG)} G"
-        tvCompareMax.setTextColor(compareColor)
-        tvCompare0to100.text = "0-100: ${String.format("%.2f", compareGAt100)} G"
-        tvCompare0to100.setTextColor(compareColor)
-        tvCompare0to200.text = "0-200: ${String.format("%.2f", compareGAt200)} G"
-        tvCompare0to200.setTextColor(compareColor)
-        tvCompare100to200.text = "100-200: ${String.format("%.2f", compareMaxG100to200)} G"
-        tvCompare100to200.setTextColor(compareColor)
-        tvCompare0to402.text = "0-402m: ${String.format("%.2f", compareGAt402)} G"
-        tvCompare0to402.setTextColor(compareColor)
-    }
-    
+
     private fun updateChart() {
         if (currentAttempt == null || compareAttempt == null) return
         
@@ -1559,16 +1744,20 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
         // КРИТИЧНО: Активираме маркера само ако има валиден entry
         shouldShow = e != null
         if (e != null) {
-            // Проверяваме дали е на специална точка (цветна)
-            val specialPointType = determinePointType(e.x)
-            isOnSpecialPoint = specialPointType != null
-            pointType = specialPointType ?: CompareAttemptsActivity.PointType.SPEED_100
+            // Ако snapping логиката вече е сетнала isOnSpecialPoint=true и pointType чрез reflection,
+            // НЕ презаписваме – determinePointType може погрешно да върне SPEED_100 когато
+            // 0-100 и 0-200 точките са в рамките на 0.4s (напр. 9.0s vs 9.3s).
+            if (!isOnSpecialPoint) {
+                val specialPointType = determinePointType(e.x)
+                isOnSpecialPoint = specialPointType != null
+                pointType = specialPointType ?: CompareAttemptsActivity.PointType.SPEED_100
+            }
             
             // КРИТИЧНО: За специални точки exactTime вече е зададено от snapping логиката чрез reflection
             // Ако не е зададено (не е специална точка), използваме координатата
             if (isOnSpecialPoint && exactTime == 0f) {
                 // Fallback: изчисляваме от attempt-ите (само ако не е зададено от snapping)
-                exactTime = when (specialPointType) {
+                exactTime = when (pointType) {
                     CompareAttemptsActivity.PointType.SPEED_100 -> {
                         val currentTime100 = currentAttempt?.time0to100?.let { it / 1_000_000_000.0f } ?: 0f
                         val compareTime100 = compareAttempt?.time0to100?.let { it / 1_000_000_000.0f } ?: 0f
@@ -1596,7 +1785,6 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
                             compareTime402
                         }
                     }
-                    null -> e.x
                 }
             } else if (!isOnSpecialPoint) {
                 exactTime = e.x // За нормални точки използваме координатата

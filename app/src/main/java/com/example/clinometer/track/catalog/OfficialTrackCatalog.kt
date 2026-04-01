@@ -38,8 +38,10 @@ object OfficialTrackCatalog {
     private val hungaroringStart = GeoPoint(47.582222, 19.251111)
 
     private val megaraStart = GeoPoint(37.986669, 23.362808)
-    private val drakonKaloyanovoStart = GeoPoint(42.3412422, 24.7356018)
-    private val laraA1MotoParkStart = GeoPoint(42.3146048, 23.5370067)
+    private val drakonKaloyanovoStartA = GeoPoint(42.341151, 24.736776)
+    private val drakonKaloyanovoStartB = GeoPoint(42.341129, 24.736756)
+    private val laraA1MotoParkStartA = GeoPoint(42.314175, 23.538624)
+    private val laraA1MotoParkStartB = GeoPoint(42.314174, 23.538655)
     private val sofiaKrasnaPolyanaKartStart = GeoPoint(42.691701, 23.289639)
     private val slivenKartStart = GeoPoint(42.636831, 26.324128)
 
@@ -258,8 +260,8 @@ object OfficialTrackCatalog {
             turns = 8,
             mode = TrackMode.CIRCUIT,
             isEnabled = true,
-            startFinishGate = TrackGate(start = drakonKaloyanovoStart, end = drakonKaloyanovoStart),
-            lapSequence = listOf(drakonKaloyanovoStart)
+            startFinishGate = TrackGate(start = drakonKaloyanovoStartA, end = drakonKaloyanovoStartB),
+            lapSequence = listOf(drakonKaloyanovoStartA, drakonKaloyanovoStartB)
         ),
         TrackDefinition(
             id = "lara_a1_moto_park",
@@ -270,8 +272,8 @@ object OfficialTrackCatalog {
             turns = 10,
             mode = TrackMode.CIRCUIT,
             isEnabled = true,
-            startFinishGate = TrackGate(start = laraA1MotoParkStart, end = laraA1MotoParkStart),
-            lapSequence = listOf(laraA1MotoParkStart)
+            startFinishGate = TrackGate(start = laraA1MotoParkStartA, end = laraA1MotoParkStartB),
+            lapSequence = listOf(laraA1MotoParkStartA, laraA1MotoParkStartB)
         ),
         TrackDefinition(
             id = "sofia_krasna_polyana_kart",

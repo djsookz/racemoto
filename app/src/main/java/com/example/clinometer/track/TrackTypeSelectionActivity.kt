@@ -13,11 +13,14 @@ class TrackTypeSelectionActivity : AppCompatActivity() {
     
     private lateinit var btnCircuit: androidx.cardview.widget.CardView
     private lateinit var btnPointToPoint: androidx.cardview.widget.CardView
+    private var creationMode: String = "PHONE"
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_track_type_selection)
         applySystemBarsPaddingToRoot()
+
+        creationMode = intent.getStringExtra("creation_mode") ?: "PHONE"
         
         initializeViews()
         setupClickListeners()
@@ -46,6 +49,7 @@ class TrackTypeSelectionActivity : AppCompatActivity() {
     private fun startCustomTrackBuilder(trackType: CustomTrack.TrackType) {
         val intent = Intent(this, CustomTrackBuilderActivity::class.java).apply {
             putExtra("track_type", trackType.name)
+            putExtra("creation_mode", creationMode)
         }
         startActivity(intent)
     }

@@ -9,10 +9,12 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.hardware.display.DisplayManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.view.Display
 import android.view.Surface
 import android.view.WindowManager
 import android.content.res.Configuration
@@ -31,6 +33,7 @@ import com.google.android.gms.location.Priority
 import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.main.MainActivity
 import kotlin.math.abs
+import kotlin.math.asin
 import kotlin.math.atan2
 import kotlin.math.sqrt
 import java.lang.Math
@@ -104,7 +107,6 @@ class ForegroundService : Service(), SensorEventListener {
     private var runtimeLeanOffsetDeg = 0f
     private var profileLeanOffsetDeg = 0f
     private var lastLeanOrientationLandscape: Boolean? = null
-    private var leanCalibrationSnapshot: LeanCalibrationSnapshot = LeanCalibrationSnapshot()
     private var selectedProfileIdForLeanCalibration: Long = -1L
 
     private val gravity = FloatArray(3)
@@ -121,8 +123,13 @@ class ForegroundService : Service(), SensorEventListener {
     
     private var linearAccelTriggered = false
     private var linearAccelTriggerTime = 0L
-    private val REQUIRED_ACCEL_SAMPLES = 3
+    private val REQUIRED_ACCEL_SAMPLES = 2
     private var consecutiveAccelSamples = 0
+    private var triggerForwardFiltered = 0f
+    private var triggerLateralFiltered = 0f
+    private val triggerFilterAlpha = 0.35f
+    private val triggerMinThreshold = 0.45f
+    private val triggerDirectionalRatio = 1.8f
     private var currentMeasurementMode = "ALL"
     @Volatile private var activeRunOrientationLandscape: Boolean? = null
 
@@ -273,6 +280,7 @@ class ForegroundService : Service(), SensorEventListener {
         measurementStartTimeNano = System.nanoTime()
         lastGSampleTime = 0L; lastGPSAccelSampleTime = 0L
         isMeasurementActive = true; linearAccelTriggered = false; linearAccelTriggerTime = 0L; consecutiveAccelSamples = 0
+        triggerForwardFiltered = 0f; triggerLateralFiltered = 0f
         time0to100Nanos = 0L; time0to200Nanos = 0L
         currentG = 0f; peakG = 0f
         synchronized(gSamplesBuffer) { gSamplesBuffer.clear(); gTimeStamps.clear() }
@@ -455,7 +463,9 @@ class ForegroundService : Service(), SensorEventListener {
                     currentGForceY = displayLY
                 } else {
                     val rawGForceX = linearX / 9.81f
-                    val rawGForceY = linearY / 9.81f
+                    // Keep sign convention consistent with calibrated branch:
+                    // forward acceleration => negative longitudinal inertial G.
+                    val rawGForceY = -linearY / 9.81f
 
                     val deltaX = abs(rawGForceX - displayLX)
                     val deltaY = abs(rawGForceY - displayLY)
@@ -574,7 +584,7 @@ class ForegroundService : Service(), SensorEventListener {
         if (profileChanged) {
             selectedProfileIdForLeanCalibration = selectedProfileId
         }
-        leanCalibrationSnapshot = LeanCalibrationStore.loadSnapshot(this, selectedProfileId)
+        DragCalibration.setProfile(selectedProfileId)
         if (profileChanged || forceResetRuntime) {
             runtimeLeanOffsetDeg = 0f
         }
@@ -583,9 +593,58 @@ class ForegroundService : Service(), SensorEventListener {
     }
 
     private fun updateProfileLeanOffsetForOrientation(isLandscape: Boolean) {
-        val (_, resolvedOffset) = LeanCalibrationStore.resolveOffset(leanCalibrationSnapshot, isLandscape)
-        profileLeanOffsetDeg = resolvedOffset
+        val baseline = DragCalibration.getBaselineForOrientation(isLandscape)
+        profileLeanOffsetDeg = if (baseline != null) {
+            computeLeanOffsetDegFromBaseline(baseline, isLandscape)
+        } else {
+            // No fallback to legacy LeanCalibrationStore; Smart/Drag baseline is the only source.
+            0f
+        }
         offsetAngle = profileLeanOffsetDeg + runtimeLeanOffsetDeg
+    }
+
+    private fun computeLeanOffsetDegFromBaseline(baseline: FloatArray, isLandscape: Boolean): Float {
+        val mag = sqrt(
+            baseline[0] * baseline[0] +
+                baseline[1] * baseline[1] +
+                baseline[2] * baseline[2]
+        ).coerceAtLeast(0.0001f)
+
+        val leanSign = resolveLeanDirectionSign(isLandscape)
+
+        val normalizedComponent = if (isLandscape) {
+            (leanSign * baseline[1]) / mag
+        } else {
+            baseline[0] / mag
+        }
+
+        return (-Math.toDegrees(asin(normalizedComponent.coerceIn(-1f, 1f).toDouble()))).toFloat()
+            .coerceIn(-89f, 89f)
+    }
+
+    private fun resolveLeanDirectionSign(isLandscape: Boolean): Float {
+        if (!isLandscape) return 1f
+        return when (resolveDisplayRotation()) {
+            Surface.ROTATION_90 -> -1f
+            Surface.ROTATION_270 -> 1f
+            else -> 1f
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun resolveDisplayRotation(): Int {
+        val dm = getSystemService(DisplayManager::class.java)
+        val rotationFromDisplayManager = runCatching {
+            dm?.getDisplay(Display.DEFAULT_DISPLAY)?.rotation
+        }.getOrNull()
+
+        if (rotationFromDisplayManager != null) {
+            return rotationFromDisplayManager
+        }
+
+        // Service context is not always display-associated on newer Android versions.
+        val wm = getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        return wm?.defaultDisplay?.rotation ?: Surface.ROTATION_0
     }
 
     private fun resetLeanFusionState(forceResetRuntime: Boolean) {
@@ -605,6 +664,7 @@ class ForegroundService : Service(), SensorEventListener {
 
     private fun updateLeanFusionFromGyroscope(event: SensorEvent) {
         val isLandscape = resolveRunOrientationIsLandscape()
+        val leanSign = resolveLeanDirectionSign(isLandscape)
         val gyroMag = sqrt(
             event.values[0] * event.values[0] +
                 event.values[1] * event.values[1] +
@@ -612,7 +672,7 @@ class ForegroundService : Service(), SensorEventListener {
         )
         lastGyroMagnitude = 0.2f * gyroMag + 0.8f * lastGyroMagnitude
 
-        val rawRollRateRad = if (isLandscape) event.values[0] else event.values[1]
+        val rawRollRateRad = if (isLandscape) event.values[0] * leanSign else event.values[1]
         val rollRateDeg = -rawRollRateRad * RAD_TO_DEG
         latestRollRateDegPerSec = 0.25f * rollRateDeg + 0.75f * latestRollRateDegPerSec
 
@@ -639,10 +699,12 @@ class ForegroundService : Service(), SensorEventListener {
             lastLeanOrientationLandscape = isLandscape
         }
 
+        val leanSign = resolveLeanDirectionSign(isLandscape)
+
         val totalGravity = sqrt(x * x + y * y + z * z)
         val accelReferenceTilt = if (totalGravity > 0f) {
             if (isLandscape) {
-                (-Math.toDegrees(Math.asin((y / totalGravity).toDouble().coerceIn(-1.0, 1.0)))).toFloat()
+                (-Math.toDegrees(Math.asin(((leanSign * y) / totalGravity).toDouble().coerceIn(-1.0, 1.0)))).toFloat()
             } else {
                 (-Math.toDegrees(Math.asin((x / totalGravity).toDouble().coerceIn(-1.0, 1.0)))).toFloat()
             }
@@ -673,21 +735,94 @@ class ForegroundService : Service(), SensorEventListener {
 
     private fun checkLinearAccelStart(rawAccel: FloatArray) {
         val isLandscape = resolveRunOrientationIsLandscape()
-        val calibrationOrientation = when {
-            DragCalibration.hasCalibrationFor(isLandscape) -> isLandscape
-            DragCalibration.isLandscapeCalibrated -> true
-            DragCalibration.isPortraitCalibrated -> false
-            else -> return
+        val hasOrientationCalibration = DragCalibration.hasCalibrationFor(isLandscape) ||
+            DragCalibration.isLandscapeCalibrated ||
+            DragCalibration.isPortraitCalibrated
+        val hasUniversalCalibration = DragCalibration.isUniversalCalibrated
+
+        if (!hasOrientationCalibration && !hasUniversalCalibration) {
+            consecutiveAccelSamples = 0
+            triggerForwardFiltered = 0f
+            triggerLateralFiltered = 0f
+            return
         }
-        val forward = DragCalibration.getForwardAcceleration(rawAccel, calibrationOrientation)
-        val lateral = DragCalibration.getLateralAcceleration(rawAccel, calibrationOrientation)
-        val threshold = DragCalibration.getWeightedDynamicThreshold(
-            DragCalibration.getLinearAcceleration(rawAccel, calibrationOrientation),
-            calibrationOrientation
-        ).coerceAtLeast(0.8f)
-        if (forward > threshold && forward > lateral * 4.0f) {
-            consecutiveAccelSamples++
-            if (consecutiveAccelSamples >= REQUIRED_ACCEL_SAMPLES) { linearAccelTriggered = true; linearAccelTriggerTime = System.nanoTime() }
-        } else consecutiveAccelSamples = 0
+
+        var triggered = false
+        if (hasOrientationCalibration) {
+            val calibrationOrientation = when {
+                DragCalibration.hasCalibrationFor(isLandscape) -> isLandscape
+                DragCalibration.isLandscapeCalibrated -> true
+                else -> false
+            }
+            
+            val forward = DragCalibration.getForwardAcceleration(rawAccel, calibrationOrientation)
+            val lateral = DragCalibration.getLateralAcceleration(rawAccel, calibrationOrientation)
+            
+            // Филтриране за стабилност (същото като universal path)
+            triggerForwardFiltered =
+                triggerFilterAlpha * forward + (1f - triggerFilterAlpha) * triggerForwardFiltered
+            triggerLateralFiltered =
+                triggerFilterAlpha * lateral + (1f - triggerFilterAlpha) * triggerLateralFiltered
+            
+            // Hybrid threshold: използваме excess само ако калибрацията е качествена
+            val maxVibrPerAxis = DragCalibration.getMaxVibrationsPerAxis(calibrationOrientation)
+            val threshold = if (maxVibrPerAxis != null) {
+                // MAX вибрация от трите оси (най-силната)
+                val maxVibr = kotlin.math.max(
+                    maxVibrPerAxis[0],
+                    kotlin.math.max(maxVibrPerAxis[1], maxVibrPerAxis[2])
+                )
+                if (maxVibr > 0.1f && maxVibr < 1.2f) {
+                    // Качествена калибрация (ниски вибрации) → excess-based
+                    maxVibr * 1.35f + 0.25f
+                } else {
+                    // Лоша калибрация или липсват данни → fixed threshold
+                    0.5f
+                }
+            } else {
+                0.5f  // Fallback ако няма calibration данни
+            }
+            
+            // Directional filter: forward >> lateral (ясна посока напред)
+            val directionalRatio = 2.0f
+            triggered = triggerForwardFiltered > threshold && 
+                       triggerForwardFiltered > triggerLateralFiltered * directionalRatio
+        } else if (hasUniversalCalibration) {
+            val liveGravity = floatArrayOf(gravity[0], gravity[1], gravity[2])
+            val forwardRaw = DragCalibration.getSignedForwardAcceleration(rawAccel, liveGravity)
+            val lateralRaw = abs(DragCalibration.getSignedLateralAcceleration(rawAccel, liveGravity))
+
+            triggerForwardFiltered =
+                triggerFilterAlpha * forwardRaw + (1f - triggerFilterAlpha) * triggerForwardFiltered
+            triggerLateralFiltered =
+                triggerFilterAlpha * lateralRaw + (1f - triggerFilterAlpha) * triggerLateralFiltered
+
+            // Hybrid threshold за universal calibration
+            val maxVibr = kotlin.math.max(
+                DragCalibration.maxVibrXUniversal,
+                kotlin.math.max(DragCalibration.maxVibrYUniversal, DragCalibration.maxVibrZUniversal)
+            )
+            val threshold = if (maxVibr > 0.1f && maxVibr < 1.2f) {
+                // Качествена калибрация → excess-based
+                maxVibr * 1.35f + 0.25f
+            } else {
+                // Лоша калибрация → fixed threshold
+                0.5f
+            }
+            
+            triggered = triggerForwardFiltered > threshold &&
+                       triggerForwardFiltered > triggerLateralFiltered * 2.0f
+        }
+
+        if (triggered) {
+            consecutiveAccelSamples += 1
+            consecutiveAccelSamples = consecutiveAccelSamples.coerceAtMost(4)
+            if (consecutiveAccelSamples >= 2) {  // 2 consecutive samples
+                linearAccelTriggered = true
+                linearAccelTriggerTime = System.nanoTime()
+            }
+        } else {
+            consecutiveAccelSamples = (consecutiveAccelSamples - 1).coerceAtLeast(0)
+        }
     }
 }

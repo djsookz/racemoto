@@ -38,11 +38,13 @@ object CustomTrackMigration {
             id = track.id,
             name = track.name,
             mode = mode,
+            creationMode = CustomTrackCreationMode.PHONE,
             createdAt = track.createdAt,
             startGate = startGate,
             finishGate = finishGate,
             sectorGates = emptyList(),
-            referencePath = snapPoints
+            referencePath = snapPoints,
+            measuredDistanceMeters = null
         )
     }
 

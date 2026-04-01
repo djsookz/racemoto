@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -117,4 +118,16 @@ dependencies {
     
     // Coil за зареждане на изображения (memory caching)
     implementation("io.coil-kt:coil:2.4.0")
+    
+    // Firebase BoM (Bill of Materials) - управлява версиите автоматично
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    
+    // Firebase Firestore (за realtime database)
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    
+    // Firebase Authentication (за anonymous users)
+    implementation("com.google.firebase:firebase-auth-ktx")
+    
+    // Coroutines support за Firebase
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 }

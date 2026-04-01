@@ -1,13 +1,20 @@
 package com.example.clinometer
 
 import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.WindowManager
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -26,6 +33,8 @@ import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.highlight.Highlight
 import android.graphics.Canvas
 import com.github.mikephil.charting.utils.MPPointF
+import java.util.Locale
+import kotlin.math.sqrt
 
 class DragSessionDetailsActivity : AppCompatActivity() {
 
@@ -35,18 +44,35 @@ class DragSessionDetailsActivity : AppCompatActivity() {
 
     private lateinit var tvSessionName: TextView
     private lateinit var tvSessionDate: TextView
-    private lateinit var llEnvironment: LinearLayout
-    private lateinit var tvDetailTemperature: TextView
-    private lateinit var tvDetailAltitude: TextView
     private lateinit var tvBest0to100: TextView
     private lateinit var tvBest0to200: TextView
     private lateinit var tvBest100to200: TextView
     private lateinit var tvBest0to402: TextView
+    private lateinit var tvBestMeta0to100: TextView
+    private lateinit var tvBestMeta0to200: TextView
+    private lateinit var tvBestMeta100to200: TextView
+    private lateinit var tvBestMeta0to402: TextView
+    private lateinit var cvBestTimes: View
+    private lateinit var cvSingleSessionBest: View
+    private lateinit var tvSessionBestLabel: TextView
+    private lateinit var tvSessionBestValue: TextView
+    private lateinit var tvSessionBestValueUnit: TextView
+    private lateinit var tvSessionBestAtSpeedLabel: TextView
+    private lateinit var tvSessionBestAtSpeedValue: TextView
+    private lateinit var tvSessionBestPeakGLabel: TextView
+    private lateinit var tvSessionBestPeakGValue: TextView
+    private lateinit var tvSessionBestRunLabel: TextView
+    private lateinit var tvSessionBestRunValue: TextView
+    private lateinit var tvSessionBestVsPrevPbValue: TextView
+    private lateinit var tvSessionBestPrevBestValue: TextView
+    private lateinit var tvSessionBestAvgAllRunsValue: TextView
+    private lateinit var tvSessionBestConsistencyValue: TextView
     
     private lateinit var tvLabelBest0to100: TextView
     private lateinit var tvLabelBest0to200: TextView
     private lateinit var tvLabelBest100to200: TextView
     private lateinit var tvLabelBest0to402: TextView
+    private lateinit var tvRunsCount: TextView
     private lateinit var rvAttempts: RecyclerView
     private lateinit var tvNoAttempts: TextView
 
@@ -110,18 +136,35 @@ class DragSessionDetailsActivity : AppCompatActivity() {
     private fun initializeViews() {
         tvSessionName = findViewById(R.id.tvDetailSessionName)
         tvSessionDate = findViewById(R.id.tvDetailSessionDate)
-        llEnvironment = findViewById(R.id.llEnvironment)
-        tvDetailTemperature = findViewById(R.id.tvDetailTemperature)
-        tvDetailAltitude = findViewById(R.id.tvDetailAltitude)
         tvBest0to100 = findViewById(R.id.tvDetailBest0to100)
         tvBest0to200 = findViewById(R.id.tvDetailBest0to200)
         tvBest100to200 = findViewById(R.id.tvDetailBest100to200)
         tvBest0to402 = findViewById(R.id.tvDetailBest0to402)
+        tvBestMeta0to100 = findViewById(R.id.tvBestMeta0to100)
+        tvBestMeta0to200 = findViewById(R.id.tvBestMeta0to200)
+        tvBestMeta100to200 = findViewById(R.id.tvBestMeta100to200)
+        tvBestMeta0to402 = findViewById(R.id.tvBestMeta0to402)
+        cvBestTimes = findViewById(R.id.cvBestTimes)
+        cvSingleSessionBest = findViewById(R.id.cvSingleSessionBest)
+        tvSessionBestLabel = findViewById(R.id.tvSessionBestLabel)
+        tvSessionBestValue = findViewById(R.id.tvSessionBestValue)
+        tvSessionBestValueUnit = findViewById(R.id.tvSessionBestValueUnit)
+        tvSessionBestAtSpeedLabel = findViewById(R.id.tvSessionBestAtSpeedLabel)
+        tvSessionBestAtSpeedValue = findViewById(R.id.tvSessionBestAtSpeedValue)
+        tvSessionBestPeakGLabel = findViewById(R.id.tvSessionBestPeakGLabel)
+        tvSessionBestPeakGValue = findViewById(R.id.tvSessionBestPeakGValue)
+        tvSessionBestRunLabel = findViewById(R.id.tvSessionBestRunLabel)
+        tvSessionBestRunValue = findViewById(R.id.tvSessionBestRunValue)
+        tvSessionBestVsPrevPbValue = findViewById(R.id.tvSessionBestVsPrevPbValue)
+        tvSessionBestPrevBestValue = findViewById(R.id.tvSessionBestPrevBestValue)
+        tvSessionBestAvgAllRunsValue = findViewById(R.id.tvSessionBestAvgAllRunsValue)
+        tvSessionBestConsistencyValue = findViewById(R.id.tvSessionBestConsistencyValue)
         
         tvLabelBest0to100 = findViewById(R.id.tvLabelBest0to100)
         tvLabelBest0to200 = findViewById(R.id.tvLabelBest0to200)
         tvLabelBest100to200 = findViewById(R.id.tvLabelBest100to200)
         tvLabelBest0to402 = findViewById(R.id.tvLabelBest0to402)
+        tvRunsCount = findViewById(R.id.tvRunsCount)
         
         // Update labels with current unit
         val speedUnit = UnitsManager.getSpeedUnit(this)
@@ -185,29 +228,6 @@ class DragSessionDetailsActivity : AppCompatActivity() {
                 java.util.Date(s.timestamp)
             ).toString()
 
-            val hasTemperature = s.temperature != null
-            val hasAltitude = s.altitude != null
-
-            if (hasTemperature || hasAltitude) {
-                llEnvironment.visibility = View.VISIBLE
-
-                if (hasTemperature) {
-                    tvDetailTemperature.text = UnitsManager.formatTemperature(s.temperature!!, this, decimals = 0)
-                    (tvDetailTemperature.parent as View).visibility = View.VISIBLE
-                } else {
-                    (tvDetailTemperature.parent as View).visibility = View.GONE
-                }
-
-                if (hasAltitude) {
-                    tvDetailAltitude.text = "${s.altitude?.toInt()}m"
-                    (tvDetailAltitude.parent as View).visibility = View.VISIBLE
-                } else {
-                    (tvDetailAltitude.parent as View).visibility = View.GONE
-                }
-            } else {
-                llEnvironment.visibility = View.GONE
-            }
-
             val mode = try {
                 MeasurementMode.valueOf(s.measurementMode ?: "ALL")
             } catch (e: Exception) {
@@ -219,39 +239,136 @@ class DragSessionDetailsActivity : AppCompatActivity() {
             findViewById<LinearLayout>(R.id.ll0to200).visibility = View.GONE
             findViewById<LinearLayout>(R.id.ll100to200).visibility = View.GONE
             findViewById<LinearLayout>(R.id.ll0to402).visibility = View.GONE
+            cvBestTimes.visibility = View.VISIBLE
+            cvSingleSessionBest.visibility = View.GONE
+
+            val speedUnit = UnitsManager.getSpeedUnit(this)
+            val speed100 = UnitsManager.convertSpeed(100f, speedUnit).toInt()
+            val speed200 = UnitsManager.convertSpeed(200f, speedUnit).toInt()
+            val speedSymbol = speedUnit.symbol.uppercase(Locale.getDefault())
+            val quarterDistance = UnitsManager.getQuarterMileDistance(this).uppercase(Locale.getDefault())
 
             when (mode) {
                 MeasurementMode.ZERO_TO_100 -> {
                     tvBest0to100.text = formatTimeWithLabel(null,s.best0to100)
                     findViewById<LinearLayout>(R.id.ll0to100).visibility = View.VISIBLE
+                    tvSessionBestLabel.text = getString(R.string.drag_session_best_mode_format, "0-$speed100 $speedSymbol")
+                    tvSessionBestValue.text = formatHeroTime(s.best0to100)
+                    tvSessionBestValue.setTextColor(ContextCompat.getColor(this, R.color.accent_green))
+                    tvSessionBestValueUnit.setTextColor(ContextCompat.getColor(this, R.color.accent_green))
+                    val bestAttemptInfo = findBestAttemptForMode(s, mode)
+                    val bestAttempt = bestAttemptInfo?.second
+                    tvSessionBestAtSpeedLabel.text = getString(R.string.drag_session_best_at_speed_label, "$speed100 $speedSymbol")
+                    tvSessionBestAtSpeedValue.text = "$speed100 ${speedUnit.symbol}"
+                    tvSessionBestPeakGLabel.text = getString(R.string.drag_session_best_peak_g_label).uppercase(Locale.getDefault())
+                    tvSessionBestPeakGValue.text = formatPeakGValue(bestAttempt?.gSamples?.maxOrNull())
+                    tvSessionBestRunLabel.text = getString(R.string.drag_session_best_achieved_in_label).uppercase(Locale.getDefault())
+                    tvSessionBestRunValue.text = formatRunValue(bestAttemptInfo?.first)
+                    updateSessionBestStats(s, mode)
+                    cvBestTimes.visibility = View.GONE
+                    cvSingleSessionBest.visibility = View.VISIBLE
                 }
                 MeasurementMode.ZERO_TO_200 -> {
                     tvBest0to200.text = formatTimeWithLabel(null,s.best0to200)
                     findViewById<LinearLayout>(R.id.ll0to200).visibility = View.VISIBLE
+                    tvSessionBestLabel.text = getString(R.string.drag_session_best_mode_format, "0-$speed200 $speedSymbol")
+                    tvSessionBestValue.text = formatHeroTime(s.best0to200)
+                    tvSessionBestValue.setTextColor(ContextCompat.getColor(this, R.color.accent_blue))
+                    tvSessionBestValueUnit.setTextColor(ContextCompat.getColor(this, R.color.accent_blue))
+                    val bestAttemptInfo = findBestAttemptForMode(s, mode)
+                    val bestAttempt = bestAttemptInfo?.second
+                    tvSessionBestAtSpeedLabel.text = getString(R.string.drag_session_best_at_speed_label, "$speed200 $speedSymbol")
+                    tvSessionBestAtSpeedValue.text = "$speed200 ${speedUnit.symbol}"
+                    tvSessionBestPeakGLabel.text = getString(R.string.drag_session_best_peak_g_label).uppercase(Locale.getDefault())
+                    tvSessionBestPeakGValue.text = formatPeakGValue(bestAttempt?.gSamples?.maxOrNull())
+                    tvSessionBestRunLabel.text = getString(R.string.drag_session_best_achieved_in_label).uppercase(Locale.getDefault())
+                    tvSessionBestRunValue.text = formatRunValue(bestAttemptInfo?.first)
+                    updateSessionBestStats(s, mode)
+                    cvBestTimes.visibility = View.GONE
+                    cvSingleSessionBest.visibility = View.VISIBLE
                 }
                 MeasurementMode.HUNDRED_TO_200 -> {
                     tvBest100to200.text = formatTimeWithLabel(null,s.best100to200)
                     findViewById<LinearLayout>(R.id.ll100to200).visibility = View.VISIBLE
+                    tvSessionBestLabel.text = getString(R.string.drag_session_best_mode_format, "$speed100-$speed200 $speedSymbol")
+                    tvSessionBestValue.text = formatHeroTime(s.best100to200)
+                    tvSessionBestValue.setTextColor(ContextCompat.getColor(this, R.color.accent_orange))
+                    tvSessionBestValueUnit.setTextColor(ContextCompat.getColor(this, R.color.accent_orange))
+                    val bestAttemptInfo = findBestAttemptForMode(s, mode)
+                    val bestAttempt = bestAttemptInfo?.second
+                    tvSessionBestAtSpeedLabel.text = getString(R.string.drag_session_best_at_speed_label, "$speed200 $speedSymbol")
+                    tvSessionBestAtSpeedValue.text = "$speed200 ${speedUnit.symbol}"
+                    tvSessionBestPeakGLabel.text = getString(R.string.drag_session_best_peak_g_label).uppercase(Locale.getDefault())
+                    tvSessionBestPeakGValue.text = formatPeakGValue(bestAttempt?.gSamples?.maxOrNull())
+                    tvSessionBestRunLabel.text = getString(R.string.drag_session_best_achieved_in_label).uppercase(Locale.getDefault())
+                    tvSessionBestRunValue.text = formatRunValue(bestAttemptInfo?.first)
+                    updateSessionBestStats(s, mode)
+                    cvBestTimes.visibility = View.GONE
+                    cvSingleSessionBest.visibility = View.VISIBLE
                 }
                 MeasurementMode.QUARTER_MILE -> {
                     tvBest0to402.text = formatTimeWithLabel(null,s.best0to402)
                     findViewById<LinearLayout>(R.id.ll0to402).visibility = View.VISIBLE
+                    tvSessionBestLabel.text = getString(R.string.drag_session_best_mode_format, "0-$quarterDistance")
+                    tvSessionBestValue.text = formatHeroTime(s.best0to402)
+                    tvSessionBestValue.setTextColor(ContextCompat.getColor(this, R.color.accent_red))
+                    tvSessionBestValueUnit.setTextColor(ContextCompat.getColor(this, R.color.accent_red))
+                    val bestAttemptInfo = findBestAttemptForMode(s, mode)
+                    val bestAttempt = bestAttemptInfo?.second
+                    tvSessionBestAtSpeedLabel.text = getString(R.string.drag_session_best_finish_speed_label).uppercase(Locale.getDefault())
+                    tvSessionBestAtSpeedValue.text = formatAttemptSpeed(bestAttempt)
+                    tvSessionBestPeakGLabel.text = getString(R.string.drag_session_best_peak_g_label).uppercase(Locale.getDefault())
+                    tvSessionBestPeakGValue.text = formatPeakGValue(bestAttempt?.gSamples?.maxOrNull())
+                    tvSessionBestRunLabel.text = getString(R.string.drag_session_best_achieved_in_label).uppercase(Locale.getDefault())
+                    tvSessionBestRunValue.text = formatRunValue(bestAttemptInfo?.first)
+                    updateSessionBestStats(s, mode)
+                    cvBestTimes.visibility = View.GONE
+                    cvSingleSessionBest.visibility = View.VISIBLE
                 }
                 MeasurementMode.ALL -> {
-                    // Задаваме стойностите на всички TextView елементи и ги показваме
-                    // Използваме нормализирани времена спрямо първия опит за съответствие с графиката
-                    val firstAttempt = s.attempts.firstOrNull()
-                    
-                    
-                    tvBest0to100.text = formatTimeWithLabelNormalized(null, s.best0to100, firstAttempt)
-                    tvBest0to200.text = formatTimeWithLabelNormalized(null, s.best0to200, firstAttempt)
-                    tvBest100to200.text = formatTimeWithLabelNormalized(null, s.best100to200, firstAttempt)
-                    tvBest0to402.text = formatTimeWithLabelNormalized(null, s.best0to402, firstAttempt)
+                    bindAllModeBestCard(
+                        session = s,
+                        metricMode = MeasurementMode.ZERO_TO_100,
+                        labelView = tvLabelBest0to100,
+                        valueView = tvBest0to100,
+                        metaView = tvBestMeta0to100,
+                        labelText = "0 - $speed100 $speedSymbol",
+                        metricColorRes = R.color.accent_green
+                    )
+                    bindAllModeBestCard(
+                        session = s,
+                        metricMode = MeasurementMode.HUNDRED_TO_200,
+                        labelView = tvLabelBest100to200,
+                        valueView = tvBest100to200,
+                        metaView = tvBestMeta100to200,
+                        labelText = "$speed100 - $speed200 $speedSymbol",
+                        metricColorRes = R.color.accent_purple
+                    )
+                    bindAllModeBestCard(
+                        session = s,
+                        metricMode = MeasurementMode.ZERO_TO_200,
+                        labelView = tvLabelBest0to200,
+                        valueView = tvBest0to200,
+                        metaView = tvBestMeta0to200,
+                        labelText = "0 - $speed200 $speedSymbol",
+                        metricColorRes = R.color.accent_blue
+                    )
+                    bindAllModeBestCard(
+                        session = s,
+                        metricMode = MeasurementMode.QUARTER_MILE,
+                        labelView = tvLabelBest0to402,
+                        valueView = tvBest0to402,
+                        metaView = tvBestMeta0to402,
+                        labelText = "0 - $quarterDistance",
+                        metricColorRes = R.color.accent_red
+                    )
 
                     findViewById<LinearLayout>(R.id.ll0to100).visibility = View.VISIBLE
                     findViewById<LinearLayout>(R.id.ll0to200).visibility = View.VISIBLE
                     findViewById<LinearLayout>(R.id.ll100to200).visibility = View.VISIBLE
                     findViewById<LinearLayout>(R.id.ll0to402).visibility = View.VISIBLE
+                    cvBestTimes.visibility = View.VISIBLE
+                    cvSingleSessionBest.visibility = View.GONE
                 }
             }
         }
@@ -262,6 +379,9 @@ class DragSessionDetailsActivity : AppCompatActivity() {
 
     private fun setupRecyclerView() {
         session?.let { s ->
+            val runsCount = s.attempts.size
+            tvRunsCount.text = "$runsCount RUNS"
+
             if (s.attempts.isEmpty()) {
                 tvNoAttempts.visibility = View.VISIBLE
                 rvAttempts.visibility = View.GONE
@@ -277,9 +397,24 @@ class DragSessionDetailsActivity : AppCompatActivity() {
                     MeasurementMode.ALL
                 }
 
-                attemptsAdapter = DragAttemptsAdapter(this@DragSessionDetailsActivity, s.attempts, mode)
+                val globalAllTimeBestNs = getGlobalAllTimeBestForProfile(s, mode)
+                val globalAllTimeBestAttemptId = getGlobalAllTimeBestAttemptIdForProfile(s, mode)
+                val previousAllTimeBestNs = getPreviousAllTimeBestBeforeSession(s, mode)
+
+                attemptsAdapter = DragAttemptsAdapter(
+                    this@DragSessionDetailsActivity,
+                    s.attempts,
+                    s.profileId,
+                    mode,
+                    globalAllTimeBestNs,
+                    globalAllTimeBestAttemptId,
+                    previousAllTimeBestNs
+                )
                 rvAttempts.apply {
-                    layoutManager = LinearLayoutManager(this@DragSessionDetailsActivity)
+                    layoutManager = LinearLayoutManager(this@DragSessionDetailsActivity).apply {
+                        reverseLayout = true
+                        stackFromEnd = true
+                    }
                     adapter = attemptsAdapter
                 }
             }
@@ -293,6 +428,241 @@ class DragSessionDetailsActivity : AppCompatActivity() {
             "$label ${String.format("%.3f s", seconds)}"
         } else {
             String.format("%.3f s", seconds)
+        }
+    }
+
+    private fun formatHeroTime(time: Long?): String {
+        if (time == null || time <= 0L) return "--.---"
+        return String.format("%.3f", time / 1_000_000_000.0)
+    }
+
+    private fun getAttemptTimeForMode(attempt: DragAttempt, mode: MeasurementMode): Long {
+        return when (mode) {
+            MeasurementMode.ZERO_TO_100 -> attempt.time0to100
+            MeasurementMode.ZERO_TO_200 -> attempt.time0to200
+            MeasurementMode.HUNDRED_TO_200 -> attempt.time100to200
+            MeasurementMode.QUARTER_MILE -> attempt.time0to402
+            MeasurementMode.ALL -> listOf(
+                attempt.time0to402,
+                attempt.time0to200,
+                attempt.time100to200,
+                attempt.time0to100,
+                attempt.duration
+            ).firstOrNull { it > 0L } ?: -1L
+        }
+    }
+
+    private fun getPreviousAllTimeBestBeforeSession(
+        session: DragSession,
+        mode: MeasurementMode
+    ): Long? {
+        return DragStorage.getAllDragSessions(this)
+            .asSequence()
+            .filter { it.profileId == session.profileId }
+            .filter { it.id != session.id }
+            .filter { it.timestamp <= session.timestamp }
+            .flatMap { it.attempts.asSequence() }
+            .map { getAttemptTimeForMode(it, mode) }
+            .filter { it > 0L }
+            .minOrNull()
+    }
+
+    private fun getGlobalAllTimeBestForProfile(
+        session: DragSession,
+        mode: MeasurementMode
+    ): Long? {
+        return DragStorage.getAllDragSessions(this)
+            .asSequence()
+            .filter { it.profileId == session.profileId }
+            .flatMap { it.attempts.asSequence() }
+            .map { getAttemptTimeForMode(it, mode) }
+            .filter { it > 0L }
+            .minOrNull()
+    }
+
+    private fun getGlobalAllTimeBestAttemptIdForProfile(
+        session: DragSession,
+        mode: MeasurementMode
+    ): Long? {
+        var bestTime = Long.MAX_VALUE
+        var bestSessionTimestamp = Long.MIN_VALUE
+        var bestAttemptTimestamp = Long.MIN_VALUE
+        var bestAttemptId: Long? = null
+
+        DragStorage.getAllDragSessions(this)
+            .asSequence()
+            .filter { it.profileId == session.profileId }
+            .forEach { dragSession ->
+                dragSession.attempts.forEach { attempt ->
+                    val time = getAttemptTimeForMode(attempt, mode)
+                    if (time <= 0L) return@forEach
+
+                    val isBetterTime = time < bestTime
+                    val isSameTimeButNewerSession = time == bestTime && dragSession.timestamp > bestSessionTimestamp
+                    val isSameSessionButNewerAttempt =
+                        time == bestTime && dragSession.timestamp == bestSessionTimestamp && attempt.timestamp > bestAttemptTimestamp
+                    val isSameTimestampButHigherId =
+                        time == bestTime && dragSession.timestamp == bestSessionTimestamp && attempt.timestamp == bestAttemptTimestamp &&
+                            (bestAttemptId == null || attempt.id > bestAttemptId!!)
+
+                    if (isBetterTime || isSameTimeButNewerSession || isSameSessionButNewerAttempt || isSameTimestampButHigherId) {
+                        bestTime = time
+                        bestSessionTimestamp = dragSession.timestamp
+                        bestAttemptTimestamp = attempt.timestamp
+                        bestAttemptId = attempt.id
+                    }
+                }
+            }
+
+        return bestAttemptId
+    }
+
+    private fun findBestAttemptForMode(s: DragSession, mode: MeasurementMode): Pair<Int, DragAttempt>? {
+        var bestIndex = -1
+        var bestTime = Long.MAX_VALUE
+        var bestAttempt: DragAttempt? = null
+
+        s.attempts.forEachIndexed { index, attempt ->
+            val time = getAttemptTimeForMode(attempt, mode)
+            if (time <= 0L) return@forEachIndexed
+
+            val isBetterTime = time < bestTime
+            val isSameTimeButNewerAttempt =
+                time == bestTime && bestAttempt != null &&
+                    (attempt.timestamp > bestAttempt!!.timestamp ||
+                        (attempt.timestamp == bestAttempt!!.timestamp && attempt.id > bestAttempt!!.id))
+
+            if (isBetterTime || isSameTimeButNewerAttempt || bestAttempt == null) {
+                bestTime = time
+                bestIndex = index
+                bestAttempt = attempt
+            }
+        }
+
+        return if (bestAttempt != null) bestIndex to bestAttempt!! else null
+    }
+
+    private fun bindAllModeBestCard(
+        session: DragSession,
+        metricMode: MeasurementMode,
+        labelView: TextView,
+        valueView: TextView,
+        metaView: TextView,
+        labelText: String,
+        metricColorRes: Int
+    ) {
+        labelView.text = labelText
+
+        val bestAttemptInfo = findBestAttemptForMode(session, metricMode)
+        val bestAttempt = bestAttemptInfo?.second
+        val bestRunNumber = bestAttemptInfo?.first?.plus(1)
+        val bestTimeNs = bestAttempt?.let { getAttemptTimeForMode(it, metricMode) }?.takeIf { it > 0L }
+
+        if (bestAttempt == null || bestRunNumber == null || bestTimeNs == null) {
+            valueView.text = "--.---"
+            valueView.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+            metaView.text = "NO RUN"
+            metaView.setTextColor(ContextCompat.getColor(this, R.color.text_tertiary))
+            return
+        }
+
+        val isGlobalPbForMetric = getGlobalAllTimeBestAttemptIdForProfile(session, metricMode) == bestAttempt.id
+
+        valueView.text = formatHeroTime(bestTimeNs)
+        val metricColor = ContextCompat.getColor(this, metricColorRes)
+        valueView.setTextColor(metricColor)
+
+        if (isGlobalPbForMetric) {
+            val badgeText = "★ PB · RUN $bestRunNumber"
+            val span = SpannableString(badgeText)
+            span.setSpan(
+                ForegroundColorSpan(ContextCompat.getColor(this, R.color.accent_gold)),
+                0,
+                1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            span.setSpan(
+                ForegroundColorSpan(metricColor),
+                2,
+                badgeText.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            metaView.text = span
+        } else {
+            metaView.text = "BEST · RUN $bestRunNumber"
+            metaView.setTextColor(metricColor)
+        }
+    }
+
+    private fun formatPeakGValue(peakG: Float?): String {
+        if (peakG == null || peakG <= 0f) return "--"
+        return String.format(Locale.US, "%.2fg", peakG)
+    }
+
+    private fun formatRunValue(attemptIndex: Int?): String {
+        if (attemptIndex == null || attemptIndex < 0) {
+            return getString(R.string.drag_session_best_run_placeholder).uppercase(Locale.getDefault())
+        }
+        return getString(R.string.drag_session_best_run_format, attemptIndex + 1).uppercase(Locale.getDefault())
+    }
+
+    private fun formatAttemptSpeed(attempt: DragAttempt?): String {
+        if (attempt == null || attempt.maxSpeed <= 0f) return "--"
+        return UnitsManager.formatSpeed(attempt.maxSpeed, this, 0)
+    }
+
+    private fun updateSessionBestStats(session: DragSession, mode: MeasurementMode) {
+        val timesSeconds = session.attempts.mapNotNull { attempt ->
+            val timeNanos = getAttemptTimeForMode(attempt, mode)
+            if (timeNanos > 0L) timeNanos / 1_000_000_000.0 else null
+        }
+
+        if (timesSeconds.isEmpty()) {
+            tvSessionBestVsPrevPbValue.text = "--"
+            tvSessionBestPrevBestValue.text = "--"
+            tvSessionBestAvgAllRunsValue.text = "--"
+            tvSessionBestConsistencyValue.text = "--"
+            tvSessionBestVsPrevPbValue.setTextColor(ContextCompat.getColor(this, R.color.text_secondary))
+            return
+        }
+
+        val bestTime = timesSeconds.minOrNull() ?: return
+        val previousGlobalPbNs = getPreviousAllTimeBestBeforeSession(session, mode)
+        val previousGlobalPbSeconds = previousGlobalPbNs?.takeIf { it > 0L }?.div(1_000_000_000.0)
+        val avg = timesSeconds.average()
+        val consistency = if (timesSeconds.size >= 2) {
+            val variance = timesSeconds.map { (it - avg) * (it - avg) }.average()
+            sqrt(variance)
+        } else {
+            Double.NaN
+        }
+
+        val vsPrev = previousGlobalPbSeconds?.let { bestTime - it }
+
+        tvSessionBestVsPrevPbValue.text = if (vsPrev == null) {
+            "--"
+        } else {
+            String.format(Locale.US, "%+.3fs", vsPrev)
+        }
+
+        val deltaColor = when {
+            vsPrev == null -> ContextCompat.getColor(this, R.color.text_secondary)
+            vsPrev < 0.0 -> ContextCompat.getColor(this, R.color.accent_purple)
+            vsPrev > 0.0 -> ContextCompat.getColor(this, R.color.accent_red)
+            else -> ContextCompat.getColor(this, R.color.text_secondary)
+        }
+        tvSessionBestVsPrevPbValue.setTextColor(deltaColor)
+
+        tvSessionBestPrevBestValue.text = previousGlobalPbSeconds?.let {
+            String.format(Locale.US, "%.3fs", it)
+        } ?: "--"
+
+        tvSessionBestAvgAllRunsValue.text = String.format(Locale.US, "%.3fs", avg)
+
+        tvSessionBestConsistencyValue.text = if (consistency.isNaN()) {
+            "--"
+        } else {
+            String.format(Locale.US, "±%.3fs", consistency)
         }
     }
     
@@ -316,12 +686,46 @@ class DragSessionDetailsActivity : AppCompatActivity() {
 class DragAttemptsAdapter(
     private val context: Context,
     private val attempts: List<DragAttempt>,
-    private val measurementMode: MeasurementMode
+    private val profileId: Long,
+    private val measurementMode: MeasurementMode,
+    private val globalAllTimeBestNs: Long?,
+    private val globalAllTimeBestAttemptId: Long?,
+    private val previousAllTimeBestNs: Long?
 ) : RecyclerView.Adapter<DragAttemptsAdapter.AttemptViewHolder>() {
     
     private var currentMode: ChartMode = ChartMode.SPEED
     private var currentAttempt: DragAttempt? = null
     private var currentMarkerView: com.github.mikephil.charting.components.MarkerView? = null
+    private val expandedAttemptIds = mutableSetOf<Long>()
+    private val allModeDistanceTargets = listOf(50, 100, 200, 300, 402)
+
+    private data class DistanceBestCandidate(
+        val timeNs: Long,
+        val sessionTimestamp: Long,
+        val attemptTimestamp: Long,
+        val attemptId: Long
+    )
+
+    private val sessionDistanceBestAttemptIds: Map<Int, Long> by lazy {
+        computeSessionDistanceBestAttemptIds()
+    }
+
+    private val profileDistanceBestAttemptIds: Map<Int, Long> by lazy {
+        computeProfileDistanceBestAttemptIds()
+    }
+
+    private fun getBestPrimaryTimeNs(): Long {
+        return attempts
+            .map { getPrimaryTimeForSummary(it) }
+            .filter { it > 0L }
+            .minOrNull() ?: -1L
+    }
+
+    private fun getCurrentSessionBestAttemptId(bestPrimaryTimeNs: Long): Long? {
+        if (bestPrimaryTimeNs <= 0L) return null
+        val bestIndex = attempts.indexOfLast { getPrimaryTimeForSummary(it) == bestPrimaryTimeNs }
+        return attempts.getOrNull(bestIndex)?.id
+    }
 
     private fun setChartContext(
         chart: com.github.mikephil.charting.charts.LineChart,
@@ -349,6 +753,7 @@ class DragAttemptsAdapter(
     // Константа за Y threshold множител (използва се и при drag и при tap)
     companion object {
         private const val SNAP_Y_MULTIPLIER = 10f // Увеличен за по-добро хващане в G-Force и Acceleration
+        private const val KMH_TO_MPS = 1f / 3.6f
         
         // Data class за специални точки (изваден за performance)
         private data class SpecialPoint(
@@ -373,13 +778,53 @@ class DragAttemptsAdapter(
     }
 
     inner class AttemptViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        val shellContainer: View = itemView.findViewById(R.id.llAttemptShell)
+        val summaryContainer: View = itemView.findViewById(R.id.llAttemptSummary)
+        val detailsContainer: View = itemView.findViewById(R.id.llAttemptDetails)
+        val runAccent: View = itemView.findViewById(R.id.vRunAccent)
         val tvAttemptNumber: TextView = itemView.findViewById(R.id.tvAttemptNumber)
+        val tvRunPrimaryTime: TextView = itemView.findViewById(R.id.tvRunPrimaryTime)
+        val tvRunPrimaryUnit: TextView = itemView.findViewById(R.id.tvRunPrimaryUnit)
+        val tvRunSpeedMeta: TextView = itemView.findViewById(R.id.tvRunSpeedMeta)
+        val tvRunDeltaLabel: TextView = itemView.findViewById(R.id.tvRunDeltaLabel)
+        val tvRunDeltaValue: TextView = itemView.findViewById(R.id.tvRunDeltaValue)
+        val tvRunBestBadge: TextView = itemView.findViewById(R.id.tvRunBestBadge)
+        val tvRunPbBadge: TextView = itemView.findViewById(R.id.tvRunPbBadge)
+        val tvAttemptChevron: TextView = itemView.findViewById(R.id.tvAttemptChevron)
         val tvTime0to100: TextView = itemView.findViewById(R.id.tvAttempt0to100)
         val tvTime0to200: TextView = itemView.findViewById(R.id.tvAttempt0to200)
         val tvTime100to200: TextView = itemView.findViewById(R.id.tvAttempt100to200)
         val tvTime0to402: TextView = itemView.findViewById(R.id.tvAttempt0to402)
+        val llZeroTo200RunSplits: View = itemView.findViewById(R.id.llZeroTo200RunSplits)
+        val tvAttemptSplit0to100: TextView = itemView.findViewById(R.id.tvAttemptSplit0to100)
+        val tvAttemptSplit100to200: TextView = itemView.findViewById(R.id.tvAttemptSplit100to200)
         val tvMaxSpeed: TextView = itemView.findViewById(R.id.tvAttemptMaxSpeed)
         val tvDuration: TextView = itemView.findViewById(R.id.tvDuration)
+        val pbAttemptGForce: ProgressBar = itemView.findViewById(R.id.pbAttemptGForce)
+        val tvAttemptPeakG: TextView = itemView.findViewById(R.id.tvAttemptPeakG)
+        val tvAttemptAvgG: TextView = itemView.findViewById(R.id.tvAttemptAvgG)
+        val llAllModeBreakdown: View = itemView.findViewById(R.id.llAllModeBreakdown)
+        val llAllModePrimaryMetrics: View = itemView.findViewById(R.id.llAllModePrimaryMetrics)
+        val vAllModePrimaryDivider: View = itemView.findViewById(R.id.vAllModePrimaryDivider)
+        val tvAllMetric0to100: TextView = itemView.findViewById(R.id.tvAllMetric0to100)
+        val tvAllMetric100to200: TextView = itemView.findViewById(R.id.tvAllMetric100to200)
+        val tvAllMetric0to200: TextView = itemView.findViewById(R.id.tvAllMetric0to200)
+        val tvAllMetric0to402: TextView = itemView.findViewById(R.id.tvAllMetric0to402)
+        val tvAllDist50Time: TextView = itemView.findViewById(R.id.tvAllDist50Time)
+        val tvAllDist100Time: TextView = itemView.findViewById(R.id.tvAllDist100Time)
+        val tvAllDist200Time: TextView = itemView.findViewById(R.id.tvAllDist200Time)
+        val tvAllDist300Time: TextView = itemView.findViewById(R.id.tvAllDist300Time)
+        val tvAllDist402Time: TextView = itemView.findViewById(R.id.tvAllDist402Time)
+        val tvAllDist50Badge: TextView = itemView.findViewById(R.id.tvAllDist50Badge)
+        val tvAllDist100Badge: TextView = itemView.findViewById(R.id.tvAllDist100Badge)
+        val tvAllDist200Badge: TextView = itemView.findViewById(R.id.tvAllDist200Badge)
+        val tvAllDist300Badge: TextView = itemView.findViewById(R.id.tvAllDist300Badge)
+        val tvAllDist402Badge: TextView = itemView.findViewById(R.id.tvAllDist402Badge)
+        val ivAttemptWeatherTemp: ImageView = itemView.findViewById(R.id.ivAttemptWeatherTemp)
+        val tvAttemptTrackTempValue: TextView = itemView.findViewById(R.id.tvAttemptTrackTempValue)
+        val tvAttemptHumidityValue: TextView = itemView.findViewById(R.id.tvAttemptHumidityValue)
+        val tvAttemptWindValue: TextView = itemView.findViewById(R.id.tvAttemptWindValue)
+        val tvAttemptTimeValue: TextView = itemView.findViewById(R.id.tvAttemptTimeValue)
         
         // Нова графика
         val chart: com.github.mikephil.charting.charts.LineChart = itemView.findViewById(R.id.chart)
@@ -440,6 +885,8 @@ class DragAttemptsAdapter(
     override fun onBindViewHolder(holder: AttemptViewHolder, position: Int) {
         val attempt = attempts[position]
         val context = holder.itemView.context
+        val bestPrimaryTimeNs = getBestPrimaryTimeNs()
+        val currentSessionBestAttemptId = getCurrentSessionBestAttemptId(bestPrimaryTimeNs)
 
         // ⚠️ КРИТИЧНО: Reset-вайте всички бутони ПЪРВО (RecyclerView recycling)
         holder.btnSpeed.setBackgroundResource(R.drawable.button_toggle_unselected)
@@ -450,33 +897,72 @@ class DragAttemptsAdapter(
         
         holder.btnGForce.setBackgroundResource(R.drawable.button_toggle_unselected)
         holder.btnGForce.setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
+        holder.btnGForce.visibility = View.GONE
+        holder.btnGForce.isEnabled = false
 
-        holder.tvAttemptNumber.text = context.getString(R.string.attempt_number, position + 1)
+        holder.tvAttemptNumber.text = context.getString(R.string.drag_run_short_format, position + 1)
 
-        if (attempt.maxSpeed > 0) {
-            val convertedSpeed = UnitsManager.formatSpeed(attempt.maxSpeed, context, 0)
-            holder.tvMaxSpeed.text = context.getString(R.string.drag_max_speed_label) + " " + convertedSpeed
-            holder.tvMaxSpeed.visibility = View.VISIBLE
+        val primaryTimeNs = getPrimaryTimeForSummary(attempt)
+        holder.tvRunPrimaryTime.text = formatSummaryTime(primaryTimeNs)
+        holder.tvRunPrimaryUnit.text = if (primaryTimeNs > 0L) "s" else ""
+
+        val speedUnit = UnitsManager.getSpeedUnit(context)
+        val convertedMaxSpeed = if (attempt.maxSpeed > 0f) {
+            UnitsManager.convertSpeed(attempt.maxSpeed, speedUnit)
         } else {
-            holder.tvMaxSpeed.visibility = View.GONE
+            null
         }
+        holder.tvMaxSpeed.text = convertedMaxSpeed?.toInt()?.toString() ?: "--"
+        holder.tvRunSpeedMeta.text = context.getString(
+            R.string.drag_run_speed_at_finish,
+            speedUnit.symbol.uppercase(Locale.getDefault())
+        )
 
-        // Показване на продължителността - винаги използваме максималното време от успешните измервания
         val displayDuration = getMaxMeasuredTime(attempt)
-
-        if (displayDuration > 0) {
-            holder.tvDuration.text = context.getString(R.string.drag_attempt_duration, displayDuration)
-            holder.tvDuration.visibility = View.VISIBLE
+        holder.tvDuration.text = if (displayDuration > 0.0) {
+            context.getString(R.string.drag_attempt_duration, displayDuration)
         } else {
-            holder.tvDuration.visibility = View.GONE
+            context.getString(R.string.drag_meta_duration_prefix, "--")
         }
+
+        val previousSessionBestNs = attempts
+            .take(position)
+            .map { getPrimaryTimeForSummary(it) }
+            .filter { it > 0L }
+            .minOrNull()
+
+        val allTimeBestBeforeCurrent = listOfNotNull(
+            previousAllTimeBestNs?.takeIf { it > 0L },
+            previousSessionBestNs
+        ).minOrNull()
+
+        val currentGlobalBestNs = listOfNotNull(
+            globalAllTimeBestNs?.takeIf { it > 0L },
+            bestPrimaryTimeNs.takeIf { it > 0L }
+        ).minOrNull()
+
+        val isSessionBest = primaryTimeNs > 0L && attempt.id == currentSessionBestAttemptId
+        val isAllTimePb =
+            isSessionBest && primaryTimeNs > 0L && currentGlobalBestNs != null &&
+                attempt.id == globalAllTimeBestAttemptId && primaryTimeNs == currentGlobalBestNs
+
+        // Скриваме старите chip-бейджове - използваме само индикаторния блок вдясно.
+        holder.tvRunBestBadge.visibility = View.GONE
+        holder.tvRunPbBadge.visibility = View.GONE
+        applyCollapsedRunCardStyle(holder, isSessionBest)
+        bindDeltaSummary(
+            holder,
+            primaryTimeNs,
+            isSessionBest,
+            isAllTimePb,
+            allTimeBestBeforeCurrent,
+            currentGlobalBestNs
+        )
 
         updateVisibility(holder)
 
-
         // Използваме същата нормализация като Best Times за съответствие
         val firstAttempt = attempts.firstOrNull()
-        val speedUnit = UnitsManager.getSpeedUnit(context)
         val speed100 = UnitsManager.convertSpeed(100f, speedUnit).toInt()
         val speed200 = UnitsManager.convertSpeed(200f, speedUnit).toInt()
         val distLabel = UnitsManager.getQuarterMileDistance(context)
@@ -485,6 +971,23 @@ class DragAttemptsAdapter(
         holder.tvTime0to200.text = formatTimeWithLabelNormalized("0-$speed200", attempt.time0to200, firstAttempt)
         holder.tvTime100to200.text = formatTimeWithLabelNormalized("$speed100-$speed200", attempt.time100to200, firstAttempt)
         holder.tvTime0to402.text = formatTimeWithLabelNormalized(distLabel, attempt.time0to402, firstAttempt)
+        bindZeroTo200RunSplits(holder, attempt)
+
+        bindGSummary(holder, attempt)
+        bindAllModeBreakdown(holder, attempt)
+        bindMetaRow(holder, attempt)
+
+        val isExpanded = expandedAttemptIds.contains(attempt.id)
+        applyExpandedState(holder, isExpanded)
+        holder.summaryContainer.setOnClickListener {
+            val currentlyExpanded = expandedAttemptIds.contains(attempt.id)
+            if (currentlyExpanded) {
+                expandedAttemptIds.remove(attempt.id)
+            } else {
+                expandedAttemptIds.add(attempt.id)
+            }
+            applyExpandedState(holder, !currentlyExpanded)
+        }
 
         // Настройваме новата графика
         setupChart(holder, attempt)
@@ -517,6 +1020,7 @@ class DragAttemptsAdapter(
             textSize = 12f
             valueFormatter = object : com.github.mikephil.charting.formatter.ValueFormatter() {
                 override fun getFormattedValue(x: Float): String {
+                    if (kotlin.math.abs(x) < 0.0001f) return ""
                     return String.format("%.1fs", x)
                 }
             }
@@ -1218,6 +1722,8 @@ class DragAttemptsAdapter(
     private fun updateChartData(holder: AttemptViewHolder, attempt: DragAttempt, mode: ChartMode) {
         // Изчистваме всички данни
         holder.chart.clear()
+
+        bindExpandedChartHeader(holder, attempt, mode)
         
         // Добавяме всички три линии
         addSpeedLine(holder, attempt, mode == ChartMode.SPEED)
@@ -1238,6 +1744,34 @@ class DragAttemptsAdapter(
         val maxTimeFromAllMeasurements = getMaxTimeFromAllMeasurements(attempt).toFloat()
         applyChartXPadding(holder.chart, maxTimeFromAllMeasurements)
         holder.chart.invalidate()
+    }
+
+    private fun bindExpandedChartHeader(holder: AttemptViewHolder, attempt: DragAttempt, mode: ChartMode) {
+        val speedUnit = UnitsManager.getSpeedUnit(context)
+        val speed100 = UnitsManager.convertSpeed(100f, speedUnit).toInt()
+        val speed200 = UnitsManager.convertSpeed(200f, speedUnit).toInt()
+        val rangeLabel = when (measurementMode) {
+            MeasurementMode.ZERO_TO_100 -> "0-$speed100"
+            MeasurementMode.ZERO_TO_200 -> "0-$speed200"
+            MeasurementMode.HUNDRED_TO_200 -> "$speed100-$speed200"
+            MeasurementMode.QUARTER_MILE -> "0-${UnitsManager.getQuarterMileDistance(context)}"
+            MeasurementMode.ALL -> "ALL"
+        }
+
+        val modeLabel = when (mode) {
+            ChartMode.SPEED -> "SPEED"
+            ChartMode.ACCELERATION -> "ACCEL"
+            ChartMode.G_FORCE -> "G-FORCE"
+        }
+
+        holder.tvChartTitle.text = "$modeLabel x TIME - $rangeLabel"
+
+        val primaryTimeNs = getPrimaryTimeForSummary(attempt)
+        holder.tvChartStats.text = if (primaryTimeNs > 0L) {
+            "0 -> ${String.format(Locale.US, "%.3fs", primaryTimeNs / 1_000_000_000.0)}"
+        } else {
+            "0 -> --"
+        }
     }
 
     private fun applyChartXPadding(chart: com.github.mikephil.charting.charts.LineChart, baseMaxX: Float) {
@@ -1422,9 +1956,6 @@ class DragAttemptsAdapter(
     }
     
     private fun updateSpeedChart(holder: AttemptViewHolder, attempt: DragAttempt) {
-        val speedUnitSymbol = UnitsManager.getSpeedUnit(context).symbol
-        holder.tvChartTitle.text = "${context.getString(R.string.track_tab_speed)} ($speedUnitSymbol)"
-        
         val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
         
         if (speedSamples.isNotEmpty() && timestamps.isNotEmpty()) {
@@ -1440,8 +1971,6 @@ class DragAttemptsAdapter(
             }
             
             val maxSpeed = speedSamples.maxOrNull() ?: 0f
-            val convertedMaxSpeed = UnitsManager.formatSpeed(maxSpeed, context, 0)
-            holder.tvChartStats.text = context.getString(R.string.drag_max_speed_label) + " " + convertedMaxSpeed
             
             // Debug проверка за съответствие на времената
             val crossing100 = findSpeedCrossingPoint(speedSamples, timestamps, 100f)
@@ -1490,20 +2019,16 @@ class DragAttemptsAdapter(
             
             holder.chart.invalidate()
         } else {
-            holder.tvChartStats.text = context.getString(R.string.drag_chart_no_speed_data)
             holder.chart.data = null
             holder.chart.invalidate()
         }
     }
     
     private fun updateAccelerationChart(holder: AttemptViewHolder, attempt: DragAttempt) {
-        holder.tvChartTitle.text = context.getString(R.string.drag_accel_chart_title)
-        
         val (accelSamples, timestamps) = getAlignedAccelData(attempt)
         
         if (accelSamples.isNotEmpty() && timestamps.isNotEmpty()) {
             val maxAccel = accelSamples.maxOrNull() ?: 0f
-            holder.tvChartStats.text = context.getString(R.string.drag_chart_max_accel, maxAccel)
             
             // Данните вече са добавени от addAccelerationLine
             
@@ -1541,22 +2066,17 @@ class DragAttemptsAdapter(
             
             holder.chart.invalidate()
         } else {
-            holder.tvChartStats.text = context.getString(R.string.drag_chart_no_accel_data)
             holder.chart.data = null
             holder.chart.invalidate()
         }
     }
     
     private fun updateGForceChart(holder: AttemptViewHolder, attempt: DragAttempt) {
-        holder.tvChartTitle.text = context.getString(R.string.drag_g_force_chart_title)
-        
         val (gSamples, timestamps) = getAlignedGData(attempt)
         
         if (gSamples.isNotEmpty() && timestamps.isNotEmpty()) {
             val maxG = gSamples.maxOrNull() ?: 0f
             val minG = gSamples.minOrNull() ?: 0f
-            
-            holder.tvChartStats.text = context.getString(R.string.drag_chart_peak_g, maxG)
             
             // Данните вече са добавени от addGForceLine
             
@@ -1591,7 +2111,6 @@ class DragAttemptsAdapter(
             
             holder.chart.invalidate()
         } else {
-            holder.tvChartStats.text = context.getString(R.string.drag_chart_no_g_data)
             holder.chart.data = null
             holder.chart.invalidate()
         }
@@ -2231,6 +2750,409 @@ class DragAttemptsAdapter(
         }
     }
 
+    private fun getPrimaryTimeForSummary(attempt: DragAttempt): Long {
+        return when (measurementMode) {
+            MeasurementMode.ZERO_TO_100 -> attempt.time0to100
+            MeasurementMode.ZERO_TO_200 -> attempt.time0to200
+            MeasurementMode.HUNDRED_TO_200 -> attempt.time100to200
+            MeasurementMode.QUARTER_MILE -> attempt.time0to402
+            MeasurementMode.ALL -> getBestAvailableTime(attempt)
+        }
+    }
+
+    private fun getBestAvailableTime(attempt: DragAttempt): Long {
+        return listOf(
+            attempt.time0to402,
+            attempt.time0to200,
+            attempt.time100to200,
+            attempt.time0to100,
+            attempt.duration
+        ).firstOrNull { it > 0L } ?: -1L
+    }
+
+    private fun formatSummaryTime(timeNs: Long): String {
+        if (timeNs <= 0L) return "--"
+        return String.format(Locale.US, "%.3f", timeNs / 1_000_000_000.0)
+    }
+
+    private fun bindDeltaSummary(
+        holder: AttemptViewHolder,
+        primaryTimeNs: Long,
+        isSessionBest: Boolean,
+        isAllTimePb: Boolean,
+        allTimeBestBeforeCurrent: Long?,
+        currentGlobalBestNs: Long?
+    ) {
+        if (primaryTimeNs <= 0L) {
+            holder.tvRunDeltaLabel.text = context.getString(R.string.drag_run_delta_vs_best)
+            holder.tvRunDeltaValue.text = "--"
+            holder.tvRunDeltaValue.setTextColor(ContextCompat.getColor(context, R.color.text_secondary))
+            holder.tvRunDeltaLabel.visibility = View.VISIBLE
+            return
+        }
+
+        if (isAllTimePb) {
+            holder.tvRunDeltaValue.text = context.getString(R.string.drag_run_indicator_pb)
+            holder.tvRunDeltaValue.setTextColor(ContextCompat.getColor(context, R.color.accent_gold))
+
+            if (allTimeBestBeforeCurrent != null && allTimeBestBeforeCurrent > 0L) {
+                val deltaNs = primaryTimeNs - allTimeBestBeforeCurrent
+                val deltaText = String.format(Locale.US, "%+.3fs", deltaNs / 1_000_000_000.0)
+                holder.tvRunDeltaLabel.text = context.getString(R.string.drag_run_delta_all_time_value, deltaText)
+                holder.tvRunDeltaLabel.setTextColor(
+                    ContextCompat.getColor(
+                        context,
+                        if (deltaNs < 0L) R.color.accent_green else R.color.drag_run_delta_positive
+                    )
+                )
+            } else {
+                holder.tvRunDeltaLabel.text = context.getString(R.string.drag_run_delta_all_time)
+                holder.tvRunDeltaLabel.setTextColor(ContextCompat.getColor(context, R.color.text_tertiary))
+            }
+            holder.tvRunDeltaLabel.visibility = View.VISIBLE
+            return
+        }
+
+        if (isSessionBest) {
+            if (currentGlobalBestNs != null && currentGlobalBestNs > 0L && primaryTimeNs > currentGlobalBestNs) {
+                val deltaNs = primaryTimeNs - currentGlobalBestNs
+                holder.tvRunDeltaLabel.text = context.getString(R.string.drag_run_delta_vs_best)
+                holder.tvRunDeltaValue.text = String.format(Locale.US, "%+.3fs", deltaNs / 1_000_000_000.0)
+                holder.tvRunDeltaLabel.visibility = View.VISIBLE
+                holder.tvRunDeltaLabel.setTextColor(ContextCompat.getColor(context, R.color.text_tertiary))
+                holder.tvRunDeltaValue.setTextColor(ContextCompat.getColor(context, R.color.drag_run_delta_positive))
+                return
+            }
+
+            holder.tvRunDeltaValue.text = context.getString(R.string.drag_run_indicator_crown)
+            holder.tvRunDeltaValue.setTextColor(ContextCompat.getColor(context, R.color.accent_gold))
+            holder.tvRunDeltaLabel.text = ""
+            holder.tvRunDeltaLabel.visibility = View.INVISIBLE
+            return
+        }
+
+        val deltaNs = if (currentGlobalBestNs != null && currentGlobalBestNs > 0L) {
+            primaryTimeNs - currentGlobalBestNs
+        } else {
+            0L
+        }
+        holder.tvRunDeltaLabel.text = context.getString(R.string.drag_run_delta_vs_best)
+        holder.tvRunDeltaValue.text = String.format(Locale.US, "%+.3fs", deltaNs / 1_000_000_000.0)
+        holder.tvRunDeltaLabel.visibility = View.VISIBLE
+        holder.tvRunDeltaLabel.setTextColor(ContextCompat.getColor(context, R.color.text_tertiary))
+        holder.tvRunDeltaValue.setTextColor(
+            ContextCompat.getColor(
+                context,
+                if (deltaNs > 0L) R.color.drag_run_delta_positive else R.color.text_secondary
+            )
+        )
+    }
+
+    private fun applyCollapsedRunCardStyle(
+        holder: AttemptViewHolder,
+        isSessionBest: Boolean
+    ) {
+        val accentColor = ContextCompat.getColor(
+            context,
+            if (isSessionBest) R.color.drag_run_purple else R.color.drag_run_green
+        )
+        holder.runAccent.backgroundTintList = ColorStateList.valueOf(accentColor)
+        holder.tvAttemptNumber.setTextColor(accentColor)
+        holder.tvRunPrimaryTime.setTextColor(accentColor)
+        holder.tvRunPrimaryUnit.setTextColor(withAlpha(accentColor, 0.7f))
+
+        val strokeColor = withAlpha(accentColor, 0.45f)
+        (holder.shellContainer.background as? GradientDrawable)?.setStroke(dpToPx(1), strokeColor)
+    }
+
+    private fun withAlpha(color: Int, alpha: Float): Int {
+        val clamped = (alpha.coerceIn(0f, 1f) * 255f).toInt()
+        return (color and 0x00FFFFFF) or (clamped shl 24)
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        val density = context.resources.displayMetrics.density
+        return (dp * density).toInt().coerceAtLeast(1)
+    }
+
+    private fun bindGSummary(holder: AttemptViewHolder, attempt: DragAttempt) {
+        val peak = attempt.gSamples.maxOrNull()
+        val avgAbs = if (attempt.gSamples.isEmpty()) null else attempt.gSamples.map { kotlin.math.abs(it) }.average().toFloat()
+
+        val peakText = peak?.takeIf { it > 0f }?.let {
+            String.format(Locale.US, "%.2fg", it)
+        } ?: "--"
+        val avgText = avgAbs?.takeIf { it > 0f }?.let {
+            String.format(Locale.US, "%.2fg", it)
+        } ?: "--"
+
+        holder.tvAttemptPeakG.text = peakText
+        holder.tvAttemptAvgG.text = avgText
+
+        val progressRatio = when {
+            peak != null && peak > 0f && avgAbs != null && avgAbs > 0f -> (avgAbs / peak).coerceIn(0f, 1f)
+            peak != null && peak > 0f -> 0.75f
+            else -> 0f
+        }
+        holder.pbAttemptGForce.max = 1000
+        holder.pbAttemptGForce.progress = (progressRatio * 1000f).toInt()
+        holder.pbAttemptGForce.progressTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.accent_orange))
+        holder.pbAttemptGForce.progressBackgroundTintList = ColorStateList.valueOf(withAlpha(ContextCompat.getColor(context, R.color.text_tertiary), 0.25f))
+    }
+
+    private fun bindAllModeBreakdown(holder: AttemptViewHolder, attempt: DragAttempt) {
+        val shouldShowDistanceBreakdown =
+            measurementMode == MeasurementMode.ALL || measurementMode == MeasurementMode.QUARTER_MILE
+        if (!shouldShowDistanceBreakdown) {
+            holder.llAllModeBreakdown.visibility = View.GONE
+            return
+        }
+
+        holder.llAllModeBreakdown.visibility = View.VISIBLE
+        val showPrimaryMetrics = measurementMode == MeasurementMode.ALL
+        holder.llAllModePrimaryMetrics.visibility = if (showPrimaryMetrics) View.VISIBLE else View.GONE
+        holder.vAllModePrimaryDivider.visibility = if (showPrimaryMetrics) View.VISIBLE else View.GONE
+
+        if (showPrimaryMetrics) {
+            holder.tvAllMetric0to100.text = formatCompactTime(attempt.time0to100.takeIf { it > 0L })
+            holder.tvAllMetric100to200.text = formatCompactTime(attempt.time100to200.takeIf { it > 0L })
+            holder.tvAllMetric0to200.text = formatCompactTime(attempt.time0to200.takeIf { it > 0L })
+            holder.tvAllMetric0to402.text = formatCompactTime(attempt.time0to402.takeIf { it > 0L })
+        }
+
+        bindDistanceMetric(holder, attempt, 50, holder.tvAllDist50Time, holder.tvAllDist50Badge)
+        bindDistanceMetric(holder, attempt, 100, holder.tvAllDist100Time, holder.tvAllDist100Badge)
+        bindDistanceMetric(holder, attempt, 200, holder.tvAllDist200Time, holder.tvAllDist200Badge)
+        bindDistanceMetric(holder, attempt, 300, holder.tvAllDist300Time, holder.tvAllDist300Badge)
+        bindDistanceMetric(holder, attempt, 402, holder.tvAllDist402Time, holder.tvAllDist402Badge)
+    }
+
+    private fun bindDistanceMetric(
+        holder: AttemptViewHolder,
+        attempt: DragAttempt,
+        distanceMeters: Int,
+        timeView: TextView,
+        badgeView: TextView
+    ) {
+        val timeNs = getDistanceCrossingTimeNs(attempt, distanceMeters.toFloat())
+        timeView.text = formatCompactTime(timeNs)
+
+        if (timeNs == null) {
+            badgeView.text = "--"
+            badgeView.setTextColor(ContextCompat.getColor(context, R.color.text_tertiary))
+            return
+        }
+
+        val profileBestAttemptId = profileDistanceBestAttemptIds[distanceMeters]
+        val sessionBestAttemptId = sessionDistanceBestAttemptIds[distanceMeters]
+
+        when {
+            attempt.id == profileBestAttemptId -> {
+                badgeView.text = "★ PB"
+                badgeView.setTextColor(ContextCompat.getColor(context, R.color.accent_gold))
+            }
+            attempt.id == sessionBestAttemptId -> {
+                badgeView.text = "★ BEST"
+                badgeView.setTextColor(ContextCompat.getColor(context, R.color.accent_purple))
+            }
+            else -> {
+                badgeView.text = "--"
+                badgeView.setTextColor(ContextCompat.getColor(context, R.color.text_tertiary))
+            }
+        }
+    }
+
+    private fun formatCompactTime(timeNs: Long?): String {
+        if (timeNs == null || timeNs <= 0L) return "--"
+        return String.format(Locale.US, "%.3f", timeNs / 1_000_000_000.0)
+    }
+
+    private fun getDistanceCrossingTimeNs(attempt: DragAttempt, targetDistanceM: Float): Long? {
+        if (targetDistanceM <= 0f) return null
+        if (targetDistanceM >= 402f && attempt.time0to402 > 0L) return attempt.time0to402
+
+        val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
+        if (speedSamples.size < 2 || timestamps.size < 2) {
+            return if (targetDistanceM >= 402f) attempt.time0to402.takeIf { it > 0L } else null
+        }
+
+        val startTime = timestamps.first()
+        var accumulatedDistance = 0.0
+
+        for (i in 1 until speedSamples.size) {
+            val t0 = timestamps[i - 1]
+            val t1 = timestamps[i]
+            val deltaSec = (t1 - t0) / 1_000_000_000.0
+            if (deltaSec <= 0.0) continue
+
+            val v0 = (speedSamples[i - 1].coerceAtLeast(0f) * KMH_TO_MPS).toDouble()
+            val v1 = (speedSamples[i].coerceAtLeast(0f) * KMH_TO_MPS).toDouble()
+            val segmentDistance = ((v0 + v1) * 0.5) * deltaSec
+            if (segmentDistance <= 0.0) continue
+
+            val nextAccumulated = accumulatedDistance + segmentDistance
+            if (targetDistanceM <= nextAccumulated) {
+                val remain = (targetDistanceM - accumulatedDistance).coerceAtLeast(0.0)
+                val ratio = (remain / segmentDistance).coerceIn(0.0, 1.0)
+                val crossingTime = t0 + ((t1 - t0) * ratio).toLong()
+                return (crossingTime - startTime).coerceAtLeast(0L)
+            }
+
+            accumulatedDistance = nextAccumulated
+        }
+
+        return if (targetDistanceM >= 402f) attempt.time0to402.takeIf { it > 0L } else null
+    }
+
+    private fun computeSessionDistanceBestAttemptIds(): Map<Int, Long> {
+        val bestByDistance = mutableMapOf<Int, DistanceBestCandidate>()
+
+        attempts.forEach { attempt ->
+            allModeDistanceTargets.forEach { distance ->
+                val timeNs = getDistanceCrossingTimeNs(attempt, distance.toFloat()) ?: return@forEach
+                val current = bestByDistance[distance]
+                val candidate = DistanceBestCandidate(
+                    timeNs = timeNs,
+                    sessionTimestamp = 0L,
+                    attemptTimestamp = attempt.timestamp,
+                    attemptId = attempt.id
+                )
+                if (isBetterDistanceCandidate(candidate, current)) {
+                    bestByDistance[distance] = candidate
+                }
+            }
+        }
+
+        return bestByDistance.mapValues { it.value.attemptId }
+    }
+
+    private fun computeProfileDistanceBestAttemptIds(): Map<Int, Long> {
+        val bestByDistance = mutableMapOf<Int, DistanceBestCandidate>()
+
+        DragStorage.getAllDragSessions(context)
+            .asSequence()
+            .filter { it.profileId == profileId }
+            .forEach { dragSession ->
+                dragSession.attempts.forEach { attempt ->
+                    allModeDistanceTargets.forEach { distance ->
+                        val timeNs = getDistanceCrossingTimeNs(attempt, distance.toFloat()) ?: return@forEach
+                        val current = bestByDistance[distance]
+                        val candidate = DistanceBestCandidate(
+                            timeNs = timeNs,
+                            sessionTimestamp = dragSession.timestamp,
+                            attemptTimestamp = attempt.timestamp,
+                            attemptId = attempt.id
+                        )
+                        if (isBetterDistanceCandidate(candidate, current)) {
+                            bestByDistance[distance] = candidate
+                        }
+                    }
+                }
+            }
+
+        return bestByDistance.mapValues { it.value.attemptId }
+    }
+
+    private fun isBetterDistanceCandidate(
+        candidate: DistanceBestCandidate,
+        current: DistanceBestCandidate?
+    ): Boolean {
+        if (current == null) return true
+        if (candidate.timeNs < current.timeNs) return true
+        if (candidate.timeNs > current.timeNs) return false
+        if (candidate.sessionTimestamp > current.sessionTimestamp) return true
+        if (candidate.sessionTimestamp < current.sessionTimestamp) return false
+        if (candidate.attemptTimestamp > current.attemptTimestamp) return true
+        if (candidate.attemptTimestamp < current.attemptTimestamp) return false
+        return candidate.attemptId > current.attemptId
+    }
+
+    private fun bindMetaRow(holder: AttemptViewHolder, attempt: DragAttempt) {
+        val tempText = attempt.temperature?.let {
+            UnitsManager.formatTemperature(it, context, decimals = 0)
+        } ?: context.getString(R.string.drag_weather_temp_placeholder)
+        val humidityPercent = attempt.humidity
+        val humidityText = humidityPercent?.let { "$it%" }
+            ?: context.getString(R.string.drag_weather_humidity_placeholder)
+        val windText = attempt.windKph?.let {
+            String.format(Locale.US, "%.0f km/h", it)
+        } ?: context.getString(R.string.drag_weather_wind_placeholder)
+        val clockText = if (attempt.timestamp > 0L) {
+            android.text.format.DateFormat.format("HH:mm", java.util.Date(attempt.timestamp)).toString()
+        } else {
+            "--:--"
+        }
+
+        val savedWeatherIcon = attempt.weatherIcon ?: R.drawable.ic_weather_cloudy
+        val (weatherIconRes, weatherTintRes) = resolveWeatherIconStyle(savedWeatherIcon, humidityPercent)
+
+        holder.ivAttemptWeatherTemp.setImageResource(weatherIconRes)
+        holder.ivAttemptWeatherTemp.setColorFilter(ContextCompat.getColor(context, weatherTintRes))
+        holder.tvAttemptTrackTempValue.text = tempText
+        holder.tvAttemptHumidityValue.text = humidityText
+        holder.tvAttemptWindValue.text = windText
+        holder.tvAttemptTimeValue.text = clockText
+    }
+
+    private fun bindZeroTo200RunSplits(holder: AttemptViewHolder, attempt: DragAttempt) {
+        val split0to100 = attempt.time0to100.takeIf { it > 0L }
+        val split100to200 = resolve100To200SplitTimeNs(attempt)
+
+        holder.tvAttemptSplit0to100.text = "0-100: ${formatInlineSplitTime(split0to100)}"
+        holder.tvAttemptSplit100to200.text = "100-200: ${formatInlineSplitTime(split100to200)}"
+    }
+
+    private fun resolve100To200SplitTimeNs(attempt: DragAttempt): Long? {
+        val directSplit = attempt.time100to200.takeIf { it > 0L }
+        if (directSplit != null) return directSplit
+
+        val time0to100 = attempt.time0to100.takeIf { it > 0L } ?: return null
+        val time0to200 = attempt.time0to200.takeIf { it > 0L } ?: return null
+        val derivedSplit = time0to200 - time0to100
+        return derivedSplit.takeIf { it > 0L }
+    }
+
+    private fun formatInlineSplitTime(timeNs: Long?): String {
+        if (timeNs == null || timeNs <= 0L) return "--"
+        return String.format(Locale.US, "%.3f s", timeNs / 1_000_000_000.0)
+    }
+
+    private fun resolveWeatherIconStyle(iconRes: Int, humidityPercent: Int?): Pair<Int, Int> {
+        val baseIcon = when (iconRes) {
+            R.drawable.ic_weather_sunny -> R.drawable.ic_weather_sunny
+            R.drawable.ic_weather_clear_night -> R.drawable.ic_weather_clear_night
+            R.drawable.ic_weather_partly_cloudy,
+            R.drawable.ic_weather_partly_cloudy_night -> R.drawable.ic_weather_partly_cloudy
+            R.drawable.ic_weather_cloudy -> R.drawable.ic_weather_cloudy
+            R.drawable.ic_weather_rainy -> R.drawable.ic_weather_rainy
+            R.drawable.ic_weather_snowy -> R.drawable.ic_weather_snowy
+            else -> R.drawable.ic_weather_cloudy
+        }
+
+        val finalIcon = if (baseIcon == R.drawable.ic_weather_sunny && (humidityPercent ?: 0) >= 70) {
+            R.drawable.ic_weather_cloudy
+        } else {
+            baseIcon
+        }
+
+        val tintRes = when (finalIcon) {
+            R.drawable.ic_weather_sunny -> R.color.warning_color
+            R.drawable.ic_weather_rainy -> R.color.accent_light
+            R.drawable.ic_weather_snowy -> R.color.accent_light
+            R.drawable.ic_weather_clear_night -> R.color.text_secondary_light
+            R.drawable.ic_weather_cloudy,
+            R.drawable.ic_weather_partly_cloudy -> R.color.text_tertiary
+            else -> R.color.text_tertiary
+        }
+
+        return finalIcon to tintRes
+    }
+
+    private fun applyExpandedState(holder: AttemptViewHolder, expanded: Boolean) {
+        holder.detailsContainer.visibility = if (expanded) View.VISIBLE else View.GONE
+        holder.tvAttemptChevron.text = if (expanded) "^" else "v"
+    }
+
     private fun updateVisibility(holder: AttemptViewHolder) {
         when (measurementMode) {
             MeasurementMode.ZERO_TO_100 -> {
@@ -2238,30 +3160,35 @@ class DragAttemptsAdapter(
                 holder.tvTime0to200.visibility = View.GONE
                 holder.tvTime100to200.visibility = View.GONE
                 holder.tvTime0to402.visibility = View.GONE
+                holder.llZeroTo200RunSplits.visibility = View.GONE
             }
             MeasurementMode.ZERO_TO_200 -> {
                 holder.tvTime0to100.visibility = View.VISIBLE
                 holder.tvTime0to200.visibility = View.VISIBLE
                 holder.tvTime100to200.visibility = View.GONE
                 holder.tvTime0to402.visibility = View.GONE
+                holder.llZeroTo200RunSplits.visibility = View.VISIBLE
             }
             MeasurementMode.HUNDRED_TO_200 -> {
                 holder.tvTime0to100.visibility = View.GONE
                 holder.tvTime0to200.visibility = View.GONE
                 holder.tvTime100to200.visibility = View.VISIBLE
                 holder.tvTime0to402.visibility = View.GONE
+                holder.llZeroTo200RunSplits.visibility = View.GONE
             }
             MeasurementMode.QUARTER_MILE -> {
                 holder.tvTime0to100.visibility = View.GONE
                 holder.tvTime0to200.visibility = View.GONE
                 holder.tvTime100to200.visibility = View.GONE
                 holder.tvTime0to402.visibility = View.VISIBLE
+                holder.llZeroTo200RunSplits.visibility = View.GONE
             }
             MeasurementMode.ALL -> {
                 holder.tvTime0to100.visibility = View.VISIBLE
                 holder.tvTime0to200.visibility = View.VISIBLE
                 holder.tvTime100to200.visibility = View.VISIBLE
                 holder.tvTime0to402.visibility = View.VISIBLE
+                holder.llZeroTo200RunSplits.visibility = View.GONE
             }
         }
     }

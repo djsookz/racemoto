@@ -55,7 +55,7 @@
     <color name="accent_blue">#39E4DB</color>
     <color name="accent_purple">#AB47BC</color>
     <color name="accent_green">#66BB6A</color>
-    <color name="accent_orange">#FFEB3B</color>
+    <color name="accent_orange">#D500FF</color>
     <color name="accent_gold">#FFD700</color>
     <color name="background_dark">#0F0F17</color>
     <color name="stat_bg">#2A2A3A</color>
@@ -85,7 +85,7 @@
 
     <!-- Тъмен background -->
     <color name="dark_background">#0F0F23</color>
-    <color name="dark_surface">#1A1A2E</color>
+    <color name="dark_surface">#121A22</color>
 
     <!-- Светли картели -->
     <color name="card_background_light">#FFFFFF</color>
@@ -131,6 +131,9 @@
     <color name="red">#F44336</color>
     <color name="orange">#FF9800</color>
     <color name="track_neon_green">#00E985</color>
+    <color name="drag_run_green">#B8FF26</color>
+    <color name="drag_run_purple">#B98BFF</color>
+    <color name="drag_run_delta_positive">#FF4D59</color>
 
     <color name="background_transparent_80">#CC000000</color>
 

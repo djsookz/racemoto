@@ -90,14 +90,20 @@
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
-            <ImageButton
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDetails"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:src="@drawable/ic_info"
-                android:background="@drawable/bg_icon_button"
-                app:tint="@android:color/white"
-                android:padding="10dp" />
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="@string/garage_activate_action"
+                android:textAllCaps="false"
+                android:textSize="12sp"
+                app:cornerRadius="18dp" />
 
             <ImageButton
                 android:id="@+id/btnEdit"

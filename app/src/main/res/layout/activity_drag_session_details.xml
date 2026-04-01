@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="#1C1C1E">
+    android:background="@color/background_primary">
 
     <!-- Header -->
     <LinearLayout
@@ -64,7 +64,7 @@
             android:contentDescription="@string/compare_attempts" />
     </LinearLayout>
 
-    <!-- Environment info -->
+    <!-- Keep environment anchor for spacing/layout flow, but do not show temp/alt details -->
     <LinearLayout
         android:id="@+id/llEnvironment"
         android:layout_width="match_parent"
@@ -77,59 +77,291 @@
         android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/llHeader"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cvSingleSessionBest"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="6dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="#0D1117"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="6dp"
+        app:layout_constraintTop_toBottomOf="@id/llEnvironment"
+        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Temperature -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:gravity="center">
-
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/ic_thermometer"
-                app:tint="@color/text_secondary"
-                android:layout_marginEnd="6dp" />
+            android:orientation="vertical"
+            android:paddingHorizontal="22dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp">
 
             <TextView
-                android:id="@+id/tvDetailTemperature"
-                android:layout_width="wrap_content"
+                android:id="@+id/tvSessionBestLabel"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="22°C"
-                android:textSize="15sp"
-                android:textColor="@color/white" />
+                android:gravity="start"
+                android:text="SESSION BEST - 0-100 KM/H"
+                android:textAllCaps="true"
+                android:textColor="@color/text_tertiary"
+                android:textSize="10sp"
+                android:letterSpacing="0.22" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="bottom"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvSessionBestValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--.---"
+                        android:textColor="@color/accent_blue"
+                        android:textSize="60sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvSessionBestValueUnit"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="0dp"
+                        android:layout_marginBottom="0dp"
+                        android:text="S"
+                        android:textColor="@color/accent_blue"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:orientation="vertical"
+                    android:paddingVertical="4dp">
+
+                    <TextView
+                        android:id="@+id/tvSessionBestAtSpeedLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="AT 100 KM/H"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="8sp"
+                        android:letterSpacing="0.12" />
+
+                    <TextView
+                        android:id="@+id/tvSessionBestAtSpeedValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="100 km/h"
+                        android:textColor="@color/text_primary"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvSessionBestPeakGLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="PEAK G"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="8sp"
+                        android:letterSpacing="0.12" />
+
+                    <TextView
+                        android:id="@+id/tvSessionBestPeakGValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="--"
+                        android:textColor="@color/accent_color"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvSessionBestRunLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="ACHIEVED IN"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="8sp"
+                        android:letterSpacing="0.12" />
+
+                    <TextView
+                        android:id="@+id/tvSessionBestRunValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="RUN -"
+                        android:textColor="@color/accent_green"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/llSessionBestStats"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal"
+                android:weightSum="4">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="#121A24"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="8dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="VS PREV PB"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="8sp"
+                        android:letterSpacing="0.16" />
+
+                    <TextView
+                        android:id="@+id/tvSessionBestVsPrevPbValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="--"
+                        android:textColor="@color/accent_purple"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="1dp"
+                    android:background="#121A24"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="8dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="PREV BEST"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="8sp"
+                        android:letterSpacing="0.16" />
+
+                    <TextView
+                        android:id="@+id/tvSessionBestPrevBestValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="--"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="1dp"
+                    android:background="#121A24"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="8dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="AVG ALL RUNS"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="8sp"
+                        android:letterSpacing="0.16" />
+
+                    <TextView
+                        android:id="@+id/tvSessionBestAvgAllRunsValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="--"
+                        android:textColor="#B6FF00"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="1dp"
+                    android:background="#121A24"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="8dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="CONSISTENCY"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="8sp"
+                        android:letterSpacing="0.16" />
+
+                    <TextView
+                        android:id="@+id/tvSessionBestConsistencyValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="--"
+                        android:textColor="#00F7A5"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+            </LinearLayout>
 
         </LinearLayout>
-
-        <!-- Altitude -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:gravity="center">
-
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:src="@drawable/ic_altitude"
-                app:tint="@color/text_secondary"
-                android:layout_marginEnd="6dp" />
-
-            <TextView
-                android:id="@+id/tvDetailAltitude"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="450m"
-                android:textSize="15sp"
-                android:textColor="@color/white" />
-
-        </LinearLayout>
-
-    </LinearLayout>
+    </androidx.cardview.widget.CardView>
 
     <!-- Best times summary -->
     <androidx.cardview.widget.CardView
@@ -139,7 +371,12 @@
         android:layout_margin="6dp"
         app:cardCornerRadius="16dp"
         app:cardElevation="6dp"
-        app:cardBackgroundColor="@color/card_background"
+
+
+
+
+
+        app:cardBackgroundColor="#0D1117"
         app:layout_constraintTop_toBottomOf="@id/llEnvironment"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -148,151 +385,351 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="50dp"
-            android:paddingVertical="6dp"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="10dp"
             android:gravity="center">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/drag_best_times_header"
-                android:textSize="20sp"
+                android:textAllCaps="true"
+                android:letterSpacing="0.16"
+                android:textSize="10sp"
                 android:textStyle="bold"
-                android:textColor="@color/text_primary"
+                android:textColor="@color/text_tertiary"
                 android:layout_marginBottom="12dp" />
 
-            <!-- 0-100 time -->
             <LinearLayout
-                android:id="@+id/ll0to100"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingVertical="4dp"
-                android:gravity="center_vertical">
+                android:orientation="horizontal">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/ll0to100"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:id="@+id/tvLabelBest0to100"
-                    android:text="@string/drag_best_0to100_label"
-                    android:textSize="16sp"
-                    android:textColor="@color/text_primary" />
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/bg_drag_attempt_summary_shell"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="14dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="6dp">
 
-                <TextView
-                    android:id="@+id/tvDetailBest0to100"
-                    android:layout_width="wrap_content"
+                    <TextView
+                        android:id="@+id/tvLabelBest0to100"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0 - 100 KM/H"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="8sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.2" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:gravity="bottom"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvDetailBest0to100"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="--.---"
+                            android:textColor="@color/accent_green"
+                            android:textSize="30sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:text="S"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvBestMeta0to100"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="BEST · RUN -"
+                        android:textAllCaps="true"
+                        android:textColor="@color/accent_green"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="2dp"
+                        android:layout_marginTop="6dp"
+                        android:background="@color/accent_green" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/ll100to200"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="4.532s"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/accent_green" />
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:background="@drawable/bg_drag_attempt_summary_shell"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="14dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="6dp">
 
+                    <TextView
+                        android:id="@+id/tvLabelBest100to200"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="100 - 200 KM/H"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="8sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.2" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:gravity="bottom"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tvDetailBest100to200"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="--.---"
+                            android:textColor="@color/accent_purple"
+                            android:textSize="30sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:text="S"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvBestMeta100to200"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="BEST · RUN -"
+                        android:textAllCaps="true"
+                        android:textColor="@color/accent_purple"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="2dp"
+                        android:layout_marginTop="6dp"
+                        android:background="@color/accent_purple" />
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- 0-200 time -->
             <LinearLayout
-                android:id="@+id/ll0to200"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingVertical="4dp"
-                android:gravity="center_vertical">
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
 
-                <TextView
+                <LinearLayout
+                    android:id="@+id/ll0to200"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:id="@+id/tvLabelBest0to200"
-                    android:text="@string/drag_best_0to200_label"
-                    android:textSize="16sp"
-                    android:textColor="@color/text_primary" />
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/bg_drag_attempt_summary_shell"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="14dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="6dp">
 
-                <TextView
-                    android:id="@+id/tvDetailBest0to200"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="12.456s"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/accent_blue" />
+                    <TextView
+                        android:id="@+id/tvLabelBest0to200"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0 - 200 KM/H"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="8sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.2" />
 
-            </LinearLayout>
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:gravity="bottom"
+                        android:orientation="horizontal">
 
-            <!-- 100-200 time -->
-            <LinearLayout
-                android:id="@+id/ll100to200"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingVertical="4dp"
-                android:gravity="center_vertical">
+                        <TextView
+                            android:id="@+id/tvDetailBest0to200"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="--.---"
+                            android:textColor="@color/accent_blue"
+                            android:textSize="30sp"
+                            android:textStyle="bold" />
 
-                <TextView
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:text="S"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvBestMeta0to200"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="BEST · RUN -"
+                        android:textAllCaps="true"
+                        android:textColor="@color/accent_blue"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="2dp"
+                        android:layout_marginTop="6dp"
+                        android:background="@color/accent_blue" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/ll0to402"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:id="@+id/tvLabelBest100to200"
-                    android:text="@string/drag_best_100to200_label"
-                    android:textSize="16sp"
-                    android:textColor="@color/text_primary" />
+                    android:layout_marginStart="4dp"
+                    android:background="@drawable/bg_drag_attempt_summary_shell"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="14dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="6dp">
 
-                <TextView
-                    android:id="@+id/tvDetailBest100to200"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="7.924s"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/accent_orange" />
+                    <TextView
+                        android:id="@+id/tvLabelBest0to402"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="0 - 402M"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="8sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.2" />
 
-            </LinearLayout>
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:gravity="bottom"
+                        android:orientation="horizontal">
 
-            <!-- 0-402m time -->
-            <LinearLayout
-                android:id="@+id/ll0to402"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingVertical="4dp"
-                android:gravity="center_vertical">
+                        <TextView
+                            android:id="@+id/tvDetailBest0to402"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="--.---"
+                            android:textColor="@color/accent_red"
+                            android:textSize="30sp"
+                            android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:id="@+id/tvLabelBest0to402"
-                    android:text="@string/drag_best_quarter_label"
-                    android:textSize="16sp"
-                    android:textColor="@color/text_primary" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:text="S"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
-                <TextView
-                    android:id="@+id/tvDetailBest0to402"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="11.234s"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/accent_red" />
+                    <TextView
+                        android:id="@+id/tvBestMeta0to402"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="BEST · RUN -"
+                        android:textAllCaps="true"
+                        android:textColor="@color/accent_red"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
 
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="2dp"
+                        android:layout_marginTop="6dp"
+                        android:background="@color/accent_red" />
+                </LinearLayout>
             </LinearLayout>
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
-    <!-- Attempts list header -->
-    <TextView
-        android:id="@+id/tvAttemptsHeader"
+    <androidx.constraintlayout.widget.Barrier
+        android:id="@+id/barTopSummaryBottom"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/drag_all_attempts"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:textColor="@color/text_primary"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/cvBestTimes"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:barrierDirection="bottom"
+        app:constraint_referenced_ids="cvSingleSessionBest,cvBestTimes" />
+
+    <!-- Attempts comparison header -->
+    <LinearLayout
+        android:id="@+id/llAttemptsComparisonHeader"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:layout_marginHorizontal="28dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintTop_toBottomOf="@id/barTopSummaryBottom"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/tvAttemptsHeader"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="ALL RUNS COMPARISON"
+            android:textAllCaps="true"
+            android:textColor="@color/text_tertiary"
+            android:textSize="10sp"
+            android:letterSpacing="0.18" />
+
+        <TextView
+            android:id="@+id/tvRunsCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0 RUNS"
+            android:textAllCaps="true"
+            android:textColor="#B6FF00"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
 
     <!-- No attempts message -->
     <TextView
@@ -303,7 +740,7 @@
         android:textSize="16sp"
         android:textColor="@color/text_secondary"
         android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/tvAttemptsHeader"
+        app:layout_constraintTop_toBottomOf="@id/llAttemptsComparisonHeader"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
@@ -316,7 +753,7 @@
         android:padding="8dp"
         android:layout_marginTop="10dp"
         android:clipToPadding="false"
-        app:layout_constraintTop_toBottomOf="@id/tvAttemptsHeader"
+        app:layout_constraintTop_toBottomOf="@id/llAttemptsComparisonHeader"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

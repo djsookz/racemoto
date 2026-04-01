@@ -15,6 +15,9 @@ data class DragAttempt(
     var timestamp: Long = System.currentTimeMillis(),
     var temperature: Float? = null,
     var altitude: Float? = null,
+    var humidity: Int? = null,
+    var windKph: Float? = null,
+    var weatherIcon: Int? = null,
     val gSamples: List<Float> = emptyList(),
     val gpsAccelSamples: List<Float> = emptyList(),
     val startTime: Long = 0L,
@@ -34,6 +37,9 @@ data class DragAttempt(
         parcel.readLong(),
         parcel.readValue(Float::class.java.classLoader) as? Float,
         parcel.readValue(Float::class.java.classLoader) as? Float,
+        parcel.readValue(Int::class.java.classLoader) as? Int,
+        parcel.readValue(Float::class.java.classLoader) as? Float,
+        parcel.readValue(Int::class.java.classLoader) as? Int,
         parcel.createFloatArray()?.toList() ?: emptyList(),
         parcel.createFloatArray()?.toList() ?: emptyList(),
         parcel.readLong(),
@@ -55,6 +61,9 @@ data class DragAttempt(
         parcel.writeLong(timestamp)
         parcel.writeValue(temperature)
         parcel.writeValue(altitude)
+        parcel.writeValue(humidity)
+        parcel.writeValue(windKph)
+        parcel.writeValue(weatherIcon)
         parcel.writeFloatArray(gSamples.toFloatArray())
         parcel.writeFloatArray(gpsAccelSamples.toFloatArray())
         parcel.writeLong(startTime)

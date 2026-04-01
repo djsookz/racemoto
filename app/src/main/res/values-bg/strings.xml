@@ -176,6 +176,30 @@
     <string name="calibration_need_one">⚠️ Моля калибрирай ПОНЕ ЕДНА ориентация преди използване на приложението</string>
     <string name="calibration_need_profile">⚠️ Моля първо калибрирай %s!</string>
     <string name="calibration_not_calibrated">Не е калибрирано</string>
+
+    <string name="smart_calibration_status_still">Стъпка 1/2: Дръж неподвижно</string>
+    <string name="smart_calibration_status_still_gyro">Стъпка 1/3: Дръж неподвижно</string>
+    <string name="smart_calibration_status_lean_left_target">Стъпка 2/3: Наклони наляво до ~20°</string>
+    <string name="smart_calibration_status_return_upright">Стъпка 2/3: Изправи и задръж</string>
+    <string name="smart_calibration_status_forward_wait">Стъпка 2/2: Подготовка за напред</string>
+    <string name="smart_calibration_status_forward_wait_gyro">Стъпка 3/3: Подготовка за напред</string>
+    <string name="smart_calibration_status_forward">Стъпка 2/2: Тръгни напред</string>
+    <string name="smart_calibration_status_forward_gyro">Стъпка 3/3: Тръгни напред</string>
+    <string name="smart_calibration_guidance_still_warmup">Подготвям сензорите... дръж превозното средство и телефона неподвижни (%1$.1fs)</string>
+    <string name="smart_calibration_guidance_still">Дръж неподвижно.
+Остава: %1$.1fs</string>
+    <string name="smart_calibration_guidance_lean_left">Наклони наляво до %1$d°.
+Текущ: %2$d°  Остават: %3$d°
+Задръж: %4$d/%5$d</string>
+    <string name="smart_calibration_guidance_return_upright">Изправи мотора и задръж неподвижно.
+Прогрес: %1$d/%2$d</string>
+    <string name="smart_calibration_guidance_forward_wait">Старт след: %1$.1fs</string>
+    <string name="smart_calibration_guidance_forward_drive">Прогрес: %1$d/%2$d</string>
+    <string name="smart_calibration_metrics_lean_left_target">Наклон: %1$.1f° / %2$.0f°  Задръж: %3$d/%4$d</string>
+    <string name="smart_calibration_metrics_return_upright">Наклон: %1$.1f°  Изправено: %2$d/%3$d</string>
+    <string name="smart_calibration_metrics_forward_settle">Стабилизиране преди напред: %1$.1fs</string>
+    <string name="smart_calibration_error_not_enough_lean_left">Наклонът наляво е твърде малък или нестабилен. Опитай пак и задръж ясен ляв наклон.</string>
+    <string name="smart_calibration_error_not_upright_return">Не върна мотора в изправено положение навреме. Опитай пак и го изправи напълно преди стъпка 3.</string>
     
     <!-- Drag Session Details -->
     <string name="drag_speed_chart_title">Скорост (км/ч)</string>
@@ -260,8 +284,15 @@
     <string name="track_label_time">Час:</string>
     <string name="track_label_duration">Времетраене:</string>
     <string name="track_label_track">Писта:</string>
+    <string name="track_label_temperature">Температура:</string>
+    <string name="track_label_humidity">Влажност:</string>
     <string name="track_label_laps">Обиколки:</string>
     <string name="track_vehicle_header">Превозно средство</string>
+    <string name="track_overview_header">Преглед на сесията</string>
+    <string name="track_consistency_label">Постоянство</string>
+    <string name="track_best_to_avg_label">Най-добра към средна</string>
+    <string name="track_consistency_not_enough">Недостатъчно обиколки</string>
+    <string name="track_metric_na">Няма данни</string>
     <string name="track_stats_header">Статистики за излизането</string>
     <string name="track_best_time">Най-добро време:</string>
     <string name="track_min_speed">Минимална скорост:</string>
@@ -296,6 +327,15 @@
     <string name="track_laps_label">Обиколки</string>
     <string name="track_new_session">+ Нова сесия</string>
     <string name="track_resume">ПРОДЪЛЖИ</string>
+    <string name="track_all_time_best_label">Най-добро за пистата</string>
+    <string name="track_pb_badge">PB</string>
+    <string name="track_summary_sessions">Сесии</string>
+    <string name="track_summary_laps">Обиколки</string>
+    <string name="track_summary_time">Време</string>
+    <string name="track_summary_time_minutes">%1$dм</string>
+    <string name="track_summary_time_hours_minutes">%1$dч %2$dм</string>
+    <string name="track_session_overview_max_lean_left">Макс лягане L</string>
+    <string name="track_session_overview_max_lean_right">Макс лягане R</string>
     <string name="track_delete_session_title">Изтрий сесия</string>
     <string name="track_delete_session_message">Сигурни ли сте, че искате да изтриете сесията \"%s\"? Това действие не може да бъде отменено.</string>
     <string name="track_delete_button">Изтрий</string>
@@ -339,6 +379,10 @@
     <string name="garage_select_model">Моля изберете модел</string>
     <string name="garage_most_popular">Най-популярни</string>
     <string name="garage_back_press">Натиснете отново за изход</string>
+    <string name="garage_profile_stat_max_lean_left">Макс лягане наляво</string>
+    <string name="garage_profile_stat_max_lean_right">Макс лягане надясно</string>
+    <string name="garage_profile_stat_max_g_force">Макс G-сила</string>
+    <string name="garage_profile_stat_max_accel_g_force">Макс G-сила при ускорение</string>
     
     <!-- Profile Details -->
     <string name="profile_detail_session_text">Сесии</string>

@@ -1,94 +1,430 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="10dp"
+    android:layout_marginHorizontal="10dp"
+    android:layout_marginTop="10dp"
+    android:layout_marginBottom="4dp"
     app:cardCornerRadius="16dp"
-    app:cardElevation="6dp"
-    app:cardBackgroundColor="@color/card_background">
+    app:cardElevation="0dp"
+    app:cardBackgroundColor="@android:color/transparent">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="16dp">
+        android:layout_height="wrap_content">
 
-        <!-- Заглавие (сесия) -->
-        <TextView
-            android:id="@+id/tvSessionName"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:id="@+id/llAllModeContent"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/session_title"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="@color/white"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/btnSessionOptions" />
+            android:background="@drawable/bg_track_metric_speed"
+            android:orientation="horizontal"
+            android:padding="12dp"
 
-        <!-- Бутон за меню (както беше) -->
+
+
+
+            >
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:paddingVertical="1dp"
+                android:layout_marginHorizontal="3dp">
+
+                <TextView
+                    android:id="@+id/tvAllDay"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:text="14"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvAllMonth"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.12"
+                    android:text="MAR"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_tertiary"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="30dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvAllSessionTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Session #3"
+                        android:textColor="@color/text_primary"
+                        android:textSize="25sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvAllPbBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:background="@drawable/bg_drag_session_pb_chip"
+                        android:fontFamily="monospace"
+                        android:paddingHorizontal="7dp"
+                        android:paddingVertical="3dp"
+                        android:text="★ PB"
+                        android:textAllCaps="true"
+                        android:textColor="@color/accent_gold"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/tvAllModeBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:background="@drawable/bg_drag_session_mode_chip"
+                        android:fontFamily="monospace"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="3dp"
+                        android:text="ALL"
+                        android:textAllCaps="true"
+                        android:textColor="#0C120A"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvAllPrimaryLabel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.08"
+                    android:text="BEST 0-402"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_tertiary"
+                    android:textSize="10sp" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
+                    android:gravity="bottom"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvAllPrimaryTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:text="11.612"
+                        android:textColor="@color/drag_run_purple"
+                        android:textSize="35sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_marginBottom="8dp"
+                        android:fontFamily="monospace"
+                        android:text="S"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvAllMetric0to100"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_session_metric_chip"
+                        android:ellipsize="end"
+                        android:fontFamily="monospace"
+                        android:gravity="center"
+                        android:maxLines="1"
+                        android:paddingHorizontal="6dp"
+                        android:paddingVertical="4dp"
+                        android:text="0-100 · --"
+                        android:textColor="@color/drag_run_purple"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvAllMetric0to200"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_session_metric_chip"
+                        android:ellipsize="end"
+                        android:fontFamily="monospace"
+                        android:gravity="center"
+                        android:maxLines="1"
+                        android:paddingHorizontal="6dp"
+                        android:paddingVertical="4dp"
+                        android:text="0-200 · --"
+                        android:textColor="@color/drag_run_purple"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvAllMetric100to200"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_session_metric_chip"
+                        android:ellipsize="end"
+                        android:fontFamily="monospace"
+                        android:gravity="center"
+                        android:maxLines="1"
+                        android:paddingHorizontal="6dp"
+                        android:paddingVertical="4dp"
+                        android:text="100-200 · --"
+                        android:textColor="@color/drag_run_purple"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvAllMetric0to402"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_session_metric_chip"
+                        android:ellipsize="end"
+                        android:fontFamily="monospace"
+                        android:gravity="center"
+                        android:maxLines="1"
+                        android:paddingHorizontal="6dp"
+                        android:paddingVertical="4dp"
+                        android:text="0-402 · --"
+                        android:textColor="@color/drag_run_green"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="8dp"
+                    android:background="#1E2D3A" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:orientation="horizontal"
+                    android:weightSum="3">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="RUNS"
+                            android:textAllCaps="true"
+                            android:textColor="@color/primary_color"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvAllRuns"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="8"
+                            android:textColor="@color/text_primary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="TRAP"
+                            android:textAllCaps="true"
+                            android:textColor="@color/primary_color"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvAllTrap"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="--"
+                            android:textColor="#FFFFFF"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="PEAK G"
+                            android:textAllCaps="true"
+                            android:textColor="@color/primary_color"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvAllPeakG"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="monospace"
+                            android:text="--"
+                            android:textColor="#FFFFFF"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/llSingleModeContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_drag_attempt_summary_shell"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/tvSessionName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="30dp"
+                android:text="@string/session_title"
+                android:textColor="@color/white"
+                android:textSize="25sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvSessionDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:fontFamily="monospace"
+                android:text="01.01.2024 14:30"
+                android:textColor="#D3D3D3"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tvSingleModeBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_drag_session_mode_chip"
+                android:fontFamily="monospace"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:text="0-100"
+                android:textAllCaps="true"
+                android:textColor="#0C120A"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvBestTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:fontFamily="monospace"
+                android:text="0-100: 4.532s"
+                android:textColor="@color/accent_green"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvAttemptCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_label"
+                android:fontFamily="monospace"
+                android:paddingHorizontal="7dp"
+                android:paddingVertical="4dp"
+                android:textColor="@color/white"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/tvEnvironment"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="7dp"
+                android:fontFamily="monospace"
+                android:text="22°C • 450m"
+                android:textColor="#D3D3D3"
+                android:textSize="12sp" />
+        </LinearLayout>
+
         <ImageButton
             android:id="@+id/btnSessionOptions"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/ic_more_vert"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_gravity="top|end"
+            android:layout_marginTop="12dp"
+            android:layout_marginEnd="8dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            app:tint="@color/white"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+            android:src="@drawable/ic_delete"
+            app:tint="@color/red" />
 
-        <!-- Дата -->
-        <TextView
-            android:id="@+id/tvSessionDate"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="01.01.2024 14:30"
-            android:textSize="13sp"
-            android:textColor="#D3D3D3"
-            app:layout_constraintTop_toBottomOf="@id/tvSessionName"
-            app:layout_constraintStart_toStartOf="parent" />
-
-        <!-- Опити -->
-        <TextView
-            android:id="@+id/tvAttemptCount"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:padding="4dp"
-            android:background="@drawable/bg_label"
-            android:textSize="13sp"
-            android:textColor="@color/white"
-            android:fontFamily="monospace"
-            app:layout_constraintTop_toBottomOf="@id/tvSessionDate"
-            app:layout_constraintStart_toStartOf="parent" />
-
-        <!-- Най-добро време -->
-        <TextView
-            android:id="@+id/tvBestTime"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="Best 0-100: 4.532s"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@color/accent_green"
-            app:layout_constraintTop_toBottomOf="@id/tvAttemptCount"
-            app:layout_constraintStart_toStartOf="parent"
-            android:visibility="gone"/>
-
-        <!-- Околна среда -->
-        <TextView
-            android:id="@+id/tvEnvironment"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="22°C • 450m"
-            android:textSize="12sp"
-            android:textColor="#D3D3D3"
-            app:layout_constraintTop_toBottomOf="@id/tvBestTime"
-            app:layout_constraintStart_toStartOf="parent" />
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
+    </FrameLayout>
 </androidx.cardview.widget.CardView>

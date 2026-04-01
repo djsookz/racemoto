@@ -1,16 +1,22 @@
 package com.example.clinometer.drag
 
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.content.ServiceConnection
 import android.content.res.Configuration
 import android.location.Location
 import android.os.*
 import android.util.Log
+import android.util.TypedValue
 import android.view.View
 import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -22,6 +28,8 @@ import com.example.clinometer.*
 import com.example.clinometer.DragCalibration
 import com.example.clinometer.settings.SoundManager
 import com.example.clinometer.settings.UnitsManager
+import android.view.animation.AccelerateDecelerateInterpolator
+import java.util.Locale
 
 enum class MeasurementMode {
     ALL,
@@ -44,8 +52,70 @@ class DragRunPageActivity : BaseActivity() {
 
     private lateinit var btnStop: Button
     private lateinit var tvStatus: TextView
+    private lateinit var statusPulseDot: View
     private lateinit var tvBigSpeed: TextView
     private var tvSpeedUnit: TextView? = null
+    private lateinit var tvAttemptValue: TextView
+    private lateinit var ivWeatherCondition: ImageView
+    private lateinit var tvWeatherTemp: TextView
+    private lateinit var tvWeatherHumidity: TextView
+    private lateinit var tvWeatherWind: TextView
+    private lateinit var singleModeContainer: LinearLayout
+    private var llTimeCards: LinearLayout? = null
+    private var timeCardsFrame: FrameLayout? = null
+    private var quarterHeaderContainer: LinearLayout? = null
+    private lateinit var quarterSectorsContainer: LinearLayout
+    private lateinit var allModeContainer: LinearLayout
+    private lateinit var tvSingleMetricLabel: TextView
+    private lateinit var tvSingleMetricValue: TextView
+    private lateinit var llZeroTo200Splits: LinearLayout
+    private lateinit var tvSingleModeMinSpeed: TextView
+    private lateinit var pbZeroTo200Progress: ProgressBar
+    private lateinit var tvZeroTo200MaxSpeed: TextView
+    private lateinit var llZeroTo200StageRow: LinearLayout
+    private lateinit var tvZeroTo200Stage0to100: TextView
+    private lateinit var tvZeroTo200Stage100to200: TextView
+    private var llZeroTo200StageRowInAccel: LinearLayout? = null
+    private var tvZeroTo200Stage0to100InAccel: TextView? = null
+    private var tvZeroTo200Stage100to200InAccel: TextView? = null
+    private lateinit var tvQuarterMetricLabel: TextView
+    private lateinit var tvQuarterMetricValue: TextView
+    private lateinit var tvQuarterProgressMin: TextView
+    private lateinit var tvQuarterProgressMax: TextView
+    private lateinit var pbQuarterProgress: ProgressBar
+    private lateinit var tvSector50Time: TextView
+    private lateinit var tvSector100Time: TextView
+    private lateinit var tvSector200Time: TextView
+    private lateinit var tvSector300Time: TextView
+    private lateinit var tvSector402Time: TextView
+    private lateinit var tvSector50Speed: TextView
+    private lateinit var tvSector100Speed: TextView
+    private lateinit var tvSector200Speed: TextView
+    private lateinit var tvSector300Speed: TextView
+    private lateinit var tvSector402Speed: TextView
+    private lateinit var pbAll0to100: ProgressBar
+    private lateinit var pbAll100to200: ProgressBar
+    private lateinit var pbAll0to200: ProgressBar
+    private lateinit var pbAll0to402: ProgressBar
+    private var allModeQuarterSectorsInAccel: LinearLayout? = null
+    private var tvAllModeSector50Time: TextView? = null
+    private var tvAllModeSector100Time: TextView? = null
+    private var tvAllModeSector200Time: TextView? = null
+    private var tvAllModeSector300Time: TextView? = null
+    private var tvAllModeSector402Time: TextView? = null
+    private var tvAllModeSector50Speed: TextView? = null
+    private var tvAllModeSector100Speed: TextView? = null
+    private var tvAllModeSector200Speed: TextView? = null
+    private var tvAllModeSector300Speed: TextView? = null
+    private var tvAllModeSector402Speed: TextView? = null
+    private var accelForcePanel: LinearLayout? = null
+    private var accelTrackContainer: View? = null
+    private var tvAccelForceLabel: TextView? = null
+    private var tvAccelTick05: TextView? = null
+    private var tvAccelScale075: TextView? = null
+    private var tvAccelScale10: TextView? = null
+    private var tvAccelScale125: TextView? = null
+    private var tvAccelTick15: TextView? = null
 
     private lateinit var tvCard0to100: TextView
     private lateinit var tvCard0to200: TextView
@@ -73,6 +143,14 @@ class DragRunPageActivity : BaseActivity() {
     private var profileId: Long = -1L
     private var temperature: Float? = null
     private var altitude: Float? = null
+    private var humidity: Int? = null
+    private var windKph: Float? = null
+    private var weatherIcon: Int? = null
+    private val QUARTER_MILE_SECTOR_50 = 50f
+    private val QUARTER_MILE_SECTOR_100 = 100f
+    private val QUARTER_MILE_SECTOR_200 = 200f
+    private val QUARTER_MILE_SECTOR_300 = 300f
+    private val QUARTER_MILE_SECTOR_402 = 402.336f
 
     private val START_SPEED_THRESHOLD = 4f  // Започваме измерване над 4 km/h за реални тестове
     private val CALIBRATION_SPEED = 10f     // Събираме данни до 10 km/h за изчисляване на ускорението
@@ -99,7 +177,7 @@ class DragRunPageActivity : BaseActivity() {
     private var finishTimeNano: Long = -1L
     private val TARGET_METERS = 402.336f
     private val GPS_READY_ACCURACY_METERS = 30f
-    private val FULL_STOP_REARM_SPEED_KMH = 3f
+    private val FULL_STOP_REARM_SPEED_KMH = 3f // Re-arm only after near full stop
     private val DECELERATION_DELTA_KMH = -5f
     private val DECELERATION_MAX_SPEED_KMH = 80f
     private val ROLLING_START_MIN_KMH = 95f
@@ -137,6 +215,16 @@ class DragRunPageActivity : BaseActivity() {
     private var attempt100to200Nanos: Long = -1L
     private var attempt0to402Nanos: Long = -1L
     private var timeAt100Nano: Long = -1L
+    private var sector50TimeNanos: Long = -1L
+    private var sector100TimeNanos: Long = -1L
+    private var sector200TimeNanos: Long = -1L
+    private var sector300TimeNanos: Long = -1L
+    private var sector402TimeNanos: Long = -1L
+    private var sector50SpeedKmh: Float = -1f
+    private var sector100SpeedKmh: Float = -1f
+    private var sector200SpeedKmh: Float = -1f
+    private var sector300SpeedKmh: Float = -1f
+    private var sector402SpeedKmh: Float = -1f
 
     private var lastSpeed: Float = 0f
     private var decelerationDetected = false
@@ -145,11 +233,33 @@ class DragRunPageActivity : BaseActivity() {
     private lateinit var tvGCurrentBig: TextView
     private lateinit var gGaugeView: com.example.clinometer.GGaugeView
     private lateinit var gContainer: LinearLayout
+    private lateinit var tvAccelForceCurrent: TextView
+    private lateinit var tvAccelPeakSummary: TextView
+    private lateinit var pbAccelForce: ProgressBar
+    private lateinit var vAccelMarker: View
     private var isShowingGForceInsteadOfSpeed = false
     private var lastDisplayedConvertedSpeed = 0f
     private var lastDisplayedG = 0f
+    private var displayedAccelForceG = 0f
+    private var peakAccelForceG = 0f
+    private val ACCEL_FORCE_MAX_G = 1.5f
+    private val ACCEL_PANEL_FRAME_MS = 16L
+    private val accelPanelHandler = Handler(Looper.getMainLooper())
+    private var accelPanelLoopActive = false
+    private var lastAccelTextValue = Float.NaN
+    private var lastAccelPeakTextValue = Float.NaN
+    private var lastAccelProgressValue = -1
+    private val accelPanelRunnable = object : Runnable {
+        override fun run() {
+            if (!accelPanelLoopActive) return
+            sampleAndRenderAccelerationPanel()
+            accelPanelHandler.postDelayed(this, ACCEL_PANEL_FRAME_MS)
+        }
+    }
 
     private var measurementStarted = false
+    private var isStatusPulseActive = false
+    private var statusPulseAnimator: AnimatorSet? = null
     private val RESTART_COOLDOWN_MS = 5000L
     private var restartCooldownActive = false
     private var restartCooldownEndTime = 0L
@@ -180,6 +290,7 @@ class DragRunPageActivity : BaseActivity() {
             if (measuring) startPolling()
             updateReadyStatus()
             syncServiceRunOrientation()
+            ensureDragCalibrationRuntimeReady()
             
             // Стартирай измерването когато service-ът се свърже
             if (!measurementStarted) {
@@ -235,10 +346,14 @@ class DragRunPageActivity : BaseActivity() {
         
         // Зареждаме калибрацията за този профил
         DragCalibration.setProfile(profileId)
+        ensureDragCalibrationRuntimeReady()
         Log.d("DragRunPage", "📍 Profile ID: $profileId, Calibrated: ${DragCalibration.isCalibrated}, Portrait: ${DragCalibration.isPortraitCalibrated}, Landscape: ${DragCalibration.isLandscapeCalibrated}")
         
         temperature = intent.getFloatExtra("TEMPERATURE", 0f).takeIf { it != 0f }
         altitude = intent.getFloatExtra("ALTITUDE", 0f).takeIf { it != 0f }
+        humidity = intent.getIntExtra("HUMIDITY", -1).takeIf { it in 0..100 }
+        windKph = intent.getFloatExtra("WIND_KPH", Float.NaN).takeIf { !it.isNaN() && it >= 0f }
+        weatherIcon = intent.getIntExtra("WEATHER_ICON", -1).takeIf { it != -1 }
         
         // Get GPS coordinates if available
         val latitude = intent.getDoubleExtra("LATITUDE", 0.0).takeIf { it != 0.0 }
@@ -269,20 +384,24 @@ class DragRunPageActivity : BaseActivity() {
 
     private fun updateReadyStatus() {
         runOnUiThread {
+            ensureDragCalibrationRuntimeReady()
             when {
                 !serviceReady -> {
                     tvStatus.text = getString(R.string.drag_status_initializing)
                     tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
+                    setStatusPulseActive(false)
                 }
                 !gpsReady -> {
                     tvStatus.text = getString(R.string.drag_status_waiting_gps)
                     tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
+                    setStatusPulseActive(false)
                 }
                 else -> {
                     tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
+                    setStatusPulseActive(false)
                     
                     // Проверяваме калибрацията на посоката
-                    if (!DragCalibration.isCalibrated) {
+                    if (!hasUsableDragCalibration()) {
                         // Не е калибрирано - насочваме към Settings
                         tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_red_light))
                         tvStatus.text = "⚠️ Not calibrated! Go to Settings → Calibration"
@@ -315,37 +434,96 @@ class DragRunPageActivity : BaseActivity() {
     private fun initializeViews() {
         btnStop = findViewById(R.id.btnStartMeasure)
         tvStatus = findViewById(R.id.tvMeasureStatus)
+        statusPulseDot = findViewById(R.id.viewStatusPulseDot)
         tvBigSpeed = findViewById(R.id.tvBigSpeed)
         tvSpeedUnit = findViewById(R.id.tvSpeedUnit)
+        tvAttemptValue = findViewById(R.id.tvAttemptValue)
+        ivWeatherCondition = findViewById(R.id.ivWeatherCondition)
+        tvWeatherTemp = findViewById(R.id.tvWeatherTemp)
+        tvWeatherHumidity = findViewById(R.id.tvWeatherHumidity)
+        tvWeatherWind = findViewById(R.id.tvWeatherWind)
+        singleModeContainer = findViewById(R.id.singleModeContainer)
+        llTimeCards = findViewById(R.id.llTimeCards)
+        timeCardsFrame = findViewById(R.id.timeCardsFrame)
+        quarterHeaderContainer = findViewById(R.id.quarterHeaderContainer)
+        quarterSectorsContainer = findViewById(R.id.quarterSectorsContainer)
+        allModeContainer = findViewById(R.id.allModeContainer)
+        tvSingleMetricLabel = findViewById(R.id.tvSingleMetricLabel)
+        tvSingleMetricValue = findViewById(R.id.tvSingleMetricValue)
+        llZeroTo200Splits = findViewById(R.id.llZeroTo200Splits)
+        tvSingleModeMinSpeed = findViewById(R.id.tvSingleModeMinSpeed)
+        pbZeroTo200Progress = findViewById(R.id.pbZeroTo200Progress)
+        tvZeroTo200MaxSpeed = findViewById(R.id.tvZeroTo200MaxSpeed)
+        llZeroTo200StageRow = findViewById(R.id.llZeroTo200StageRow)
+        tvZeroTo200Stage0to100 = findViewById(R.id.tvZeroTo200Stage0to100)
+        tvZeroTo200Stage100to200 = findViewById(R.id.tvZeroTo200Stage100to200)
+        llZeroTo200StageRowInAccel = findViewById(R.id.llZeroTo200StageRowInAccel)
+        tvZeroTo200Stage0to100InAccel = findViewById(R.id.tvZeroTo200Stage0to100InAccel)
+        tvZeroTo200Stage100to200InAccel = findViewById(R.id.tvZeroTo200Stage100to200InAccel)
+        tvQuarterMetricLabel = findViewById(R.id.tvQuarterMetricLabel)
+        tvQuarterMetricValue = findViewById(R.id.tvQuarterMetricValue)
+        tvQuarterProgressMin = findViewById(R.id.tvQuarterProgressMin)
+        tvQuarterProgressMax = findViewById(R.id.tvQuarterProgressMax)
+        pbQuarterProgress = findViewById(R.id.pbQuarterProgress)
+        tvSector50Time = findViewById(R.id.tvSector50Time)
+        tvSector100Time = findViewById(R.id.tvSector100Time)
+        tvSector200Time = findViewById(R.id.tvSector200Time)
+        tvSector300Time = findViewById(R.id.tvSector300Time)
+        tvSector402Time = findViewById(R.id.tvSector402Time)
+        tvSector50Speed = findViewById(R.id.tvSector50Speed)
+        tvSector100Speed = findViewById(R.id.tvSector100Speed)
+        tvSector200Speed = findViewById(R.id.tvSector200Speed)
+        tvSector300Speed = findViewById(R.id.tvSector300Speed)
+        tvSector402Speed = findViewById(R.id.tvSector402Speed)
+        pbAll0to100 = findViewById(R.id.pbAll0to100)
+        pbAll100to200 = findViewById(R.id.pbAll100to200)
+        pbAll0to200 = findViewById(R.id.pbAll0to200)
+        pbAll0to402 = findViewById(R.id.pbAll0to402)
+        allModeQuarterSectorsInAccel = findViewById(R.id.allModeQuarterSectorsInAccel)
+        tvAllModeSector50Time = findViewById(R.id.tvAllModeSector50Time)
+        tvAllModeSector100Time = findViewById(R.id.tvAllModeSector100Time)
+        tvAllModeSector200Time = findViewById(R.id.tvAllModeSector200Time)
+        tvAllModeSector300Time = findViewById(R.id.tvAllModeSector300Time)
+        tvAllModeSector402Time = findViewById(R.id.tvAllModeSector402Time)
+        tvAllModeSector50Speed = findViewById(R.id.tvAllModeSector50Speed)
+        tvAllModeSector100Speed = findViewById(R.id.tvAllModeSector100Speed)
+        tvAllModeSector200Speed = findViewById(R.id.tvAllModeSector200Speed)
+        tvAllModeSector300Speed = findViewById(R.id.tvAllModeSector300Speed)
+        tvAllModeSector402Speed = findViewById(R.id.tvAllModeSector402Speed)
 
         tvGCurrentBig = findViewById(R.id.tvGCurrentBig)
         gGaugeView = findViewById(R.id.gGaugeView)
         gContainer = findViewById(R.id.g_container)
+        tvAccelForceCurrent = findViewById(R.id.tvAccelForceCurrent)
+        tvAccelPeakSummary = findViewById(R.id.tvAccelPeakSummary)
+        pbAccelForce = findViewById(R.id.pbAccelForce)
+        vAccelMarker = findViewById(R.id.vAccelMarker)
+        accelForcePanel = findViewById(R.id.accelForcePanel)
+        accelTrackContainer = findViewById(R.id.accelTrackContainer)
+        tvAccelForceLabel = findViewById(R.id.tvAccelForceLabel)
+        tvAccelTick05 = findViewById(R.id.tvAccelTick05)
+        tvAccelScale075 = findViewById(R.id.tvAccelScale075)
+        tvAccelScale10 = findViewById(R.id.tvAccelScale10)
+        tvAccelScale125 = findViewById(R.id.tvAccelScale125)
+        tvAccelTick15 = findViewById(R.id.tvAccelTick15)
 
-        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-        if (isLandscape) {
-            val toggleListener = View.OnClickListener { togglePrimaryDisplay() }
-            tvBigSpeed.setOnClickListener(toggleListener)
-            tvGCurrentBig.setOnClickListener(toggleListener)
-            gContainer.setOnClickListener(toggleListener)
-            gGaugeView.setOnClickListener(toggleListener)
-            tvBigSpeed.isClickable = true
-            tvGCurrentBig.isClickable = true
-            gContainer.isClickable = true
-            gGaugeView.isClickable = true
-        } else {
-            tvBigSpeed.setOnClickListener(null)
-            tvGCurrentBig.setOnClickListener(null)
-            gContainer.setOnClickListener(null)
-            gGaugeView.setOnClickListener(null)
-            tvBigSpeed.isClickable = false
-            tvGCurrentBig.isClickable = false
-            gContainer.isClickable = false
-            gGaugeView.isClickable = false
-        }
+        tvBigSpeed.setOnClickListener(null)
+        tvGCurrentBig.setOnClickListener(null)
+        gContainer.setOnClickListener(null)
+        gGaugeView.setOnClickListener(null)
+        tvBigSpeed.isClickable = false
+        tvGCurrentBig.isClickable = false
+        gContainer.isClickable = false
+        gGaugeView.isClickable = false
         
         // Update speed unit label
         tvSpeedUnit?.text = UnitsManager.getSpeedUnit(this).symbol
+        updateWeatherSummaryDisplay()
+        updateAttemptIndicator()
+        resetQuarterSectorDisplay()
+        resetZeroTo200SplitDisplay()
+        updateAllModeProgress(0f)
+        resetAccelerationForcePanel()
 
 
         tvCard0to100 = findViewById(R.id.tvCard0to100Value)
@@ -380,7 +558,7 @@ class DragRunPageActivity : BaseActivity() {
         applyPrimaryDisplayState()
 
         btnStop.setOnClickListener {
-            if (measurementMode == MeasurementMode.ALL && measured0to100 && measured0to200 && measured100to200 && measured0to402) {
+            if (measurementMode == MeasurementMode.ALL && measured0to100 && measured0to200 && measured100to200 && measured0to402 && !waitingForFullStop) {
                 finishSession()
             } else {
                 showStopConfirmation()
@@ -389,36 +567,170 @@ class DragRunPageActivity : BaseActivity() {
     }
 
     private fun configureUIForMode() {
-        card0to100.visibility = View.GONE
-        card0to200.visibility = View.GONE
-        card100to200.visibility = View.GONE
-        card0to402.visibility = View.GONE
+        singleModeContainer.visibility = View.GONE
+        quarterHeaderContainer?.visibility = View.GONE
+        quarterSectorsContainer.visibility = View.GONE
+        allModeQuarterSectorsInAccel?.visibility = View.GONE
+        llZeroTo200StageRowInAccel?.visibility = View.GONE
+        allModeContainer.visibility = View.GONE
+
+        val speedUnit = UnitsManager.getSpeedUnit(this)
+        val speed100 = UnitsManager.convertSpeed(100f, speedUnit).toInt()
+        val speed200 = UnitsManager.convertSpeed(200f, speedUnit).toInt()
+        val speedSymbol = speedUnit.symbol
 
         when (measurementMode) {
             MeasurementMode.ALL -> {
-                card0to100.visibility = View.VISIBLE
-                card0to200.visibility = View.VISIBLE
-                card100to200.visibility = View.VISIBLE
-                card0to402.visibility = View.VISIBLE
+                allModeContainer.visibility = View.VISIBLE
+                allModeQuarterSectorsInAccel?.visibility = View.VISIBLE
+                if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                    quarterSectorsContainer.visibility = View.VISIBLE
+                }
+                llZeroTo200Splits.visibility = View.GONE
                 tvStatus.text = getString(R.string.drag_waiting_for_acceleration)
             }
             MeasurementMode.ZERO_TO_100 -> {
-                card0to100.visibility = View.VISIBLE
+                singleModeContainer.visibility = View.VISIBLE
+                llZeroTo200Splits.visibility = View.VISIBLE
+                tvSingleMetricLabel.text = "0-$speed100 $speedSymbol"
                 tvStatus.text = getString(R.string.drag_status_ready_0to100)
             }
             MeasurementMode.ZERO_TO_200 -> {
-                card0to200.visibility = View.VISIBLE
+                singleModeContainer.visibility = View.VISIBLE
+                llZeroTo200Splits.visibility = View.VISIBLE
+                tvSingleMetricLabel.text = "0-$speed200 $speedSymbol"
                 tvStatus.text = getString(R.string.drag_status_ready_0to200)
             }
             MeasurementMode.HUNDRED_TO_200 -> {
-                card100to200.visibility = View.VISIBLE
+                singleModeContainer.visibility = View.VISIBLE
+                llZeroTo200Splits.visibility = View.VISIBLE
+                tvSingleMetricLabel.text = "$speed100-$speed200 $speedSymbol"
                 tvStatus.text = getString(R.string.drag_status_ready_100to200)
             }
             MeasurementMode.QUARTER_MILE -> {
-                card0to402.visibility = View.VISIBLE
+                quarterHeaderContainer?.visibility = View.VISIBLE
+                quarterSectorsContainer.visibility = View.VISIBLE
+                llZeroTo200Splits.visibility = View.GONE
                 tvStatus.text = getString(R.string.drag_status_ready_quarter)
             }
         }
+
+        val useCompactAccelPanel =
+            measurementMode == MeasurementMode.QUARTER_MILE || measurementMode == MeasurementMode.ALL
+        applyPortraitTimeCardsBalanceForMode(
+            useFlexibleCards = measurementMode == MeasurementMode.ALL || measurementMode == MeasurementMode.QUARTER_MILE
+        )
+        applyAccelForceSizingForMode(useCompactAccelPanel)
+
+        updateSingleModeMetricDisplay()
+        updateZeroTo200SplitDisplay(0f)
+        updateQuarterModeMetricDisplay()
+        updateQuarterSectorDisplay()
+    }
+
+    private fun applyPortraitTimeCardsBalanceForMode(useFlexibleCards: Boolean) {
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        if (isLandscape) return
+
+        llTimeCards?.layoutParams = (llTimeCards?.layoutParams as? LinearLayout.LayoutParams)?.apply {
+            height = if (useFlexibleCards) 0 else LinearLayout.LayoutParams.WRAP_CONTENT
+            weight = if (useFlexibleCards) 1f else 0f
+        }
+
+        timeCardsFrame?.layoutParams = (timeCardsFrame?.layoutParams as? LinearLayout.LayoutParams)?.apply {
+            height = if (useFlexibleCards) 0 else LinearLayout.LayoutParams.WRAP_CONTENT
+            weight = if (useFlexibleCards) 1f else 0f
+        }
+
+        llTimeCards?.requestLayout()
+        timeCardsFrame?.requestLayout()
+    }
+
+    private fun shouldUseLandscapeAccelSplitPills(): Boolean {
+        return resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE &&
+            measurementMode == MeasurementMode.ZERO_TO_200 &&
+            llZeroTo200StageRowInAccel != null &&
+            tvZeroTo200Stage0to100InAccel != null &&
+            tvZeroTo200Stage100to200InAccel != null
+    }
+
+    private fun applyAccelForceSizingForMode(isQuarterMode: Boolean) {
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        if (!isLandscape) {
+            // Portrait sizing is controlled by XML to keep rendering consistent across real devices.
+            return
+        }
+
+        val useCompact = isQuarterMode
+
+        val panelPaddingDp = when {
+            useCompact -> 6
+            else -> 10
+        }
+        val currentValueSp = when {
+            useCompact -> 28f
+            else -> 36f
+        }
+        val labelSp = when {
+            useCompact -> 10f
+            else -> 11f
+        }
+        val tickSp = when {
+            useCompact -> 9f
+            else -> 10f
+        }
+        val peakSp = when {
+            useCompact -> 9f
+            else -> 10f
+        }
+
+        accelForcePanel?.setPadding(
+            dpToPx(panelPaddingDp),
+            dpToPx(panelPaddingDp),
+            dpToPx(panelPaddingDp),
+            dpToPx(panelPaddingDp)
+        )
+        tvAccelForceCurrent.setTextSize(TypedValue.COMPLEX_UNIT_SP, currentValueSp)
+        tvAccelForceLabel?.setTextSize(TypedValue.COMPLEX_UNIT_SP, labelSp)
+        tvAccelTick05?.setTextSize(TypedValue.COMPLEX_UNIT_SP, tickSp)
+        tvAccelScale075?.setTextSize(TypedValue.COMPLEX_UNIT_SP, tickSp)
+        tvAccelScale10?.setTextSize(TypedValue.COMPLEX_UNIT_SP, tickSp)
+        tvAccelScale125?.setTextSize(TypedValue.COMPLEX_UNIT_SP, tickSp)
+        tvAccelTick15?.setTextSize(TypedValue.COMPLEX_UNIT_SP, tickSp)
+        tvAccelPeakSummary.setTextSize(TypedValue.COMPLEX_UNIT_SP, peakSp)
+
+        accelTrackContainer?.layoutParams = accelTrackContainer?.layoutParams?.apply {
+            height = dpToPx(
+                when {
+                    useCompact -> 20
+                    else -> 26
+                }
+            )
+        }
+        pbAccelForce.layoutParams = pbAccelForce.layoutParams.apply {
+            height = dpToPx(
+                when {
+                    useCompact -> 10
+                    else -> 14
+                }
+            )
+        }
+        vAccelMarker.layoutParams = vAccelMarker.layoutParams.apply {
+            height = dpToPx(
+                when {
+                    useCompact -> 11
+                    else -> 16
+                }
+            )
+        }
+
+        accelTrackContainer?.requestLayout()
+        pbAccelForce.requestLayout()
+        vAccelMarker.requestLayout()
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
     }
 
     private fun createNewSession() {
@@ -456,7 +768,10 @@ class DragRunPageActivity : BaseActivity() {
 
         currentAttempt = DragAttempt(
             temperature = temperature,
-            altitude = altitude
+            altitude = altitude,
+            humidity = humidity,
+            windKph = windKph,
+            weatherIcon = weatherIcon
         )
 
         measuring = true
@@ -471,17 +786,16 @@ class DragRunPageActivity : BaseActivity() {
         accumulatedDistance = 0f
         lastLocationForDistance = null
 
-        if (measurementMode != MeasurementMode.ALL) {
-            measured0to100 = false
-            measured0to200 = false
-            measured100to200 = false
-            measured0to402 = false
-            
-            // Reset sound flags
-            sound100Played = false
-            sound200Played = false
-            sound402Played = false
-        }
+        measured0to100 = false
+        measured0to200 = false
+        measured100to200 = false
+        measured0to402 = false
+        
+        // Reset sound flags
+        sound100Played = false
+        sound200Played = false
+        sound402Played = false
+        resetAccelerationForcePanel()
 
         accelStartNano = 0L
         attempt0to100Nanos = -1L
@@ -489,10 +803,13 @@ class DragRunPageActivity : BaseActivity() {
         attempt100to200Nanos = -1L
         attempt0to402Nanos = -1L
         timeAt100Nano = -1L
+        resetQuarterSectorState()
+        resetQuarterSectorDisplay()
+        resetZeroTo200SplitDisplay()
+        updateAllModeProgress(0f)
 
-        if (measurementMode != MeasurementMode.ALL) {
-            resetDisplayValues()
-        }
+        resetDisplayValues()
+        updateSingleModeMetricDisplay()
 
         updateAttemptNumber()
     }
@@ -520,7 +837,7 @@ class DragRunPageActivity : BaseActivity() {
 
             // Изчисли времената базирани на режима
             val attempt0to100Result = when (measurementMode) {
-                MeasurementMode.ZERO_TO_100, MeasurementMode.ALL ->
+                MeasurementMode.ZERO_TO_100, MeasurementMode.ZERO_TO_200, MeasurementMode.ALL ->
                     if (attempt0to100Nanos > 0) attempt0to100Nanos else -1L
                 else -> -1L
             }
@@ -536,6 +853,8 @@ class DragRunPageActivity : BaseActivity() {
                     val result = if (attempt100to200Nanos > 0) attempt100to200Nanos else -1L
                     result
                 }
+                MeasurementMode.ZERO_TO_200 ->
+                    if (attempt100to200Nanos > 0) attempt100to200Nanos else -1L
                 MeasurementMode.ALL ->
                     if (attempt100to200Nanos > 0) attempt100to200Nanos else -1L
                 else -> -1L
@@ -711,10 +1030,10 @@ class DragRunPageActivity : BaseActivity() {
                 "--"
             }
         } else {
-            tvCard0to100.text = "--"
-            tvCard0to200.text = "--"
-            tvCard100to200.text = "--"
-            tvCard0to402.text = "--"
+            tvCard0to100.text = "--.---"
+            tvCard0to200.text = "--.---"
+            tvCard100to200.text = "--.---"
+            tvCard0to402.text = "--.---"
         }
         val speedUnit = UnitsManager.getSpeedUnit(this)
         if (speedUnit == UnitsManager.SpeedUnit.MPH) {
@@ -722,12 +1041,45 @@ class DragRunPageActivity : BaseActivity() {
         } else {
             tvCard0to402Distance.text = "0 m"
         }
-        tvCard0to402Distance.visibility = if (measurementMode == MeasurementMode.QUARTER_MILE || measurementMode == MeasurementMode.ALL) View.VISIBLE else View.GONE
+        tvCard0to402Distance.visibility = if (measurementMode == MeasurementMode.ALL) View.VISIBLE else View.GONE
 
         lastDisplayedConvertedSpeed = 0f
         lastDisplayedG = 0f
         isShowingGForceInsteadOfSpeed = false
         applyPrimaryDisplayState()
+        updateSingleModeMetricDisplay()
+        updateZeroTo200SplitDisplay(0f)
+        updateQuarterModeMetricDisplay()
+        updateQuarterSectorDisplay()
+        updateAllModeProgress(0f)
+    }
+
+    private fun updateQuarterModeMetricDisplay() {
+        if (!::tvQuarterMetricValue.isInitialized || measurementMode != MeasurementMode.QUARTER_MILE) {
+            return
+        }
+
+        val quarterLabel = UnitsManager.getQuarterMileDistance(this)
+        tvQuarterMetricLabel.text = "0-$quarterLabel"
+        tvQuarterProgressMin.text = "0"
+        tvQuarterProgressMax.text = quarterLabel
+
+        val nowNano = System.nanoTime()
+        val measurementStartTimeNano = foregroundService?.getMeasurementStartTimeNano() ?: 0L
+        val valueText = when {
+            attempt0to402Nanos > 0L -> formatSecondsValue(attempt0to402Nanos)
+            started && measurementStartTimeNano > 0L -> formatSecondsValue(nowNano - measurementStartTimeNano)
+            else -> "--.---"
+        }
+        tvQuarterMetricValue.text = valueText
+
+        val isActiveMeasurement = started && !measurementComplete && !waitingForFullStop
+        val progress = when {
+            measured0to402 -> 100
+            !isActiveMeasurement -> 0
+            else -> ((accumulatedDistance / TARGET_METERS) * 100f).toInt().coerceIn(0, 100)
+        }
+        pbQuarterProgress.progress = progress
     }
 
     private fun togglePrimaryDisplay() {
@@ -736,36 +1088,82 @@ class DragRunPageActivity : BaseActivity() {
     }
 
     private fun applyPrimaryDisplayState() {
-        val orientation = resources.configuration.orientation
-        val isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE
+        tvBigSpeed.visibility = View.VISIBLE
+        tvSpeedUnit?.visibility = View.VISIBLE
+        gContainer.visibility = View.GONE
+        tvGCurrentBig.visibility = View.GONE
+        tvBigSpeed.text = lastDisplayedConvertedSpeed.toInt().toString()
+        tvGCurrentBig.text = String.format("%.2f g", lastDisplayedG)
+    }
 
-        if (isLandscape) {
-            if (isShowingGForceInsteadOfSpeed) {
-                tvBigSpeed.visibility = View.GONE
-                tvSpeedUnit?.visibility = View.GONE
-                gContainer.visibility = View.VISIBLE
-                tvGCurrentBig.visibility = View.VISIBLE
-                tvGCurrentBig.text = String.format("%.2f g", lastDisplayedG)
-            } else {
-                tvBigSpeed.visibility = View.VISIBLE
-                tvSpeedUnit?.visibility = View.VISIBLE
-                tvGCurrentBig.visibility = View.GONE
-                gContainer.visibility = View.GONE
-                tvBigSpeed.text = lastDisplayedConvertedSpeed.toInt().toString()
-                tvGCurrentBig.text = String.format("%.2f g", lastDisplayedG)
-            }
-        } else {
-            // Portrait: always show both
-            tvBigSpeed.visibility = View.VISIBLE
-            tvSpeedUnit?.visibility = View.VISIBLE
-            gContainer.visibility = View.VISIBLE
-            tvGCurrentBig.visibility = View.VISIBLE
-            tvBigSpeed.text = lastDisplayedConvertedSpeed.toInt().toString()
-            tvGCurrentBig.text = String.format("%.2f g", lastDisplayedG)
+    private fun resetAccelerationForcePanel() {
+        displayedAccelForceG = 0f
+        peakAccelForceG = 0f
+        lastAccelTextValue = Float.NaN
+        lastAccelPeakTextValue = Float.NaN
+        lastAccelProgressValue = -1
+        updateAccelerationForcePanel(0f, 0f)
+    }
+
+    private fun startAccelerationPanelLoop() {
+        if (accelPanelLoopActive) return
+        accelPanelLoopActive = true
+        accelPanelHandler.removeCallbacks(accelPanelRunnable)
+        accelPanelHandler.post(accelPanelRunnable)
+    }
+
+    private fun stopAccelerationPanelLoop() {
+        accelPanelLoopActive = false
+        accelPanelHandler.removeCallbacks(accelPanelRunnable)
+    }
+
+    private fun sampleAndRenderAccelerationPanel() {
+        val svc = foregroundService ?: return
+        // currentGForceY is inertial-directional on some devices; invert so panel tracks forward acceleration.
+        val rawAccelerationOnlyG = (-svc.getCurrentGForceY()).coerceAtLeast(0f)
+        val target = rawAccelerationOnlyG.coerceIn(0f, ACCEL_FORCE_MAX_G * 1.5f)
+
+        displayedAccelForceG += (target - displayedAccelForceG) * 0.24f
+        if (kotlin.math.abs(target - displayedAccelForceG) < 0.002f) {
+            displayedAccelForceG = target
+        }
+        if (displayedAccelForceG > peakAccelForceG) {
+            peakAccelForceG = displayedAccelForceG
+        }
+
+        updateAccelerationForcePanel(displayedAccelForceG, peakAccelForceG)
+    }
+
+    private fun updateAccelerationForcePanel(currentAccelG: Float, peakAccelG: Float) {
+        if (!::tvAccelForceCurrent.isInitialized) return
+
+        val currentClamped = currentAccelG.coerceIn(0f, ACCEL_FORCE_MAX_G * 1.5f)
+        val peakClamped = peakAccelG.coerceAtLeast(0f)
+
+        if (lastAccelTextValue.isNaN() || kotlin.math.abs(currentClamped - lastAccelTextValue) >= 0.01f) {
+            tvAccelForceCurrent.text = String.format(Locale.US, "%.2f", currentClamped)
+            lastAccelTextValue = currentClamped
+        }
+        if (lastAccelPeakTextValue.isNaN() || kotlin.math.abs(peakClamped - lastAccelPeakTextValue) >= 0.01f) {
+            tvAccelPeakSummary.text = String.format(Locale.US, "PEAK: %.2fg @ ACCEL", peakClamped)
+            lastAccelPeakTextValue = peakClamped
+        }
+
+        val normalized = (currentClamped / ACCEL_FORCE_MAX_G).coerceIn(0f, 1f)
+        val progressValue = (normalized * 1000f).toInt()
+        if (progressValue != lastAccelProgressValue) {
+            pbAccelForce.progress = progressValue
+            lastAccelProgressValue = progressValue
+        }
+
+        val availableWidth = (pbAccelForce.width - vAccelMarker.width).coerceAtLeast(0)
+        if (availableWidth > 0) {
+            vAccelMarker.translationX = normalized * availableWidth
         }
     }
 
     private fun updateAttemptNumber() {
+        updateAttemptIndicator()
         if (measurementMode == MeasurementMode.ALL) return
 
         val attemptNum = (currentSession?.attempts?.size ?: 0) + 1
@@ -774,6 +1172,359 @@ class DragRunPageActivity : BaseActivity() {
             MeasurementMode.HUNDRED_TO_200 -> "$prefix - Accelerate to 95-99 km/h"
             else -> prefix
         }
+    }
+
+    private fun updateAttemptIndicator() {
+        if (!::tvAttemptValue.isInitialized) return
+        tvAttemptValue.text = getCurrentAttemptNumber().toString()
+    }
+
+    private fun updateWeatherSummaryDisplay() {
+        if (!::ivWeatherCondition.isInitialized || !::tvWeatherTemp.isInitialized || !::tvWeatherHumidity.isInitialized || !::tvWeatherWind.isInitialized) {
+            return
+        }
+
+        val (weatherIconRes, weatherTintRes) = resolveWeatherIconStyle(weatherIcon ?: -1, humidity)
+        ivWeatherCondition.setImageResource(weatherIconRes)
+        ivWeatherCondition.imageTintList = ColorStateList.valueOf(ContextCompat.getColor(this, weatherTintRes))
+
+        tvWeatherTemp.text = temperature?.let {
+            UnitsManager.formatTemperature(it, this, decimals = 0)
+        } ?: getString(R.string.drag_weather_temp_placeholder)
+
+        tvWeatherHumidity.text = humidity?.let { "$it%" }
+            ?: getString(R.string.drag_weather_humidity_placeholder)
+
+        val speedUnit = UnitsManager.getSpeedUnit(this)
+        tvWeatherWind.text = windKph?.let {
+            val converted = UnitsManager.convertSpeed(it, speedUnit)
+            "${converted.toInt()} ${speedUnit.symbol}"
+        } ?: getString(R.string.drag_weather_wind_placeholder)
+    }
+
+    private fun resolveWeatherIconStyle(iconRes: Int, humidityPercent: Int?): Pair<Int, Int> {
+        val baseIcon = when (iconRes) {
+            R.drawable.ic_weather_sunny -> R.drawable.ic_weather_sunny
+            R.drawable.ic_weather_clear_night -> R.drawable.ic_weather_clear_night
+            R.drawable.ic_weather_partly_cloudy,
+            R.drawable.ic_weather_partly_cloudy_night -> R.drawable.ic_weather_partly_cloudy
+            R.drawable.ic_weather_cloudy -> R.drawable.ic_weather_cloudy
+            R.drawable.ic_weather_rainy -> R.drawable.ic_weather_rainy
+            R.drawable.ic_weather_snowy -> R.drawable.ic_weather_snowy
+            else -> R.drawable.ic_weather_cloudy
+        }
+
+        val finalIcon = if (baseIcon == R.drawable.ic_weather_sunny && (humidityPercent ?: 0) >= 70) {
+            R.drawable.ic_weather_cloudy
+        } else {
+            baseIcon
+        }
+
+        val tintRes = when (finalIcon) {
+            R.drawable.ic_weather_sunny -> R.color.warning_color
+            R.drawable.ic_weather_rainy,
+            R.drawable.ic_weather_snowy -> R.color.accent_light
+            R.drawable.ic_weather_clear_night,
+            R.drawable.ic_weather_cloudy,
+            R.drawable.ic_weather_partly_cloudy -> R.color.text_tertiary
+            else -> R.color.text_tertiary
+        }
+
+        return finalIcon to tintRes
+    }
+
+    private fun formatSecondsValue(nanos: Long): String {
+        if (nanos <= 0L) return "--.---"
+        return String.format("%.3f", nanos / 1_000_000_000.0)
+    }
+
+    private fun updateSingleModeMetricDisplay() {
+        if (!::tvSingleMetricValue.isInitialized || measurementMode == MeasurementMode.ALL || measurementMode == MeasurementMode.QUARTER_MILE) {
+            return
+        }
+
+        val nowNano = System.nanoTime()
+        val measurementStartTimeNano = foregroundService?.getMeasurementStartTimeNano() ?: 0L
+        val valueText = when (measurementMode) {
+            MeasurementMode.ZERO_TO_100 -> {
+                when {
+                    attempt0to100Nanos > 0L -> formatSecondsValue(attempt0to100Nanos)
+                    started && measurementStartTimeNano > 0L -> formatSecondsValue(nowNano - measurementStartTimeNano)
+                    else -> "--.---"
+                }
+            }
+            MeasurementMode.ZERO_TO_200 -> {
+                when {
+                    attempt0to200Nanos > 0L -> formatSecondsValue(attempt0to200Nanos)
+                    started && measurementStartTimeNano > 0L -> formatSecondsValue(nowNano - measurementStartTimeNano)
+                    else -> "--.---"
+                }
+            }
+            MeasurementMode.HUNDRED_TO_200 -> {
+                when {
+                    attempt100to200Nanos > 0L -> formatSecondsValue(attempt100to200Nanos)
+                    started && rolling100StartTime > 0L -> formatSecondsValue(nowNano - rolling100StartTime)
+                    else -> "--.---"
+                }
+            }
+            else -> "--.---"
+        }
+
+        tvSingleMetricValue.text = valueText
+    }
+
+    private fun resetZeroTo200SplitDisplay() {
+        if (!::pbZeroTo200Progress.isInitialized) return
+        pbZeroTo200Progress.progress = 0
+
+        val useLandscapeAccelPills = shouldUseLandscapeAccelSplitPills()
+        llZeroTo200StageRow.visibility = if (measurementMode == MeasurementMode.ZERO_TO_200 && !useLandscapeAccelPills) View.VISIBLE else View.GONE
+        llZeroTo200StageRowInAccel?.visibility = if (measurementMode == MeasurementMode.ZERO_TO_200 && useLandscapeAccelPills) View.VISIBLE else View.GONE
+
+        val stage0to100View = if (useLandscapeAccelPills) {
+            tvZeroTo200Stage0to100InAccel ?: tvZeroTo200Stage0to100
+        } else {
+            tvZeroTo200Stage0to100
+        }
+        val stage100to200View = if (useLandscapeAccelPills) {
+            tvZeroTo200Stage100to200InAccel ?: tvZeroTo200Stage100to200
+        } else {
+            tvZeroTo200Stage100to200
+        }
+
+        val speedUnit = UnitsManager.getSpeedUnit(this)
+        val speed100 = UnitsManager.convertSpeed(100f, speedUnit).toInt()
+        val speed200 = UnitsManager.convertSpeed(200f, speedUnit).toInt()
+
+        when (measurementMode) {
+            MeasurementMode.ZERO_TO_100 -> {
+                tvSingleModeMinSpeed.text = "0"
+                tvZeroTo200MaxSpeed.text = speed100.toString()
+            }
+            MeasurementMode.HUNDRED_TO_200 -> {
+                tvSingleModeMinSpeed.text = speed100.toString()
+                tvZeroTo200MaxSpeed.text = speed200.toString()
+            }
+            else -> {
+                tvSingleModeMinSpeed.text = "0"
+                tvZeroTo200MaxSpeed.text = speed200.toString()
+            }
+        }
+
+        stage0to100View.text = "0-100:"
+        stage100to200View.text = "100-200:"
+        stage0to100View.setTextColor(ContextCompat.getColor(this, R.color.text_tertiary))
+        stage100to200View.setTextColor(ContextCompat.getColor(this, R.color.text_tertiary))
+        stage0to100View.setBackgroundResource(R.drawable.bg_drag_split_chip_inactive)
+        stage100to200View.setBackgroundResource(R.drawable.bg_drag_split_chip_inactive)
+    }
+
+    private fun updateZeroTo200SplitDisplay(currentSpeedKmh: Float) {
+        if (!::llZeroTo200Splits.isInitialized) return
+        if (measurementMode != MeasurementMode.ZERO_TO_100 && measurementMode != MeasurementMode.ZERO_TO_200 && measurementMode != MeasurementMode.HUNDRED_TO_200) return
+
+        // Keep the progress row explicitly visible in all single speed modes.
+        llZeroTo200Splits.visibility = View.VISIBLE
+
+        val isActiveMeasurement = started && !measurementComplete && !waitingForFullStop
+        val speedUnit = UnitsManager.getSpeedUnit(this)
+        val speed100 = UnitsManager.convertSpeed(100f, speedUnit).toInt()
+        val speed200 = UnitsManager.convertSpeed(200f, speedUnit).toInt()
+
+        tvSingleModeMinSpeed.text = if (measurementMode == MeasurementMode.HUNDRED_TO_200) speed100.toString() else "0"
+        tvZeroTo200MaxSpeed.text = when (measurementMode) {
+            MeasurementMode.ZERO_TO_100 -> speed100.toString()
+            else -> speed200.toString()
+        }
+
+        val progress = when (measurementMode) {
+            MeasurementMode.ZERO_TO_100 -> {
+                when {
+                    measured0to100 -> 100
+                    !isActiveMeasurement -> 0
+                    else -> ((currentSpeedKmh / 100f) * 100f).toInt().coerceIn(0, 100)
+                }
+            }
+            MeasurementMode.HUNDRED_TO_200 -> {
+                when {
+                    measured100to200 -> 100
+                    !isActiveMeasurement -> 0
+                    else -> (((currentSpeedKmh - 100f) / 100f) * 100f).toInt().coerceIn(0, 100)
+                }
+            }
+            else -> {
+                when {
+                    measured0to200 -> 100
+                    !isActiveMeasurement -> 0
+                    else -> ((currentSpeedKmh / 200f) * 100f).toInt().coerceIn(0, 100)
+                }
+            }
+        }
+        pbZeroTo200Progress.progress = progress
+
+        val useLandscapeAccelPills = shouldUseLandscapeAccelSplitPills()
+        val stage0to100View = if (useLandscapeAccelPills) {
+            tvZeroTo200Stage0to100InAccel ?: tvZeroTo200Stage0to100
+        } else {
+            tvZeroTo200Stage0to100
+        }
+        val stage100to200View = if (useLandscapeAccelPills) {
+            tvZeroTo200Stage100to200InAccel ?: tvZeroTo200Stage100to200
+        } else {
+            tvZeroTo200Stage100to200
+        }
+
+        if (measurementMode != MeasurementMode.ZERO_TO_200) {
+            llZeroTo200StageRow.visibility = View.GONE
+            llZeroTo200StageRowInAccel?.visibility = View.GONE
+            return
+        }
+
+        llZeroTo200StageRow.visibility = if (useLandscapeAccelPills) View.GONE else View.VISIBLE
+        llZeroTo200StageRowInAccel?.visibility = if (useLandscapeAccelPills) View.VISIBLE else View.GONE
+
+        val has0to100 = attempt0to100Nanos > 0L
+        val has100to200 = attempt100to200Nanos > 0L
+        val is0to100Running = isActiveMeasurement && !has0to100
+        val is100to200Running = isActiveMeasurement && has0to100 && !has100to200
+
+        if (has0to100) {
+            stage0to100View.text = "0-100: ${formatSecondsValue(attempt0to100Nanos)}s"
+            stage0to100View.setTextColor(ContextCompat.getColor(this, R.color.accent_green))
+            stage0to100View.setBackgroundResource(R.drawable.bg_drag_split_chip_0to100_active)
+        } else if (is0to100Running) {
+            stage0to100View.text = "0-100: running..."
+            stage0to100View.setTextColor(ContextCompat.getColor(this, R.color.text_tertiary))
+            stage0to100View.setBackgroundResource(R.drawable.bg_drag_split_chip_inactive)
+        } else {
+            stage0to100View.text = "0-100:"
+            stage0to100View.setTextColor(ContextCompat.getColor(this, R.color.text_tertiary))
+            stage0to100View.setBackgroundResource(R.drawable.bg_drag_split_chip_inactive)
+        }
+
+        if (has100to200) {
+            stage100to200View.text = "100-200: ${formatSecondsValue(attempt100to200Nanos)}s"
+            stage100to200View.setTextColor(ContextCompat.getColor(this, R.color.accent_purple))
+            stage100to200View.setBackgroundResource(R.drawable.bg_drag_split_chip_100to200_active)
+        } else if (is100to200Running) {
+            stage100to200View.text = "100-200: running..."
+            stage100to200View.setTextColor(ContextCompat.getColor(this, R.color.text_tertiary))
+            stage100to200View.setBackgroundResource(R.drawable.bg_drag_split_chip_inactive)
+        } else {
+            stage100to200View.text = "100-200:"
+            stage100to200View.setTextColor(ContextCompat.getColor(this, R.color.text_tertiary))
+            stage100to200View.setBackgroundResource(R.drawable.bg_drag_split_chip_inactive)
+        }
+    }
+
+    private fun resetQuarterSectorState() {
+        sector50TimeNanos = -1L
+        sector100TimeNanos = -1L
+        sector200TimeNanos = -1L
+        sector300TimeNanos = -1L
+        sector402TimeNanos = -1L
+        sector50SpeedKmh = -1f
+        sector100SpeedKmh = -1f
+        sector200SpeedKmh = -1f
+        sector300SpeedKmh = -1f
+        sector402SpeedKmh = -1f
+    }
+
+    private fun resetQuarterSectorDisplay() {
+        if (!::tvSector50Time.isInitialized) return
+        tvSector50Time.text = "--.---"
+        tvSector100Time.text = "--.---"
+        tvSector200Time.text = "--.---"
+        tvSector300Time.text = "--.---"
+        tvSector402Time.text = "--.---"
+        tvSector50Speed.text = "--"
+        tvSector100Speed.text = "--"
+        tvSector200Speed.text = "--"
+        tvSector300Speed.text = "--"
+        tvSector402Speed.text = "--"
+        tvAllModeSector50Time?.text = "--.---"
+        tvAllModeSector100Time?.text = "--.---"
+        tvAllModeSector200Time?.text = "--.---"
+        tvAllModeSector300Time?.text = "--.---"
+        tvAllModeSector402Time?.text = "--.---"
+        tvAllModeSector50Speed?.text = "--"
+        tvAllModeSector100Speed?.text = "--"
+        tvAllModeSector200Speed?.text = "--"
+        tvAllModeSector300Speed?.text = "--"
+        tvAllModeSector402Speed?.text = "--"
+    }
+
+    private fun formatSpeedForDisplay(speedKmh: Float): String {
+        if (speedKmh < 0f) return "--"
+        val speedUnit = UnitsManager.getSpeedUnit(this)
+        val converted = UnitsManager.convertSpeed(speedKmh, speedUnit).toInt()
+        return "$converted ${speedUnit.symbol}"
+    }
+
+    private fun updateQuarterSectorDisplay() {
+        if (!::tvSector50Time.isInitialized) return
+        tvSector50Time.text = formatSecondsValue(sector50TimeNanos)
+        tvSector100Time.text = formatSecondsValue(sector100TimeNanos)
+        tvSector200Time.text = formatSecondsValue(sector200TimeNanos)
+        tvSector300Time.text = formatSecondsValue(sector300TimeNanos)
+        tvSector402Time.text = formatSecondsValue(sector402TimeNanos)
+        tvSector50Speed.text = formatSpeedForDisplay(sector50SpeedKmh)
+        tvSector100Speed.text = formatSpeedForDisplay(sector100SpeedKmh)
+        tvSector200Speed.text = formatSpeedForDisplay(sector200SpeedKmh)
+        tvSector300Speed.text = formatSpeedForDisplay(sector300SpeedKmh)
+        tvSector402Speed.text = formatSpeedForDisplay(sector402SpeedKmh)
+        tvAllModeSector50Time?.text = formatSecondsValue(sector50TimeNanos)
+        tvAllModeSector100Time?.text = formatSecondsValue(sector100TimeNanos)
+        tvAllModeSector200Time?.text = formatSecondsValue(sector200TimeNanos)
+        tvAllModeSector300Time?.text = formatSecondsValue(sector300TimeNanos)
+        tvAllModeSector402Time?.text = formatSecondsValue(sector402TimeNanos)
+        tvAllModeSector50Speed?.text = formatSpeedForDisplay(sector50SpeedKmh)
+        tvAllModeSector100Speed?.text = formatSpeedForDisplay(sector100SpeedKmh)
+        tvAllModeSector200Speed?.text = formatSpeedForDisplay(sector200SpeedKmh)
+        tvAllModeSector300Speed?.text = formatSpeedForDisplay(sector300SpeedKmh)
+        tvAllModeSector402Speed?.text = formatSpeedForDisplay(sector402SpeedKmh)
+    }
+
+    private fun updateQuarterSectorMilestones(measurementStartTimeNano: Long, speedKmh: Float) {
+        if (measurementStartTimeNano <= 0L) return
+        val elapsedNanos = System.nanoTime() - measurementStartTimeNano
+
+        if (sector50TimeNanos < 0L && accumulatedDistance >= QUARTER_MILE_SECTOR_50) {
+            sector50TimeNanos = elapsedNanos
+            sector50SpeedKmh = speedKmh
+        }
+        if (sector100TimeNanos < 0L && accumulatedDistance >= QUARTER_MILE_SECTOR_100) {
+            sector100TimeNanos = elapsedNanos
+            sector100SpeedKmh = speedKmh
+        }
+        if (sector200TimeNanos < 0L && accumulatedDistance >= QUARTER_MILE_SECTOR_200) {
+            sector200TimeNanos = elapsedNanos
+            sector200SpeedKmh = speedKmh
+        }
+        if (sector300TimeNanos < 0L && accumulatedDistance >= QUARTER_MILE_SECTOR_300) {
+            sector300TimeNanos = elapsedNanos
+            sector300SpeedKmh = speedKmh
+        }
+        if (sector402TimeNanos < 0L && accumulatedDistance >= QUARTER_MILE_SECTOR_402) {
+            sector402TimeNanos = elapsedNanos
+            sector402SpeedKmh = speedKmh
+        }
+
+        updateQuarterSectorDisplay()
+    }
+
+    private fun updateAllModeProgress(currentSpeedKmh: Float) {
+        if (!::pbAll0to100.isInitialized) return
+
+        val progress0to100 = if (measured0to100) 100 else ((currentSpeedKmh / 100f) * 100f).toInt().coerceIn(0, 100)
+        val progress100to200 = if (measured100to200) 100 else (((currentSpeedKmh - 100f) / 100f) * 100f).toInt().coerceIn(0, 100)
+        val progress0to200 = if (measured0to200) 100 else ((currentSpeedKmh / 200f) * 100f).toInt().coerceIn(0, 100)
+        val progress0to402 = if (measured0to402) 100 else ((accumulatedDistance / TARGET_METERS) * 100f).toInt().coerceIn(0, 100)
+
+        pbAll0to100.progress = progress0to100
+        pbAll100to200.progress = progress100to200
+        pbAll0to200.progress = progress0to200
+        pbAll0to402.progress = progress0to402
     }
 
     private fun ensureServiceAndStart() {
@@ -796,6 +1547,7 @@ class DragRunPageActivity : BaseActivity() {
         if (measurementStarted) return
         measurementStarted = true
         syncServiceRunOrientation()
+        ensureDragCalibrationRuntimeReady()
         
         createNewAttempt()
         
@@ -809,10 +1561,12 @@ class DragRunPageActivity : BaseActivity() {
     private fun startPolling() {
         pollHandler.removeCallbacks(pollRunnable)
         pollHandler.post(pollRunnable)
+        startAccelerationPanelLoop()
     }
 
     private fun stopPolling() {
         pollHandler.removeCallbacks(pollRunnable)
+        stopAccelerationPanelLoop()
     }
 
     private fun handleLocation(loc: Location) {
@@ -855,7 +1609,7 @@ class DragRunPageActivity : BaseActivity() {
                     }
                 } else if (!started && serviceReady && gpsReady && !decelerationDetected && !restartCooldownActive) {
                     // БЛОКИРАМЕ измерването ако няма калибрирана посока
-                    if (!DragCalibration.isCalibrated) {
+                    if (!hasUsableDragCalibration()) {
                         // Не е калибрирано - НЕ започваме измерване
                         Log.d("DragRunPage", "❌ DragCalibration NOT calibrated")
                         return
@@ -866,7 +1620,7 @@ class DragRunPageActivity : BaseActivity() {
                     
                     // ВАЖНО: GPS НЕ участва в старта! Само Linear Acceleration!
                     // GPS използваме САМО за измерване на скорости след старта
-                    val shouldStart = linearAccelTriggered
+                    val shouldStart = linearAccelTriggered && speedKmh <= FULL_STOP_REARM_SPEED_KMH
                     
                     // Периодично логване - показва че чакаме за forward ускорение
                     if (!shouldStart && System.currentTimeMillis() % 3000 < 100) {
@@ -1020,21 +1774,32 @@ class DragRunPageActivity : BaseActivity() {
                 // Проверка за пълна спирка след деселерация
                 if (waitingForFullStop) {
                     if (speedKmh < FULL_STOP_REARM_SPEED_KMH) {
-                        waitingForFullStop = false
-                        decelerationDetected = false
-                        isCalibrating = false
-                        calibrationComplete = false
-                        cancelRestartCooldown()
-                        restartAllMeasurements()
-                        foregroundService?.startNewMeasurement(measurementMode.name)
+                        if (attemptAlreadySaved && measured0to100 && measured0to200 && measured100to200 && measured0to402) {
+                            prepareAllModeNextAttemptAfterFullStop()
+                        } else {
+                            // Прекъснат/неуспешен ALL опит: рестартираме само текущия опит.
+                            waitingForFullStop = false
+                            decelerationDetected = false
+                            isCalibrating = false
+                            calibrationComplete = false
+                            cancelRestartCooldown()
+                            createNewAttempt()
+                            foregroundService?.startNewMeasurement(measurementMode.name)
+                            tvStatus.text = getString(R.string.drag_status_ready_all)
+                            tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
+                        }
                     } else {
                         // Продължаваме да показваме съобщението
-                        tvStatus.text = getString(R.string.drag_status_stop_to_restart)
+                        tvStatus.text = if (attemptAlreadySaved && measured0to100 && measured0to200 && measured100to200 && measured0to402) {
+                            getString(R.string.drag_complete_stop_for_new)
+                        } else {
+                            getString(R.string.drag_status_stop_to_restart)
+                        }
                         tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_orange_dark))
                     }
                 } else if (!started && serviceReady && gpsReady && !decelerationDetected && !restartCooldownActive) {
                     // БЛОКИРАМЕ измерването ако няма калибрирана посока
-                    if (!DragCalibration.isCalibrated) {
+                    if (!hasUsableDragCalibration()) {
                         // Не е калибрирано - НЕ започваме измерване
                         Log.d("DragRunPage", "❌ DragCalibration NOT calibrated (ALL режим)")
                         return
@@ -1045,7 +1810,7 @@ class DragRunPageActivity : BaseActivity() {
                     
                     // ВАЖНО: GPS НЕ участва в старта! Само Linear Acceleration!
                     // GPS използваме САМО за измерване на скорости след старта
-                    val shouldStart = linearAccelTriggered
+                    val shouldStart = linearAccelTriggered && speedKmh <= FULL_STOP_REARM_SPEED_KMH
                     
                     // Периодично логване - показва че чакаме за forward ускорение
                     if (!shouldStart && System.currentTimeMillis() % 3000 < 100) {
@@ -1173,6 +1938,7 @@ class DragRunPageActivity : BaseActivity() {
         // В ALL режим или QUARTER_MILE режим, ако не сме завършили измерването
         if ((measurementMode == MeasurementMode.ALL || measurementMode == MeasurementMode.QUARTER_MILE) && !distanceCompleted) {
             val start = startLocation ?: return
+            val measurementStartTime = foregroundService?.getMeasurementStartTimeNano() ?: 0L
             
             // Просто изчисляваме разстоянието от startLocation до текущата позиция - RAW данни
             if (lastLocationForDistance == null) {
@@ -1184,40 +1950,41 @@ class DragRunPageActivity : BaseActivity() {
                 lastLocationForDistance = loc
             }
 
-
-            if (accumulatedDistance < TARGET_METERS) {
+            updateQuarterSectorMilestones(measurementStartTime, speedKmh)
+            if (measurementMode == MeasurementMode.ALL) {
                 val speedUnit = UnitsManager.getSpeedUnit(this)
-                // Конвертираме според скоростта
                 if (speedUnit == UnitsManager.SpeedUnit.MPH) {
-                    // При mph показваме в мили
                     val distInKm = accumulatedDistance / 1000.0
                     val distInMiles = UnitsManager.convertDistance(distInKm, UnitsManager.DistanceUnit.MILES)
                     tvCard0to402Distance.text = String.format("%.2f mi", distInMiles)
                 } else {
-                    // При km/h или m/s показваме в метри
                     tvCard0to402Distance.text = String.format("%.0f m", accumulatedDistance)
                 }
             }
 
+
             if (accumulatedDistance >= TARGET_METERS) {
-                // Използваме същото време като 0-100 и 0-200 - от service-а
-                val measurementStartTime = foregroundService?.getMeasurementStartTimeNano() ?: 0L
                 val currentTime = System.nanoTime()
                 val elapsedNanos = currentTime - measurementStartTime
                 finishTimeNano = currentTime
 
                 // Запазваме времето за по-късно използване
                 attempt0to402Nanos = elapsedNanos
+                sector402TimeNanos = elapsedNanos
+                sector402SpeedKmh = speedKmh
+                updateQuarterSectorDisplay()
 
                 val resultText = formatNanos(elapsedNanos)
-                val display = if (sessionBest0to402 < 0 || elapsedNanos < sessionBest0to402) {
+                val display = if (measurementMode == MeasurementMode.ALL) {
+                    resultText
+                } else if (sessionBest0to402 < 0 || elapsedNanos < sessionBest0to402) {
                     "🏆 $resultText"
                 } else {
                     resultText
                 }
                 tvCard0to402.text = displayTimeWithBest(display, sessionBest0to402)
 
-                tvCard0to402Distance.visibility = View.GONE
+                tvCard0to402Distance.visibility = if (measurementMode == MeasurementMode.ALL) View.VISIBLE else View.GONE
                 distanceCompleted = true
                 measured0to402 = true
                 
@@ -1324,12 +2091,15 @@ class DragRunPageActivity : BaseActivity() {
         sound100Played = false
         sound200Played = false
         sound402Played = false
+        resetAccelerationForcePanel()
 
         attempt0to100Nanos = -1L
         attempt0to200Nanos = -1L
         attempt100to200Nanos = -1L
         attempt0to402Nanos = -1L
         timeAt100Nano = -1L
+        resetQuarterSectorState()
+        resetQuarterSectorDisplay()
 
         startTimeNano = 0L
         startLocation = null
@@ -1342,6 +2112,9 @@ class DragRunPageActivity : BaseActivity() {
 
         // Нулираме дисплея
         resetDisplayValues()
+        updateAllModeProgress(0f)
+        updateSingleModeMetricDisplay()
+        updateQuarterModeMetricDisplay()
 
         // Спираме G-force измерването
         foregroundService?.stopMeasurement()
@@ -1371,11 +2144,19 @@ class DragRunPageActivity : BaseActivity() {
         if (measurementMode == MeasurementMode.ALL &&
             measured0to100 && measured0to200 && measured100to200 && measured0to402) {
 
+            // Успешен ALL опит: запазваме го и чакаме пълно спиране за нов опит.
+            if (!attemptAlreadySaved) {
+                saveCurrentAttempt()
+                attemptAlreadySaved = true
+            }
+
             measurementComplete = true
-            // Спираме събирането на данни само когато ВСИЧКИ измервания са завършени
+            started = false
+            waitingForFullStop = true
             foregroundService?.stopMeasurement()
-            tvStatus.text = getString(R.string.drag_status_all_complete)
-            btnStop.text = getString(R.string.drag_finish_session)
+            tvStatus.text = getString(R.string.drag_complete_stop_for_new)
+            tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
+            btnStop.text = getString(R.string.stop_session)
 
         } else {
         }
@@ -1408,18 +2189,26 @@ class DragRunPageActivity : BaseActivity() {
         }
 
         runOnUiThread {
+            val shouldPulse = started && !measurementComplete && !waitingForFullStop && !restartCooldownActive
+            setStatusPulseActive(shouldPulse)
+
             // Скорост - конвертирана според избраната единица
-        val convertedSpeed = UnitsManager.convertSpeed(speed.toFloat(), UnitsManager.getSpeedUnit(this))
-        lastDisplayedConvertedSpeed = convertedSpeed
-        lastDisplayedG = currentG
-        applyPrimaryDisplayState()
-        tvGCurrentBig.text = String.format("%.2f g", currentG)
+            val convertedSpeed = UnitsManager.convertSpeed(speed.toFloat(), UnitsManager.getSpeedUnit(this))
+            lastDisplayedConvertedSpeed = convertedSpeed
+            lastDisplayedG = currentG
+            applyPrimaryDisplayState()
+            tvGCurrentBig.text = String.format("%.2f g", currentG)
+            if (measurementMode == MeasurementMode.ALL) {
+                updateAllModeProgress(speedFloat)
+            }
+            updateSingleModeMetricDisplay()
+            updateQuarterModeMetricDisplay()
 
             // Update GGaugeView with G-force data
             // Get G-force components from service
             val gForceX = foregroundService?.getCurrentGForceX() ?: 0f
             val gForceY = foregroundService?.getCurrentGForceY() ?: 0f
-            if (::gGaugeView.isInitialized) {
+            if (::gGaugeView.isInitialized && gContainer.visibility == View.VISIBLE) {
                 gGaugeView.gForceX = gForceX
                 gGaugeView.gForceY = gForceY
                 gGaugeView.peakGForce = peakG
@@ -1434,7 +2223,7 @@ class DragRunPageActivity : BaseActivity() {
             val measurementStartTimeNano = foregroundService?.getMeasurementStartTimeNano() ?: 0L
 
             // 0-100 измерване
-            if ((measurementMode == MeasurementMode.ALL || measurementMode == MeasurementMode.ZERO_TO_100) && !measured0to100) {
+            if ((measurementMode == MeasurementMode.ALL || measurementMode == MeasurementMode.ZERO_TO_100 || measurementMode == MeasurementMode.ZERO_TO_200) && !measured0to100) {
                 val svcT100 = foregroundService?.getTime0to100Nanos() ?: 0L
                 if (svcT100 > 0 && measurementStartTimeNano > 0) {
                     // Ползваме точно семпълното време от Service
@@ -1445,7 +2234,9 @@ class DragRunPageActivity : BaseActivity() {
                     val timeStr = formatNanos(resultNanos)
                     
                     runOnUiThread {
-                        val display = if (sessionBest0to100 < 0 || resultNanos < sessionBest0to100) {
+                        val display = if (measurementMode == MeasurementMode.ALL) {
+                            timeStr
+                        } else if (sessionBest0to100 < 0 || resultNanos < sessionBest0to100) {
                             "🏆 $timeStr"
                         } else {
                             timeStr
@@ -1482,7 +2273,7 @@ class DragRunPageActivity : BaseActivity() {
                     // Показваме таймер докато измерваме
                     val elapsed = nowNano - measurementStartTimeNano
                     runOnUiThread {
-                        val timerText = String.format("⏱️ %.2f s", elapsed / 1_000_000_000.0)
+                        val timerText = String.format("%.3f s", elapsed / 1_000_000_000.0)
                         tvCard0to100.text = if (measurementMode != MeasurementMode.ALL && sessionBest0to100 > 0) {
                             "$timerText\nBest: ${formatNanos(sessionBest0to100)}"
                         } else {
@@ -1511,7 +2302,9 @@ class DragRunPageActivity : BaseActivity() {
                     val timeStr = formatNanos(resultNanos)
 
                     runOnUiThread {
-                        val display = if (sessionBest0to200 < 0 || resultNanos < sessionBest0to200) {
+                        val display = if (measurementMode == MeasurementMode.ALL) {
+                            timeStr
+                        } else if (sessionBest0to200 < 0 || resultNanos < sessionBest0to200) {
                             "🏆 $timeStr"
                         } else {
                             timeStr
@@ -1523,6 +2316,9 @@ class DragRunPageActivity : BaseActivity() {
                         }
                     }
                     measured0to200 = true
+                    if (attempt100to200Nanos > 0L) {
+                        measured100to200 = true
+                    }
                     
                     // Play sound for reaching 200 km/h
                     if (!sound200Played) {
@@ -1548,7 +2344,7 @@ class DragRunPageActivity : BaseActivity() {
                     // Показваме таймер
                     val elapsed = nowNano - measurementStartTimeNano
                     runOnUiThread {
-                        val timerText = String.format("⏱️ %.2f s", elapsed / 1_000_000_000.0)
+                        val timerText = String.format("%.3f s", elapsed / 1_000_000_000.0)
                         tvCard0to200.text = if (measurementMode != MeasurementMode.ALL && sessionBest0to200 > 0) {
                             "$timerText\nBest: ${formatNanos(sessionBest0to200)}"
                         } else {
@@ -1568,11 +2364,7 @@ class DragRunPageActivity : BaseActivity() {
                     if (resultNanos > 0) {
                         val timeStr = formatNanos(resultNanos)
                         runOnUiThread {
-                            tvCard100to200.text = if (sessionBest100to200 < 0 || resultNanos < sessionBest100to200) {
-                                "🏆 $timeStr"
-                            } else {
-                                timeStr
-                            }
+                            tvCard100to200.text = timeStr
                         }
                         measured100to200 = true
                         // В ALL режим - НЕ проверяваме тук дали всички измервания са завършени
@@ -1582,7 +2374,7 @@ class DragRunPageActivity : BaseActivity() {
                     // Таймер за 100-200
                     val elapsed = nowNano - timeAt100Nano
                     runOnUiThread {
-                        tvCard100to200.text = String.format("⏱️ %.2f s", elapsed / 1_000_000_000.0)
+                        tvCard100to200.text = String.format("%.3f s", elapsed / 1_000_000_000.0)
                     }
                 }
             }
@@ -1595,7 +2387,7 @@ class DragRunPageActivity : BaseActivity() {
                 val seconds = elapsedNanos / 1_000_000_000.0
                 runOnUiThread {
                     if (!measured0to402) {
-                        val timerText = String.format("⏱️ %.2f s", seconds)
+                        val timerText = String.format("%.3f s", seconds)
                         tvCard0to402.text = if (measurementMode == MeasurementMode.QUARTER_MILE && sessionBest0to402 > 0) {
                             "$timerText\nBest: ${formatNanos(sessionBest0to402)}"
                         } else {
@@ -1672,13 +2464,22 @@ class DragRunPageActivity : BaseActivity() {
         if (measurementMode == MeasurementMode.HUNDRED_TO_200 && started && !measurementComplete) {
             val elapsed = (System.nanoTime() - rolling100StartTime) / 1_000_000_000.0
             runOnUiThread {
-                val timerText = String.format("⏱️ %.2f s", elapsed)
+                val timerText = String.format("%.3f s", elapsed)
                 tvCard100to200.text = if (sessionBest100to200 > 0) {
                     "$timerText\nBest: ${formatNanos(sessionBest100to200)}"
                 } else {
                     timerText
                 }
             }
+        }
+
+        runOnUiThread {
+            if (measurementMode == MeasurementMode.ALL) {
+                updateAllModeProgress(speedFloat)
+            }
+            updateSingleModeMetricDisplay()
+            updateQuarterModeMetricDisplay()
+            updateZeroTo200SplitDisplay(speedFloat)
         }
 
         lastSpeed = speedFloat
@@ -1815,6 +2616,53 @@ class DragRunPageActivity : BaseActivity() {
         tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
     }
 
+    private fun prepareAllModeNextAttemptAfterFullStop() {
+        waitingForFullStop = false
+        decelerationDetected = false
+        isCalibrating = false
+        calibrationComplete = false
+        measurementComplete = false
+        started = false
+        cancelRestartCooldown()
+
+        createNewAttempt()
+        foregroundService?.startNewMeasurement(measurementMode.name)
+        tvStatus.text = getString(R.string.drag_status_ready_all)
+        tvStatus.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
+    }
+
+    private fun setStatusPulseActive(active: Boolean) {
+        if (!::statusPulseDot.isInitialized || isStatusPulseActive == active) return
+
+        isStatusPulseActive = active
+        if (active) {
+            statusPulseDot.visibility = View.VISIBLE
+            if (statusPulseAnimator == null) {
+                val scaleX = ObjectAnimator.ofFloat(statusPulseDot, View.SCALE_X, 1f, 1.35f, 1f)
+                val scaleY = ObjectAnimator.ofFloat(statusPulseDot, View.SCALE_Y, 1f, 1.35f, 1f)
+                val alpha = ObjectAnimator.ofFloat(statusPulseDot, View.ALPHA, 1f, 0.45f, 1f)
+
+                statusPulseAnimator = AnimatorSet().apply {
+                    playTogether(scaleX, scaleY, alpha)
+                    duration = 900
+                    interpolator = AccelerateDecelerateInterpolator()
+                    startDelay = 0
+                }
+
+                scaleX.repeatCount = ObjectAnimator.INFINITE
+                scaleY.repeatCount = ObjectAnimator.INFINITE
+                alpha.repeatCount = ObjectAnimator.INFINITE
+            }
+            statusPulseAnimator?.start()
+        } else {
+            statusPulseAnimator?.cancel()
+            statusPulseDot.alpha = 1f
+            statusPulseDot.scaleX = 1f
+            statusPulseDot.scaleY = 1f
+            statusPulseDot.visibility = View.GONE
+        }
+    }
+
     private fun prepareHundredToTwoHundredNextAttempt() {
         waitingForFullStop = false
         decelerationDetected = false
@@ -1902,7 +2750,15 @@ class DragRunPageActivity : BaseActivity() {
                         updatedAttempt.time0to402 > 0
 
                 if (hasValidMeasurement) {
-                    currentSession?.attempts?.add(updatedAttempt)
+                    val attempts = currentSession?.attempts
+                    if (attempts != null) {
+                        val existingIndex = attempts.indexOfFirst { it.id == updatedAttempt.id }
+                        if (existingIndex >= 0) {
+                            attempts[existingIndex] = updatedAttempt
+                        } else {
+                            attempts.add(updatedAttempt)
+                        }
+                    }
                     updateSessionBestTimes(updatedAttempt)
                 }
             }
@@ -1962,6 +2818,7 @@ class DragRunPageActivity : BaseActivity() {
 
     private fun cleanup() {
         stopPolling()
+        stopAccelerationPanelLoop()
         cancelRestartCooldown()
         foregroundService?.clearActiveRunOrientation()
         foregroundService?.stopMeasurement()
@@ -1986,6 +2843,27 @@ class DragRunPageActivity : BaseActivity() {
         return resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     }
 
+    private fun ensureDragCalibrationRuntimeReady() {
+        val runLandscape = isRunOrientationLandscape()
+        if (DragCalibration.activateOrientationRuntime(runLandscape)) {
+            return
+        }
+
+        if (DragCalibration.isLandscapeCalibrated) {
+            DragCalibration.activateOrientationRuntime(true)
+        } else if (DragCalibration.isPortraitCalibrated) {
+            DragCalibration.activateOrientationRuntime(false)
+        }
+    }
+
+    private fun hasUsableDragCalibration(): Boolean {
+        val runLandscape = isRunOrientationLandscape()
+        return DragCalibration.hasCalibrationFor(runLandscape) ||
+            DragCalibration.isCalibrated ||
+            DragCalibration.isUniversalCalibrated ||
+            DragCalibration.hasAnyCalibration()
+    }
+
     private fun syncServiceRunOrientation() {
         foregroundService?.setActiveRunOrientation(isRunOrientationLandscape())
     }
@@ -1996,42 +2874,45 @@ class DragRunPageActivity : BaseActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        
-        // Ръчно презареждане на layout-а при смяна на ориентацията
-        val layoutId = if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            R.layout.activity_drag_run
-        } else {
-            R.layout.activity_drag_run
-        }
-        
-        setContentView(layoutId)
+
+        // Re-inflate the orientation-specific layout and rebind all view references
+        // while preserving the active measurement state in memory/service.
+        setContentView(getLayoutResourceId())
         applySystemBarsPaddingToRoot()
-        
-        // Реинициализираме всички view-та
+        setupBottomNavigation()
         initializeViews()
         configureUIForMode()
-        
-        // Възстановяваме състоянието на UI-а
+        updateWeatherSummaryDisplay()
+        ensureDragCalibrationRuntimeReady()
         updateReadyStatus()
         updateUIFromService()
         syncServiceRunOrientation()
-        
-        // Възстановяваме навигацията
-        setupBottomNavigation()
-        
+
     }
 
     override fun onResume() {
         super.onResume()
         // Презареждаме калибрацията при връщане в activity-то
         DragCalibration.setProfile(profileId)
+        ensureDragCalibrationRuntimeReady()
         syncServiceRunOrientation()
         Log.d("DragRunPage", "🔄 onResume - Profile ID: $profileId, Calibrated: ${DragCalibration.isCalibrated}, Portrait: ${DragCalibration.isPortraitCalibrated}, Landscape: ${DragCalibration.isLandscapeCalibrated}")
+        tvSpeedUnit?.text = UnitsManager.getSpeedUnit(this).symbol
+        updateWeatherSummaryDisplay()
+        updateQuarterSectorDisplay()
+        updateSingleModeMetricDisplay()
+        updateQuarterModeMetricDisplay()
+        updateAllModeProgress(lastSpeed)
+        if (serviceBound) {
+            startAccelerationPanelLoop()
+        }
         updateReadyStatus()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        setStatusPulseActive(false)
+        stopAccelerationPanelLoop()
         readyCheckHandler.removeCallbacksAndMessages(null)
         soundManager.release()
         cleanup()

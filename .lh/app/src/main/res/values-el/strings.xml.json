@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 3,
+            "activePatchIndex": 4,
             "patches": [
                 {
                     "date": 1772044964290,
@@ -20,6 +20,10 @@
                 {
                     "date": 1772464887689,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -279,8 +279,9 @@\n     <!-- Placeholder texts -->\r\n     <string name=\"placeholder_track_name\">Όνομα Πίστας</string>\r\n     <string name=\"placeholder_vehicle_name\">Όχημα</string>\r\n     <string name=\"track_best_lap_label\">Καλύτερος Γύρος</string>\r\n+    <string name=\"track_date_time_label\">Ημερομηνία &amp; Ώρα</string>\r\n     <string name=\"track_duration_label\">Διάρκεια</string>\r\n     <string name=\"track_laps_label\">Γύροι</string>\r\n     <string name=\"track_new_session\">+ Νέα Έξοδος</string>\r\n     <string name=\"track_resume\">ΣΥΝΕΧΕΙΑ</string>\r\n"
+                },
+                {
+                    "date": 1773674906230,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -250,8 +250,13 @@\n     <string name=\"track_label_duration\">Διάρκεια:</string>\r\n     <string name=\"track_label_track\">Πίστα:</string>\r\n     <string name=\"track_label_laps\">Γύροι:</string>\r\n     <string name=\"track_vehicle_header\">Όχημα</string>\r\n+    <string name=\"track_overview_header\">Επισκόπηση εξόδου</string>\r\n+    <string name=\"track_consistency_label\">Σταθερότητα</string>\r\n+    <string name=\"track_best_to_avg_label\">Καλύτερος προς μέσο</string>\r\n+    <string name=\"track_consistency_not_enough\">Ανεπαρκείς γύροι</string>\r\n+    <string name=\"track_metric_na\">Μ/Δ</string>\r\n     <string name=\"track_stats_header\">Στατιστικά Εξόδου</string>\r\n     <string name=\"track_best_time\">Καλύτερος Χρόνος:</string>\r\n     <string name=\"track_min_speed\">Ελάχιστη Ταχύτητα:</string>\r\n     <string name=\"track_max_speed\">Μέγιστη Ταχύτητα:</string>\r\n"
                 }
             ],
             "date": 1772044964290,

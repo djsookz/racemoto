@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "808157491226",
+    "project_id": "dragme-a8b44",
+    "storage_bucket": "dragme-a8b44.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:808157491226:android:2444c9d75b959216bee1a3",
+        "android_client_info": {
+          "package_name": "com.example.clinometer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZX4vKdPTCQ5q6K39JxCaY82ClVi0MtaU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

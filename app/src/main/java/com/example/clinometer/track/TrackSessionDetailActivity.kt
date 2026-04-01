@@ -4,13 +4,18 @@ import android.content.Context
 import android.content.Intent
 import android.location.Location
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.view.WindowManager
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
+import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.main.MainContainerActivity
@@ -21,6 +26,7 @@ import com.example.clinometer.track.TrackMapExtras
 import com.example.clinometer.track.enrichRoutePointsWithLeanPeaks
 import com.google.gson.Gson
 import com.google.android.material.button.MaterialButton
+import kotlin.math.sqrt
 
 class TrackSessionDetailActivity : AppCompatActivity() {
     
@@ -29,24 +35,38 @@ class TrackSessionDetailActivity : AppCompatActivity() {
     }
     
     private lateinit var btnBack: MaterialButton
-    private lateinit var tvSessionDate: TextView
-    private lateinit var tvSessionTime: TextView
-    private lateinit var tvTrackName: TextView
-    private lateinit var tvTotalLaps: TextView
-    private lateinit var tvVehicleName: TextView
-    private lateinit var tvBestLapTime: TextView
-    private lateinit var tvMinSpeed: TextView
-    private lateinit var tvMaxSpeed: TextView
-    private lateinit var tvAvgSpeed: TextView
-    private lateinit var tvDistance: TextView
+    private lateinit var tvTitle: TextView
+    private lateinit var tvTitleMeta: TextView
+    private lateinit var tvTitleSessionName: TextView
+    private lateinit var tvHeaderProfileName: TextView
+    private lateinit var tvHeaderBestLapTime: TextView
+    private lateinit var tvHeaderBestLapMeta: TextView
+    private lateinit var tvHeaderMaxSpeedValue: TextView
+    private lateinit var tvHeaderAvgLapValue: TextView
+    private lateinit var tvHeaderTotalTimeValue: TextView
+    private lateinit var ivWeatherSessionTemp: ImageView
+    private lateinit var ivWeatherSessionHumidity: ImageView
+    private lateinit var ivWeatherSessionWind: ImageView
+    private lateinit var tvWeatherSessionTemp: TextView
+    private lateinit var tvWeatherSessionHumidity: TextView
+    private lateinit var tvWeatherSessionWind: TextView
+    private lateinit var tvLapTimesCount: TextView
+    private lateinit var tvSessionOverviewDistance: TextView
+    private lateinit var tvSessionOverviewAvgSpeed: TextView
+    private lateinit var tvSessionOverviewConsistency: TextView
+    private lateinit var tvSessionOverviewBestToAvg: TextView
+    private lateinit var rowSessionOverviewSecondary: LinearLayout
+    private lateinit var viewSessionOverviewBottomSeparator: View
+    private lateinit var viewSessionOverviewMotoSeparator: View
+    private lateinit var rowSessionOverviewMotoLeans: LinearLayout
+    private lateinit var tvSessionOverviewMaxLeanLeft: TextView
+    private lateinit var tvSessionOverviewMaxLeanRight: TextView
     private lateinit var tvMaxAcceleration: TextView
     private lateinit var tvMaxBraking: TextView
     private lateinit var tvMaxCorneringLeftLabel: TextView
     private lateinit var tvMaxCorneringRightLabel: TextView
     private lateinit var tvMaxCorneringLeft: TextView
     private lateinit var tvMaxCorneringRight: TextView
-    private lateinit var tvTotalLapsLabel: TextView
-    private lateinit var tvBestTimeLabel: TextView
     private lateinit var tvLapsSectionTitle: TextView
     private lateinit var cardLaps: CardView
     
@@ -59,6 +79,13 @@ class TrackSessionDetailActivity : AppCompatActivity() {
     private var outingNumber: Int = 1
     private var totalLaps: Int = 0
     private var isPointToPointSession: Boolean = false
+
+    private data class LapRowEntry(
+        val lapNumber: Int,
+        val lapTime: String,
+        val lapMs: Long?,
+        val lapMaxV: String
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -144,24 +171,38 @@ class TrackSessionDetailActivity : AppCompatActivity() {
 
     private fun initializeViews() {
         btnBack = findViewById(R.id.btnBack)
-        tvSessionDate = findViewById(R.id.tvSessionDate)
-        tvSessionTime = findViewById(R.id.tvSessionTime)
-        tvTrackName = findViewById(R.id.tvTrackName)
-        tvTotalLaps = findViewById(R.id.tvTotalLaps)
-        tvVehicleName = findViewById(R.id.tvVehicleName)
-        tvBestLapTime = findViewById(R.id.tvBestLapTime)
-        tvMinSpeed = findViewById(R.id.tvMinSpeed)
-        tvMaxSpeed = findViewById(R.id.tvMaxSpeed)
-        tvAvgSpeed = findViewById(R.id.tvAvgSpeed)
-        tvDistance = findViewById(R.id.tvDistance)
+        tvTitle = findViewById(R.id.tvTitle)
+        tvTitleMeta = findViewById(R.id.tvTitleMeta)
+        tvTitleSessionName = findViewById(R.id.tvTitleSessionName)
+        tvHeaderProfileName = findViewById(R.id.tvHeaderProfileName)
+        tvHeaderBestLapTime = findViewById(R.id.tvHeaderBestLapTime)
+        tvHeaderBestLapMeta = findViewById(R.id.tvHeaderBestLapMeta)
+        tvHeaderMaxSpeedValue = findViewById(R.id.tvHeaderMaxSpeedValue)
+        tvHeaderAvgLapValue = findViewById(R.id.tvHeaderAvgLapValue)
+        tvHeaderTotalTimeValue = findViewById(R.id.tvHeaderTotalTimeValue)
+        ivWeatherSessionTemp = findViewById(R.id.ivWeatherSessionTemp)
+        ivWeatherSessionHumidity = findViewById(R.id.ivWeatherSessionHumidity)
+        ivWeatherSessionWind = findViewById(R.id.ivWeatherSessionWind)
+        tvWeatherSessionTemp = findViewById(R.id.tvWeatherSessionTemp)
+        tvWeatherSessionHumidity = findViewById(R.id.tvWeatherSessionHumidity)
+        tvWeatherSessionWind = findViewById(R.id.tvWeatherSessionWind)
+        tvLapTimesCount = findViewById(R.id.tvLapTimesCount)
+        tvSessionOverviewDistance = findViewById(R.id.tvSessionOverviewDistance)
+        tvSessionOverviewAvgSpeed = findViewById(R.id.tvSessionOverviewAvgSpeed)
+        tvSessionOverviewConsistency = findViewById(R.id.tvSessionOverviewConsistency)
+        tvSessionOverviewBestToAvg = findViewById(R.id.tvSessionOverviewBestToAvg)
+        rowSessionOverviewSecondary = findViewById(R.id.rowSessionOverviewSecondary)
+        viewSessionOverviewBottomSeparator = findViewById(R.id.viewSessionOverviewBottomSeparator)
+        viewSessionOverviewMotoSeparator = findViewById(R.id.viewSessionOverviewMotoSeparator)
+        rowSessionOverviewMotoLeans = findViewById(R.id.rowSessionOverviewMotoLeans)
+        tvSessionOverviewMaxLeanLeft = findViewById(R.id.tvSessionOverviewMaxLeanLeft)
+        tvSessionOverviewMaxLeanRight = findViewById(R.id.tvSessionOverviewMaxLeanRight)
         tvMaxAcceleration = findViewById(R.id.tvMaxAcceleration)
         tvMaxBraking = findViewById(R.id.tvMaxBraking)
         tvMaxCorneringLeftLabel = findViewById(R.id.tvMaxCorneringLeftLabel)
         tvMaxCorneringRightLabel = findViewById(R.id.tvMaxCorneringRightLabel)
         tvMaxCorneringLeft = findViewById(R.id.tvMaxCorneringLeft)
         tvMaxCorneringRight = findViewById(R.id.tvMaxCorneringRight)
-        tvTotalLapsLabel = findViewById(R.id.tvTotalLapsLabel)
-        tvBestTimeLabel = findViewById(R.id.tvBestTimeLabel)
         tvLapsSectionTitle = findViewById(R.id.tvLapsSectionTitle)
         cardLaps = findViewById(R.id.cardLaps)
         
@@ -183,33 +224,50 @@ class TrackSessionDetailActivity : AppCompatActivity() {
         }
 
         val sharedPrefs = getSharedPreferences("track_outings", MODE_PRIVATE)
-        val lapTimes = mutableListOf<String>()
+        val lapEntries = mutableListOf<LapRowEntry>()
         
         // Load lap times from SharedPreferences
         for (i in 1..totalLaps) {
             val lapTime = sharedPrefs.getString("${trackId}_outing_${outingNumber}_lap_${i}", "--:--.---") ?: "--:--.---"
-            lapTimes.add(lapTime)
+            lapEntries.add(
+                LapRowEntry(
+                    lapNumber = i,
+                    lapTime = lapTime,
+                    lapMs = parseFlexibleTimeToMs(lapTime),
+                    lapMaxV = resolveLapMaxSpeedDisplay(sharedPrefs, i)
+                )
+            )
         }
         
         // Clear existing lap views
         llLapsContainer.removeAllViews()
+
+        val validLapEntries = lapEntries.filter { it.lapMs != null }
         
-        if (lapTimes.isEmpty() || lapTimes.all { it == "--:--.---" }) {
+        if (validLapEntries.isEmpty()) {
             // Show "no laps" message
             tvNoLaps.visibility = android.view.View.VISIBLE
             return
         } else {
             tvNoLaps.visibility = android.view.View.GONE
         }
-        
-        // Find best and worst lap times
-        val bestLapIndex = findBestLapIndex(lapTimes)
-        val worstLapIndex = findWorstLapIndex(lapTimes)
+
+        val bestLapMs = validLapEntries.minOf { it.lapMs ?: Long.MAX_VALUE }
+        val bestLapNumber = validLapEntries.firstOrNull { (it.lapMs ?: Long.MAX_VALUE) == bestLapMs }?.lapNumber
         
         // Create dynamic lap views
-        lapTimes.forEachIndexed { index, lapTime ->
-            if (lapTime != "--:--.---") {
-                val lapView = createLapView(index + 1, lapTime, index == bestLapIndex, index == worstLapIndex)
+        lapEntries.forEach { lapEntry ->
+            val lapMs = lapEntry.lapMs
+            if (lapMs != null) {
+                val isBest = bestLapNumber != null && lapEntry.lapNumber == bestLapNumber
+                val deltaMs = if (isBest) 0L else (lapMs - bestLapMs).coerceAtLeast(0L)
+                val lapView = createLapView(
+                    lapNumber = lapEntry.lapNumber,
+                    lapTime = lapEntry.lapTime,
+                    lapMaxV = lapEntry.lapMaxV,
+                    isBest = isBest,
+                    deltaMs = deltaMs
+                )
                 llLapsContainer.addView(lapView)
             }
         }
@@ -231,47 +289,61 @@ class TrackSessionDetailActivity : AppCompatActivity() {
         val runView = createLapView(
             lapNumber = 1,
             lapTime = runTime,
+            lapMaxV = resolveOutingMaxSpeedDisplay(prefs),
             isBest = true,
-            isWorst = false
+            deltaMs = null
         )
         llLapsContainer.addView(runView)
     }
     
-    private fun createLapView(lapNumber: Int, lapTime: String, isBest: Boolean, isWorst: Boolean): LinearLayout {
+    private fun createLapView(
+        lapNumber: Int,
+        lapTime: String,
+        lapMaxV: String,
+        isBest: Boolean,
+        deltaMs: Long?
+    ): LinearLayout {
         val inflater = layoutInflater
         val lapView = inflater.inflate(R.layout.lap_item_template, llLapsContainer, false) as LinearLayout
         
         val tvLapNumber = lapView.findViewById<TextView>(R.id.tvLapNumber)
         val tvLapTime = lapView.findViewById<TextView>(R.id.tvLapTime)
-        val tvTrophy = lapView.findViewById<TextView>(R.id.tvTrophy)
-        
-        // Set lap number
-        tvLapNumber.text = if (isPointToPointSession) "RUN" else lapNumber.toString()
+        val tvLapMaxV = lapView.findViewById<TextView>(R.id.tvLapMaxV)
+        val tvLapDelta = lapView.findViewById<TextView>(R.id.tvLapDelta)
         
         // Set lap time
         tvLapTime.text = lapTime
+        tvLapMaxV.text = lapMaxV
         
-        // Set colors and trophy
-        when {
-            isPointToPointSession -> {
-                tvLapNumber.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
-                tvLapTime.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
-                tvTrophy.visibility = android.view.View.GONE
-            }
-            isBest -> {
-                tvLapNumber.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
-                tvLapTime.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
-                tvTrophy.visibility = android.view.View.VISIBLE
-            }
-            isWorst -> {
-                tvLapNumber.setTextColor(android.graphics.Color.parseColor("#F44336"))
-                tvLapTime.setTextColor(android.graphics.Color.parseColor("#F44336"))
-                tvTrophy.visibility = android.view.View.GONE
-            }
-            else -> {
-                tvLapNumber.setTextColor(android.graphics.Color.parseColor("#FFFFFF"))
-                tvLapTime.setTextColor(android.graphics.Color.parseColor("#FFFFFF"))
-                tvTrophy.visibility = android.view.View.GONE
+        if (isPointToPointSession) {
+            tvLapNumber.text = "RUN"
+            tvLapNumber.setTextColor(ContextCompat.getColor(this, R.color.text_tertiary))
+            tvLapTime.setTextColor(ContextCompat.getColor(this, R.color.track_neon_green))
+            tvLapMaxV.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
+            tvLapDelta.text = "\u2014"
+            tvLapDelta.setTextColor(ContextCompat.getColor(this, R.color.text_tertiary))
+            lapView.background = ContextCompat.getDrawable(this, R.drawable.bg_stat_item)
+        } else {
+            tvLapNumber.text = lapNumber.toString()
+            tvLapNumber.setTextColor(ContextCompat.getColor(this, R.color.text_tertiary))
+            tvLapMaxV.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
+
+            if (isBest) {
+                tvLapTime.setTextColor(ContextCompat.getColor(this, R.color.accent_purple))
+                tvLapDelta.text = "\uD83D\uDC51"
+                tvLapDelta.setTextColor(ContextCompat.getColor(this, R.color.accent_gold))
+                lapView.background = ContextCompat.getDrawable(this, R.drawable.stat_item_background_highlight)
+            } else {
+                val safeDelta = deltaMs ?: 0L
+                tvLapTime.setTextColor(ContextCompat.getColor(this, R.color.text_primary))
+                tvLapDelta.text = formatLapDelta(safeDelta)
+                tvLapDelta.setTextColor(
+                    ContextCompat.getColor(
+                        this,
+                        if (safeDelta > 0L) R.color.accent_red else R.color.track_neon_green
+                    )
+                )
+                lapView.background = ContextCompat.getDrawable(this, R.drawable.bg_stat_item)
             }
         }
         
@@ -445,6 +517,14 @@ class TrackSessionDetailActivity : AppCompatActivity() {
         val sessionDate = prefs.getString("${trackId}_outing_${outingNumber}_date", "--.--.----") ?: "--.--.----"
         val sessionTime = prefs.getString("${trackId}_outing_${outingNumber}_time", "--:--") ?: "--:--"
         val sessionDuration = prefs.getString("${trackId}_outing_${outingNumber}_duration", "--:--") ?: "--:--"
+        val sessionTemperature = prefs.getString("${trackId}_outing_${outingNumber}_temperature", null)
+            ?: run {
+                val unit = UnitsManager.getTemperatureUnit(this)
+                "--${unit.symbol}"
+            }
+        val sessionHumidity = prefs.getString("${trackId}_outing_${outingNumber}_humidity", "--%") ?: "--%"
+        val sessionWindSpeed = prefs.getString("${trackId}_outing_${outingNumber}_wind_speed", "-- km/h") ?: "-- km/h"
+        val sessionWeatherIcon = prefs.getInt("${trackId}_outing_${outingNumber}_weather_icon", -1)
         val mode = prefs.getString("${trackId}_outing_${outingNumber}_mode", "circuit") ?: "circuit"
         isPointToPointSession = mode == "point_to_point"
         
@@ -463,15 +543,10 @@ class TrackSessionDetailActivity : AppCompatActivity() {
 
         // Get vehicle name from session profile
         val vehicleName = getActiveVehicleName(sessionProfile)
+        val profileName = sessionProfile?.name?.takeIf { it.isNotBlank() } ?: vehicleName
         android.util.Log.d("TrackSessionDetailActivity", "loadSessionData: vehicleName='$vehicleName'")
         
         val bestLapTime = prefs.getString("${trackId}_outing_${outingNumber}_best_lap", "--:--.---") ?: "--:--.---"
-        val computedMinSpeed = computeSessionMinSpeed(prefs)
-        val minSpeed = if (computedMinSpeed != null) {
-            String.format(java.util.Locale.getDefault(), "%.1f km/h", computedMinSpeed)
-        } else {
-            "0.0 km/h"
-        }
         val maxSpeed = prefs.getString("${trackId}_outing_${outingNumber}_max_speed", "0.0 km/h") ?: "0.0 km/h"
         val maxAcceleration = prefs.getString("${trackId}_outing_${outingNumber}_max_acceleration", "0.00 G") ?: "0.00 G"
         val maxBraking = prefs.getString("${trackId}_outing_${outingNumber}_max_braking", "0.00 G") ?: "0.00 G"
@@ -490,50 +565,124 @@ class TrackSessionDetailActivity : AppCompatActivity() {
         val maxLeanDisplay = prefs.getString("${trackId}_outing_${outingNumber}_max_lean_angle", "0.0°") ?: "0.0°"
         val maxLeanLeftStored = prefs.getString("${trackId}_outing_${outingNumber}_max_lean_left", null)
         val maxLeanRightStored = prefs.getString("${trackId}_outing_${outingNumber}_max_lean_right", null)
+        val leanExtremesFromLaps = computeSessionLeanExtremes(prefs)
 
-        // Update title
-        findViewById<TextView>(R.id.tvTitle).text = if (isPointToPointSession) {
+        val overviewLeanLeftDisplay = when {
+            leanExtremesFromLaps != null -> formatLeanAngleRounded(leanExtremesFromLaps.first)
+            maxLeanLeftStored != null -> parseDisplayedNumeric(maxLeanLeftStored)?.let { formatLeanAngleRounded(it) }
+            else -> parseDisplayedNumeric(maxLeanDisplay)?.let { formatLeanAngleRounded(it) }
+        } ?: "--"
+
+        val overviewLeanRightDisplay = when {
+            leanExtremesFromLaps != null -> formatLeanAngleRounded(leanExtremesFromLaps.second)
+            maxLeanRightStored != null -> parseDisplayedNumeric(maxLeanRightStored)?.let { formatLeanAngleRounded(it) }
+            else -> parseDisplayedNumeric(maxLeanDisplay)?.let { formatLeanAngleRounded(it) }
+        } ?: "--"
+
+        val allLapTimes = if (totalLaps > 0) {
+            (1..totalLaps).map { lapNumber ->
+                prefs.getString("${trackId}_outing_${outingNumber}_lap_${lapNumber}", "--:--.---") ?: "--:--.---"
+            }
+        } else {
+            emptyList()
+        }
+        val validLapMs = allLapTimes.mapIndexedNotNull { index, lap ->
+            parseFlexibleTimeToMs(lap)?.let { Triple(index + 1, lap, it) }
+        }
+        val validLapDurationsMs = validLapMs.map { it.third.toDouble() }
+        val showConsistencyMetrics = validLapDurationsMs.size >= 3
+        val bestLapNumberInSession = validLapMs.minByOrNull { it.third }?.first
+        val bestLapMsValue = validLapMs.minOfOrNull { it.third }
+        val avgLapMs = if (validLapMs.isNotEmpty()) {
+            validLapMs.sumOf { it.third } / validLapMs.size
+        } else {
+            null
+        }
+        val consistencyDisplay = if (validLapDurationsMs.size >= 3) {
+            val meanMs = validLapDurationsMs.average()
+            val variance = validLapDurationsMs
+                .map { sample ->
+                    val diff = sample - meanMs
+                    diff * diff
+                }
+                .average()
+            val stdDevSec = sqrt(variance) / 1000.0
+            String.format(java.util.Locale.getDefault(), "±%.2f s", stdDevSec)
+        } else {
+            getString(R.string.track_consistency_not_enough)
+        }
+        val bestToAvgDisplay = if (avgLapMs != null && bestLapMsValue != null && validLapDurationsMs.size >= 2) {
+            val deltaSec = (avgLapMs - bestLapMsValue).coerceAtLeast(0L) / 1000.0
+            String.format(java.util.Locale.getDefault(), "+%.2f s", deltaSec)
+        } else {
+            getString(R.string.track_metric_na)
+        }
+        val lapsTotalForHeader = if (isPointToPointSession) {
+            1
+        } else {
+            totalLaps.coerceAtLeast(validLapMs.size)
+        }
+
+        // Header: track name + session date/time
+        tvTitle.text = trackName
+        tvTitleMeta.text = "${sessionDate.uppercase()}  •  ${sessionTime.uppercase()}"
+        tvTitleSessionName.text = if (isPointToPointSession) {
             "Run #$outingNumber"
         } else {
             getString(R.string.track_session_title, outingNumber)
         }
+        tvHeaderProfileName.text = profileName
 
-        // Update session info
-        tvSessionDate.text = sessionDate
-        tvSessionTime.text = sessionTime
-        tvTrackName.text = trackName
-        tvTotalLaps.text = if (isPointToPointSession) "1" else totalLaps.toString()
-        tvVehicleName.text = vehicleName
-        tvBestLapTime.text = bestLapTime
-        tvMinSpeed.text = minSpeed
-        tvMaxSpeed.text = maxSpeed
-        tvAvgSpeed.text = displayAvgSpeed
-        tvDistance.text = displayDistance
+        tvHeaderBestLapTime.text = bestLapTime
+        tvHeaderBestLapMeta.text = if (isPointToPointSession) {
+            getString(R.string.track_header_run_meta)
+        } else if (bestLapNumberInSession != null && lapsTotalForHeader > 0) {
+            highlightBestLapNumber(
+                getString(R.string.track_header_lap_meta, bestLapNumberInSession, lapsTotalForHeader),
+                bestLapNumberInSession
+            )
+        } else {
+            getString(R.string.track_header_lap_meta_unknown, lapsTotalForHeader.coerceAtLeast(1))
+        }
+        tvHeaderMaxSpeedValue.text = compactSpeedForHeader(maxSpeed)
+        tvHeaderAvgLapValue.text = avgLapMs?.let { formatTimeMs(it) } ?: "--:--.---"
+        tvHeaderTotalTimeValue.text = sessionDuration
+        tvWeatherSessionTemp.text = sessionTemperature
+        tvWeatherSessionHumidity.text = sessionHumidity
+        tvWeatherSessionWind.text = sessionWindSpeed
+        tvSessionOverviewDistance.text = displayDistance
+        tvSessionOverviewAvgSpeed.text = displayAvgSpeed
+        tvSessionOverviewConsistency.text = consistencyDisplay
+        tvSessionOverviewBestToAvg.text = bestToAvgDisplay
+        rowSessionOverviewSecondary.visibility = if (showConsistencyMetrics) View.VISIBLE else View.GONE
+        viewSessionOverviewBottomSeparator.visibility = if (showConsistencyMetrics) View.VISIBLE else View.GONE
+        rowSessionOverviewMotoLeans.visibility = if (isMotorcycleSession) View.VISIBLE else View.GONE
+        viewSessionOverviewMotoSeparator.visibility = if (isMotorcycleSession) View.VISIBLE else View.GONE
+        tvSessionOverviewMaxLeanLeft.text = overviewLeanLeftDisplay
+        tvSessionOverviewMaxLeanRight.text = overviewLeanRightDisplay
+        tvLapTimesCount.text = resources.getQuantityString(
+            R.plurals.track_lap_times_count,
+            lapsTotalForHeader,
+            lapsTotalForHeader
+        ).uppercase()
+
+        val humidityPercent = sessionHumidity.filter { it.isDigit() }.toIntOrNull()
+        val (weatherIconRes, weatherTintRes) = resolveWeatherIconStyle(sessionWeatherIcon, humidityPercent)
+        ivWeatherSessionTemp.setImageResource(weatherIconRes)
+        ivWeatherSessionTemp.setColorFilter(ContextCompat.getColor(this, weatherTintRes))
+        ivWeatherSessionHumidity.setImageResource(R.drawable.ic_humidity_drop)
+        ivWeatherSessionHumidity.setColorFilter(ContextCompat.getColor(this, R.color.text_tertiary))
+        ivWeatherSessionWind.setImageResource(R.drawable.ic_wind)
+        ivWeatherSessionWind.setColorFilter(ContextCompat.getColor(this, R.color.text_tertiary))
+
         tvMaxAcceleration.text = maxAcceleration
         tvMaxBraking.text = maxBraking
 
         if (isMotorcycleSession) {
             tvMaxCorneringLeftLabel.text = getString(R.string.track_max_lean_left)
             tvMaxCorneringRightLabel.text = getString(R.string.track_max_lean_right)
-
-            val storedLeanLeft = maxLeanLeftStored?.let { parseDisplayedNumeric(it) }
-            val storedLeanRight = maxLeanRightStored?.let { parseDisplayedNumeric(it) }
-
-            if ((storedLeanLeft ?: 0f) > 0f || (storedLeanRight ?: 0f) > 0f) {
-                tvMaxCorneringLeft.text = formatLeanAngleRounded(storedLeanLeft ?: 0f)
-                tvMaxCorneringRight.text = formatLeanAngleRounded(storedLeanRight ?: 0f)
-            } else {
-                val leanExtremes = computeSessionLeanExtremes(prefs)
-                if (leanExtremes != null) {
-                    tvMaxCorneringLeft.text = formatLeanAngleRounded(leanExtremes.first)
-                    tvMaxCorneringRight.text = formatLeanAngleRounded(leanExtremes.second)
-                } else {
-                    val fallbackLean = parseDisplayedNumeric(maxLeanDisplay) ?: 0f
-                    val fallbackLeanText = formatLeanAngleRounded(fallbackLean)
-                    tvMaxCorneringLeft.text = fallbackLeanText
-                    tvMaxCorneringRight.text = fallbackLeanText
-                }
-            }
+            tvMaxCorneringLeft.text = overviewLeanLeftDisplay
+            tvMaxCorneringRight.text = overviewLeanRightDisplay
         } else {
             tvMaxCorneringLeftLabel.text = getString(R.string.track_max_cornering_left)
             tvMaxCorneringRightLabel.text = getString(R.string.track_max_cornering_right)
@@ -542,64 +691,121 @@ class TrackSessionDetailActivity : AppCompatActivity() {
         }
 
         if (isPointToPointSession) {
-            tvTotalLapsLabel.text = "Runs"
-            tvBestTimeLabel.text = "Run Time"
             tvLapsSectionTitle.text = "Run Details"
             cardLaps.visibility = android.view.View.VISIBLE
         } else {
-            tvTotalLapsLabel.text = getString(R.string.track_label_laps)
-            tvBestTimeLabel.text = getString(R.string.track_best_time)
             tvLapsSectionTitle.text = getString(R.string.track_laps_section)
             cardLaps.visibility = android.view.View.VISIBLE
         }
     }
 
-    private fun findBestLapIndex(lapTimes: List<String>): Int {
-        var bestIndex = 0
-        var bestTime = Long.MAX_VALUE
-        
-        lapTimes.forEachIndexed { index, lapTime ->
-            if (lapTime != "--:--.---") {
-                val timeInMs = parseLapTime(lapTime)
-                if (timeInMs < bestTime) {
-                    bestTime = timeInMs
-                    bestIndex = index
-                }
-            }
-        }
-        
-        return bestIndex
-    }
-    
-    private fun findWorstLapIndex(lapTimes: List<String>): Int {
-        var worstIndex = 0
-        var worstTime = 0L
-        
-        lapTimes.forEachIndexed { index, lapTime ->
-            if (lapTime != "--:--.---") {
-                val timeInMs = parseLapTime(lapTime)
-                if (timeInMs > worstTime) {
-                    worstTime = timeInMs
-                    worstIndex = index
-                }
-            }
-        }
-        
-        return worstIndex
-    }
-    
     private fun parseLapTime(lapTime: String): Long {
-        return try {
-            val parts = lapTime.split(":")
-            val minutes = parts[0].toLong()
-            val secondsParts = parts[1].split(".")
-            val seconds = secondsParts[0].toLong()
-            val milliseconds = secondsParts[1].toLong()
-            
-            minutes * 60 * 1000 + seconds * 1000 + milliseconds * 10
-        } catch (e: Exception) {
-            Long.MAX_VALUE
+        return parseFlexibleTimeToMs(lapTime) ?: Long.MAX_VALUE
+    }
+
+    private fun resolveLapMaxSpeedDisplay(
+        sharedPrefs: android.content.SharedPreferences,
+        lapNumber: Int
+    ): String {
+        val lapData = loadLapDataForDetails(sharedPrefs, lapNumber) ?: return "--"
+        val rawMaxKmh = lapData.routePoints.maxOfOrNull { it.speed } ?: 0f
+        if (!rawMaxKmh.isFinite() || rawMaxKmh <= 0f) return "--"
+
+        val converted = UnitsManager.convertSpeed(rawMaxKmh, UnitsManager.getSpeedUnit(this))
+        return kotlin.math.round(converted.toDouble()).toInt().coerceAtLeast(0).toString()
+    }
+
+    private fun resolveOutingMaxSpeedDisplay(sharedPrefs: android.content.SharedPreferences): String {
+        val raw = sharedPrefs.getString("${trackId}_outing_${outingNumber}_max_speed", "") ?: ""
+        val valueKmh = parseDisplayedNumeric(raw) ?: return "--"
+        if (!valueKmh.isFinite() || valueKmh <= 0f) return "--"
+
+        val converted = UnitsManager.convertSpeed(valueKmh, UnitsManager.getSpeedUnit(this))
+        return kotlin.math.round(converted.toDouble()).toInt().coerceAtLeast(0).toString()
+    }
+
+    private fun formatLapDelta(deltaMs: Long): String {
+        val safeDelta = deltaMs.coerceAtLeast(0L)
+        val seconds = safeDelta / 1_000L
+        val millis = safeDelta % 1_000L
+        return String.format(java.util.Locale.US, "+%d.%03d", seconds, millis)
+    }
+
+    private fun parseFlexibleTimeToMs(value: String): Long? {
+        val trimmed = value.trim()
+        if (trimmed.isEmpty() || trimmed.contains("--")) return null
+
+        val match = Regex("^(\\d+):(\\d{1,2})\\.(\\d{1,3})$").find(trimmed) ?: return null
+        val minutes = match.groupValues[1].toLongOrNull() ?: return null
+        val seconds = match.groupValues[2].toLongOrNull() ?: return null
+        val fraction = match.groupValues[3]
+        val millis = when (fraction.length) {
+            1 -> "${fraction}00"
+            2 -> "${fraction}0"
+            else -> fraction.take(3)
+        }.toLongOrNull() ?: return null
+
+        return (minutes * 60_000L) + (seconds * 1_000L) + millis
+    }
+
+    private fun formatTimeMs(totalMs: Long): String {
+        val safeMs = totalMs.coerceAtLeast(0L)
+        val minutes = safeMs / 60_000L
+        val seconds = (safeMs % 60_000L) / 1_000L
+        val millis = safeMs % 1_000L
+        return String.format(java.util.Locale.getDefault(), "%d:%02d.%03d", minutes, seconds, millis)
+    }
+
+    private fun compactSpeedForHeader(rawSpeed: String): String {
+        val speed = rawSpeed.trim()
+        return if (speed.isEmpty()) "--" else speed.replace(" ", "")
+    }
+
+    private fun highlightBestLapNumber(text: String, lapNumber: Int): CharSequence {
+        val lapToken = lapNumber.toString()
+        val startIndex = text.indexOf(lapToken)
+        if (startIndex < 0) return text
+
+        val spannable = SpannableString(text)
+        val highlightColor = ContextCompat.getColor(this, R.color.primary_color)
+        spannable.setSpan(
+            ForegroundColorSpan(highlightColor),
+            startIndex,
+            startIndex + lapToken.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+        )
+        return spannable
+    }
+
+    private fun resolveWeatherIconStyle(iconRes: Int, humidityPercent: Int?): Pair<Int, Int> {
+        val baseIcon = when (iconRes) {
+            R.drawable.ic_weather_sunny -> R.drawable.ic_weather_sunny
+            R.drawable.ic_weather_clear_night -> R.drawable.ic_weather_clear_night
+            R.drawable.ic_weather_partly_cloudy,
+            R.drawable.ic_weather_partly_cloudy_night -> R.drawable.ic_weather_partly_cloudy
+            R.drawable.ic_weather_cloudy -> R.drawable.ic_weather_cloudy
+            R.drawable.ic_weather_rainy -> R.drawable.ic_weather_rainy
+            R.drawable.ic_weather_snowy -> R.drawable.ic_weather_snowy
+            else -> R.drawable.ic_weather_cloudy
         }
+
+        val finalIcon = if (baseIcon == R.drawable.ic_weather_sunny && (humidityPercent ?: 0) >= 70) {
+            R.drawable.ic_weather_cloudy
+        } else {
+            baseIcon
+        }
+
+        val tintRes = when (finalIcon) {
+            R.drawable.ic_weather_sunny -> R.color.warning_color
+            R.drawable.ic_weather_rainy -> R.color.accent_light
+            R.drawable.ic_weather_snowy -> R.color.accent_light
+            R.drawable.ic_weather_clear_night -> R.color.text_secondary_light
+            R.drawable.ic_weather_cloudy,
+            R.drawable.ic_weather_partly_cloudy -> R.color.text_tertiary
+            else -> R.color.text_tertiary
+        }
+
+        return finalIcon to tintRes
     }
 
     private fun computeSessionMinSpeed(prefs: android.content.SharedPreferences): Float? {
