@@ -1,0 +1,938 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_primary">
+
+    <ScrollView
+        android:id="@+id/svGarageProfilePage"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:id="@+id/llGarageProfilePageContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="24dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnBackToGarage"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:padding="0dp"
+                android:text=""
+                app:cornerRadius="12dp"
+                app:strokeWidth="0dp"
+                app:icon="@drawable/ic_arrow_back"
+                app:iconTint="@color/text_primary"
+                 />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnEditProfilePage"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:minWidth="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:text="@string/profile_edit_button"
+                android:textAllCaps="true"
+                android:textColor="@color/text_primary"
+                android:textSize="12sp"
+                app:backgroundTint="#0D131A"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_edit"
+                app:iconPadding="8dp"
+                app:iconTint="@color/text_primary"
+                app:strokeColor="#22FFFFFF" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tvProfilePageVehicleName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="@color/text_primary"
+                android:textSize="44sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tvProfilePageStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_profile_status_active"
+                android:paddingStart="14dp"
+                android:paddingTop="5dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="5dp"
+                android:text="@string/garage_active_badge"
+                android:textColor="@android:color/white"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvProfilePageMeta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/text_tertiary"
+            android:textSize="14sp" />
+
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tabProfileSections"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/bg_drag_attempt_summary_shell"
+            app:tabBackground="@android:color/transparent"
+            app:tabGravity="fill"
+            app:tabIconTint="@color/tab_profile_section_icon_tint"
+            app:tabIndicator="@drawable/bg_profile_tab_indicator"
+            app:tabIndicatorColor="@color/accent_color"
+            app:tabIndicatorFullWidth="true"
+            app:tabIndicatorHeight="2dp"
+            app:tabMode="fixed"
+            app:tabPaddingEnd="4dp"
+            app:tabPaddingStart="4dp"
+            app:tabRippleColor="@color/transparent"
+            app:tabSelectedTextColor="@color/accent_color"
+            app:tabTextAppearance="@style/TextAppearance.GarageProfileTab"
+            app:tabTextColor="@color/text_tertiary" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+           android:paddingVertical="12dp">
+
+            <LinearLayout
+                android:id="@+id/llProfileOverviewSummary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="vertical"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/garage_profile_stat_sessions"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfilePageSessionsValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="0"
+                            android:textColor="@color/accent_color"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvProfilePageSessionsSubvalue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:gravity="start"
+                        android:text="Drag: 0 • Track: 0"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="9sp" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/llProfileOverviewMetrics"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_drag_attempt_summary_shell"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_distance"
+                            app:tint="@color/text_tertiary" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="@string/profile_detail_distance_text"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvProfileOverviewDistanceValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="0.0 km"
+                        android:textColor="@color/primary_color"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_drag_attempt_summary_shell"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_timer"
+                            app:tint="@color/text_tertiary" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:text="@string/profile_detail_duration_text"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tvProfileOverviewDurationValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="0h 0m"
+                        android:textColor="@color/primary_color"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/llProfileOverviewRecords"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_attempt_summary_shell"
+                        android:orientation="vertical"
+                        android:padding="10dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/drag_0to100_title"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileOverviewBest0to100Value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="--"
+                            android:textColor="@color/accent_green"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_attempt_summary_shell"
+                        android:orientation="vertical"
+                        android:padding="10dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/drag_0to200_title"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileOverviewBest0to200Value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="--"
+                            android:textColor="@color/accent_blue"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_attempt_summary_shell"
+                        android:orientation="vertical"
+                        android:padding="10dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/drag_100to200_title"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileOverviewBest100to200Value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="--"
+                            android:textColor="@color/accent_purple"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_attempt_summary_shell"
+                        android:orientation="vertical"
+                        android:padding="10dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/drag_quarter_mile_title"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileOverviewBest0to402Value"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="--"
+                            android:textColor="@color/accent_red"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_drag_attempt_summary_shell"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/profile_detail_max_speed"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileOverviewMaxSpeedValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="--"
+                            android:textColor="@color/track_neon_green"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/llProfileOverviewMotoLeanRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_attempt_summary_shell"
+                        android:orientation="vertical"
+                        android:padding="10dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/garage_profile_stat_max_lean_left"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileOverviewMaxLeanLeftValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="--"
+                            android:textColor="@color/accent_color"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_attempt_summary_shell"
+                        android:orientation="vertical"
+                        android:padding="10dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/garage_profile_stat_max_lean_right"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileOverviewMaxLeanRightValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="--"
+                            android:textColor="@color/accent_color"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_drag_attempt_summary_shell"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:id="@+id/tvProfileOverviewGForceLabel"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/garage_profile_stat_max_g_force"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileOverviewGForceValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="--"
+                            android:textColor="@color/primary_color"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/llProfileFuelLogsSummary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/garage_profile_stat_fuel"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="10sp" />
+
+                    <TextView
+                        android:id="@+id/tvProfilePageFuelValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="0"
+                        android:textColor="@color/track_neon_green"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/llProfileFuelSummary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical"
+                android:visibility="gone"
+                >
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_attempt_summary_shell"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/garage_profile_fuel_total_spent"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileFuelTotalSpentValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="@string/garage_profile_fuel_total_spent_placeholder"
+                            android:textColor="@color/primary_color"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvProfileFuelTotalSpentMeta"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@string/garage_profile_fuel_total_spent_meta"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="8sp" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_attempt_summary_shell"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/garage_profile_fuel_avg_consumption"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileFuelAvgConsumptionValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="@string/garage_profile_fuel_avg_consumption_placeholder"
+                            android:textColor="@color/track_neon_green"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvProfileFuelAvgConsumptionMeta"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@string/garage_profile_fuel_avg_consumption_meta"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="8sp" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="6dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_attempt_summary_shell"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/garage_profile_fuel_last_price"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileFuelLastPriceValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="@string/garage_profile_fuel_last_price_placeholder"
+                            android:textColor="@color/drag_run_green"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvProfileFuelLastPriceMeta"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@string/garage_profile_fuel_last_price_meta"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="8sp" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_drag_attempt_summary_shell"
+                        android:orientation="vertical"
+                        android:padding="12dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/garage_profile_fuel_total_litres"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/tvProfileFuelTotalLitresValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="@string/garage_profile_fuel_total_litres_placeholder"
+                            android:textColor="@color/text_primary"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvProfileFuelTotalLitresMeta"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@string/garage_profile_fuel_total_litres_meta"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="8sp" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/garage_profile_fuel_entries_section_title"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:background="#22364A5C" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/llProfileFuelEntriesPreview"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="vertical" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/llProfileMaintenanceSummary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/garage_profile_stat_maintenance"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="10sp" />
+
+                    <TextView
+                        android:id="@+id/tvProfilePageMaintenanceValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="0"
+                        android:textColor="@color/accent_color"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/llProfileDocumentsSummary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="2dp"
+                    android:paddingBottom="2dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/garage_profile_stat_documents"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="10sp" />
+
+                    <TextView
+                        android:id="@+id/tvProfilePageDocumentsValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="0"
+                        android:textColor="@color/accent_purple"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tvProfileTabPlaceholder"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/garage_profile_tab_placeholder_default"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+        </LinearLayout>
+
+    </ScrollView>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnAddFuelEntry"
+        style="@style/Widget.MaterialComponents.Button"
+        android:layout_width="wrap_content"
+        android:layout_height="56dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="20dp"
+        android:minWidth="0dp"
+        android:contentDescription="@string/garage_profile_fuel_add_button"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:text="+"
+        android:textAllCaps="false"
+        android:textColor="@android:color/white"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:backgroundTint="@color/accent_color"
+        app:cornerRadius="28dp"
+        app:elevation="8dp"
+        app:icon="@drawable/gas_station"
+        app:iconGravity="textStart"
+        app:iconPadding="8dp"
+        app:iconSize="20dp"
+        app:iconTint="@android:color/white"
+        app:rippleColor="#33FFFFFF"
+        app:strokeColor="#22FFFFFF"
+        app:strokeWidth="1dp" />
+
+</FrameLayout>

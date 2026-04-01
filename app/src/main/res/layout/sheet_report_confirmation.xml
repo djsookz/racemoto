@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@android:color/white">
+    
+    <!-- Question Text -->
+    <TextView
+        android:id="@+id/tvConfirmationQuestion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Все още тук ли е\n🚔 полицията?"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/black"
+        android:gravity="center"
+        android:layout_marginBottom="24dp" />
+    
+    <!-- Buttons Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginBottom="16dp">
+        
+        <!-- YES Button -->
+        <Button
+            android:id="@+id/btnConfirmYes"
+            android:layout_width="0dp"
+            android:layout_height="60dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:text="✅ ДА"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:backgroundTint="#4CAF50" />
+        
+        <!-- NO Button -->
+        <Button
+            android:id="@+id/btnConfirmNo"
+            android:layout_width="0dp"
+            android:layout_height="60dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="❌ НЕ"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:backgroundTint="#F44336" />
+    
+    </LinearLayout>
+    
+    <!-- Countdown Text -->
+    <TextView
+        android:id="@+id/tvCountdown"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Изчезва след: 10 сек"
+        android:textSize="14sp"
+        android:textColor="@android:color/darker_gray"
+        android:gravity="center" />
+
+</LinearLayout>
