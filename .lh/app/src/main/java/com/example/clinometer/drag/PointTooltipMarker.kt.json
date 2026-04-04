@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/drag/PointTooltipMarker.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1775246181280,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1775246181280,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.drag\r\n\r\nobject PointTooltipMarker {\r\n    enum class PointType {\r\n        SPEED_100,\r\n        SPEED_200,\r\n        DISTANCE_402\r\n    }\r\n}\r\n"
+        }
+    ]
+}

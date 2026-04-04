@@ -111,11 +111,6 @@
     <string name="nav_track_label">Писта</string>
     <string name="nav_options_label">Настройки</string>
     
-    <plurals name="drag_attempts_count">
-        <item quantity="one">%d опит</item>
-        <item quantity="other">%d опита</item>
-    </plurals>
-    
     <!-- Drag Run Page Status Messages -->
     <string name="drag_status_initializing">⏳ Инициализация на сензорите...</string>
     <string name="drag_status_waiting_gps">📡 Изчакване на GPS сигнал...</string>

@@ -29,14 +29,6 @@ class DragSessionAdapter(
 
     inner class DragSessionViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val llAllModeContent: LinearLayout = itemView.findViewById(R.id.llAllModeContent)
-        val llSingleModeContent: LinearLayout = itemView.findViewById(R.id.llSingleModeContent)
-
-        val tvName: TextView = itemView.findViewById(R.id.tvSessionName)
-        val tvDate: TextView = itemView.findViewById(R.id.tvSessionDate)
-        val tvSingleModeBadge: TextView = itemView.findViewById(R.id.tvSingleModeBadge)
-        val tvAttempts: TextView = itemView.findViewById(R.id.tvAttemptCount)
-        val tvBestTime: TextView = itemView.findViewById(R.id.tvBestTime)
-        val tvEnvironment: TextView = itemView.findViewById(R.id.tvEnvironment)
 
         val tvAllDay: TextView = itemView.findViewById(R.id.tvAllDay)
         val tvAllMonth: TextView = itemView.findViewById(R.id.tvAllMonth)
@@ -64,37 +56,12 @@ class DragSessionAdapter(
 
     override fun onBindViewHolder(holder: DragSessionViewHolder, position: Int) {
         val session = sessions[position]
-        val context = holder.itemView.context
         val mode = resolveSessionMode(session)
-
-        val attemptCount = session.attempts.size
-        holder.tvAttempts.text = context.resources.getQuantityString(
-            R.plurals.drag_attempts_count,
-            attemptCount,
-            attemptCount
-        )
-
-        val envText = buildString {
-            session.temperature?.let { 
-                val tempUnit = UnitsManager.getTemperatureUnit(context)
-                val convertedTemp = UnitsManager.convertTemperature(it, tempUnit)
-                append("${String.format("%.1f", convertedTemp)}${tempUnit.symbol}")
-            }
-            if (session.temperature != null && session.altitude != null) append(" • ")
-            session.altitude?.let { append("${it.toInt()}m") }
-        }
 
         if (mode == SessionMode.ALL) {
             bindAllMode(holder, session, position)
         } else {
             bindSingleMode(holder, session, mode, position)
-        }
-
-        if (envText.isNotEmpty()) {
-            holder.tvEnvironment.text = envText
-            holder.tvEnvironment.visibility = View.VISIBLE
-        } else {
-            holder.tvEnvironment.visibility = View.GONE
         }
 
         holder.itemView.setOnClickListener { onItemClick(session) }
@@ -105,10 +72,6 @@ class DragSessionAdapter(
     }
 
     override fun getItemCount(): Int = sessions.size
-
-    private fun formatDate(timestamp: Long): String {
-        return DateFormat.format("dd.MM.yyyy HH:mm", Date(timestamp)).toString()
-    }
 
     private fun bindSingleMode(holder: DragSessionViewHolder, session: DragSession, mode: SessionMode, position: Int) {
         val context = holder.itemView.context
@@ -125,7 +88,6 @@ class DragSessionAdapter(
         val metric0to402 = getBestMetricTime(session, SessionMode.QUARTER_MILE)
 
         holder.llAllModeContent.visibility = View.VISIBLE
-        holder.llSingleModeContent.visibility = View.GONE
 
         holder.tvAllDay.text = DateFormat.format("dd", Date(session.timestamp)).toString()
         holder.tvAllMonth.text = DateFormat.format("MMM", Date(session.timestamp)).toString().uppercase(Locale.getDefault())
@@ -188,7 +150,6 @@ class DragSessionAdapter(
         val color100to200 = ContextCompat.getColor(context, R.color.accent_purple)
         val color0to402 = ContextCompat.getColor(context, R.color.accent_red)
 
-        holder.llSingleModeContent.visibility = View.GONE
         holder.llAllModeContent.visibility = View.VISIBLE
 
         holder.tvAllDay.text = DateFormat.format("dd", Date(session.timestamp)).toString()
@@ -381,17 +342,6 @@ class DragSessionAdapter(
             SessionMode.HUNDRED_TO_200 -> context.getString(R.string.drag_mode_100to200)
             SessionMode.QUARTER_MILE -> context.getString(R.string.drag_mode_quarter)
             SessionMode.UNKNOWN -> context.getString(R.string.drag_mode_unknown)
-        }
-    }
-
-    private fun getModeColor(mode: SessionMode): Int {
-        return when (mode) {
-            SessionMode.ZERO_TO_100 -> R.color.accent_green
-            SessionMode.ZERO_TO_200 -> R.color.accent_blue
-            SessionMode.HUNDRED_TO_200 -> R.color.accent_purple
-            SessionMode.QUARTER_MILE -> R.color.accent_red
-            SessionMode.ALL -> R.color.drag_run_purple
-            SessionMode.UNKNOWN -> R.color.text_secondary
         }
     }
 

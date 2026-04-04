@@ -100,11 +100,6 @@
     <string name="nav_track_label">Πίστα</string>
     <string name="nav_options_label">Ρυθμίσεις</string>
     
-    <plurals name="drag_attempts_count">
-        <item quantity="one">%d προσπάθεια</item>
-        <item quantity="other">%d προσπάθειες</item>
-    </plurals>
-    
     <!-- Drag Run Page Status Messages -->
     <string name="drag_status_initializing">⏳ Αρχικοποίηση αισθητήρων...</string>
     <string name="drag_status_waiting_gps">📡 Αναμονή σήματος GPS...</string>

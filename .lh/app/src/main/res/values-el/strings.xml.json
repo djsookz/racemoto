@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 4,
+            "activePatchIndex": 5,
             "patches": [
                 {
                     "date": 1772044964290,
@@ -24,6 +24,10 @@
                 {
                     "date": 1773674906230,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -250,8 +250,13 @@\n     <string name=\"track_label_duration\">Διάρκεια:</string>\r\n     <string name=\"track_label_track\">Πίστα:</string>\r\n     <string name=\"track_label_laps\">Γύροι:</string>\r\n     <string name=\"track_vehicle_header\">Όχημα</string>\r\n+    <string name=\"track_overview_header\">Επισκόπηση εξόδου</string>\r\n+    <string name=\"track_consistency_label\">Σταθερότητα</string>\r\n+    <string name=\"track_best_to_avg_label\">Καλύτερος προς μέσο</string>\r\n+    <string name=\"track_consistency_not_enough\">Ανεπαρκείς γύροι</string>\r\n+    <string name=\"track_metric_na\">Μ/Δ</string>\r\n     <string name=\"track_stats_header\">Στατιστικά Εξόδου</string>\r\n     <string name=\"track_best_time\">Καλύτερος Χρόνος:</string>\r\n     <string name=\"track_min_speed\">Ελάχιστη Ταχύτητα:</string>\r\n     <string name=\"track_max_speed\">Μέγιστη Ταχύτητα:</string>\r\n"
+                },
+                {
+                    "date": 1775246181299,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -99,13 +99,8 @@\n     <string name=\"nav_map_label\">Χάρτης</string>\r\n     <string name=\"nav_track_label\">Πίστα</string>\r\n     <string name=\"nav_options_label\">Ρυθμίσεις</string>\r\n     \r\n-    <plurals name=\"drag_attempts_count\">\r\n-        <item quantity=\"one\">%d προσπάθεια</item>\r\n-        <item quantity=\"other\">%d προσπάθειες</item>\r\n-    </plurals>\r\n-    \r\n     <!-- Drag Run Page Status Messages -->\r\n     <string name=\"drag_status_initializing\">⏳ Αρχικοποίηση αισθητήρων...</string>\r\n     <string name=\"drag_status_waiting_gps\">📡 Αναμονή σήματος GPS...</string>\r\n     <string name=\"drag_status_ready_all\">✅ ΕΤΟΙΜΟ - Ξεκινήστε επιτάχυνση!</string>\r\n"
                 }
             ],
             "date": 1772044964290,

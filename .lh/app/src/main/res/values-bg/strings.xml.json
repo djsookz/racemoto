@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 11,
+            "activePatchIndex": 12,
             "patches": [
                 {
                     "date": 1772044964289,
@@ -52,6 +52,10 @@
                 {
                     "date": 1774940495037,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -326,8 +326,17 @@\n     <string name=\"track_duration_label\">Времетраене</string>\r\n     <string name=\"track_laps_label\">Обиколки</string>\r\n     <string name=\"track_new_session\">+ Нова сесия</string>\r\n     <string name=\"track_resume\">ПРОДЪЛЖИ</string>\r\n+    <string name=\"track_all_time_best_label\">Най-добро за пистата</string>\r\n+    <string name=\"track_pb_badge\">PB</string>\r\n+    <string name=\"track_summary_sessions\">Сесии</string>\r\n+    <string name=\"track_summary_laps\">Обиколки</string>\r\n+    <string name=\"track_summary_time\">Време</string>\r\n+    <string name=\"track_summary_time_minutes\">%1$dм</string>\r\n+    <string name=\"track_summary_time_hours_minutes\">%1$dч %2$dм</string>\r\n+    <string name=\"track_session_overview_max_lean_left\">Макс лягане L</string>\r\n+    <string name=\"track_session_overview_max_lean_right\">Макс лягане R</string>\r\n     <string name=\"track_delete_session_title\">Изтрий сесия</string>\r\n     <string name=\"track_delete_session_message\">Сигурни ли сте, че искате да изтриете сесията \\\"%s\\\"? Това действие не може да бъде отменено.</string>\r\n     <string name=\"track_delete_button\">Изтрий</string>\r\n     <string name=\"track_lap_title\">Обиколка #%d</string>\r\n@@ -369,8 +378,12 @@\n     <string name=\"garage_select_brand\">Моля изберете марка</string>\r\n     <string name=\"garage_select_model\">Моля изберете модел</string>\r\n     <string name=\"garage_most_popular\">Най-популярни</string>\r\n     <string name=\"garage_back_press\">Натиснете отново за изход</string>\r\n+    <string name=\"garage_profile_stat_max_lean_left\">Макс лягане наляво</string>\r\n+    <string name=\"garage_profile_stat_max_lean_right\">Макс лягане надясно</string>\r\n+    <string name=\"garage_profile_stat_max_g_force\">Макс G-сила</string>\r\n+    <string name=\"garage_profile_stat_max_accel_g_force\">Макс G-сила при ускорение</string>\r\n     \r\n     <!-- Profile Details -->\r\n     <string name=\"profile_detail_session_text\">Сесии</string>\r\n     <string name=\"profile_detail_distance_format\">0,0 км</string>\r\n"
+                },
+                {
+                    "date": 1775246181517,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -110,13 +110,8 @@\n     <string name=\"nav_map_label\">Карта</string>\r\n     <string name=\"nav_track_label\">Писта</string>\r\n     <string name=\"nav_options_label\">Настройки</string>\r\n     \r\n-    <plurals name=\"drag_attempts_count\">\r\n-        <item quantity=\"one\">%d опит</item>\r\n-        <item quantity=\"other\">%d опита</item>\r\n-    </plurals>\r\n-    \r\n     <!-- Drag Run Page Status Messages -->\r\n     <string name=\"drag_status_initializing\">⏳ Инициализация на сензорите...</string>\r\n     <string name=\"drag_status_waiting_gps\">📡 Изчакване на GPS сигнал...</string>\r\n     <string name=\"drag_status_ready_all\">✅ ГОТОВ - Започнете ускорение!</string>\r\n"
                 }
             ],
             "date": 1772044964289,

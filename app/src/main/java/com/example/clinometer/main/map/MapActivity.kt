@@ -131,8 +131,14 @@ class MapActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        setContentView(R.layout.activity_map)
+
+        val isTrackContext = intent.getBooleanExtra(TrackMapExtras.EXTRA_TRACK_CONTEXT, false)
+        val layoutResId = if (isTrackContext) {
+            R.layout.activity_track_map
+        } else {
+            R.layout.activity_map
+        }
+        setContentView(layoutResId)
         
         setupScreenKeepOn()
         

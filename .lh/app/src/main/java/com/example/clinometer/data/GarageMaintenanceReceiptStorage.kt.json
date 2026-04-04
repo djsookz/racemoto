@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/data/GarageMaintenanceReceiptStorage.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1775054476814,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1775054476814,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.data\r\n\r\nimport android.content.Context\r\nimport android.net.Uri\r\nimport java.io.File\r\n\r\nobject GarageMaintenanceReceiptStorage {\r\n    private const val RECEIPTS_DIR = \"maintenance_receipts\"\r\n\r\n    fun saveTempReceipt(context: Context, uri: Uri, profileId: Long, entryId: Long): String? {\r\n        return GarageReceiptImageStorage.saveTempReceipt(context, uri, RECEIPTS_DIR, profileId, entryId)\r\n    }\r\n\r\n    fun promoteTempReceipt(context: Context, relativePath: String, profileId: Long, entryId: Long): String? {\r\n        return GarageReceiptImageStorage.promoteTempReceipt(context, relativePath, RECEIPTS_DIR, profileId, entryId)\r\n    }\r\n\r\n    fun deleteReceipt(context: Context, relativePath: String?) {\r\n        GarageReceiptImageStorage.deleteReceipt(context, relativePath)\r\n    }\r\n\r\n    fun resolveReceiptFile(context: Context, relativePath: String?): File? {\r\n        return GarageReceiptImageStorage.resolveReceiptFile(context, relativePath)\r\n    }\r\n}"
+        }
+    ]
+}

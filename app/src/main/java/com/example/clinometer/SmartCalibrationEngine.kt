@@ -1,13 +1,16 @@
 package com.example.clinometer
 
+import android.location.Location
 import kotlin.math.abs
 import kotlin.math.asin
+import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 class SmartCalibrationEngine(
     private val hasGyroSensor: Boolean,
-    private val useLeanStep: Boolean
+    private val useLeanStep: Boolean,
+    private val requireGpsForwardAssist: Boolean = false
 ) {
     enum class Phase {
         IDLE,
@@ -21,6 +24,7 @@ class SmartCalibrationEngine(
     enum class FailureReason {
         NOT_ENOUGH_STILL,
         NOT_ENOUGH_FORWARD,
+        NOT_ENOUGH_GPS_FORWARD,
         INVALID_GRAVITY,
         INVALID_FORWARD_VECTOR,
         LEAN_LEFT_TOO_SMALL,
@@ -40,7 +44,15 @@ class SmartCalibrationEngine(
 
         data class ReturnUpright(val hold: Int, val holdRequired: Int) : Guidance()
         data class ForwardWait(val remainingSec: Float) : Guidance()
-        data class ForwardDrive(val accepted: Int, val target: Int) : Guidance()
+        data class ForwardDrive(
+            val accepted: Int,
+            val target: Int,
+            val gpsRequired: Boolean = false,
+            val gpsDistanceMeters: Float = 0f,
+            val gpsTargetDistanceMeters: Float = 0f,
+            val gpsPoints: Int = 0,
+            val gpsTargetPoints: Int = 0
+        ) : Guidance()
     }
 
     data class CalibrationResult(
@@ -120,6 +132,15 @@ class SmartCalibrationEngine(
     private var forwardDirectionUnit: FloatArray? = null
     private var forwardDirectionStreak = 0
 
+    private var gpsAnchorLocation: Location? = null
+    private var gpsLastAcceptedLocation: Location? = null
+    private var gpsAcceptedPoints = 0
+    private var gpsAcceptedSegments = 0
+    private var gpsTotalDistanceMeters = 0f
+    private var gpsDirectionSumEast = 0.0
+    private var gpsDirectionSumNorth = 0.0
+    private var gpsForwardReady = false
+
     fun start(nowMs: Long): Frame {
         resetRuntimeState()
         started = true
@@ -164,6 +185,72 @@ class SmartCalibrationEngine(
 
         if (gMag <= STILL_GYRO_GOOD_THRESHOLD) {
             stillGyroGoodCount++
+        }
+    }
+
+    fun onLocation(location: Location) {
+        if (!started || !requireGpsForwardAssist || phase != Phase.FORWARD || !forwardSettleBaselineLocked) return
+        if (location.hasAccuracy() && location.accuracy > GPS_MAX_HORIZONTAL_ACCURACY_M) return
+
+        val currentLocation = Location(location)
+        val anchor = gpsAnchorLocation
+        if (anchor == null) {
+            resetGpsForwardSampling(currentLocation)
+            return
+        }
+
+        val lastAccepted = gpsLastAcceptedLocation ?: run {
+            gpsLastAcceptedLocation = currentLocation
+            return
+        }
+
+        val deltaEastNorth = computeEastNorthDeltaMeters(lastAccepted, currentLocation)
+        val deltaEast = deltaEastNorth[0]
+        val deltaNorth = deltaEastNorth[1]
+        val segmentDistance = sqrt(deltaEast * deltaEast + deltaNorth * deltaNorth).toFloat()
+        if (segmentDistance < GPS_MIN_SEGMENT_DISTANCE_M) {
+            return
+        }
+
+        val dtSec = ((currentLocation.elapsedRealtimeNanos - lastAccepted.elapsedRealtimeNanos) / 1_000_000_000.0)
+            .coerceAtLeast(0.05)
+        val derivedSpeed = (segmentDistance / dtSec).toFloat()
+        val speedMps = when {
+            currentLocation.hasSpeed() && currentLocation.speed > 0f -> currentLocation.speed
+            else -> derivedSpeed
+        }
+        if (speedMps < GPS_MIN_SPEED_MPS) {
+            resetGpsForwardSampling(currentLocation)
+            return
+        }
+
+        val unitEast = deltaEast / segmentDistance
+        val unitNorth = deltaNorth / segmentDistance
+        if (gpsAcceptedSegments > 0) {
+            val directionMag = sqrt(gpsDirectionSumEast * gpsDirectionSumEast + gpsDirectionSumNorth * gpsDirectionSumNorth)
+            if (directionMag > 0.0001) {
+                val avgEast = gpsDirectionSumEast / directionMag
+                val avgNorth = gpsDirectionSumNorth / directionMag
+                val dot = avgEast * unitEast + avgNorth * unitNorth
+                if (dot < GPS_DIRECTION_DOT_MIN) {
+                    resetGpsForwardSampling(currentLocation)
+                    return
+                }
+            }
+        }
+
+        gpsAcceptedSegments++
+        gpsAcceptedPoints = gpsAcceptedSegments + 1
+        gpsTotalDistanceMeters += segmentDistance
+        gpsDirectionSumEast += unitEast * segmentDistance
+        gpsDirectionSumNorth += unitNorth * segmentDistance
+        gpsLastAcceptedLocation = currentLocation
+
+        val anchorDelta = computeEastNorthDeltaMeters(anchor, currentLocation)
+        val anchorDistance = sqrt(anchorDelta[0] * anchorDelta[0] + anchorDelta[1] * anchorDelta[1]).toFloat()
+        if (gpsAcceptedPoints >= GPS_MIN_POINTS && anchorDistance >= GPS_MIN_TOTAL_DISTANCE_M) {
+            gpsForwardReady = true
+            gpsTotalDistanceMeters = anchorDistance
         }
     }
 
@@ -494,6 +581,7 @@ class SmartCalibrationEngine(
         forwardSettleBaselineSum.fill(0f)
         forwardSettleCount = 0
         forwardSettleBaselineLocked = false
+        resetGpsForwardSampling()
 
         val safeCount = stillLinearCount.coerceAtLeast(1)
         forwardBaseline[0] = stillGravitySum[0] / safeCount
@@ -620,11 +708,22 @@ class SmartCalibrationEngine(
         }
 
         val forwardProgress = 98 + (
-            forwardAcceptedSamples.coerceIn(0, FORWARD_EARLY_FINISH_SAMPLES) * 2 /
-                FORWARD_EARLY_FINISH_SAMPLES
+            (((computeForwardCompletionRatio().coerceIn(0f, 1f)) * 2f).roundToInt())
             )
 
-        if (forwardAcceptedSamples >= FORWARD_EARLY_FINISH_SAMPLES && elapsed >= FORWARD_EARLY_FINISH_MIN_MS) {
+        if (requireGpsForwardAssist && elapsed >= FORWARD_GPS_MAX_DURATION_MS && !gpsForwardReady) {
+            return Frame(
+                phase = phase,
+                progressPercent = 0,
+                guidance = null,
+                failure = FailureReason.NOT_ENOUGH_GPS_FORWARD
+            )
+        }
+
+        if (forwardAcceptedSamples >= FORWARD_EARLY_FINISH_SAMPLES &&
+            elapsed >= FORWARD_EARLY_FINISH_MIN_MS &&
+            (!requireGpsForwardAssist || gpsForwardReady)
+        ) {
             return finalizeCalibration()
         }
 
@@ -633,7 +732,12 @@ class SmartCalibrationEngine(
             progressPercent = forwardProgress,
             guidance = Guidance.ForwardDrive(
                 accepted = forwardAcceptedSamples.coerceAtMost(FORWARD_EARLY_FINISH_SAMPLES),
-                target = FORWARD_EARLY_FINISH_SAMPLES
+                target = FORWARD_EARLY_FINISH_SAMPLES,
+                gpsRequired = requireGpsForwardAssist,
+                gpsDistanceMeters = gpsTotalDistanceMeters,
+                gpsTargetDistanceMeters = GPS_MIN_TOTAL_DISTANCE_M,
+                gpsPoints = gpsAcceptedPoints,
+                gpsTargetPoints = GPS_MIN_POINTS
             )
         )
     }
@@ -647,6 +751,10 @@ class SmartCalibrationEngine(
 
         if (forwardTopVectors.size < 4) {
             return Frame(phase = phase, progressPercent = 0, guidance = null, failure = FailureReason.NOT_ENOUGH_FORWARD)
+        }
+
+        if (requireGpsForwardAssist && !gpsForwardReady) {
+            return Frame(phase = phase, progressPercent = 0, guidance = null, failure = FailureReason.NOT_ENOUGH_GPS_FORWARD)
         }
 
         val gravityAvg = floatArrayOf(
@@ -841,6 +949,8 @@ class SmartCalibrationEngine(
         forwardDirectionUnit = null
         forwardDirectionStreak = 0
 
+        resetGpsForwardSampling()
+
         leanReferenceGravity.fill(0f)
         leanGravitySum.fill(0f)
         leanSampleCount = 0
@@ -852,6 +962,38 @@ class SmartCalibrationEngine(
         forwardSettleBaselineLocked = false
         forwardLateralAxis.fill(0f)
         forwardLateralAxisReady = false
+    }
+
+    private fun resetGpsForwardSampling(anchorLocation: Location? = null) {
+        gpsAnchorLocation = anchorLocation?.let { Location(it) }
+        gpsLastAcceptedLocation = anchorLocation?.let { Location(it) }
+        gpsAcceptedPoints = if (anchorLocation != null) 1 else 0
+        gpsAcceptedSegments = 0
+        gpsTotalDistanceMeters = 0f
+        gpsDirectionSumEast = 0.0
+        gpsDirectionSumNorth = 0.0
+        gpsForwardReady = false
+    }
+
+    private fun computeEastNorthDeltaMeters(from: Location, to: Location): DoubleArray {
+        val lat1 = Math.toRadians(from.latitude)
+        val lat2 = Math.toRadians(to.latitude)
+        val lon1 = Math.toRadians(from.longitude)
+        val lon2 = Math.toRadians(to.longitude)
+        val avgLat = (lat1 + lat2) * 0.5
+        val east = (lon2 - lon1) * EARTH_RADIUS_M * cos(avgLat)
+        val north = (lat2 - lat1) * EARTH_RADIUS_M
+        return doubleArrayOf(east, north)
+    }
+
+    private fun computeForwardCompletionRatio(): Float {
+        val pulseRatio = forwardAcceptedSamples.toFloat() / FORWARD_EARLY_FINISH_SAMPLES.toFloat()
+        if (!requireGpsForwardAssist) {
+            return pulseRatio
+        }
+        val distanceRatio = gpsTotalDistanceMeters / GPS_MIN_TOTAL_DISTANCE_M
+        val pointRatio = gpsAcceptedPoints.toFloat() / GPS_MIN_POINTS.toFloat()
+        return minOf(pulseRatio, distanceRatio, pointRatio)
     }
 
     private fun addForwardCandidate(magnitude: Float, vector: FloatArray) {
@@ -993,6 +1135,7 @@ class SmartCalibrationEngine(
         private const val LEAN_LEFT_MAX_DURATION_MS = 12_000L
         private const val RETURN_UPRIGHT_MAX_DURATION_MS = 10_000L
         private const val FORWARD_SETTLE_MS = 3000L
+        private const val FORWARD_GPS_MAX_DURATION_MS = 20_000L
         private const val LEAN_LEFT_TARGET_DEG = 20f
         private const val LEAN_LEFT_TARGET_ENTER_DEG = 18f
         private const val LEAN_LEFT_CAPTURE_MIN_DEG = 14f
@@ -1021,6 +1164,12 @@ class SmartCalibrationEngine(
         private const val FORWARD_DIRECTION_MIN_STREAK = 2
         private const val FORWARD_DIRECTION_BLEND_OLD = 0.80f
         private const val FORWARD_DIRECTION_BLEND_NEW = 0.20f
+        private const val GPS_MIN_TOTAL_DISTANCE_M = 20f
+        private const val GPS_MIN_POINTS = 6
+        private const val GPS_MIN_SPEED_MPS = 4.2f
+        private const val GPS_MIN_SEGMENT_DISTANCE_M = 1.5f
+        private const val GPS_MAX_HORIZONTAL_ACCURACY_M = 12f
+        private const val GPS_DIRECTION_DOT_MIN = 0.97
         private const val NO_GYRO_GRAVITY_SENSOR_BLEND = 0.70f
         private const val NO_GYRO_GRAVITY_FRESH_NS = 220_000_000L
         private const val NO_GYRO_LINEAR_FRESH_NS = 140_000_000L
@@ -1028,6 +1177,7 @@ class SmartCalibrationEngine(
         private const val NO_GYRO_LINEAR_GAIN = 1.10f
         private const val NO_GYRO_JERK_WINDOW_SEC = 0.055f
         private const val NO_GYRO_JERK_EQ_MAX = 1.20f
+        private const val EARTH_RADIUS_M = 6_371_000.0
 
         @JvmStatic
         fun leanOffsetDegFromGravityComponent(component: Float): Float {

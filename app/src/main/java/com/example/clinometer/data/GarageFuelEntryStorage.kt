@@ -68,6 +68,22 @@ object GarageFuelEntryStorage {
         persistEntries(context, entry.profileId, entries)
     }
 
+    fun removeEntries(context: Context, profileId: Long, entryIds: Set<Long>): List<GarageFuelEntry> {
+        if (profileId == -1L || entryIds.isEmpty()) {
+            return emptyList()
+        }
+
+        val entries = loadEntries(context, profileId)
+        val removedEntries = entries.filter { it.id in entryIds }
+        if (removedEntries.isEmpty()) {
+            return emptyList()
+        }
+
+        entries.removeAll { it.id in entryIds }
+        persistEntries(context, profileId, entries)
+        return removedEntries
+    }
+
     fun getCount(context: Context, profileId: Long): Int {
         return loadEntries(context, profileId).size
     }

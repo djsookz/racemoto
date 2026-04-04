@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/garage/GarageMaintenanceServiceIcons.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1775148113638,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1775148113638,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.garage\r\n\r\nimport com.example.clinometer.R\r\nimport java.util.Locale\r\n\r\nobject GarageMaintenanceServiceIcons {\r\n    fun resolveIconRes(serviceType: String?): Int? {\r\n        return when (serviceType\r\n            ?.trim()\r\n            ?.lowercase(Locale.ROOT)\r\n        ) {\r\n            \"oil change\" -> R.drawable.car_oil\r\n            \"engine\" -> R.drawable.piston\r\n            \"wheels\", \"wheel\", \"tyres\", \"tires\" -> R.drawable.wheel\r\n            \"gearbox\" -> R.drawable.gearbox\r\n            \"suspension\" -> R.drawable.suspension\r\n            \"brakes\", \"brake\" -> R.drawable.disc_brake\r\n            \"electrical\" -> R.drawable.power\r\n            else -> null\r\n        }\r\n    }\r\n}"
+        }
+    ]
+}

@@ -1,5 +1,6 @@
 package com.example.clinometer.garage
 
+import android.content.res.ColorStateList
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -7,12 +8,15 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import android.widget.ImageView
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ListView
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.core.graphics.Insets
 import androidx.appcompat.app.AppCompatActivity
@@ -28,8 +32,17 @@ import com.example.clinometer.Race
 import com.example.clinometer.R
 import com.example.clinometer.RouteStorage
 import com.example.clinometer.DragSession
+import com.example.clinometer.data.GarageDocumentEntry
+import com.example.clinometer.data.GarageDocumentEntryStorage
+import com.example.clinometer.data.GarageDocumentReceiptStorage
 import com.example.clinometer.data.GarageFuelEntry
 import com.example.clinometer.data.GarageFuelEntryStorage
+import com.example.clinometer.data.GarageFuelReceiptStorage
+import com.example.clinometer.data.GarageMaintenanceEntry
+import com.example.clinometer.data.GarageMaintenanceEntryStorage
+import com.example.clinometer.data.GarageMaintenanceReceiptStorage
+import com.example.clinometer.data.GarageOdometerSource
+import com.example.clinometer.data.GarageOdometerTimeline
 import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.data.VehicleData
 import com.example.clinometer.settings.LanguageManager
@@ -39,13 +52,23 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 class GarageProfilePageActivity : AppCompatActivity() {
 
     private var profileId: Long = -1L
     private var currentProfile: Profile? = null
+    private var currentFuelEntries: List<GarageFuelEntry> = emptyList()
+    private var currentMaintenanceEntries: List<GarageMaintenanceEntry> = emptyList()
+    private var currentDocumentEntries: List<GarageDocumentEntry> = emptyList()
+    private val selectedFuelEntryIds = linkedSetOf<Long>()
+    private val selectedMaintenanceEntryIds = linkedSetOf<Long>()
+    private val selectedDocumentEntryIds = linkedSetOf<Long>()
+    private var selectedMaintenanceReminderFilter = MaintenanceReminderFilter.ALL
+    private var selectedDocumentHistoryFilter = DocumentHistoryFilter.ALL
 
     private lateinit var btnBack: MaterialButton
     private lateinit var btnEdit: MaterialButton
@@ -86,6 +109,23 @@ class GarageProfilePageActivity : AppCompatActivity() {
     private lateinit var tvProfileFuelLastPriceValue: TextView
     private lateinit var tvProfileFuelTotalLitresValue: TextView
     private lateinit var llProfileFuelEntriesPreview: LinearLayout
+    private lateinit var btnDeleteFuelHistorySelection: ImageButton
+    private lateinit var tvProfileMaintenanceTotalSpentValue: TextView
+    private lateinit var tvProfileMaintenanceYearSpentValue: TextView
+    private lateinit var tvProfileMaintenancePartsSpentValue: TextView
+    private lateinit var tvProfileMaintenanceLaborSpentValue: TextView
+    private lateinit var tvProfileMaintenanceFilterAll: TextView
+    private lateinit var tvProfileMaintenanceFilterActive: TextView
+    private lateinit var tvProfileMaintenanceFilterOverdue: TextView
+    private lateinit var llProfileMaintenanceEntriesPreview: LinearLayout
+    private lateinit var btnDeleteMaintenanceHistorySelection: ImageButton
+    private lateinit var tvProfileDocumentsExpiringSoonValue: TextView
+    private lateinit var tvProfileDocumentsExpiredValue: TextView
+    private lateinit var tvProfileDocumentsFilterAll: TextView
+    private lateinit var tvProfileDocumentsFilterActive: TextView
+    private lateinit var tvProfileDocumentsFilterOverdue: TextView
+    private lateinit var llProfileDocumentEntriesPreview: LinearLayout
+    private lateinit var btnDeleteDocumentHistorySelection: ImageButton
     private lateinit var tvTabPlaceholder: TextView
     private var latestWindowInsets: WindowInsetsCompat? = null
     private var selectedTabPosition: Int = 0
@@ -104,6 +144,7 @@ class GarageProfilePageActivity : AppCompatActivity() {
 
         bindViews()
         applySystemInsets()
+        setupBackNavigation()
         setupProfileTabs()
         setupClickListeners()
 
@@ -161,7 +202,27 @@ class GarageProfilePageActivity : AppCompatActivity() {
         tvProfileFuelLastPriceValue = findViewById(R.id.tvProfileFuelLastPriceValue)
         tvProfileFuelTotalLitresValue = findViewById(R.id.tvProfileFuelTotalLitresValue)
         llProfileFuelEntriesPreview = findViewById(R.id.llProfileFuelEntriesPreview)
+        btnDeleteFuelHistorySelection = findViewById(R.id.btnDeleteFuelHistorySelection)
+        tvProfileMaintenanceTotalSpentValue = findViewById(R.id.tvProfileMaintenanceTotalSpentValue)
+        tvProfileMaintenanceYearSpentValue = findViewById(R.id.tvProfileMaintenanceYearSpentValue)
+        tvProfileMaintenancePartsSpentValue = findViewById(R.id.tvProfileMaintenancePartsSpentValue)
+        tvProfileMaintenanceLaborSpentValue = findViewById(R.id.tvProfileMaintenanceLaborSpentValue)
+        tvProfileMaintenanceFilterAll = findViewById(R.id.tvProfileMaintenanceFilterAll)
+        tvProfileMaintenanceFilterActive = findViewById(R.id.tvProfileMaintenanceFilterActive)
+        tvProfileMaintenanceFilterOverdue = findViewById(R.id.tvProfileMaintenanceFilterOverdue)
+        llProfileMaintenanceEntriesPreview = findViewById(R.id.llProfileMaintenanceEntriesPreview)
+        btnDeleteMaintenanceHistorySelection = findViewById(R.id.btnDeleteMaintenanceHistorySelection)
+        tvProfileDocumentsExpiringSoonValue = findViewById(R.id.tvProfileDocumentsExpiringSoonValue)
+        tvProfileDocumentsExpiredValue = findViewById(R.id.tvProfileDocumentsExpiredValue)
+        tvProfileDocumentsFilterAll = findViewById(R.id.tvProfileDocumentsFilterAll)
+        tvProfileDocumentsFilterActive = findViewById(R.id.tvProfileDocumentsFilterActive)
+        tvProfileDocumentsFilterOverdue = findViewById(R.id.tvProfileDocumentsFilterOverdue)
+        llProfileDocumentEntriesPreview = findViewById(R.id.llProfileDocumentEntriesPreview)
+        btnDeleteDocumentHistorySelection = findViewById(R.id.btnDeleteDocumentHistorySelection)
         tvTabPlaceholder = findViewById(R.id.tvProfileTabPlaceholder)
+
+        updateMaintenanceReminderFilterUi()
+        updateDocumentHistoryFilterUi()
 
         contentBaseTopPadding = llGarageProfilePageContent.paddingTop
         contentBaseBottomPadding = llGarageProfilePageContent.paddingBottom
@@ -185,7 +246,7 @@ class GarageProfilePageActivity : AppCompatActivity() {
             WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
         ) ?: Insets.NONE
 
-        val extraBottomContentPadding = if (selectedTabPosition == 1) dpToPx(92) else 0
+        val extraBottomContentPadding = if (selectedTabPosition == 1 || selectedTabPosition == 2 || selectedTabPosition == 3) dpToPx(92) else 0
         llGarageProfilePageContent.updatePadding(
             top = contentBaseTopPadding + systemBarsInsets.top,
             bottom = contentBaseBottomPadding + systemBarsInsets.bottom + extraBottomContentPadding
@@ -233,8 +294,22 @@ class GarageProfilePageActivity : AppCompatActivity() {
         updateTabPlaceholder(0)
     }
 
+    private fun setupBackNavigation() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (clearActiveHistorySelectionModeIfNeeded()) {
+                    return
+                }
+
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+            }
+        })
+    }
+
     private fun updateTabPlaceholder(position: Int) {
         selectedTabPosition = position
+        clearSelectionsForInactiveTabs(position)
 
         val isOverviewTab = position == 0
         val isFuelTab = position == 1
@@ -248,11 +323,11 @@ class GarageProfilePageActivity : AppCompatActivity() {
         llProfileFuelSummary.visibility = if (isFuelTab) View.VISIBLE else View.GONE
         llProfileMaintenanceSummary.visibility = if (isMaintenanceTab) View.VISIBLE else View.GONE
         llProfileDocumentsSummary.visibility = if (isDocumentsTab) View.VISIBLE else View.GONE
-        btnAddFuelEntry.visibility = if (isFuelTab) View.VISIBLE else View.GONE
+        refreshHistoryActionChrome()
 
         updateInsetsUi()
 
-        val shouldShowPlaceholder = isMaintenanceTab || isDocumentsTab
+        val shouldShowPlaceholder = false
         tvTabPlaceholder.visibility = if (shouldShowPlaceholder) View.VISIBLE else View.GONE
 
         if (!shouldShowPlaceholder) {
@@ -276,14 +351,133 @@ class GarageProfilePageActivity : AppCompatActivity() {
         btnEdit.setOnClickListener {
             currentProfile?.let { profile -> showEditProfileDialog(profile) }
         }
+        btnDeleteFuelHistorySelection.setOnClickListener { confirmDeleteSelectedFuelEntries() }
+        btnDeleteMaintenanceHistorySelection.setOnClickListener { confirmDeleteSelectedMaintenanceEntries() }
+        btnDeleteDocumentHistorySelection.setOnClickListener { confirmDeleteSelectedDocumentEntries() }
+        tvProfileMaintenanceFilterAll.setOnClickListener {
+            setMaintenanceReminderFilter(MaintenanceReminderFilter.ALL)
+        }
+        tvProfileMaintenanceFilterActive.setOnClickListener {
+            setMaintenanceReminderFilter(MaintenanceReminderFilter.ACTIVE)
+        }
+        tvProfileMaintenanceFilterOverdue.setOnClickListener {
+            setMaintenanceReminderFilter(MaintenanceReminderFilter.OVERDUE)
+        }
+        tvProfileDocumentsFilterAll.setOnClickListener {
+            setDocumentHistoryFilter(DocumentHistoryFilter.ALL)
+        }
+        tvProfileDocumentsFilterActive.setOnClickListener {
+            setDocumentHistoryFilter(DocumentHistoryFilter.ACTIVE)
+        }
+        tvProfileDocumentsFilterOverdue.setOnClickListener {
+            setDocumentHistoryFilter(DocumentHistoryFilter.OVERDUE)
+        }
         btnAddFuelEntry.setOnClickListener {
-            if (profileId == -1L) {
-                return@setOnClickListener
-            }
+            when (selectedTabPosition) {
+                1 -> {
+                    if (profileId == -1L) {
+                        return@setOnClickListener
+                    }
 
-            startActivity(Intent(this, GarageFuelEntryActivity::class.java).apply {
-                putExtra(GarageFuelEntryActivity.EXTRA_PROFILE_ID, profileId)
-            })
+                    startActivity(Intent(this, GarageFuelEntryActivity::class.java).apply {
+                        putExtra(GarageFuelEntryActivity.EXTRA_PROFILE_ID, profileId)
+                    })
+                }
+
+                2 -> {
+                    if (profileId == -1L) {
+                        return@setOnClickListener
+                    }
+
+                    startActivity(GarageMaintenanceEntryActivity.createIntent(this, profileId))
+                }
+
+                3 -> {
+                    if (profileId == -1L) {
+                        return@setOnClickListener
+                    }
+
+                    startActivity(GarageDocumentEntryActivity.createIntent(this, profileId))
+                }
+            }
+        }
+    }
+
+    private fun setMaintenanceReminderFilter(filter: MaintenanceReminderFilter) {
+        if (selectedMaintenanceReminderFilter == filter) {
+            return
+        }
+
+        selectedMaintenanceReminderFilter = filter
+        selectedMaintenanceEntryIds.clear()
+        updateMaintenanceReminderFilterUi()
+        bindMaintenanceHistory(currentMaintenanceEntries)
+        refreshHistoryActionChrome()
+    }
+
+    private fun updateMaintenanceReminderFilterUi() {
+        updateMaintenanceReminderFilterTab(
+            tvProfileMaintenanceFilterAll,
+            selectedMaintenanceReminderFilter == MaintenanceReminderFilter.ALL
+        )
+        updateMaintenanceReminderFilterTab(
+            tvProfileMaintenanceFilterActive,
+            selectedMaintenanceReminderFilter == MaintenanceReminderFilter.ACTIVE
+        )
+        updateMaintenanceReminderFilterTab(
+            tvProfileMaintenanceFilterOverdue,
+            selectedMaintenanceReminderFilter == MaintenanceReminderFilter.OVERDUE
+        )
+    }
+
+    private fun updateMaintenanceReminderFilterTab(tabView: TextView, isSelected: Boolean) {
+        tabView.isSelected = isSelected
+        tabView.isActivated = isSelected
+    }
+
+    private fun setDocumentHistoryFilter(filter: DocumentHistoryFilter) {
+        if (selectedDocumentHistoryFilter == filter) {
+            return
+        }
+
+        selectedDocumentHistoryFilter = filter
+        selectedDocumentEntryIds.clear()
+        updateDocumentHistoryFilterUi()
+        bindDocumentHistory(currentDocumentEntries)
+        refreshHistoryActionChrome()
+    }
+
+    private fun updateDocumentHistoryFilterUi() {
+        updateMaintenanceReminderFilterTab(
+            tvProfileDocumentsFilterAll,
+            selectedDocumentHistoryFilter == DocumentHistoryFilter.ALL
+        )
+        updateMaintenanceReminderFilterTab(
+            tvProfileDocumentsFilterActive,
+            selectedDocumentHistoryFilter == DocumentHistoryFilter.ACTIVE
+        )
+        updateMaintenanceReminderFilterTab(
+            tvProfileDocumentsFilterOverdue,
+            selectedDocumentHistoryFilter == DocumentHistoryFilter.OVERDUE
+        )
+    }
+
+    private fun updateAddActionButton(isFuelTab: Boolean, isMaintenanceTab: Boolean, isDocumentsTab: Boolean) {
+        if ((!isFuelTab && !isMaintenanceTab && !isDocumentsTab) || isSelectionModeActiveForCurrentTab()) {
+            btnAddFuelEntry.visibility = View.GONE
+            return
+        }
+
+        btnAddFuelEntry.visibility = View.VISIBLE
+        if (isMaintenanceTab) {
+            btnAddFuelEntry.setIconResource(R.drawable.ic_wrench)
+            btnAddFuelEntry.contentDescription = getString(R.string.garage_profile_maintenance_add_button)
+        } else if (isDocumentsTab) {
+            btnAddFuelEntry.setIconResource(R.drawable.ic_tab_document)
+            btnAddFuelEntry.contentDescription = getString(R.string.garage_profile_documents_add_button)
+        } else {
+            btnAddFuelEntry.setIconResource(R.drawable.gas_station)
+            btnAddFuelEntry.contentDescription = getString(R.string.garage_profile_fuel_add_button)
         }
     }
 
@@ -298,6 +492,8 @@ class GarageProfilePageActivity : AppCompatActivity() {
             return
         }
 
+        GarageMaintenanceReminderManager.evaluateDueRemindersForProfile(this, profile.id)
+        GarageDocumentReminderManager.evaluateDueRemindersForProfile(this, profile.id)
         currentProfile = profile
         bindProfile(profile)
     }
@@ -323,6 +519,14 @@ class GarageProfilePageActivity : AppCompatActivity() {
         val totalDistanceKm = profileRaces.sumOf { it.distance }
         val fuelEntries = GarageFuelEntryStorage.loadEntries(this, profile.id)
             .sortedByDescending { it.createdAt.takeIf { createdAt -> createdAt > 0L } ?: it.id }
+        val maintenanceEntries = GarageMaintenanceEntryStorage.loadEntries(this, profile.id)
+            .sortedByDescending { resolveGarageEntryTimestamp(it.date, it.createdAt) }
+        val documentEntries = GarageDocumentEntryStorage.loadEntries(this, profile.id)
+            .sortedByDescending { resolveGarageEntryTimestamp(it.date, it.createdAt) }
+        currentFuelEntries = fuelEntries
+        currentMaintenanceEntries = maintenanceEntries
+        currentDocumentEntries = documentEntries
+        pruneHistorySelections()
         val typeText = when (profile.vehicleType) {
             Profile.VehicleType.CAR -> getString(R.string.garage_vehicle_car).uppercase(Locale.getDefault())
             Profile.VehicleType.MOTORCYCLE -> getString(R.string.garage_vehicle_motorcycle).uppercase(Locale.getDefault())
@@ -335,6 +539,8 @@ class GarageProfilePageActivity : AppCompatActivity() {
         bindOverviewMetrics(totalDistanceKm, totalTimeMs)
         bindOverviewPerformance(profile, profileRaces, profileDragSessions)
         bindFuelData(fuelEntries)
+        bindMaintenanceData(maintenanceEntries)
+        bindDocumentData(documentEntries)
 
         tvSessionsTotal.text = totalSessions.toString()
         tvSessionsSplit.text = getString(
@@ -343,8 +549,9 @@ class GarageProfilePageActivity : AppCompatActivity() {
             trackSessions
         )
         tvFuelLogsCount.text = fuelEntries.size.toString()
-        tvMaintenanceCount.text = getExtraStatCount(profile.id, "maintenance_count").toString()
-        tvDocumentsCount.text = getExtraStatCount(profile.id, "documents_count").toString()
+        tvMaintenanceCount.text = maintenanceEntries.size.toString()
+        tvDocumentsCount.text = documentEntries.size.toString()
+        refreshHistoryActionChrome()
     }
 
     private fun bindFuelData(entries: List<GarageFuelEntry>) {
@@ -370,7 +577,7 @@ class GarageProfilePageActivity : AppCompatActivity() {
             String.format(Locale.getDefault(), "%.1f", it)
         } ?: getString(R.string.garage_profile_fuel_avg_consumption_placeholder)
         tvProfileFuelAvgConsumptionMeta.text = resolveFuelConsumptionMeta(consumptionSummary)
-        tvProfileFuelLastPriceValue.text = lastPrice?.let(::formatCurrency) ?: getString(R.string.garage_profile_fuel_last_price_placeholder)
+        tvProfileFuelLastPriceValue.text = lastPrice?.let(::formatPricePerLitre) ?: getString(R.string.garage_profile_fuel_last_price_placeholder)
         tvProfileFuelTotalLitresValue.text = formatTotalLitres(totalLitres)
         bindFuelHistory(entries)
     }
@@ -379,18 +586,7 @@ class GarageProfilePageActivity : AppCompatActivity() {
         llProfileFuelEntriesPreview.removeAllViews()
 
         if (entries.isEmpty()) {
-            llProfileFuelEntriesPreview.addView(
-                TextView(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    )
-                    text = getString(R.string.garage_profile_fuel_empty_state)
-                    setTextColor(ContextCompat.getColor(this@GarageProfilePageActivity, R.color.text_tertiary))
-                    textSize = 12f
-                    setPadding(dpToPx(4), dpToPx(6), dpToPx(4), dpToPx(6))
-                }
-            )
+            llProfileFuelEntriesPreview.addView(createHistoryEmptyStateView(R.string.garage_profile_fuel_empty_state))
             return
         }
 
@@ -405,19 +601,626 @@ class GarageProfilePageActivity : AppCompatActivity() {
                 topMargin = if (index == 0) 0 else dpToPx(8)
             }
 
+            itemView.findViewById<ImageView>(R.id.ivProfileHistoryEntryIcon).apply {
+                setColorFilter(ContextCompat.getColor(this@GarageProfilePageActivity, R.color.accent_green))
+            }
             itemView.findViewById<TextView>(R.id.tvFuelHistoryEntryDate).text = formatFuelEntryDate(entry)
             itemView.findViewById<TextView>(R.id.tvFuelHistoryEntryMeta).text = buildFuelEntryMeta(entry)
             itemView.findViewById<TextView>(R.id.tvFuelHistoryEntryAmount).text = formatCurrency(entry.totalAmount)
             itemView.findViewById<TextView>(R.id.tvFuelHistoryEntryStats).text = buildFuelEntryStats(entry)
+            applyHistorySelectionState(itemView, entry.id in selectedFuelEntryIds)
+            itemView.setOnLongClickListener {
+                handleFuelHistoryLongPress(entry.id)
+                true
+            }
             itemView.setOnClickListener {
-                startActivity(Intent(this, GarageFuelEntryActivity::class.java).apply {
-                    putExtra(GarageFuelEntryActivity.EXTRA_PROFILE_ID, profileId)
-                    putExtra(GarageFuelEntryActivity.EXTRA_ENTRY_ID, entry.id)
-                })
+                if (selectedFuelEntryIds.isNotEmpty()) {
+                    toggleFuelHistorySelection(entry.id)
+                } else {
+                    startActivity(Intent(this, GarageFuelEntryActivity::class.java).apply {
+                        putExtra(GarageFuelEntryActivity.EXTRA_PROFILE_ID, profileId)
+                        putExtra(GarageFuelEntryActivity.EXTRA_ENTRY_ID, entry.id)
+                    })
+                }
             }
 
             llProfileFuelEntriesPreview.addView(itemView)
         }
+    }
+
+    private fun bindMaintenanceData(entries: List<GarageMaintenanceEntry>) {
+        updateMaintenanceReminderFilterUi()
+
+        if (entries.isEmpty()) {
+            tvProfileMaintenanceTotalSpentValue.text = getString(R.string.garage_profile_maintenance_spend_placeholder)
+            tvProfileMaintenanceYearSpentValue.text = getString(R.string.garage_profile_maintenance_spend_placeholder)
+            tvProfileMaintenancePartsSpentValue.text = getString(R.string.garage_profile_maintenance_spend_placeholder)
+            tvProfileMaintenanceLaborSpentValue.text = getString(R.string.garage_profile_maintenance_spend_placeholder)
+            bindMaintenanceHistory(entries)
+            return
+        }
+
+        val totalSpent = entries.sumOf(::calculateMaintenanceEntryTotal)
+        val partsSpent = entries.sumOf { it.partsCost.coerceAtLeast(0.0) }
+        val laborSpent = entries.sumOf { it.laborCost.coerceAtLeast(0.0) }
+        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+        val yearSpent = entries
+            .filter { resolveGarageEntryYear(it.date, it.createdAt) == currentYear }
+            .sumOf(::calculateMaintenanceEntryTotal)
+
+        tvProfileMaintenanceTotalSpentValue.text = formatCurrency(totalSpent)
+        tvProfileMaintenanceYearSpentValue.text = formatCurrency(yearSpent)
+        tvProfileMaintenancePartsSpentValue.text = formatCurrency(partsSpent)
+        tvProfileMaintenanceLaborSpentValue.text = formatCurrency(laborSpent)
+        bindMaintenanceHistory(entries)
+    }
+
+    private fun bindDocumentData(entries: List<GarageDocumentEntry>) {
+        updateDocumentHistoryFilterUi()
+
+        if (entries.isEmpty()) {
+            tvProfileDocumentsExpiringSoonValue.text = getString(R.string.garage_profile_documents_spend_placeholder)
+            tvProfileDocumentsExpiredValue.text = getString(R.string.garage_profile_documents_spend_placeholder)
+            bindDocumentHistory(entries)
+            return
+        }
+
+        val totalSpent = entries.sumOf { it.amount.coerceAtLeast(0.0) }
+        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+        val yearSpent = entries
+            .filter { resolveGarageEntryYear(it.date, it.createdAt) == currentYear }
+            .sumOf { it.amount.coerceAtLeast(0.0) }
+
+        tvProfileDocumentsExpiringSoonValue.text = formatCurrency(totalSpent)
+        tvProfileDocumentsExpiredValue.text = formatCurrency(yearSpent)
+
+        bindDocumentHistory(entries)
+    }
+
+    private fun bindDocumentHistory(entries: List<GarageDocumentEntry>) {
+        llProfileDocumentEntriesPreview.removeAllViews()
+        val nowMillis = System.currentTimeMillis()
+        val visibleItems = resolveVisibleDocumentHistoryItems(entries, nowMillis)
+        val selectionUpdated = selectedDocumentEntryIds.retainAll(visibleItems.mapTo(mutableSetOf()) { it.entry.id })
+
+        if (visibleItems.isEmpty()) {
+            llProfileDocumentEntriesPreview.addView(
+                createHistoryEmptyStateView(resolveDocumentHistoryEmptyState(entries))
+            )
+            if (selectionUpdated) {
+                refreshHistoryActionChrome()
+            }
+            return
+        }
+
+        visibleItems.forEachIndexed { index, historyItem ->
+            val entry = historyItem.entry
+            val itemView = LayoutInflater.from(this)
+                .inflate(R.layout.item_profile_fuel_entry, llProfileDocumentEntriesPreview, false)
+            val presentation = historyItem.presentation
+
+            itemView.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = if (index == 0) 0 else dpToPx(8)
+            }
+
+            itemView.findViewById<ImageView>(R.id.ivProfileHistoryEntryIcon).apply {
+                setImageResource(
+                    GarageDocumentTypeIcons.resolveIconRes(entry.documentType) ?: R.drawable.ic_tab_document
+                )
+                setColorFilter(ContextCompat.getColor(this@GarageProfilePageActivity, R.color.accent_purple))
+            }
+            itemView.findViewById<TextView>(R.id.tvFuelHistoryEntryDate).text = formatDocumentEntryDate(entry)
+            itemView.findViewById<TextView>(R.id.tvFuelHistoryEntryMeta).text = buildDocumentEntryMeta(entry)
+            itemView.findViewById<TextView>(R.id.tvFuelHistoryEntryAmount).apply {
+                text = formatCurrency(entry.amount.coerceAtLeast(0.0))
+                setTextColor(ContextCompat.getColor(this@GarageProfilePageActivity, R.color.drag_run_green))
+            }
+            itemView.findViewById<TextView>(R.id.tvFuelHistoryEntryStats).text = buildDocumentEntryStats(presentation)
+            bindDocumentReminderProgress(itemView, presentation)
+            applyHistorySelectionState(itemView, entry.id in selectedDocumentEntryIds)
+            itemView.setOnLongClickListener {
+                handleDocumentHistoryLongPress(entry.id)
+                true
+            }
+            itemView.setOnClickListener {
+                if (selectedDocumentEntryIds.isNotEmpty()) {
+                    toggleDocumentHistorySelection(entry.id)
+                } else {
+                    startActivity(GarageDocumentEntryActivity.createIntent(this, profileId, entry.id))
+                }
+            }
+
+            llProfileDocumentEntriesPreview.addView(itemView)
+        }
+
+        if (selectionUpdated) {
+            refreshHistoryActionChrome()
+        }
+    }
+
+    private fun resolveVisibleDocumentHistoryItems(
+        entries: List<GarageDocumentEntry>,
+        nowMillis: Long
+    ): List<DocumentHistoryItem> {
+        val allItems = entries.map { entry ->
+            DocumentHistoryItem(entry, resolveDocumentExpiryPresentation(entry, nowMillis))
+        }
+
+        return when (selectedDocumentHistoryFilter) {
+            DocumentHistoryFilter.ALL -> allItems
+            DocumentHistoryFilter.ACTIVE -> allItems
+                .filter {
+                    it.presentation.status == DocumentHistoryStatus.DUE ||
+                        it.presentation.status == DocumentHistoryStatus.UPCOMING
+                }
+                .sortedWith(
+                    compareBy<DocumentHistoryItem> { it.presentation.status.sortOrder }
+                        .thenByDescending { resolveGarageEntryTimestamp(it.entry.date, it.entry.createdAt) }
+                )
+
+            DocumentHistoryFilter.OVERDUE -> allItems
+                .filter { it.presentation.status == DocumentHistoryStatus.OVERDUE }
+                .sortedByDescending { resolveGarageEntryTimestamp(it.entry.date, it.entry.createdAt) }
+        }
+    }
+
+    private fun resolveDocumentHistoryEmptyState(entries: List<GarageDocumentEntry>): Int {
+        if (entries.isEmpty()) {
+            return R.string.garage_profile_documents_empty_state
+        }
+
+        return when (selectedDocumentHistoryFilter) {
+            DocumentHistoryFilter.ALL -> R.string.garage_profile_documents_empty_state
+            DocumentHistoryFilter.ACTIVE -> R.string.garage_profile_documents_active_empty_state
+            DocumentHistoryFilter.OVERDUE -> R.string.garage_profile_documents_overdue_empty_state
+        }
+    }
+
+    private fun bindMaintenanceHistory(entries: List<GarageMaintenanceEntry>) {
+        llProfileMaintenanceEntriesPreview.removeAllViews()
+        val nowMillis = System.currentTimeMillis()
+        val visibleItems = resolveVisibleMaintenanceHistoryItems(entries, nowMillis)
+        val selectionUpdated = selectedMaintenanceEntryIds.retainAll(
+            visibleItems.mapTo(mutableSetOf()) { it.entry.id }
+        )
+
+        if (visibleItems.isEmpty()) {
+            llProfileMaintenanceEntriesPreview.addView(
+                createHistoryEmptyStateView(resolveMaintenanceHistoryEmptyState(entries))
+            )
+            if (selectionUpdated) {
+                refreshHistoryActionChrome()
+            }
+            return
+        }
+
+        visibleItems.forEachIndexed { index, historyItem ->
+            val entry = historyItem.entry
+            val itemView = LayoutInflater.from(this)
+                .inflate(R.layout.item_profile_fuel_entry, llProfileMaintenanceEntriesPreview, false)
+
+            itemView.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = if (index == 0) 0 else dpToPx(8)
+            }
+
+            itemView.findViewById<ImageView>(R.id.ivProfileHistoryEntryIcon).apply {
+                setImageResource(GarageMaintenanceServiceIcons.resolveIconRes(entry.serviceType) ?: R.drawable.ic_wrench)
+                setColorFilter(ContextCompat.getColor(this@GarageProfilePageActivity, R.color.accent_color))
+            }
+            itemView.findViewById<TextView>(R.id.tvFuelHistoryEntryDate).text = formatMaintenanceEntryDate(entry)
+            itemView.findViewById<TextView>(R.id.tvFuelHistoryEntryMeta).text = buildMaintenanceEntryMeta(entry)
+            itemView.findViewById<TextView>(R.id.tvFuelHistoryEntryAmount).text = formatCurrency(calculateMaintenanceEntryTotal(entry))
+            itemView.findViewById<TextView>(R.id.tvFuelHistoryEntryStats).text = buildMaintenanceEntryStats(entry)
+            bindMaintenanceReminderProgress(itemView, historyItem.presentation)
+            applyHistorySelectionState(itemView, entry.id in selectedMaintenanceEntryIds)
+            itemView.setOnLongClickListener {
+                handleMaintenanceHistoryLongPress(entry.id)
+                true
+            }
+            itemView.setOnClickListener {
+                if (selectedMaintenanceEntryIds.isNotEmpty()) {
+                    toggleMaintenanceHistorySelection(entry.id)
+                } else {
+                    startActivity(GarageMaintenanceEntryActivity.createIntent(this, profileId, entry.id))
+                }
+            }
+
+            llProfileMaintenanceEntriesPreview.addView(itemView)
+        }
+
+        if (selectionUpdated) {
+            refreshHistoryActionChrome()
+        }
+    }
+
+    private fun resolveVisibleMaintenanceHistoryItems(
+        entries: List<GarageMaintenanceEntry>,
+        nowMillis: Long
+    ): List<MaintenanceHistoryItem> {
+        val allItems = entries.map { entry ->
+            MaintenanceHistoryItem(entry, resolveMaintenanceReminderPresentation(entry, nowMillis))
+        }
+
+        return when (selectedMaintenanceReminderFilter) {
+            MaintenanceReminderFilter.ALL -> allItems
+            MaintenanceReminderFilter.ACTIVE -> allItems
+                .filter {
+                    it.presentation?.status == MaintenanceReminderStatus.DUE ||
+                        it.presentation?.status == MaintenanceReminderStatus.UPCOMING
+                }
+                .sortedWith(
+                    compareBy<MaintenanceHistoryItem> { it.presentation?.status?.sortOrder ?: Int.MAX_VALUE }
+                        .thenByDescending { it.presentation?.progressPercent ?: -1 }
+                        .thenByDescending { resolveGarageEntryTimestamp(it.entry.date, it.entry.createdAt) }
+                )
+
+            MaintenanceReminderFilter.OVERDUE -> allItems
+                .filter { it.presentation?.status == MaintenanceReminderStatus.OVERDUE }
+                .sortedByDescending { resolveGarageEntryTimestamp(it.entry.date, it.entry.createdAt) }
+        }
+    }
+
+    private fun resolveMaintenanceHistoryEmptyState(entries: List<GarageMaintenanceEntry>): Int {
+        if (entries.isEmpty()) {
+            return R.string.garage_profile_maintenance_empty_state
+        }
+
+        return when (selectedMaintenanceReminderFilter) {
+            MaintenanceReminderFilter.ALL -> R.string.garage_profile_maintenance_empty_state
+            MaintenanceReminderFilter.ACTIVE -> R.string.garage_profile_maintenance_active_empty_state
+            MaintenanceReminderFilter.OVERDUE -> R.string.garage_profile_maintenance_overdue_empty_state
+        }
+    }
+
+    private fun applyHistorySelectionState(itemView: View, isSelected: Boolean) {
+        itemView.findViewById<View>(R.id.llProfileHistoryCardContent).foreground =
+            if (isSelected) {
+                ContextCompat.getDrawable(itemView.context, R.drawable.bg_history_selection_overlay)
+            } else {
+                null
+            }
+        itemView.findViewById<View>(R.id.flProfileHistorySelectedBadge).visibility =
+            if (isSelected) View.VISIBLE else View.GONE
+    }
+
+    private fun handleFuelHistoryLongPress(entryId: Long) {
+        if (selectedFuelEntryIds.isEmpty()) {
+            clearMaintenanceSelectionMode(rebindHistory = true)
+            clearDocumentSelectionMode(rebindHistory = true)
+        }
+        toggleFuelHistorySelection(entryId, forceSelect = selectedFuelEntryIds.isEmpty())
+    }
+
+    private fun handleMaintenanceHistoryLongPress(entryId: Long) {
+        if (selectedMaintenanceEntryIds.isEmpty()) {
+            clearFuelSelectionMode(rebindHistory = true)
+            clearDocumentSelectionMode(rebindHistory = true)
+        }
+        toggleMaintenanceHistorySelection(entryId, forceSelect = selectedMaintenanceEntryIds.isEmpty())
+    }
+
+    private fun handleDocumentHistoryLongPress(entryId: Long) {
+        if (selectedDocumentEntryIds.isEmpty()) {
+            clearFuelSelectionMode(rebindHistory = true)
+            clearMaintenanceSelectionMode(rebindHistory = true)
+        }
+        toggleDocumentHistorySelection(entryId, forceSelect = selectedDocumentEntryIds.isEmpty())
+    }
+
+    private fun toggleFuelHistorySelection(entryId: Long, forceSelect: Boolean = false) {
+        val shouldSelect = forceSelect || entryId !in selectedFuelEntryIds
+        if (shouldSelect) {
+            selectedFuelEntryIds.add(entryId)
+        } else {
+            selectedFuelEntryIds.remove(entryId)
+        }
+
+        if (selectedFuelEntryIds.isEmpty()) {
+            clearFuelSelectionMode(rebindHistory = true)
+            return
+        }
+
+        bindFuelHistory(currentFuelEntries)
+        refreshHistoryActionChrome()
+    }
+
+    private fun toggleMaintenanceHistorySelection(entryId: Long, forceSelect: Boolean = false) {
+        val shouldSelect = forceSelect || entryId !in selectedMaintenanceEntryIds
+        if (shouldSelect) {
+            selectedMaintenanceEntryIds.add(entryId)
+        } else {
+            selectedMaintenanceEntryIds.remove(entryId)
+        }
+
+        if (selectedMaintenanceEntryIds.isEmpty()) {
+            clearMaintenanceSelectionMode(rebindHistory = true)
+            return
+        }
+
+        bindMaintenanceHistory(currentMaintenanceEntries)
+        refreshHistoryActionChrome()
+    }
+
+    private fun toggleDocumentHistorySelection(entryId: Long, forceSelect: Boolean = false) {
+        val shouldSelect = forceSelect || entryId !in selectedDocumentEntryIds
+        if (shouldSelect) {
+            selectedDocumentEntryIds.add(entryId)
+        } else {
+            selectedDocumentEntryIds.remove(entryId)
+        }
+
+        if (selectedDocumentEntryIds.isEmpty()) {
+            clearDocumentSelectionMode(rebindHistory = true)
+            return
+        }
+
+        bindDocumentHistory(currentDocumentEntries)
+        refreshHistoryActionChrome()
+    }
+
+    private fun clearFuelSelectionMode(rebindHistory: Boolean = false) {
+        if (selectedFuelEntryIds.isEmpty()) {
+            if (rebindHistory) {
+                bindFuelHistory(currentFuelEntries)
+            }
+            refreshHistoryActionChrome()
+            return
+        }
+
+        selectedFuelEntryIds.clear()
+        if (rebindHistory) {
+            bindFuelHistory(currentFuelEntries)
+        }
+        refreshHistoryActionChrome()
+    }
+
+    private fun clearMaintenanceSelectionMode(rebindHistory: Boolean = false) {
+        if (selectedMaintenanceEntryIds.isEmpty()) {
+            if (rebindHistory) {
+                bindMaintenanceHistory(currentMaintenanceEntries)
+            }
+            refreshHistoryActionChrome()
+            return
+        }
+
+        selectedMaintenanceEntryIds.clear()
+        if (rebindHistory) {
+            bindMaintenanceHistory(currentMaintenanceEntries)
+        }
+        refreshHistoryActionChrome()
+    }
+
+    private fun clearDocumentSelectionMode(rebindHistory: Boolean = false) {
+        if (selectedDocumentEntryIds.isEmpty()) {
+            if (rebindHistory) {
+                bindDocumentHistory(currentDocumentEntries)
+            }
+            refreshHistoryActionChrome()
+            return
+        }
+
+        selectedDocumentEntryIds.clear()
+        if (rebindHistory) {
+            bindDocumentHistory(currentDocumentEntries)
+        }
+        refreshHistoryActionChrome()
+    }
+
+    private fun clearAllHistorySelections() {
+        val hadFuelSelection = selectedFuelEntryIds.isNotEmpty()
+        val hadMaintenanceSelection = selectedMaintenanceEntryIds.isNotEmpty()
+        val hadDocumentSelection = selectedDocumentEntryIds.isNotEmpty()
+        selectedFuelEntryIds.clear()
+        selectedMaintenanceEntryIds.clear()
+        selectedDocumentEntryIds.clear()
+        if (hadFuelSelection) {
+            bindFuelHistory(currentFuelEntries)
+        }
+        if (hadMaintenanceSelection) {
+            bindMaintenanceHistory(currentMaintenanceEntries)
+        }
+        if (hadDocumentSelection) {
+            bindDocumentHistory(currentDocumentEntries)
+        }
+        refreshHistoryActionChrome()
+    }
+
+    private fun clearActiveHistorySelectionModeIfNeeded(): Boolean {
+        val hasSelection = selectedFuelEntryIds.isNotEmpty() ||
+            selectedMaintenanceEntryIds.isNotEmpty() ||
+            selectedDocumentEntryIds.isNotEmpty()
+        if (!hasSelection) {
+            return false
+        }
+
+        clearAllHistorySelections()
+        return true
+    }
+
+    private fun clearSelectionsForInactiveTabs(activeTabPosition: Int) {
+        var shouldRebindFuel = false
+        var shouldRebindMaintenance = false
+        var shouldRebindDocuments = false
+
+        if (activeTabPosition != 1 && selectedFuelEntryIds.isNotEmpty()) {
+            selectedFuelEntryIds.clear()
+            shouldRebindFuel = true
+        }
+        if (activeTabPosition != 2 && selectedMaintenanceEntryIds.isNotEmpty()) {
+            selectedMaintenanceEntryIds.clear()
+            shouldRebindMaintenance = true
+        }
+        if (activeTabPosition != 3 && selectedDocumentEntryIds.isNotEmpty()) {
+            selectedDocumentEntryIds.clear()
+            shouldRebindDocuments = true
+        }
+
+        if (shouldRebindFuel) {
+            bindFuelHistory(currentFuelEntries)
+        }
+        if (shouldRebindMaintenance) {
+            bindMaintenanceHistory(currentMaintenanceEntries)
+        }
+        if (shouldRebindDocuments) {
+            bindDocumentHistory(currentDocumentEntries)
+        }
+    }
+
+    private fun pruneHistorySelections() {
+        selectedFuelEntryIds.retainAll(currentFuelEntries.mapTo(mutableSetOf()) { it.id })
+        selectedMaintenanceEntryIds.retainAll(currentMaintenanceEntries.mapTo(mutableSetOf()) { it.id })
+        selectedDocumentEntryIds.retainAll(currentDocumentEntries.mapTo(mutableSetOf()) { it.id })
+    }
+
+    private fun refreshHistoryActionChrome() {
+        btnDeleteFuelHistorySelection.visibility = if (selectedFuelEntryIds.isNotEmpty()) View.VISIBLE else View.GONE
+        btnDeleteMaintenanceHistorySelection.visibility = if (selectedMaintenanceEntryIds.isNotEmpty()) View.VISIBLE else View.GONE
+        btnDeleteDocumentHistorySelection.visibility = if (selectedDocumentEntryIds.isNotEmpty()) View.VISIBLE else View.GONE
+        updateAddActionButton(selectedTabPosition == 1, selectedTabPosition == 2, selectedTabPosition == 3)
+    }
+
+    private fun isSelectionModeActiveForCurrentTab(): Boolean {
+        return when (selectedTabPosition) {
+            1 -> selectedFuelEntryIds.isNotEmpty()
+            2 -> selectedMaintenanceEntryIds.isNotEmpty()
+            3 -> selectedDocumentEntryIds.isNotEmpty()
+            else -> false
+        }
+    }
+
+    private fun confirmDeleteSelectedFuelEntries() {
+        val entryIds = selectedFuelEntryIds.toSet()
+        if (entryIds.isEmpty()) {
+            return
+        }
+
+        showDeleteConfirmationDialog(
+            titleResId = R.string.garage_profile_history_delete_fuel_title,
+            message = getString(R.string.garage_profile_history_delete_fuel_message, entryIds.size)
+        ) {
+            deleteSelectedFuelEntries(entryIds)
+        }
+    }
+
+    private fun confirmDeleteSelectedMaintenanceEntries() {
+        val entryIds = selectedMaintenanceEntryIds.toSet()
+        if (entryIds.isEmpty()) {
+            return
+        }
+
+        showDeleteConfirmationDialog(
+            titleResId = R.string.garage_profile_history_delete_maintenance_title,
+            message = getString(R.string.garage_profile_history_delete_maintenance_message, entryIds.size)
+        ) {
+            deleteSelectedMaintenanceEntries(entryIds)
+        }
+    }
+
+    private fun confirmDeleteSelectedDocumentEntries() {
+        val entryIds = selectedDocumentEntryIds.toSet()
+        if (entryIds.isEmpty()) {
+            return
+        }
+
+        showDeleteConfirmationDialog(
+            titleResId = R.string.garage_profile_history_delete_documents_title,
+            message = getString(R.string.garage_profile_history_delete_documents_message, entryIds.size)
+        ) {
+            deleteSelectedDocumentEntries(entryIds)
+        }
+    }
+
+    private fun showDeleteConfirmationDialog(
+        titleResId: Int,
+        message: String,
+        onConfirm: () -> Unit
+    ) {
+        val dialog = AlertDialog.Builder(this, R.style.CustomAlertDialog)
+            .setTitle(titleResId)
+            .setMessage(message)
+            .setPositiveButton(R.string.garage_delete_button) { _, _ -> onConfirm() }
+            .setNegativeButton(R.string.garage_cancel_button, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                ?.setTextColor(ContextCompat.getColor(this, R.color.white))
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                ?.setTextColor(ContextCompat.getColor(this, R.color.white))
+        }
+
+        dialog.show()
+    }
+
+    private fun deleteSelectedFuelEntries(entryIds: Set<Long>) {
+        val removedEntries = GarageFuelEntryStorage.removeEntries(this, profileId, entryIds)
+        if (removedEntries.isEmpty()) {
+            clearFuelSelectionMode(rebindHistory = true)
+            return
+        }
+
+        removedEntries.forEach { entry ->
+            GarageFuelReceiptStorage.deleteReceipt(this, entry.receiptImagePath)
+        }
+
+        selectedFuelEntryIds.clear()
+        syncFuelLogCount()
+        refreshProfileUi()
+        Toast.makeText(
+            this,
+            getString(R.string.garage_profile_history_delete_fuel_success, removedEntries.size),
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun deleteSelectedMaintenanceEntries(entryIds: Set<Long>) {
+        val removedEntries = GarageMaintenanceEntryStorage.removeEntries(this, profileId, entryIds)
+        if (removedEntries.isEmpty()) {
+            clearMaintenanceSelectionMode(rebindHistory = true)
+            return
+        }
+
+        removedEntries.forEach { entry ->
+            GarageMaintenanceReminderManager.cancelReminder(this, entry)
+            GarageMaintenanceReceiptStorage.deleteReceipt(this, entry.receiptImagePath)
+        }
+
+        selectedMaintenanceEntryIds.clear()
+        syncMaintenanceCount()
+        refreshProfileUi()
+        Toast.makeText(
+            this,
+            getString(R.string.garage_profile_history_delete_maintenance_success, removedEntries.size),
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun deleteSelectedDocumentEntries(entryIds: Set<Long>) {
+        val removedEntries = GarageDocumentEntryStorage.removeEntries(this, profileId, entryIds)
+        if (removedEntries.isEmpty()) {
+            clearDocumentSelectionMode(rebindHistory = true)
+            return
+        }
+
+        removedEntries.forEach { entry ->
+            GarageDocumentReminderManager.cancelReminder(this, entry)
+            GarageDocumentReceiptStorage.deleteReceipt(this, entry.imagePath)
+        }
+
+        selectedDocumentEntryIds.clear()
+        syncDocumentCount()
+        refreshProfileUi()
+        Toast.makeText(
+            this,
+            getString(R.string.garage_profile_history_delete_documents_success, removedEntries.size),
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     private fun buildFuelConsumptionSummary(entries: List<GarageFuelEntry>): FuelConsumptionSummary {
@@ -485,11 +1288,27 @@ class GarageProfilePageActivity : AppCompatActivity() {
     }
 
     private fun formatFuelEntryDate(entry: GarageFuelEntry): String {
-        val rawDate = entry.date.trim()
-        val displayDate = if (rawDate.isNotBlank()) {
-            rawDate
-        } else {
-            SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(entry.createdAt))
+        return formatGarageEntryDate(entry.date, entry.createdAt)
+    }
+
+    private fun formatMaintenanceEntryDate(entry: GarageMaintenanceEntry): String {
+        return formatGarageEntryDate(entry.date, entry.createdAt)
+    }
+
+    private fun formatDocumentEntryDate(entry: GarageDocumentEntry): String {
+        val displayDate = entry.date.trim().ifBlank {
+            SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(
+                Date(entry.createdAt.takeIf { createdAt -> createdAt > 0L } ?: System.currentTimeMillis())
+            )
+        }
+        return displayDate.uppercase(Locale.getDefault())
+    }
+
+    private fun formatGarageEntryDate(rawDate: String, createdAt: Long): String {
+        val displayDate = rawDate.trim().ifBlank {
+            SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(
+                Date(createdAt.takeIf { it > 0L } ?: System.currentTimeMillis())
+            )
         }
         return displayDate.uppercase(Locale.getDefault())
     }
@@ -508,12 +1327,574 @@ class GarageProfilePageActivity : AppCompatActivity() {
     private fun buildFuelEntryStats(entry: GarageFuelEntry): String {
         return listOf(
             formatLitres(entry.litres),
-            String.format(Locale.getDefault(), "%.2f лв/L", entry.pricePerLitre)
+            formatPricePerLitre(entry.pricePerLitre)
         ).joinToString(" • ")
     }
 
+    private fun buildMaintenanceEntryMeta(entry: GarageMaintenanceEntry): String {
+        val parts = mutableListOf<String>()
+        if (entry.serviceType.isNotBlank()) {
+            parts += entry.serviceType
+        }
+        if (entry.odometerKm > 0L) {
+            parts += formatOdometer(entry.odometerKm)
+        }
+        return parts.joinToString(" • ")
+    }
+
+    private fun buildMaintenanceEntryStats(entry: GarageMaintenanceEntry): String {
+        return listOf(
+            "${getString(R.string.garage_maintenance_entry_parts_cost)} ${formatCurrency(entry.partsCost.coerceAtLeast(0.0))}",
+            "${getString(R.string.garage_maintenance_entry_labor_cost)} ${formatCurrency(entry.laborCost.coerceAtLeast(0.0))}"
+        ).joinToString(" • ")
+    }
+
+    private fun buildDocumentEntryMeta(entry: GarageDocumentEntry): String {
+        val parts = mutableListOf(
+            entry.documentType.trim().ifBlank {
+                getString(R.string.garage_document_entry_title)
+            }
+        )
+        if (entry.odometerKm > 0L) {
+            parts += formatOdometer(entry.odometerKm)
+        }
+        return parts.joinToString(" • ")
+    }
+
+    private fun buildDocumentEntryStats(presentation: DocumentExpiryPresentation): String {
+        return presentation.secondaryText
+    }
+
+    private fun bindDocumentReminderProgress(
+        itemView: View,
+        presentation: DocumentExpiryPresentation
+    ) {
+        val reminderRow = itemView.findViewById<LinearLayout>(R.id.llProfileHistoryReminderRow)
+        val reminderBadge = itemView.findViewById<TextView>(R.id.tvProfileHistoryReminderBadge)
+        val reminderPercent = itemView.findViewById<TextView>(R.id.tvProfileHistoryReminderPercent)
+        val reminderProgress = itemView.findViewById<ProgressBar>(R.id.progressProfileHistoryReminder)
+
+        if (!presentation.showReminderRow) {
+            reminderRow.visibility = View.GONE
+            return
+        }
+
+        reminderRow.visibility = View.VISIBLE
+        reminderBadge.text = presentation.badgeLabel
+        reminderBadge.setBackgroundResource(presentation.badgeBackgroundRes)
+        reminderBadge.setTextColor(ContextCompat.getColor(this, presentation.badgeTextColorRes))
+        reminderPercent.text = presentation.compactStatusText
+        reminderPercent.setTextColor(ContextCompat.getColor(this, presentation.compactTextColorRes))
+        reminderPercent.visibility = if (presentation.compactStatusText.isBlank()) View.GONE else View.VISIBLE
+
+        if (presentation.progressPercent != null) {
+            reminderProgress.visibility = View.VISIBLE
+            reminderProgress.progress = presentation.progressPercent
+            reminderProgress.progressTintList = ColorStateList.valueOf(
+                ContextCompat.getColor(this, presentation.progressBarColorRes)
+            )
+        } else {
+            reminderProgress.visibility = View.GONE
+        }
+    }
+
+    private fun resolveDocumentExpiryPresentation(
+        entry: GarageDocumentEntry,
+        nowMillis: Long
+    ): DocumentExpiryPresentation {
+        val referenceTimestamp = resolveGarageEntryTimestamp(entry.date, entry.createdAt)
+        val reminderTargetDateMillis = GarageDocumentReminderRules.resolveTargetDate(entry, referenceTimestamp)
+        val reminderDateMillis = GarageDocumentReminderRules.resolveReminderDate(entry, referenceTimestamp)
+        val statusDateMillis = reminderTargetDateMillis
+
+        if (entry.reminderCompletedAt != null) {
+            return DocumentExpiryPresentation(
+                status = DocumentHistoryStatus.COMPLETED,
+                secondaryText = getString(R.string.garage_profile_document_target_reached),
+                showReminderRow = true,
+                badgeLabel = getString(R.string.garage_profile_document_status_completed),
+                badgeBackgroundRes = R.drawable.bg_garage_reminder_completed_badge,
+                badgeTextColorRes = R.color.white,
+                compactStatusText = "",
+                compactTextColorRes = R.color.success_color,
+                progressPercent = null,
+                progressBarColorRes = R.color.success_color
+            )
+        }
+
+        if (statusDateMillis == null) {
+            return DocumentExpiryPresentation(
+                status = DocumentHistoryStatus.NO_REMINDER,
+                secondaryText = getString(R.string.garage_profile_document_no_expiry_meta),
+                showReminderRow = false,
+                badgeLabel = getString(R.string.garage_profile_maintenance_reminder_badge),
+                badgeBackgroundRes = R.drawable.bg_garage_reminder_badge,
+                badgeTextColorRes = R.color.accent_color,
+                compactStatusText = "",
+                compactTextColorRes = R.color.text_tertiary,
+                progressPercent = null,
+                progressBarColorRes = R.color.accent_color
+            )
+        }
+
+        val reminderIsRelevant = reminderDateMillis != null && reminderDateMillis < statusDateMillis
+        val isOverdue = nowMillis >= statusDateMillis
+        val isDue = !isOverdue &&
+            (entry.reminderTriggeredAt != null || (reminderDateMillis != null && nowMillis >= reminderDateMillis))
+
+        if (isOverdue) {
+            val overdueDays = ((nowMillis - statusDateMillis) / MILLIS_PER_DAY).toInt().coerceAtLeast(0)
+            return DocumentExpiryPresentation(
+                status = DocumentHistoryStatus.OVERDUE,
+                secondaryText = getString(
+                    R.string.garage_profile_document_target_on,
+                    formatDocumentShortDate(statusDateMillis)
+                ),
+                showReminderRow = true,
+                badgeLabel = getString(R.string.garage_profile_document_status_expired),
+                badgeBackgroundRes = R.drawable.bg_garage_reminder_overdue_badge,
+                badgeTextColorRes = R.color.white,
+                compactStatusText = if (overdueDays == 0) {
+                    getString(R.string.garage_profile_document_due_today)
+                } else {
+                    getString(R.string.garage_profile_document_days_overdue, overdueDays)
+                },
+                compactTextColorRes = R.color.error_color,
+                progressPercent = null,
+                progressBarColorRes = R.color.error_color
+            )
+        }
+
+        if (isDue) {
+            return DocumentExpiryPresentation(
+                status = DocumentHistoryStatus.DUE,
+                secondaryText = getString(
+                    R.string.garage_profile_document_target_on,
+                    formatDocumentShortDate(statusDateMillis)
+                ),
+                showReminderRow = true,
+                badgeLabel = getString(R.string.garage_profile_document_status_due),
+                badgeBackgroundRes = R.drawable.bg_garage_reminder_due_badge,
+                badgeTextColorRes = R.color.white,
+                compactStatusText = getString(R.string.garage_profile_document_history_due_now),
+                compactTextColorRes = R.color.accent_color,
+                progressPercent = null,
+                progressBarColorRes = R.color.accent_color
+            )
+        }
+
+        val progressPercent = when {
+            reminderDateMillis != null && reminderDateMillis > referenceTimestamp -> {
+                (((nowMillis - referenceTimestamp).toDouble() / (reminderDateMillis - referenceTimestamp).toDouble()) * 100.0)
+                    .roundToInt()
+                    .coerceIn(0, 100)
+            }
+            else -> null
+        }
+        val compactText = if (progressPercent != null) {
+            getString(R.string.garage_profile_maintenance_progress_percent, progressPercent)
+        } else {
+            ""
+        }
+
+        return DocumentExpiryPresentation(
+            status = DocumentHistoryStatus.UPCOMING,
+            secondaryText = when {
+                reminderIsRelevant && reminderDateMillis < statusDateMillis -> getString(
+                    R.string.garage_profile_document_reminder_on,
+                    formatDocumentShortDate(reminderDateMillis)
+                )
+                else -> getString(
+                    R.string.garage_profile_document_target_on,
+                    formatDocumentShortDate(statusDateMillis)
+                )
+            },
+            showReminderRow = true,
+            badgeLabel = getString(R.string.garage_profile_maintenance_reminder_badge),
+            badgeBackgroundRes = R.drawable.bg_garage_reminder_badge,
+            badgeTextColorRes = R.color.accent_color,
+            compactStatusText = compactText,
+            compactTextColorRes = R.color.text_tertiary,
+            progressPercent = progressPercent,
+            progressBarColorRes = R.color.accent_purple
+        )
+    }
+
+    private fun bindMaintenanceReminderProgress(
+        itemView: View,
+        presentation: MaintenanceReminderPresentation?
+    ) {
+        val reminderRow = itemView.findViewById<LinearLayout>(R.id.llProfileHistoryReminderRow)
+        val reminderBadge = itemView.findViewById<TextView>(R.id.tvProfileHistoryReminderBadge)
+        val reminderPercent = itemView.findViewById<TextView>(R.id.tvProfileHistoryReminderPercent)
+        val reminderProgress = itemView.findViewById<ProgressBar>(R.id.progressProfileHistoryReminder)
+
+        if (presentation == null) {
+            reminderRow.visibility = View.GONE
+            return
+        }
+
+        reminderRow.visibility = View.VISIBLE
+        reminderBadge.text = presentation.badgeLabel
+        reminderBadge.setBackgroundResource(presentation.badgeBackgroundRes)
+        reminderBadge.setTextColor(ContextCompat.getColor(this, presentation.badgeTextColorRes))
+        reminderPercent.text = presentation.compactStatusText
+        reminderPercent.setTextColor(ContextCompat.getColor(this, presentation.compactTextColorRes))
+
+            if (presentation.compactStatusText.isBlank()) {
+                reminderPercent.visibility = View.GONE
+            } else {
+                reminderPercent.visibility = View.VISIBLE
+            }
+
+        if (presentation.progressPercent != null) {
+            reminderProgress.visibility = View.VISIBLE
+            reminderProgress.progress = presentation.progressPercent
+            reminderProgress.progressTintList = ColorStateList.valueOf(
+                ContextCompat.getColor(this, presentation.progressBarColorRes)
+            )
+        } else {
+            reminderProgress.visibility = View.GONE
+        }
+    }
+
+    private fun resolveMaintenanceReminderPresentation(
+        entry: GarageMaintenanceEntry,
+        nowMillis: Long
+    ): MaintenanceReminderPresentation? {
+        if (!entry.reminderEnabled) {
+            return null
+        }
+
+        if (entry.reminderCompletedAt != null) {
+            return MaintenanceReminderPresentation(
+                entry = entry,
+                status = MaintenanceReminderStatus.COMPLETED,
+                badgeLabel = getString(R.string.garage_profile_maintenance_status_completed),
+                badgeBackgroundRes = R.drawable.bg_garage_reminder_completed_badge,
+                badgeTextColorRes = R.color.white,
+                primaryText = getString(R.string.garage_profile_maintenance_status_completed),
+                secondaryText = getString(R.string.garage_profile_maintenance_target_reached),
+                primaryTextColorRes = R.color.success_color,
+                compactStatusText = "",
+                compactTextColorRes = R.color.success_color,
+                progressPercent = null,
+                progressBarColorRes = R.color.success_color
+            )
+        }
+
+        val serviceTimestamp = resolveGarageEntryTimestamp(entry.date, entry.createdAt)
+        val reminderKm = GarageMaintenanceReminderRules.resolveKmReminder(entry)
+        val targetKm = GarageMaintenanceReminderRules.resolveKmTarget(entry)
+        val reminderDateMillis = GarageMaintenanceReminderRules.resolveDateReminder(entry, serviceTimestamp)
+        val targetDateMillis = GarageMaintenanceReminderRules.resolveDateTarget(entry, serviceTimestamp)
+        val reminderKmReachedAt = reminderKm?.let {
+            GarageOdometerTimeline.firstReachedTargetTimestampAfter(
+                context = this,
+                profileId = entry.profileId,
+                source = GarageOdometerSource.MAINTENANCE,
+                entryId = entry.id,
+                targetOdometerKm = it,
+                dateText = entry.date,
+                fallbackTimestamp = entry.createdAt
+            )
+        }
+        val targetKmReachedAt = targetKm?.let {
+            GarageOdometerTimeline.firstReachedTargetTimestampAfter(
+                context = this,
+                profileId = entry.profileId,
+                source = GarageOdometerSource.MAINTENANCE,
+                entryId = entry.id,
+                targetOdometerKm = it,
+                dateText = entry.date,
+                fallbackTimestamp = entry.createdAt
+            )
+        }
+        val latestRecordedOdometerKm = GarageOdometerTimeline.latestRecordedOdometerFrom(
+            context = this,
+            profileId = entry.profileId,
+            source = GarageOdometerSource.MAINTENANCE,
+            entryId = entry.id,
+            dateText = entry.date,
+            fallbackTimestamp = entry.createdAt
+        )
+
+        val isOverdueByKm = targetKmReachedAt != null
+        val isOverdueByDate = targetDateMillis != null && nowMillis >= targetDateMillis
+        val isDueByKm = reminderKmReachedAt != null
+        val isDueByDate = reminderDateMillis != null && nowMillis >= reminderDateMillis
+
+        return when {
+            isOverdueByKm || isOverdueByDate -> {
+                val (primaryText, compactText) = buildMaintenanceOverdueTexts(
+                    targetKm = targetKm,
+                    targetDateMillis = targetDateMillis,
+                    latestRecordedOdometerKm = latestRecordedOdometerKm,
+                    targetKmReachedAt = targetKmReachedAt,
+                    nowMillis = nowMillis
+                )
+                MaintenanceReminderPresentation(
+                    entry = entry,
+                    status = MaintenanceReminderStatus.OVERDUE,
+                    badgeLabel = getString(R.string.garage_profile_maintenance_status_overdue),
+                    badgeBackgroundRes = R.drawable.bg_garage_reminder_overdue_badge,
+                    badgeTextColorRes = R.color.white,
+                    primaryText = primaryText,
+                    secondaryText = buildMaintenanceTargetSummary(targetKm, targetDateMillis),
+                    primaryTextColorRes = R.color.error_color,
+                    compactStatusText = compactText,
+                    compactTextColorRes = R.color.error_color,
+                    progressPercent = null,
+                    progressBarColorRes = R.color.error_color
+                )
+            }
+
+            isDueByKm || isDueByDate || entry.reminderTriggeredAt != null -> MaintenanceReminderPresentation(
+                entry = entry,
+                status = MaintenanceReminderStatus.DUE,
+                badgeLabel = getString(R.string.garage_profile_maintenance_status_due),
+                badgeBackgroundRes = R.drawable.bg_garage_reminder_due_badge,
+                badgeTextColorRes = R.color.white,
+                primaryText = getString(R.string.garage_profile_maintenance_due_now),
+                secondaryText = buildMaintenanceTargetSummary(targetKm, targetDateMillis),
+                primaryTextColorRes = R.color.accent_color,
+                compactStatusText = getString(R.string.garage_profile_maintenance_history_due_now),
+                compactTextColorRes = R.color.accent_color,
+                progressPercent = null,
+                progressBarColorRes = R.color.accent_color
+            )
+
+            else -> {
+                val progressPercent = resolveMaintenanceReminderProgress(entry, nowMillis)
+                    ?.times(100f)
+                    ?.roundToInt()
+                    ?.coerceIn(0, 100)
+                MaintenanceReminderPresentation(
+                    entry = entry,
+                    status = MaintenanceReminderStatus.UPCOMING,
+                    badgeLabel = getString(R.string.garage_profile_maintenance_status_upcoming),
+                    badgeBackgroundRes = R.drawable.bg_garage_reminder_badge,
+                    badgeTextColorRes = R.color.accent_color,
+                    primaryText = buildUpcomingReminderPrimaryText(reminderKm, reminderDateMillis),
+                    secondaryText = buildMaintenanceTargetSummary(targetKm, targetDateMillis),
+                    primaryTextColorRes = R.color.text_primary,
+                    compactStatusText = getString(
+                        R.string.garage_profile_maintenance_progress_percent,
+                        progressPercent ?: 0
+                    ),
+                    compactTextColorRes = R.color.text_tertiary,
+                    progressPercent = progressPercent,
+                    progressBarColorRes = R.color.accent_color
+                )
+            }
+        }
+    }
+
+    private fun resolveMaintenanceReminderProgress(
+        entry: GarageMaintenanceEntry,
+        nowMillis: Long
+    ): Float? {
+        if (!entry.reminderEnabled) {
+            return null
+        }
+
+        if (entry.reminderTriggeredAt != null) {
+            return 1f
+        }
+
+        val progressCandidates = mutableListOf<Float>()
+        val serviceTimestamp = resolveGarageEntryTimestamp(entry.date, entry.createdAt)
+        val latestRecordedOdometerKm = GarageOdometerTimeline.latestRecordedOdometerFrom(
+            context = this,
+            profileId = entry.profileId,
+            source = GarageOdometerSource.MAINTENANCE,
+            entryId = entry.id,
+            dateText = entry.date,
+            fallbackTimestamp = entry.createdAt
+        )
+
+        GarageMaintenanceReminderRules.resolveKmReminder(entry)?.let { reminderKm ->
+            val startKm = entry.odometerKm
+            if (startKm > 0L && reminderKm > startKm) {
+                val currentKm = (latestRecordedOdometerKm ?: startKm).coerceAtLeast(startKm)
+                val kmProgress = (currentKm - startKm).toFloat() / (reminderKm - startKm).toFloat()
+                progressCandidates += kmProgress.coerceIn(0f, 1f)
+            }
+        }
+
+        GarageMaintenanceReminderRules.resolveDateReminder(entry, serviceTimestamp)?.let { reminderDateMillis ->
+            if (reminderDateMillis > serviceTimestamp) {
+                val dateProgress = (nowMillis - serviceTimestamp).toDouble() /
+                    (reminderDateMillis - serviceTimestamp).toDouble()
+                progressCandidates += dateProgress.toFloat().coerceIn(0f, 1f)
+            }
+        }
+
+        return progressCandidates.maxOrNull()
+    }
+
+    private fun buildUpcomingReminderPrimaryText(
+        reminderKm: Long?,
+        reminderDateMillis: Long?
+    ): String {
+        return when {
+            reminderKm != null && reminderDateMillis != null -> getString(
+                R.string.garage_profile_maintenance_reminder_at_km_or_date,
+                formatOdometer(reminderKm),
+                formatReminderShortDate(reminderDateMillis)
+            )
+
+            reminderKm != null -> getString(
+                R.string.garage_profile_maintenance_reminder_at_km,
+                formatOdometer(reminderKm)
+            )
+
+            reminderDateMillis != null -> getString(
+                R.string.garage_profile_maintenance_reminder_on_date,
+                formatReminderShortDate(reminderDateMillis)
+            )
+
+            else -> getString(R.string.garage_profile_maintenance_reminder_badge)
+        }
+    }
+
+    private fun buildMaintenanceTargetSummary(targetKm: Long?, targetDateMillis: Long?): String {
+        val parts = mutableListOf<String>()
+        if (targetKm != null) {
+            parts += formatOdometer(targetKm)
+        }
+        if (targetDateMillis != null) {
+            parts += formatReminderShortDate(targetDateMillis)
+        }
+
+        return if (parts.isEmpty()) {
+            getString(R.string.garage_profile_maintenance_target_reached)
+        } else {
+            buildString {
+                append(getString(R.string.garage_profile_maintenance_target_summary_prefix))
+                append(' ')
+                append(parts.joinToString(" • "))
+            }
+        }
+    }
+
+    private fun buildMaintenanceOverdueTexts(
+        targetKm: Long?,
+        targetDateMillis: Long?,
+        latestRecordedOdometerKm: Long?,
+        targetKmReachedAt: Long?,
+        nowMillis: Long
+    ): Pair<String, String> {
+        val currentKm = latestRecordedOdometerKm ?: 0L
+        val kmOverdueValue = targetKm?.let { (currentKm - it).coerceAtLeast(0L) }
+        val daysOverdue = targetDateMillis?.let {
+            ((nowMillis - it) / MILLIS_PER_DAY).toInt().coerceAtLeast(0)
+        }
+
+        val preferKm = when {
+            targetKmReachedAt != null && targetDateMillis != null && nowMillis >= targetDateMillis -> targetKmReachedAt <= targetDateMillis
+            targetKmReachedAt != null -> true
+            else -> false
+        }
+
+        return if (preferKm && targetKm != null) {
+            val primaryText = if ((kmOverdueValue ?: 0L) > 0L) {
+                getString(
+                    R.string.garage_profile_maintenance_km_overdue,
+                    NumberFormat.getIntegerInstance(Locale.US).format(kmOverdueValue)
+                )
+            } else {
+                getString(R.string.garage_profile_maintenance_target_km_reached)
+            }
+            val compactText = if ((kmOverdueValue ?: 0L) > 0L) {
+                getString(
+                    R.string.garage_profile_maintenance_history_overdue_km_short,
+                    NumberFormat.getIntegerInstance(Locale.US).format(kmOverdueValue)
+                )
+            } else {
+                getString(R.string.garage_profile_maintenance_status_overdue)
+            }
+            primaryText to compactText
+        } else {
+            val primaryText = if ((daysOverdue ?: 0) > 0) {
+                getString(R.string.garage_profile_maintenance_days_overdue, daysOverdue ?: 0)
+            } else {
+                getString(R.string.garage_profile_maintenance_target_date_reached)
+            }
+            val compactText = if ((daysOverdue ?: 0) > 0) {
+                getString(R.string.garage_profile_maintenance_history_overdue_days_short, daysOverdue ?: 0)
+            } else {
+                getString(R.string.garage_profile_maintenance_status_overdue)
+            }
+            primaryText to compactText
+        }
+    }
+
+    private fun createHistoryEmptyStateView(textResId: Int): TextView {
+        return TextView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            text = getString(textResId)
+            setTextColor(ContextCompat.getColor(this@GarageProfilePageActivity, R.color.text_tertiary))
+            textSize = 12f
+            setPadding(dpToPx(4), dpToPx(6), dpToPx(4), dpToPx(6))
+        }
+    }
+
+    private fun calculateMaintenanceEntryTotal(entry: GarageMaintenanceEntry): Double {
+        return entry.partsCost.coerceAtLeast(0.0) + entry.laborCost.coerceAtLeast(0.0)
+    }
+
+    private fun resolveGarageEntryTimestamp(rawDate: String, fallbackCreatedAt: Long): Long {
+        parseGarageEntryDate(rawDate)?.let { return it.time }
+        return fallbackCreatedAt.takeIf { it > 0L } ?: System.currentTimeMillis()
+    }
+
+    private fun resolveGarageEntryYear(rawDate: String, fallbackCreatedAt: Long): Int {
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = resolveGarageEntryTimestamp(rawDate, fallbackCreatedAt)
+        }
+        return calendar.get(Calendar.YEAR)
+    }
+
+    private fun parseGarageEntryDate(rawDate: String): Date? {
+        val value = rawDate.trim()
+        if (value.isBlank()) {
+            return null
+        }
+
+        val locales = linkedSetOf(Locale.getDefault(), Locale.ENGLISH, Locale.US, Locale("bg"))
+        locales.forEach { locale ->
+            val patterns = listOf("dd MMM yyyy, HH:mm", "dd MMM yyyy")
+            patterns.forEach { pattern ->
+                val parser = SimpleDateFormat(pattern, locale).apply {
+                    isLenient = false
+                }
+                val parsed = runCatching { parser.parse(value) }.getOrNull()
+                if (parsed != null) {
+                    return parsed
+                }
+            }
+        }
+        return null
+    }
+
     private fun formatCurrency(value: Double): String {
-        return String.format(Locale.getDefault(), "%.2f лв", value)
+        return String.format(Locale.getDefault(), "%.2f €", value)
+    }
+
+    private fun formatReminderShortDate(valueMillis: Long): String {
+        return SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(valueMillis))
+    }
+
+    private fun formatDocumentShortDate(valueMillis: Long): String {
+        return SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(valueMillis))
+    }
+
+    private fun formatPricePerLitre(value: Double): String {
+        return String.format(Locale.getDefault(), "%.2f €/L", value)
     }
 
     private fun formatLitres(value: Double): String {
@@ -536,6 +1917,71 @@ class GarageProfilePageActivity : AppCompatActivity() {
         val averageLPer100Km: Double?,
         val validPeriodsCount: Int,
         val hasAnyFullTank: Boolean
+    )
+
+    private enum class DocumentHistoryFilter {
+        ALL,
+        ACTIVE,
+        OVERDUE
+    }
+
+    private enum class DocumentHistoryStatus(val sortOrder: Int) {
+        DUE(0),
+        UPCOMING(1),
+        COMPLETED(2),
+        NO_REMINDER(3),
+        OVERDUE(4)
+    }
+
+    private data class DocumentHistoryItem(
+        val entry: GarageDocumentEntry,
+        val presentation: DocumentExpiryPresentation
+    )
+
+    private enum class MaintenanceReminderFilter {
+        ALL,
+        ACTIVE,
+        OVERDUE
+    }
+
+    private enum class MaintenanceReminderStatus(val sortOrder: Int) {
+        OVERDUE(0),
+        DUE(1),
+        UPCOMING(2),
+        COMPLETED(3)
+    }
+
+    private data class MaintenanceHistoryItem(
+        val entry: GarageMaintenanceEntry,
+        val presentation: MaintenanceReminderPresentation?
+    )
+
+    private data class MaintenanceReminderPresentation(
+        val entry: GarageMaintenanceEntry,
+        val status: MaintenanceReminderStatus,
+        val badgeLabel: String,
+        val badgeBackgroundRes: Int,
+        val badgeTextColorRes: Int,
+        val primaryText: String,
+        val secondaryText: String,
+        val primaryTextColorRes: Int,
+        val compactStatusText: String,
+        val compactTextColorRes: Int,
+        val progressPercent: Int?,
+        val progressBarColorRes: Int
+    )
+
+    private data class DocumentExpiryPresentation(
+        val status: DocumentHistoryStatus,
+        val secondaryText: String,
+        val showReminderRow: Boolean,
+        val badgeLabel: String,
+        val badgeBackgroundRes: Int,
+        val badgeTextColorRes: Int,
+        val compactStatusText: String,
+        val compactTextColorRes: Int,
+        val progressPercent: Int?,
+        val progressBarColorRes: Int
     )
 
     private fun bindOverviewMetrics(totalDistanceKm: Double, totalTimeMs: Long) {
@@ -798,6 +2244,30 @@ class GarageProfilePageActivity : AppCompatActivity() {
         return prefs.getInt("profile_${profileId}_$suffix", 0)
     }
 
+    private fun syncFuelLogCount() {
+        val count = GarageFuelEntryStorage.getCount(this, profileId)
+        getSharedPreferences(EXTRA_STATS_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putInt("profile_${profileId}_fuel_logs_count", count)
+            .apply()
+    }
+
+    private fun syncMaintenanceCount() {
+        val count = GarageMaintenanceEntryStorage.getCount(this, profileId)
+        getSharedPreferences(EXTRA_STATS_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putInt("profile_${profileId}_maintenance_count", count)
+            .apply()
+    }
+
+    private fun syncDocumentCount() {
+        val count = GarageDocumentEntryStorage.getCount(this, profileId)
+        getSharedPreferences(EXTRA_STATS_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putInt("profile_${profileId}_documents_count", count)
+            .apply()
+    }
+
     private fun getGarageDisplayName(profile: Profile): String {
         val prefs = getSharedPreferences("garage_display_names", Context.MODE_PRIVATE)
         val key = "profile_${profile.id}_display_name"
@@ -1011,5 +2481,7 @@ class GarageProfilePageActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_PROFILE_ID = "PROFILE_ID"
+        private const val EXTRA_STATS_PREFS = "garage_profile_extra_stats"
+        private const val MILLIS_PER_DAY = 24L * 60L * 60L * 1000L
     }
 }

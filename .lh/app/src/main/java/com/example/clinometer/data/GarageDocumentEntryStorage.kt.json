@@ -1,0 +1,26 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/data/GarageDocumentEntryStorage.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 2,
+            "patches": [
+                {
+                    "date": 1775148113639,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1775149720097,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -10,8 +10,9 @@\n     val date: String,\r\n     val documentType: String,\r\n     val description: String,\r\n     val amount: Double = 0.0,\r\n+    val odometerKm: Long = 0L,\r\n     val expiryDateMillis: Long? = null,\r\n     val imagePath: String? = null,\r\n     val reminderEnabled: Boolean = false,\r\n     val reminderDateIntervalMonths: Int? = null,\r\n"
+                },
+                {
+                    "date": 1775202086737,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -18,8 +18,9 @@\n     val reminderDateIntervalMonths: Int? = null,\r\n     val reminderExactDateMillis: Long? = null,\r\n     val reminderDateLeadPreset: String? = null,\r\n     val reminderTriggeredAt: Long? = null,\r\n+    val reminderCompletedAt: Long? = null,\r\n     val createdAt: Long = System.currentTimeMillis()\r\n )\r\n \r\n object GarageDocumentEntryStorage {\r\n"
+                }
+            ],
+            "date": 1775148113639,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.data\r\n\r\nimport android.content.Context\r\nimport com.google.gson.Gson\r\nimport com.google.gson.reflect.TypeToken\r\n\r\ndata class GarageDocumentEntry(\r\n    val id: Long = System.currentTimeMillis(),\r\n    val profileId: Long,\r\n    val date: String,\r\n    val documentType: String,\r\n    val description: String,\r\n    val amount: Double = 0.0,\r\n    val expiryDateMillis: Long? = null,\r\n    val imagePath: String? = null,\r\n    val reminderEnabled: Boolean = false,\r\n    val reminderDateIntervalMonths: Int? = null,\r\n    val reminderExactDateMillis: Long? = null,\r\n    val reminderDateLeadPreset: String? = null,\r\n    val reminderTriggeredAt: Long? = null,\r\n    val createdAt: Long = System.currentTimeMillis()\r\n)\r\n\r\nobject GarageDocumentEntryStorage {\r\n    private const val PREFS_NAME = \"garage_document_entries\"\r\n\r\n    private fun key(profileId: Long): String = \"profile_${profileId}_document_entries\"\r\n\r\n    private fun persistEntries(context: Context, profileId: Long, entries: List<GarageDocumentEntry>) {\r\n        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)\r\n            .edit()\r\n            .putString(key(profileId), Gson().toJson(entries))\r\n            .apply()\r\n    }\r\n\r\n    fun loadEntries(context: Context, profileId: Long): MutableList<GarageDocumentEntry> {\r\n        if (profileId == -1L) {\r\n            return mutableListOf()\r\n        }\r\n\r\n        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)\r\n        val json = prefs.getString(key(profileId), null) ?: return mutableListOf()\r\n        val type = object : TypeToken<MutableList<GarageDocumentEntry>>() {}.type\r\n        return Gson().fromJson(json, type) ?: mutableListOf()\r\n    }\r\n\r\n    fun upsertEntry(context: Context, entry: GarageDocumentEntry) {\r\n        val entries = loadEntries(context, entry.profileId)\r\n        val existingIndex = entries.indexOfFirst { it.id == entry.id }\r\n\r\n        if (existingIndex >= 0) {\r\n            entries[existingIndex] = entry\r\n        } else {\r\n            entries.add(0, entry)\r\n        }\r\n\r\n        persistEntries(context, entry.profileId, entries)\r\n    }\r\n\r\n    fun findEntry(context: Context, profileId: Long, entryId: Long): GarageDocumentEntry? {\r\n        return loadEntries(context, profileId).firstOrNull { it.id == entryId }\r\n    }\r\n\r\n    fun removeEntries(context: Context, profileId: Long, entryIds: Set<Long>): List<GarageDocumentEntry> {\r\n        if (profileId == -1L || entryIds.isEmpty()) {\r\n            return emptyList()\r\n        }\r\n\r\n        val entries = loadEntries(context, profileId)\r\n        val removedEntries = entries.filter { it.id in entryIds }\r\n        if (removedEntries.isEmpty()) {\r\n            return emptyList()\r\n        }\r\n\r\n        entries.removeAll { it.id in entryIds }\r\n        persistEntries(context, profileId, entries)\r\n        return removedEntries\r\n    }\r\n\r\n    fun getCount(context: Context, profileId: Long): Int {\r\n        return loadEntries(context, profileId).size\r\n    }\r\n}"
+        }
+    ]
+}

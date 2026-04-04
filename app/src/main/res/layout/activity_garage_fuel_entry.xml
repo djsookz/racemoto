@@ -187,7 +187,7 @@
                             app:boxStrokeColor="@color/primary_color"
                             app:boxStrokeWidth="1dp"
                             app:boxStrokeWidthFocused="2dp"
-                            app:suffixText="лв/L">
+                            app:suffixText="€/L">
 
                             <com.google.android.material.textfield.TextInputEditText
                                 android:id="@+id/etFuelEntryPricePerLitre"
@@ -214,7 +214,7 @@
                         app:boxStrokeColor="@color/primary_color"
                         app:boxStrokeWidth="1dp"
                         app:boxStrokeWidthFocused="2dp"
-                        app:suffixText="лв">
+                        app:suffixText="€">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etFuelEntryDiscountAmount"

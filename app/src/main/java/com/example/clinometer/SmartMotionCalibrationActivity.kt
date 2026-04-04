@@ -1,11 +1,15 @@
 package com.example.clinometer
 
+import android.Manifest
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.location.LocationManager
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Looper
 import android.os.SystemClock
 import android.view.View
 import android.widget.Button
@@ -13,9 +17,16 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.settings.LanguageManager
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -53,10 +64,15 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
     private lateinit var btnContinue: Button
 
     private lateinit var sensorManager: SensorManager
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationManager: LocationManager
     private var accelerometer: Sensor? = null
     private var gyroscope: Sensor? = null
     private var linearAccelSensor: Sensor? = null
     private var gravitySensor: Sensor? = null
+    private var calibrationLocationCallback: LocationCallback? = null
+    private var locationUpdatesActive: Boolean = false
+    private var pendingCalibrationLandscape: Boolean? = null
 
     private var profileId: Long = -1L
     private var isMotorcycleProfile: Boolean = true
@@ -134,6 +150,7 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
 
         initializeViews()
         initializeSensors()
+        initializeLocation()
         setupListeners()
         updateUi()
     }
@@ -143,6 +160,9 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
         DragCalibration.setProfile(profileId)
         if (calibrationActive) {
             registerSensors()
+            if (shouldUseGpsForwardAssist()) {
+                startCalibrationLocationUpdates()
+            }
         } else {
             updateUi()
         }
@@ -151,11 +171,13 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
     override fun onPause() {
         super.onPause()
         unregisterSensors()
+        stopCalibrationLocationUpdates()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         unregisterSensors()
+        stopCalibrationLocationUpdates()
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -194,6 +216,20 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
         gravitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
     }
 
+    private fun initializeLocation() {
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
+        calibrationLocationCallback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                val engine = calibrationEngine ?: return
+                if (!calibrationActive) return
+                result.locations.forEach { location ->
+                    engine.onLocation(location)
+                }
+            }
+        }
+    }
+
     private fun setupListeners() {
         btnCalibratePortrait.setOnClickListener { startCalibration(isLandscape = false) }
         btnCalibrateLandscape.setOnClickListener { startCalibration(isLandscape = true) }
@@ -225,14 +261,22 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
     }
 
     private fun startCalibration(isLandscape: Boolean) {
+        if (calibrationActive) return
+
         if (accelerometer == null) {
             Toast.makeText(this, getString(R.string.lean_calibration_sensor_missing), Toast.LENGTH_LONG).show()
             return
         }
 
+        val gpsForwardAssist = shouldUseGpsForwardAssist()
+        if (gpsForwardAssist && !ensureGpsForwardCalibrationReady(isLandscape)) {
+            return
+        }
+
         calibrationEngine = SmartCalibrationEngine(
             hasGyroSensor = gyroscope != null,
-            useLeanStep = shouldUseLeanStep()
+            useLeanStep = false,
+            requireGpsForwardAssist = gpsForwardAssist
         )
 
         targetLandscape = isLandscape
@@ -243,12 +287,7 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
         calibrationActive = true
 
         setButtonsEnabled(false)
-        val stillStatus = if (shouldUseLeanStep()) {
-            getString(R.string.smart_calibration_status_still_gyro)
-        } else {
-            getString(R.string.smart_calibration_status_still)
-        }
-        setActiveStatus(stillStatus, android.R.color.holo_orange_light)
+        setActiveStatus(getString(R.string.smart_calibration_status_still), android.R.color.holo_orange_light)
         setActiveDate(
             String.format(
                 Locale.getDefault(),
@@ -259,6 +298,9 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
         setActivePhaseProgress(phaseStartMs, percent = 0, force = true)
 
         registerSensors()
+        if (gpsForwardAssist) {
+            startCalibrationLocationUpdates()
+        }
         initialFrame?.let { applyEngineFrame(it) }
     }
 
@@ -282,6 +324,67 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
         gyroscope?.let { sensorManager.unregisterListener(this, it) }
         linearAccelSensor?.let { sensorManager.unregisterListener(this, it) }
         gravitySensor?.let { sensorManager.unregisterListener(this, it) }
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun isAnyLocationProviderEnabled(): Boolean {
+        return runCatching {
+            locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        }.getOrDefault(false)
+    }
+
+    private fun ensureGpsForwardCalibrationReady(isLandscape: Boolean): Boolean {
+        if (!hasLocationPermission()) {
+            pendingCalibrationLandscape = isLandscape
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                LOCATION_PERMISSION_REQUEST_CODE
+            )
+            return false
+        }
+        if (!isAnyLocationProviderEnabled()) {
+            Toast.makeText(this, getString(R.string.smart_calibration_error_location_disabled), Toast.LENGTH_LONG).show()
+            return false
+        }
+        return true
+    }
+
+    private fun startCalibrationLocationUpdates() {
+        if (locationUpdatesActive || !hasLocationPermission()) return
+
+        val callback = calibrationLocationCallback ?: return
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, CALIBRATION_GPS_UPDATE_MS)
+            .setMinUpdateIntervalMillis(CALIBRATION_GPS_UPDATE_MS)
+            .setWaitForAccurateLocation(false)
+            .build()
+
+        fusedLocationClient.requestLocationUpdates(request, callback, Looper.getMainLooper())
+        locationUpdatesActive = true
+    }
+
+    private fun stopCalibrationLocationUpdates() {
+        val callback = calibrationLocationCallback ?: return
+        if (!locationUpdatesActive) return
+        fusedLocationClient.removeLocationUpdates(callback)
+        locationUpdatesActive = false
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != LOCATION_PERMISSION_REQUEST_CODE) return
+
+        val pendingLandscape = pendingCalibrationLandscape
+        pendingCalibrationLandscape = null
+        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED && pendingLandscape != null) {
+            startCalibration(pendingLandscape)
+        } else {
+            Toast.makeText(this, getString(R.string.smart_calibration_error_gps_permission), Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun resetRuntimeState() {
@@ -363,12 +466,7 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
 
         when (val guidance = frame.guidance) {
             is SmartCalibrationEngine.Guidance.StillWarmup -> {
-                val stillStatus = if (shouldUseLeanStep()) {
-                    getString(R.string.smart_calibration_status_still_gyro)
-                } else {
-                    getString(R.string.smart_calibration_status_still)
-                }
-                setActiveStatus(stillStatus, android.R.color.holo_orange_light)
+                setActiveStatus(getString(R.string.smart_calibration_status_still), android.R.color.holo_orange_light)
                 setGuidanceText(
                     SystemClock.elapsedRealtime(),
                     String.format(
@@ -380,12 +478,7 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
                 )
             }
             is SmartCalibrationEngine.Guidance.Still -> {
-                val stillStatus = if (shouldUseLeanStep()) {
-                    getString(R.string.smart_calibration_status_still_gyro)
-                } else {
-                    getString(R.string.smart_calibration_status_still)
-                }
-                setActiveStatus(stillStatus, android.R.color.holo_orange_light)
+                setActiveStatus(getString(R.string.smart_calibration_status_still), android.R.color.holo_orange_light)
                 setGuidanceText(
                     SystemClock.elapsedRealtime(),
                     String.format(
@@ -426,8 +519,8 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
                 )
             }
             is SmartCalibrationEngine.Guidance.ForwardWait -> {
-                val forwardStatus = if (shouldUseLeanStep()) {
-                    getString(R.string.smart_calibration_status_forward_wait_gyro)
+                val forwardStatus = if (shouldUseGpsForwardAssist()) {
+                    getString(R.string.smart_calibration_status_forward_wait_gps)
                 } else {
                     getString(R.string.smart_calibration_status_forward_wait)
                 }
@@ -443,20 +536,34 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
                 )
             }
             is SmartCalibrationEngine.Guidance.ForwardDrive -> {
-                val moveStatus = if (shouldUseLeanStep()) {
-                    getString(R.string.smart_calibration_status_forward_gyro)
+                val moveStatus = if (guidance.gpsRequired) {
+                    getString(R.string.smart_calibration_status_forward_gps)
                 } else {
                     getString(R.string.smart_calibration_status_forward)
                 }
                 setActiveStatus(moveStatus, android.R.color.holo_orange_light)
-                setGuidanceText(
-                    SystemClock.elapsedRealtime(),
+                val guidanceText = if (guidance.gpsRequired) {
+                    String.format(
+                        Locale.getDefault(),
+                        getString(R.string.smart_calibration_guidance_forward_drive_gps),
+                        guidance.accepted,
+                        guidance.target,
+                        guidance.gpsDistanceMeters,
+                        guidance.gpsTargetDistanceMeters,
+                        guidance.gpsPoints,
+                        guidance.gpsTargetPoints
+                    )
+                } else {
                     String.format(
                         Locale.getDefault(),
                         getString(R.string.smart_calibration_guidance_forward_drive),
                         guidance.accepted,
                         guidance.target
-                    ),
+                    )
+                }
+                setGuidanceText(
+                    SystemClock.elapsedRealtime(),
+                    guidanceText,
                     force = true
                 )
             }
@@ -467,6 +574,7 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
             val text = when (reason) {
                 SmartCalibrationEngine.FailureReason.NOT_ENOUGH_STILL -> getString(R.string.smart_calibration_error_not_enough_still)
                 SmartCalibrationEngine.FailureReason.NOT_ENOUGH_FORWARD -> getString(R.string.smart_calibration_error_not_enough_forward)
+                SmartCalibrationEngine.FailureReason.NOT_ENOUGH_GPS_FORWARD -> getString(R.string.smart_calibration_error_not_enough_gps_forward)
                 SmartCalibrationEngine.FailureReason.INVALID_GRAVITY -> getString(R.string.smart_calibration_error_gravity)
                 SmartCalibrationEngine.FailureReason.INVALID_FORWARD_VECTOR -> getString(R.string.smart_calibration_error_forward_vector)
                 SmartCalibrationEngine.FailureReason.LEAN_LEFT_TOO_SMALL -> getString(R.string.smart_calibration_error_not_enough_lean_left)
@@ -485,6 +593,7 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
 
     private fun persistEngineResult(result: SmartCalibrationEngine.CalibrationResult) {
         unregisterSensors()
+        stopCalibrationLocationUpdates()
         calibrationActive = false
 
         if (targetLandscape) {
@@ -558,7 +667,7 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
         setActiveDate(text)
     }
 
-    private fun shouldUseLeanStep(): Boolean {
+    private fun shouldUseGpsForwardAssist(): Boolean {
         return isMotorcycleProfile && gyroscope != null
     }
 
@@ -566,6 +675,7 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
         calibrationActive = false
         calibrationEngine = null
         unregisterSensors()
+        stopCalibrationLocationUpdates()
         setOrientationProgressVisible(targetLandscape, visible = false)
         setActiveStatus(getString(R.string.smart_calibration_status_failed), android.R.color.holo_red_light)
         setActiveDate(reason)
@@ -674,5 +784,7 @@ class SmartMotionCalibrationActivity : AppCompatActivity(), SensorEventListener 
         private const val UI_GUIDANCE_UPDATE_INTERVAL_MS = 220L
         private const val UI_PROGRESS_UPDATE_INTERVAL_MS = 140L
         private const val STILL_WARMUP_MS = 1200L
+        private const val CALIBRATION_GPS_UPDATE_MS = 100L
+        private const val LOCATION_PERMISSION_REQUEST_CODE = 1402
     }
 }

@@ -2,7 +2,6 @@ package com.example.clinometer
 
 import android.os.Parcel
 import android.os.Parcelable
-import android.util.Log
 
 // Един опит в драг сесията
 data class DragAttempt(
@@ -136,7 +135,7 @@ data class DragSession(
         best100to200 = -1L
         best0to402 = -1L
 
-        attempts.forEachIndexed { index, attempt ->
+        attempts.forEach { attempt ->
             
             if (attempt.time0to100 > 0 && (best0to100 == -1L || attempt.time0to100 < best0to100)) {
                 best0to100 = attempt.time0to100

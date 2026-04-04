@@ -36,7 +36,6 @@ class SessionSelectionActivity : AppCompatActivity() {
     private lateinit var sessionsAdapter: SessionsAdapter
     private var currentSessionId: Long = -1
     private var currentAttemptId: Long = -1
-    private var selectedAttempt: DragAttempt? = null
     private var profilesById: Map<Long, Profile> = emptyMap()
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,7 +54,6 @@ class SessionSelectionActivity : AppCompatActivity() {
         rvSessions.layoutManager = LinearLayoutManager(this)
         
         sessionsAdapter = SessionsAdapter { session, attempt ->
-            selectedAttempt = attempt
             // Отваряме страницата за сравняване
             val intent = Intent(this, CompareAttemptsActivity::class.java)
             intent.putExtra("current_session_id", currentSessionId)

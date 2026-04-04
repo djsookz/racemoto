@@ -177,7 +177,7 @@ class DragRunPageActivity : BaseActivity() {
     private var finishTimeNano: Long = -1L
     private val TARGET_METERS = 402.336f
     private val GPS_READY_ACCURACY_METERS = 30f
-    private val FULL_STOP_REARM_SPEED_KMH = 3f // Re-arm only after near full stop
+    private val FULL_STOP_REARM_SPEED_KMH = 80f // Re-arm only after near full stop
     private val DECELERATION_DELTA_KMH = -5f
     private val DECELERATION_MAX_SPEED_KMH = 80f
     private val ROLLING_START_MIN_KMH = 95f
@@ -942,12 +942,67 @@ class DragRunPageActivity : BaseActivity() {
                     updatedAttempt.time0to402 > 0
 
             if (hasValidMeasurement) {
-                currentSession?.attempts?.add(updatedAttempt)
+                upsertAttemptInCurrentSession(updatedAttempt)
                 updateSessionBestTimes(updatedAttempt)
+                persistCurrentSessionSnapshot()
 
             } else {
             }
         }
+    }
+
+    private fun upsertAttemptInCurrentSession(updatedAttempt: DragAttempt) {
+        val attempts = currentSession?.attempts ?: return
+        val existingIndex = attempts.indexOfFirst { it.id == updatedAttempt.id }
+        if (existingIndex >= 0) {
+            attempts[existingIndex] = updatedAttempt
+        } else {
+            attempts.add(updatedAttempt)
+        }
+    }
+
+    private fun hasPersistableAttempts(session: DragSession): Boolean {
+        return if (measurementMode == MeasurementMode.ALL) {
+            session.attempts.any { attempt ->
+                attempt.time0to100 > 0 || attempt.time0to200 > 0 ||
+                    attempt.time100to200 > 0 || attempt.time0to402 > 0
+            }
+        } else {
+            session.attempts.any { attempt ->
+                when (measurementMode) {
+                    MeasurementMode.ZERO_TO_100 -> attempt.time0to100 > 0
+                    MeasurementMode.ZERO_TO_200 -> attempt.time0to200 > 0
+                    MeasurementMode.HUNDRED_TO_200 -> attempt.time100to200 > 0
+                    MeasurementMode.QUARTER_MILE -> attempt.time0to402 > 0
+                    MeasurementMode.ALL -> false
+                }
+            }
+        }
+    }
+
+    private fun persistCurrentSessionSnapshot(notify: Boolean = false): Boolean {
+        val session = currentSession ?: return false
+        session.updateBestTimes()
+
+        if (!hasPersistableAttempts(session)) {
+            return false
+        }
+
+        val existingSession = DragStorage.getDragSession(this, session.id)
+        if (existingSession != null) {
+            DragStorage.updateDragSession(this, session.id, session)
+        } else {
+            DragStorage.addDragSession(this, session)
+        }
+
+        if (notify) {
+            sendBroadcast(Intent("SESSION_UPDATED").apply {
+                putExtra("SESSION_ID", session.id)
+            })
+            setResult(Activity.RESULT_OK)
+        }
+
+        return true
     }
 
 
@@ -2774,30 +2829,12 @@ class DragRunPageActivity : BaseActivity() {
         // Спри G-force измерването
         foregroundService?.stopMeasurement()
 
-        currentSession?.let { session ->
-            session.updateBestTimes()
-
-            val hasValidAttempts = if (measurementMode == MeasurementMode.ALL) {
-                session.attempts.any { attempt ->
-                    attempt.time0to100 > 0 || attempt.time0to200 > 0 ||
-                            attempt.time100to200 > 0 || attempt.time0to402 > 0
-                }
-            } else {
-                session.attempts.isNotEmpty()
-            }
-
-            if (hasValidAttempts) {
-                DragStorage.addDragSession(this@DragRunPageActivity, session)
-                sendBroadcast(Intent("SESSION_UPDATED").apply {
-                    putExtra("SESSION_ID", session.id)
-                })
-                setResult(Activity.RESULT_OK)
-            } else {
-                runOnUiThread {
-                    Toast.makeText(this@DragRunPageActivity,
-                        "No valid measurements to save",
-                        Toast.LENGTH_SHORT).show()
-                }
+        val sessionSaved = persistCurrentSessionSnapshot(notify = true)
+        if (!sessionSaved) {
+            runOnUiThread {
+                Toast.makeText(this@DragRunPageActivity,
+                    "No valid measurements to save",
+                    Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -2807,10 +2844,12 @@ class DragRunPageActivity : BaseActivity() {
         cleanup()
         
         // Отваряме детайлите на сесията вместо да завършваме активността
-        currentSession?.let { session ->
-            val intent = Intent(this, DragSessionDetailsActivity::class.java)
-            intent.putExtra("SESSION_ID", session.id)
-            startActivity(intent)
+        if (sessionSaved) {
+            currentSession?.let { session ->
+                val intent = Intent(this, DragSessionDetailsActivity::class.java)
+                intent.putExtra("SESSION_ID", session.id)
+                startActivity(intent)
+            }
         }
         
         finish()

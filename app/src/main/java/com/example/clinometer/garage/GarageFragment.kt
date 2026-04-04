@@ -50,7 +50,6 @@ import java.io.FileOutputStream
  * Fragment за Garage страницата - конвертиран от GarageActivity с ПЪЛНА функционалност
  */
 class GarageFragment : Fragment() {
-    
     private lateinit var adapter: ProfileAdapter
     private lateinit var btnAddProfile: MaterialButton
     private var btnViewSessions: MaterialButton? = null
@@ -66,19 +65,19 @@ class GarageFragment : Fragment() {
     private var tvActiveProfileBadge: TextView? = null
     private lateinit var tvProfileCount: TextView
     private var recyclerView: RecyclerView? = null
-    
+
     private val profiles = mutableListOf<Profile>()
     private var currentSelectedProfile: Profile? = null
     private val sessionCounts = mutableMapOf<Long, Int>()
     private val calibrationStatuses = mutableMapOf<Long, Boolean>()
-    
+
     private val imageLoadExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private val imageCache = mutableMapOf<String, Bitmap>()
-    
+
     private val imagePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { saveProfileImage(it) }
     }
-    
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -86,23 +85,23 @@ class GarageFragment : Fragment() {
     ): View? {
         return inflater.inflate(R.layout.activity_garage, container, false)
     }
-    
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+
         requireActivity().window.statusBarColor = ContextCompat.getColor(requireContext(), R.color.header_gradient_start)
-        
+
         initializeViews(view)
         setupRecyclerView()
         setupClickListeners()
-        
+
         loadProfiles()
         updateAddButtonState()
         updateActiveProfileCard()
         updateProfileCount()
         loadProfileStatsAsync()
     }
-    
+
     private fun initializeViews(view: View) {
         btnAddProfile = view.findViewById(R.id.btnAddProfile)
         btnViewSessions = view.findViewById(R.id.btnViewSessions)
@@ -119,7 +118,7 @@ class GarageFragment : Fragment() {
         tvActiveProfileMetaOverlay = view.findViewById(R.id.tvActiveProfileMetaOverlay)
         tvActiveProfileBadge = view.findViewById(R.id.tvActiveProfileBadge)
     }
-    
+
     private fun setupRecyclerView() {
         val rv = recyclerView ?: return
         rv.layoutManager = LinearLayoutManager(requireContext())
@@ -135,7 +134,7 @@ class GarageFragment : Fragment() {
         )
         rv.adapter = adapter
     }
-    
+
     private fun setupClickListeners() {
         btnAddProfile.setOnClickListener { showCreateProfileDialog() }
         btnEmptyAddProfile?.setOnClickListener { showCreateProfileDialog() }
@@ -152,7 +151,7 @@ class GarageFragment : Fragment() {
         }
         flProfileImageContainer.setOnClickListener { showImageSelectionDialog() }
     }
-    
+
     private fun loadProfiles() {
         profiles.clear()
         profiles.addAll(ProfileStorage.loadProfiles(requireContext()))
@@ -195,7 +194,7 @@ class GarageFragment : Fragment() {
         emptyStateContainer?.visibility = if (isEmpty) View.VISIBLE else View.GONE
         recyclerView?.visibility = if (isEmpty) View.GONE else View.VISIBLE
     }
-    
+
     private fun updateAddButtonState() {
         if (profiles.size >= 5) {
             btnAddProfile.text = ""
@@ -1008,132 +1007,6 @@ class GarageFragment : Fragment() {
         val prefs = requireContext().getSharedPreferences("garage_display_names", Context.MODE_PRIVATE)
         val key = "profile_${profile.id}_display_name"
         return prefs.getString(key, null).orEmpty().ifBlank { profile.name }
-    }
-
-    private fun showProfileDetailsDialog(profile: Profile) {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_profile_details, null)
-        val btnClose = dialogView.findViewById<ImageButton>(R.id.btnCloseDetails)
-        val tvName = dialogView.findViewById<TextView>(R.id.tvDetailsName)
-        val tvMeta = dialogView.findViewById<TextView>(R.id.tvDetailsMeta)
-        val tvCalibration = dialogView.findViewById<TextView>(R.id.tvDetailsCalibrationStatus)
-        val btnOpenCalibration = dialogView.findViewById<MaterialButton>(R.id.btnOpenCalibration)
-        val btnSetActive = dialogView.findViewById<MaterialButton>(R.id.btnSetActive)
-        val tvSessionCount = dialogView.findViewById<TextView>(R.id.tvSessionCount)
-        val tvTotalDistance = dialogView.findViewById<TextView>(R.id.tvTotalDistance)
-        val tvTotalDuration = dialogView.findViewById<TextView>(R.id.tvTotalDuration)
-        val tvBest0to100 = dialogView.findViewById<TextView>(R.id.tvBest0to100)
-        val tvBest0to200 = dialogView.findViewById<TextView>(R.id.tvBest0to200)
-        val tvBest100to200 = dialogView.findViewById<TextView>(R.id.tvBest100to200)
-        val tvBest0to402 = dialogView.findViewById<TextView>(R.id.tvBest0to402)
-        val tvMaxSpeed = dialogView.findViewById<TextView>(R.id.tvMaxSpeed)
-
-        val typeText = when (profile.vehicleType) {
-            Profile.VehicleType.CAR -> getString(R.string.garage_vehicle_car)
-            Profile.VehicleType.MOTORCYCLE -> getString(R.string.garage_vehicle_motorcycle)
-        }
-        tvName.text = profile.name
-        tvMeta.text = typeText
-
-        val isCalibrated = DragCalibration.isProfileCalibrated(requireContext(), profile.id)
-        tvCalibration.text = if (isCalibrated) {
-            getString(R.string.garage_calibrated)
-        } else {
-            getString(R.string.garage_not_calibrated)
-        }
-
-        val bestTimes = getBestTimesFromAllRaces(profile.id)
-        tvBest0to100.text = formatBestTime(bestTimes.best0to100)
-        tvBest0to200.text = formatBestTime(bestTimes.best0to200)
-        tvBest100to200.text = formatBestTime(bestTimes.best100to200)
-        tvBest0to402.text = formatBestTime(bestTimes.best0to402)
-        tvMaxSpeed.text = if (bestTimes.maxSpeed > 0f) {
-            getString(R.string.max_speed_format, bestTimes.maxSpeed)
-        } else {
-            "--"
-        }
-
-        val allRaces = RouteStorage.loadRaces(requireContext())
-        val profileRaces = allRaces.filter { it.profileId == profile.id }
-        val allDragSessions = DragStorage.loadDragSessions(requireContext())
-        val profileDragSessions = allDragSessions.filter { it.profileId == profile.id }
-
-        val totalSessions = profileRaces.size + profileDragSessions.size
-        tvSessionCount.text = totalSessions.toString()
-        val sessionsText = getString(R.string.garage_sessions_template, totalSessions)
-        tvMeta.text = "$typeText • $sessionsText"
-
-        val totalDist = profileRaces.sumOf { it.distance }
-        tvTotalDistance.text = String.format("%.1f km", totalDist)
-
-        val racesTimeMs = profileRaces.sumOf { race ->
-            if (race.duration > 0) {
-                race.duration.toLong()
-            } else {
-                val points = if (race.routePoints.isNotEmpty()) {
-                    race.routePoints
-                } else {
-                    val allPoints = RouteStorage.loadRoutePoints(requireContext(), race.id)
-                    if (allPoints.size >= 2) listOf(allPoints.first(), allPoints.last()) else allPoints
-                }
-
-                if (points.isNotEmpty()) {
-                    val firstPoint = points.first()
-                    val lastPoint = points.last()
-                    val firstTime = firstPoint.absoluteTime
-                    val lastTime = lastPoint.absoluteTime
-
-                    if (firstTime > 0 && lastTime > 0 && lastTime > firstTime) {
-                        (lastTime - firstTime).coerceAtLeast(0L)
-                    } else {
-                        val firstTimestamp = firstPoint.timestamp
-                        val lastTimestamp = lastPoint.timestamp
-                        if (lastTimestamp > firstTimestamp) {
-                            (lastTimestamp - firstTimestamp).coerceAtLeast(0L)
-                        } else {
-                            0L
-                        }
-                    }
-                } else {
-                    0L
-                }
-            }
-        }
-
-        val dragTimeMs = profileDragSessions.sumOf { session ->
-            session.attempts.sumOf { attempt ->
-                attempt.duration / 1_000_000
-            }
-        }
-
-        val totalTimeMs = racesTimeMs + dragTimeMs
-        val totalSeconds = totalTimeMs / 1000
-        val totalHours = totalSeconds / 3600
-        val minutes = (totalSeconds % 3600) / 60
-        tvTotalDuration.text = getString(R.string.profile_detail_duration_format, totalHours, minutes)
-
-        val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
-            .setView(dialogView)
-            .create()
-
-        btnClose.setOnClickListener { dialog.dismiss() }
-
-        btnOpenCalibration.setOnClickListener {
-            dialog.dismiss()
-            val intent = Intent(requireContext(), DragCalibrationActivity::class.java).apply {
-                putExtra("PROFILE_ID", profile.id)
-            }
-            startActivity(intent)
-        }
-
-        btnSetActive.setOnClickListener {
-            ProfileStorage.saveSelectedProfile(requireContext(), profile.id)
-            updateActiveProfileCard()
-            adapter.notifyDataSetChanged()
-            Toast.makeText(requireContext(), "✅ Active profile updated", Toast.LENGTH_SHORT).show()
-            dialog.dismiss()
-        }
-
-        dialog.show()
     }
 
     private fun getBestTimesFromAllRaces(profileId: Long): BestTimes {

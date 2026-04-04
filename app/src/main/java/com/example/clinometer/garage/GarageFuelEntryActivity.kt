@@ -32,6 +32,9 @@ import androidx.lifecycle.lifecycleScope
 import com.example.clinometer.FullScreenImageActivity
 import com.example.clinometer.R
 import com.example.clinometer.applySystemBarsPaddingToRoot
+import com.example.clinometer.data.GarageOdometerConflict
+import com.example.clinometer.data.GarageOdometerSource
+import com.example.clinometer.data.GarageOdometerTimeline
 import com.example.clinometer.data.GarageFuelEntry
 import com.example.clinometer.data.GarageFuelEntryStorage
 import com.example.clinometer.data.GarageFuelReceiptStorage
@@ -1169,43 +1172,37 @@ class GarageFuelEntryActivity : AppCompatActivity() {
     }
 
     private fun resolveOdometerSequenceError(odometerKm: Long?): String? {
-        if (odometerKm == null || odometerKm <= 0L) {
-            return null
-        }
+        val conflict = if (editingEntry == null) {
+            GarageOdometerTimeline.resolveLatestAddedConflict(
+                context = this,
+                profileId = profileId,
+                source = GarageOdometerSource.FUEL,
+                entryId = draftEntryId,
+                odometerKm = odometerKm
+            )
+        } else {
+            null
+        } ?: GarageOdometerTimeline.resolveConflict(
+            context = this,
+            profileId = profileId,
+            source = GarageOdometerSource.FUEL,
+            entryId = editingEntry?.id ?: draftEntryId,
+            odometerKm = odometerKm,
+            dateText = etDate.text?.toString(),
+            fallbackTimestamp = editingEntry?.createdAt ?: selectedDate.timeInMillis
+        ) ?: return null
 
-        val referenceOrder = editingEntry?.let { EntryOrder(it.createdAt, it.id) } ?: EntryOrder(Long.MAX_VALUE, Long.MAX_VALUE)
-
-        val surroundingEntries = GarageFuelEntryStorage.loadEntries(this, profileId)
-            .asSequence()
-            .filter { it.id != editingEntryId }
-            .map { TimelineFuelEntry(entry = it, order = EntryOrder(it.createdAt, it.id)) }
-            .toList()
-
-        val previousEntry = surroundingEntries
-            .filter { it.order < referenceOrder }
-            .maxByOrNull { it.order }
-            ?.entry
-
-        if (previousEntry != null && odometerKm <= previousEntry.odometerKm) {
-            return getString(
+        return when (conflict.type) {
+            GarageOdometerConflict.Type.PREVIOUS -> getString(
                 R.string.garage_fuel_entry_error_odometer_previous,
-                formatDisplayOdometer(previousEntry.odometerKm)
+                formatDisplayOdometer(conflict.referenceOdometerKm)
             )
-        }
 
-        val nextEntry = surroundingEntries
-            .filter { it.order > referenceOrder }
-            .minByOrNull { it.order }
-            ?.entry
-
-        if (nextEntry != null && odometerKm >= nextEntry.odometerKm) {
-            return getString(
+            GarageOdometerConflict.Type.NEXT -> getString(
                 R.string.garage_fuel_entry_error_odometer_next,
-                formatDisplayOdometer(nextEntry.odometerKm)
+                formatDisplayOdometer(conflict.referenceOdometerKm)
             )
         }
-
-        return null
     }
 
     private fun formatDisplayOdometer(valueKm: Long): String {
@@ -1237,6 +1234,7 @@ class GarageFuelEntryActivity : AppCompatActivity() {
                 selectedDate.set(Calendar.MILLISECOND, 0)
                 etDate.setText(dateFormatter.format(selectedDate.time))
                 inputDate.error = null
+                inputOdometer.error = resolveOdometerSequenceError(parseWholeNumber(etOdometer.text?.toString()))
             },
             selectedDate.get(Calendar.HOUR_OF_DAY),
             selectedDate.get(Calendar.MINUTE),
@@ -1387,6 +1385,7 @@ class GarageFuelEntryActivity : AppCompatActivity() {
             fuelTypeLabel = fuelType
         )
         syncFuelLogCounter()
+        GarageMaintenanceReminderManager.evaluateDueRemindersForProfile(this, profileId)
 
         Toast.makeText(
             this,
@@ -1479,17 +1478,4 @@ class GarageFuelEntryActivity : AppCompatActivity() {
         val fuelTypeLabel: String?
     )
 
-    private data class TimelineFuelEntry(
-        val entry: GarageFuelEntry,
-        val order: EntryOrder
-    )
-
-    private data class EntryOrder(
-        val createdAt: Long,
-        val id: Long
-    ) : Comparable<EntryOrder> {
-        override fun compareTo(other: EntryOrder): Int {
-            return compareValuesBy(this, other, EntryOrder::createdAt, EntryOrder::id)
-        }
-    }
 }

@@ -91,7 +91,6 @@ class ProfileAdapter(
         // Зареждане на снимка или икона
         loadProfileImage(holder, profile)
 
-        // Кликване на картата - отваря ProfileDetailActivity
         holder.itemView.setOnClickListener {
             onProfileClick(profile)
         }

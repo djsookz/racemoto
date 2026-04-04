@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 11,
+            "activePatchIndex": 15,
             "patches": [
                 {
                     "date": 1771575193360,
@@ -52,6 +52,22 @@
                 {
                     "date": 1774948721410,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -151,8 +151,12 @@\n             android:screenOrientation=\"portrait\" />\r\n         <activity\r\n             android:name=\".garage.GarageProfilePageActivity\"\r\n             android:screenOrientation=\"portrait\" />\r\n+        <activity\r\n+            android:name=\".garage.GarageFuelEntryActivity\"\r\n+            android:exported=\"false\"\r\n+            android:screenOrientation=\"portrait\" />\r\n \r\n         <activity\r\n             android:name=\".drag.DragRunPageActivity\"\r\n             android:configChanges=\"orientation|screenSize|keyboardHidden\" />\r\n"
+                },
+                {
+                    "date": 1775037351590,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -155,8 +155,12 @@\n         <activity\r\n             android:name=\".garage.GarageFuelEntryActivity\"\r\n             android:exported=\"false\"\r\n             android:screenOrientation=\"portrait\" />\r\n+        <activity\r\n+            android:name=\".garage.GarageMaintenanceEntryActivity\"\r\n+            android:exported=\"false\"\r\n+            android:screenOrientation=\"portrait\" />\r\n \r\n         <activity\r\n             android:name=\".drag.DragRunPageActivity\"\r\n             android:configChanges=\"orientation|screenSize|keyboardHidden\" />\r\n"
+                },
+                {
+                    "date": 1775054476819,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -13,8 +13,10 @@\n     <uses-permission android:name=\"android.permission.VIBRATE\" />\r\n     <uses-permission android:name=\"android.permission.CAMERA\" />\r\n     <uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\" />\r\n     <uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\" />\r\n+    <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />\r\n+    <uses-permission android:name=\"android.permission.RECEIVE_BOOT_COMPLETED\" />\r\n \r\n     <application\r\n         android:name=\".MyApplication\"\r\n         android:theme=\"@style/Theme.DragMe\"\r\n@@ -160,8 +162,22 @@\n             android:name=\".garage.GarageMaintenanceEntryActivity\"\r\n             android:exported=\"false\"\r\n             android:screenOrientation=\"portrait\" />\r\n \r\n+        <receiver\r\n+            android:name=\".garage.GarageMaintenanceReminderReceiver\"\r\n+            android:exported=\"false\" />\r\n+\r\n+        <receiver\r\n+            android:name=\".garage.GarageMaintenanceReminderBootReceiver\"\r\n+            android:enabled=\"true\"\r\n+            android:exported=\"false\">\r\n+            <intent-filter>\r\n+                <action android:name=\"android.intent.action.BOOT_COMPLETED\" />\r\n+                <action android:name=\"android.intent.action.MY_PACKAGE_REPLACED\" />\r\n+            </intent-filter>\r\n+        </receiver>\r\n+\r\n         <activity\r\n             android:name=\".drag.DragRunPageActivity\"\r\n             android:configChanges=\"orientation|screenSize|keyboardHidden\" />\r\n \r\n"
+                },
+                {
+                    "date": 1775148113665,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -161,14 +161,22 @@\n         <activity\r\n             android:name=\".garage.GarageMaintenanceEntryActivity\"\r\n             android:exported=\"false\"\r\n             android:screenOrientation=\"portrait\" />\r\n+        <activity\r\n+            android:name=\".garage.GarageDocumentEntryActivity\"\r\n+            android:exported=\"false\"\r\n+            android:screenOrientation=\"portrait\" />\r\n \r\n         <receiver\r\n             android:name=\".garage.GarageMaintenanceReminderReceiver\"\r\n             android:exported=\"false\" />\r\n \r\n         <receiver\r\n+            android:name=\".garage.GarageDocumentReminderReceiver\"\r\n+            android:exported=\"false\" />\r\n+\r\n+        <receiver\r\n             android:name=\".garage.GarageMaintenanceReminderBootReceiver\"\r\n             android:enabled=\"true\"\r\n             android:exported=\"false\">\r\n             <intent-filter>\r\n"
+                },
+                {
+                    "date": 1775203513099,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -148,11 +148,8 @@\n         <activity\r\n             android:name=\".TrackSessionActivity\"\r\n             android:exported=\"false\" />\r\n         <activity\r\n-            android:name=\".garage.ProfileDetailActivity\"\r\n-            android:screenOrientation=\"portrait\" />\r\n-        <activity\r\n             android:name=\".garage.GarageProfilePageActivity\"\r\n             android:screenOrientation=\"portrait\" />\r\n         <activity\r\n             android:name=\".garage.GarageFuelEntryActivity\"\r\n"
                 }
             ],
             "date": 1771575193360,

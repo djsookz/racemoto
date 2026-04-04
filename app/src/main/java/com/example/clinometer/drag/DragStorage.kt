@@ -61,7 +61,6 @@ object DragStorage {
 
     fun deleteDragSession(context: Context, sessionId: Long) {
         val sessions = loadDragSessions(context).toMutableList()
-        val initialSize = sessions.size
         val removed = sessions.removeAll { it.id == sessionId }
 
         if (removed) {
