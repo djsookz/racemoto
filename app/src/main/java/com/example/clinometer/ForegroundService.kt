@@ -49,6 +49,7 @@ class ForegroundService : Service(), SensorEventListener {
         private const val RAD_TO_DEG = 57.29578f
         private const val MIN_ACCEL_CORRECTION = 0.03f
         private const val MAX_ACCEL_CORRECTION = 0.22f
+        private const val MAX_EXTERNAL_START_BACKDATE_NS = 500_000_000L
     }
 
     private val routePoints = mutableListOf<RoutePoint>()
@@ -131,6 +132,8 @@ class ForegroundService : Service(), SensorEventListener {
 
     private var gMeasurementStartTime: Long = 0L
     private var measurementStartTimeNano: Long = 0L
+    private var measurementStartTimeGpsNano: Long = 0L
+    private var pendingExternalMeasurementStartNano: Long? = null
     private var lastGSampleTime = 0L
     private var lastGPSAccelSampleTime = 0L
     private val speedSamplesBuffer: ArrayDeque<Float> = ArrayDeque(SAMPLES_CAPACITY)
@@ -244,10 +247,27 @@ class ForegroundService : Service(), SensorEventListener {
     fun getRecentSpeedSamples(): List<Float> = synchronized(speedSamplesBuffer) { speedSamplesBuffer.toList() }
     fun getRecentSpeedTimeStamps(): List<Long> = synchronized(speedTimeStamps) { speedTimeStamps.toList() }
     fun getMeasurementStartTimeNano(): Long = measurementStartTimeNano
-    fun setMeasurementStartTimeNano(timeNanos: Long) { measurementStartTimeNano = timeNanos }
+    fun getMeasurementStartTimeGpsNano(): Long = measurementStartTimeGpsNano
+    fun setMeasurementStartTimeNano(timeNanos: Long) {
+        pendingExternalMeasurementStartNano = timeNanos
+    }
     fun getTime0to100Nanos(): Long = time0to100Nanos
     fun getTime0to200Nanos(): Long = time0to200Nanos
     fun getServiceDuration(): Long = if (actualStartTime == 0L) 0L else SystemClock.elapsedRealtime() - actualStartTime
+
+    private fun estimateGpsStartFromSystemStart(systemStartNanos: Long): Long {
+        val systemNow = System.nanoTime()
+        val gpsNow = SystemClock.elapsedRealtimeNanos()
+        return systemStartNanos + (gpsNow - systemNow)
+    }
+
+    private fun resolveRelativeMeasurementTimeNanos(loc: Location): Long {
+        val locElapsedNanos = loc.elapsedRealtimeNanos
+        if (measurementStartTimeGpsNano > 0L && locElapsedNanos > 0L && locElapsedNanos >= measurementStartTimeGpsNano) {
+            return (locElapsedNanos - measurementStartTimeGpsNano).coerceAtLeast(0L)
+        }
+        return (System.nanoTime() - measurementStartTimeNano).coerceAtLeast(0L)
+    }
 
     private fun getDataSaveInterval(): Long = if (currentMeasurementMode == "NORMAL") NORMAL_SAMPLING_MS else DRAG_SAMPLING_MS
 
@@ -266,7 +286,16 @@ class ForegroundService : Service(), SensorEventListener {
         currentMeasurementMode = measurementMode
         reloadLeanCalibrationForSelectedProfile(forceResetRuntime = false)
         gMeasurementStartTime = System.currentTimeMillis()
-        measurementStartTimeNano = System.nanoTime()
+        val nowNanos = System.nanoTime()
+        val startTimeNanos = pendingExternalMeasurementStartNano
+            ?.takeIf { externalStart ->
+                externalStart <= nowNanos &&
+                    (nowNanos - externalStart) <= MAX_EXTERNAL_START_BACKDATE_NS
+            }
+            ?: nowNanos
+        pendingExternalMeasurementStartNano = null
+        measurementStartTimeNano = startTimeNanos
+        measurementStartTimeGpsNano = estimateGpsStartFromSystemStart(startTimeNanos)
         lastGSampleTime = 0L; lastGPSAccelSampleTime = 0L
         isMeasurementActive = true; linearAccelTriggered = false; linearAccelTriggerTime = 0L; consecutiveAccelSamples = 0
         triggerForwardFiltered = 0f; triggerLateralFiltered = 0f
@@ -292,7 +321,9 @@ class ForegroundService : Service(), SensorEventListener {
         val now = SystemClock.elapsedRealtime()
         startTime = now; actualStartTime = if (isPreWarmingMode) 0L else now; resetTime = now
         accelerationTracking = AccelerationData(); totalDistance = 0.0; lastLocationForDistance = null
-        gMeasurementStartTime = 0L; lastGSampleTime = 0L; peakG = 0f
+        gMeasurementStartTime = 0L; measurementStartTimeNano = 0L; measurementStartTimeGpsNano = 0L
+        pendingExternalMeasurementStartNano = null
+        lastGSampleTime = 0L; peakG = 0f
         synchronized(gSamplesBuffer) { gSamplesBuffer.clear(); gTimeStamps.clear() }
         synchronized(gpsAccelBuffer) { gpsAccelBuffer.clear(); gpsAccelTimeStamps.clear() }
         synchronized(speedSamplesBuffer) { speedSamplesBuffer.clear(); speedTimeStamps.clear() }
@@ -480,7 +511,11 @@ class ForegroundService : Service(), SensorEventListener {
 
     private fun onNewLocation(loc: Location) {
         val gpsAccel = lastLocation?.let { prev ->
-            val dt = (loc.time - prev.time).coerceAtLeast(1L) / 1000.0
+            val dt = if (loc.elapsedRealtimeNanos > prev.elapsedRealtimeNanos && prev.elapsedRealtimeNanos > 0L) {
+                (loc.elapsedRealtimeNanos - prev.elapsedRealtimeNanos) / 1_000_000_000.0
+            } else {
+                (loc.time - prev.time).coerceAtLeast(1L) / 1000.0
+            }
             if (dt > 0 && dt < 5.0) ((loc.speed - prev.speed) / dt).toFloat() else 0f
         } ?: 0f
         lastLocation = loc; val newSpeed = loc.speed * 3.6f; val oldSpeed = currentSpeed
@@ -490,15 +525,24 @@ class ForegroundService : Service(), SensorEventListener {
         }
         if (isMeasurementActive && gMeasurementStartTime > 0L) {
             val now = System.currentTimeMillis()
+            val relativeTimeNanos = resolveRelativeMeasurementTimeNanos(loc)
             if (now - lastGPSAccelSampleTime >= 100) {
                 synchronized(gpsAccelBuffer) {
-                    gpsAccelBuffer.addLast(gpsAccel); gpsAccelTimeStamps.addLast(System.nanoTime() - measurementStartTimeNano)
+                    var gpsAccelTimestamp = relativeTimeNanos
+                    if (gpsAccelTimeStamps.isNotEmpty() && gpsAccelTimestamp <= gpsAccelTimeStamps.last()) {
+                        gpsAccelTimestamp = gpsAccelTimeStamps.last() + 1L
+                    }
+                    gpsAccelBuffer.addLast(gpsAccel); gpsAccelTimeStamps.addLast(gpsAccelTimestamp)
                     if (gpsAccelBuffer.size > SAMPLES_CAPACITY) { gpsAccelBuffer.removeFirst(); gpsAccelTimeStamps.removeFirst() }
                 }
                 lastGPSAccelSampleTime = now
             }
             synchronized(speedSamplesBuffer) {
-                speedSamplesBuffer.addLast(newSpeed); val relTime = System.nanoTime() - measurementStartTimeNano; speedTimeStamps.addLast(relTime)
+                var relTime = relativeTimeNanos
+                if (speedTimeStamps.isNotEmpty() && relTime <= speedTimeStamps.last()) {
+                    relTime = speedTimeStamps.last() + 1L
+                }
+                speedSamplesBuffer.addLast(newSpeed); speedTimeStamps.addLast(relTime)
                 if (speedSamplesBuffer.size > SAMPLES_CAPACITY) { speedSamplesBuffer.removeFirst(); speedTimeStamps.removeFirst() }
                 if (time0to100Nanos == 0L && speedSamplesBuffer.size >= 2) {
                     val pV = speedSamplesBuffer.elementAt(speedSamplesBuffer.size - 2); val pT = speedTimeStamps.elementAt(speedTimeStamps.size - 2)

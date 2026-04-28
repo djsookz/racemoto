@@ -1063,12 +1063,11 @@ class DragAttemptsAdapter(
         val startTime = timestamps.first()
         if (attempt.time0to100 > 0 && measurementMode != MeasurementMode.HUNDRED_TO_200) {
             val time100Absolute = attempt.time0to100 / 1_000_000_000.0f
-            val time100Normalized = (attempt.time0to100 - startTime) / 1_000_000_000.0f
             val speedUnit = UnitsManager.getSpeedUnit(context)
             val y100 = when (mode) {
                 ChartMode.SPEED -> UnitsManager.convertSpeed(100f, speedUnit)
-                ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, time100Normalized, mode)
-                ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, time100Normalized, mode)
+                ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, time100Absolute, mode)
+                ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, time100Absolute, mode)
             }
             specialPoints.add(SpecialPoint(time100Absolute, y100, PointTooltipMarker.PointType.SPEED_100, 1))
         }
@@ -1080,12 +1079,11 @@ class DragAttemptsAdapter(
                 // За 100-200: time100to200 е продължителността, трябва да добавим startTime
                 val absoluteTime200 = startTime + attempt.time100to200
                 val time200Absolute = absoluteTime200 / 1_000_000_000.0f
-                val time200Normalized = attempt.time100to200 / 1_000_000_000.0f
                 val speedUnit = UnitsManager.getSpeedUnit(context)
                 val y200 = when (mode) {
                     ChartMode.SPEED -> UnitsManager.convertSpeed(200f, speedUnit)
-                    ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, time200Normalized, mode)
-                    ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, time200Normalized, mode)
+                    ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, time200Absolute, mode)
+                    ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, time200Absolute, mode)
                 }
                 specialPoints.add(SpecialPoint(time200Absolute, y200, PointTooltipMarker.PointType.SPEED_200, 2))
             }
@@ -1093,12 +1091,11 @@ class DragAttemptsAdapter(
             if (attempt.time0to200 > 0) {
                 // За други режими: използваме абсолютното време от attempt.time0to200
                 val time200Absolute = attempt.time0to200 / 1_000_000_000.0f
-                val time200Normalized = (attempt.time0to200 - startTime) / 1_000_000_000.0f
                 val speedUnit = UnitsManager.getSpeedUnit(context)
                 val y200 = when (mode) {
                     ChartMode.SPEED -> UnitsManager.convertSpeed(200f, speedUnit)
-                    ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, time200Normalized, mode)
-                    ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, time200Normalized, mode)
+                    ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, time200Absolute, mode)
+                    ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, time200Absolute, mode)
                 }
                 specialPoints.add(SpecialPoint(time200Absolute, y200, PointTooltipMarker.PointType.SPEED_200, 2))
             }
@@ -1108,9 +1105,8 @@ class DragAttemptsAdapter(
         // КРИТИЧНО: Използваме абсолютно време (в секунди), не нормализирано
         if (attempt.time0to402 > 0) {
             val time402Absolute = attempt.time0to402 / 1_000_000_000.0f
-            val time402Normalized = (attempt.time0to402 - startTime) / 1_000_000_000.0f
-            if (time402Normalized > 0f) {
-                val y402 = findValueAtTimeInterpolated(attempt, time402Normalized, mode)
+            if (time402Absolute > 0f) {
+                val y402 = findValueAtTimeInterpolated(attempt, time402Absolute, mode)
                 specialPoints.add(SpecialPoint(time402Absolute, y402, PointTooltipMarker.PointType.DISTANCE_402, 3))
             }
         }
@@ -1504,11 +1500,50 @@ class DragAttemptsAdapter(
     }
 
     private fun getAlignedAccelData(attempt: DragAttempt): Pair<List<Float>, List<Long>> {
+        // Предпочитаме acceleration, пресметнато от каноничните speed/time семпли,
+        // защото те са основата за всички split времена и са най-надеждни за визуализация.
+        val (speedSamples, speedTimes) = getAlignedSpeedData(attempt)
+        val derived = deriveAccelerationFromSpeedSamples(speedSamples, speedTimes)
+        if (derived.first.isNotEmpty() && derived.second.isNotEmpty()) {
+            return derived
+        }
+
+        // Fallback за legacy опити без speed времеви ред.
         val vals = attempt.gpsAccelSamples
         val times = attempt.gpsTimeStamps
         val limit = minOf(vals.size, times.size)
-        // RAW данни - без филтри, показваме всичко както е записано
         return vals.take(limit) to times.take(limit)
+    }
+
+    private fun deriveAccelerationFromSpeedSamples(
+        speedSamplesKmh: List<Float>,
+        speedTimestampsNs: List<Long>
+    ): Pair<List<Float>, List<Long>> {
+        val limit = minOf(speedSamplesKmh.size, speedTimestampsNs.size)
+        if (limit < 2) return emptyList<Float>() to emptyList<Long>()
+
+        val accelValues = ArrayList<Float>(limit - 1)
+        val accelTimes = ArrayList<Long>(limit - 1)
+
+        for (i in 1 until limit) {
+            val t0 = speedTimestampsNs[i - 1]
+            val t1 = speedTimestampsNs[i]
+            val dtNs = t1 - t0
+            if (dtNs <= 0L) continue
+
+            val dtSec = dtNs / 1_000_000_000f
+            if (dtSec <= 0f) continue
+
+            val v0Mps = speedSamplesKmh[i - 1] * KMH_TO_MPS
+            val v1Mps = speedSamplesKmh[i] * KMH_TO_MPS
+            val accel = (v1Mps - v0Mps) / dtSec
+            if (!accel.isFinite()) continue
+
+            accelValues.add(accel)
+            accelTimes.add(t1)
+        }
+
+        return accelValues to accelTimes
     }
     private fun getAlignedGData(attempt: DragAttempt): Pair<List<Float>, List<Long>> {
         val vals = attempt.gSamples
@@ -2040,14 +2075,12 @@ class DragAttemptsAdapter(
             if (attempt.time0to100 > 0 && measurementMode != MeasurementMode.HUNDRED_TO_200) {
                 // КРИТИЧНО: Използваме абсолютно време (в секунди), не нормализирано
                 // Това гарантира, че маркерът е на правилната X позиция спрямо tooltip-а
-                val startTime = rawTimes.first()
                 val time100Absolute = attempt.time0to100 / 1_000_000_000.0f
-                val time100Normalized = (attempt.time0to100 - startTime) / 1_000_000_000.0f
                 val speedUnit = UnitsManager.getSpeedUnit(holder.itemView.context)
                 val valueAt100 = when (mode) {
                     ChartMode.SPEED -> UnitsManager.convertSpeed(100f, speedUnit)
-                    ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, time100Normalized, mode)
-                    ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, time100Normalized, mode)
+                    ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, time100Absolute, mode)
+                    ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, time100Absolute, mode)
                 }
                 val entry100 = com.github.mikephil.charting.data.Entry(time100Absolute, valueAt100)
                 val dataSet100 = com.github.mikephil.charting.data.LineDataSet(listOf(entry100), "").apply {
@@ -2089,24 +2122,8 @@ class DragAttemptsAdapter(
                 val speedUnit = UnitsManager.getSpeedUnit(holder.itemView.context)
                 val valueAt200 = when (mode) {
                     ChartMode.SPEED -> UnitsManager.convertSpeed(200f, speedUnit)
-                    ChartMode.ACCELERATION -> {
-                        // За acceleration трябва да нормализираме времето за findValueAtTimeInterpolated
-                        val normalizedTime = if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
-                            attempt.time100to200 / 1_000_000_000.0f
-                        } else {
-                            (attempt.time0to200 - startTime) / 1_000_000_000.0f
-                        }
-                        findValueAtTimeInterpolated(attempt, normalizedTime, mode)
-                    }
-                    ChartMode.G_FORCE -> {
-                        // За G-Force трябва да нормализираме времето за findValueAtTimeInterpolated
-                        val normalizedTime = if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
-                            attempt.time100to200 / 1_000_000_000.0f
-                        } else {
-                            (attempt.time0to200 - startTime) / 1_000_000_000.0f
-                        }
-                        findValueAtTimeInterpolated(attempt, normalizedTime, mode)
-                    }
+                    ChartMode.ACCELERATION -> findValueAtTimeInterpolated(attempt, time200Absolute, mode)
+                    ChartMode.G_FORCE -> findValueAtTimeInterpolated(attempt, time200Absolute, mode)
                 }
                 
                 val entry200 = com.github.mikephil.charting.data.Entry(time200Absolute, valueAt200)
@@ -2126,9 +2143,7 @@ class DragAttemptsAdapter(
                 // КРИТИЧНО: Използваме абсолютно време (в секунди), не нормализирано
                 // Това гарантира, че маркерът е на правилната X позиция спрямо tooltip-а
                 val time402Absolute = attempt.time0to402 / 1_000_000_000.0f
-                val startTime = rawTimes.first()
-                val time402Normalized = (attempt.time0to402 - startTime) / 1_000_000_000.0f
-                val valueAt402 = findValueAtTimeInterpolated(attempt, time402Normalized, mode)
+                val valueAt402 = findValueAtTimeInterpolated(attempt, time402Absolute, mode)
                 val entry402 = com.github.mikephil.charting.data.Entry(time402Absolute, valueAt402)
                 val dataSet402 = com.github.mikephil.charting.data.LineDataSet(listOf(entry402), "").apply {
                     setDrawCircles(true)
@@ -2384,35 +2399,31 @@ class DragAttemptsAdapter(
         }
     }
 
-    // Помощна функция - интерполира стойност по време
-    // КРИТИЧНО: targetTimeSeconds е нормализирано време (relative to first timestamp)
-    // Това гарантира съвместимост с графиката и всички други функции
+    // Помощна функция - интерполира стойност по абсолютно време (секунди)
     private fun interpolateValueAtTime(values: List<Float>, timestamps: List<Long>, targetTimeSeconds: Float): Float {
         if (values.isEmpty() || timestamps.isEmpty()) return 0f
 
-        // КРИТИЧНО: Използваме нормализирано време спрямо start timestamp
-        val normalizedTimes = DragAttemptsAdapter.normalizeTime(timestamps)
-        val targetTimeNormalized = targetTimeSeconds
+        val absoluteTimes = timestamps.map { it / 1_000_000_000f }
 
-        // Намираме двете съседни точки в нормализираното пространство
-        for (i in 1 until normalizedTimes.size) {
-            val t0 = normalizedTimes[i - 1]
-            val t1 = normalizedTimes[i]
+        // Намираме двете съседни точки в абсолютното времево пространство
+        for (i in 1 until absoluteTimes.size) {
+            val t0 = absoluteTimes[i - 1]
+            val t1 = absoluteTimes[i]
 
-            if (targetTimeNormalized >= t0 && targetTimeNormalized <= t1) {
+            if (targetTimeSeconds >= t0 && targetTimeSeconds <= t1) {
                 val v0 = values[i - 1]
                 val v1 = values[i]
 
                 // Линейна интерполация
-                val ratio = (targetTimeNormalized - t0) / (t1 - t0)
+                val ratio = (targetTimeSeconds - t0) / (t1 - t0)
                 return v0 + (v1 - v0) * ratio
             }
         }
 
         // Ако времето е извън диапазона, връщаме последната/първата стойност
         return when {
-            targetTimeNormalized < normalizedTimes.first() -> values.first()
-            targetTimeNormalized > normalizedTimes.last() -> values.last()
+            targetTimeSeconds < absoluteTimes.first() -> values.first()
+            targetTimeSeconds > absoluteTimes.last() -> values.last()
             else -> values.lastOrNull() ?: 0f
         }
     }

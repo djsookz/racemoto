@@ -178,7 +178,7 @@ class DragRunPageActivity : BaseActivity() {
     private var finishTimeNano: Long = -1L
     private val TARGET_METERS = 402.336f
     private val GPS_READY_ACCURACY_METERS = 30f
-    private val FULL_STOP_REARM_SPEED_KMH = 3f // Re-arm only after near full stop
+    private val FULL_STOP_REARM_SPEED_KMH = 80f // Re-arm only after near full stop
     private val DECELERATION_DELTA_KMH = -5f
     private val DECELERATION_MAX_SPEED_KMH = 80f
     private val ROLLING_START_MIN_KMH = 95f
@@ -2086,8 +2086,20 @@ class DragRunPageActivity : BaseActivity() {
         if ((measurementMode == MeasurementMode.ALL || measurementMode == MeasurementMode.QUARTER_MILE) && !distanceCompleted) {
             val start = startLocation ?: return
             val measurementStartTime = foregroundService?.getMeasurementStartTimeNano() ?: 0L
-            if (measurementStartTime <= 0L) return
-            val currentElapsedNanos = (System.nanoTime() - measurementStartTime).coerceAtLeast(0L)
+            val measurementStartTimeGps = foregroundService?.getMeasurementStartTimeGpsNano() ?: 0L
+            if (measurementStartTime <= 0L && measurementStartTimeGps <= 0L) return
+
+            val currentElapsedNanos = when {
+                measurementStartTimeGps > 0L &&
+                    loc.elapsedRealtimeNanos > 0L &&
+                    loc.elapsedRealtimeNanos >= measurementStartTimeGps -> {
+                    (loc.elapsedRealtimeNanos - measurementStartTimeGps).coerceAtLeast(0L)
+                }
+                measurementStartTime > 0L -> {
+                    (System.nanoTime() - measurementStartTime).coerceAtLeast(0L)
+                }
+                else -> return
+            }
             
             // Просто изчисляваме разстоянието от startLocation до текущата позиция - RAW данни
             if (lastLocationForDistance == null) {
@@ -2125,7 +2137,7 @@ class DragRunPageActivity : BaseActivity() {
 
             if (accumulatedDistance >= TARGET_METERS) {
                 val currentTime = System.nanoTime()
-                val elapsedNanos = currentTime - measurementStartTime
+                val elapsedNanos = currentElapsedNanos
                 val canonical402Nanos = if (sector402TimeNanos > 0L) sector402TimeNanos else elapsedNanos
                 finishTimeNano = currentTime
 

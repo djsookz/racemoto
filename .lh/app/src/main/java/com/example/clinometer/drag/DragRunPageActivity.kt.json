@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 38,
+            "activePatchIndex": 39,
             "patches": [
                 {
                     "date": 1771505696138,
@@ -160,6 +160,10 @@
                 {
                     "date": 1777326364517,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -177,9 +177,9 @@\n     private var startTimeNano: Long = 0L\r\n     private var finishTimeNano: Long = -1L\r\n     private val TARGET_METERS = 402.336f\r\n     private val GPS_READY_ACCURACY_METERS = 30f\r\n-    private val FULL_STOP_REARM_SPEED_KMH = 80f // Re-arm only after near full stop\r\n+    private val FULL_STOP_REARM_SPEED_KMH = 3f // Re-arm only after near full stop\r\n     private val DECELERATION_DELTA_KMH = -5f\r\n     private val DECELERATION_MAX_SPEED_KMH = 80f\r\n     private val ROLLING_START_MIN_KMH = 95f\r\n     private val ROLLING_START_MAX_KMH = 99f\r\n"
+                },
+                {
+                    "date": 1777367339729,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -177,9 +177,9 @@\n     private var startTimeNano: Long = 0L\r\n     private var finishTimeNano: Long = -1L\r\n     private val TARGET_METERS = 402.336f\r\n     private val GPS_READY_ACCURACY_METERS = 30f\r\n-    private val FULL_STOP_REARM_SPEED_KMH = 3f // Re-arm only after near full stop\r\n+    private val FULL_STOP_REARM_SPEED_KMH = 80f // Re-arm only after near full stop\r\n     private val DECELERATION_DELTA_KMH = -5f\r\n     private val DECELERATION_MAX_SPEED_KMH = 80f\r\n     private val ROLLING_START_MIN_KMH = 95f\r\n     private val ROLLING_START_MAX_KMH = 99f\r\n@@ -2085,10 +2085,22 @@\n         // В ALL режим или QUARTER_MILE режим, ако не сме завършили измерването\r\n         if ((measurementMode == MeasurementMode.ALL || measurementMode == MeasurementMode.QUARTER_MILE) && !distanceCompleted) {\r\n             val start = startLocation ?: return\r\n             val measurementStartTime = foregroundService?.getMeasurementStartTimeNano() ?: 0L\r\n-            if (measurementStartTime <= 0L) return\r\n-            val currentElapsedNanos = (System.nanoTime() - measurementStartTime).coerceAtLeast(0L)\r\n+            val measurementStartTimeGps = foregroundService?.getMeasurementStartTimeGpsNano() ?: 0L\r\n+            if (measurementStartTime <= 0L && measurementStartTimeGps <= 0L) return\r\n+\r\n+            val currentElapsedNanos = when {\r\n+                measurementStartTimeGps > 0L &&\r\n+                    loc.elapsedRealtimeNanos > 0L &&\r\n+                    loc.elapsedRealtimeNanos >= measurementStartTimeGps -> {\r\n+                    (loc.elapsedRealtimeNanos - measurementStartTimeGps).coerceAtLeast(0L)\r\n+                }\r\n+                measurementStartTime > 0L -> {\r\n+                    (System.nanoTime() - measurementStartTime).coerceAtLeast(0L)\r\n+                }\r\n+                else -> return\r\n+            }\r\n             \r\n             // Просто изчисляваме разстоянието от startLocation до текущата позиция - RAW данни\r\n             if (lastLocationForDistance == null) {\r\n                 lastLocationForDistance = start\r\n@@ -2124,9 +2136,9 @@\n \r\n \r\n             if (accumulatedDistance >= TARGET_METERS) {\r\n                 val currentTime = System.nanoTime()\r\n-                val elapsedNanos = currentTime - measurementStartTime\r\n+                val elapsedNanos = currentElapsedNanos\r\n                 val canonical402Nanos = if (sector402TimeNanos > 0L) sector402TimeNanos else elapsedNanos\r\n                 finishTimeNano = currentTime\r\n \r\n                 // Запазваме времето за по-късно използване\r\n"
                 }
             ],
             "date": 1771505696138,
