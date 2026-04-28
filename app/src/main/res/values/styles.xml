@@ -67,4 +67,10 @@
         <item name="android:textSize">9sp</item>
         <item name="android:fontFamily">sans-serif-medium</item>
     </style>
+
+    <style name="TextAppearance.DragCompareProfileTab" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
 </resources>

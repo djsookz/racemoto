@@ -387,15 +387,30 @@
                             android:text="0 – 100 KM/H"
                             android:textSize="10dp"
                             android:textColor="@color/text_secondary" />
-                        <TextView
-                            android:id="@+id/tvCmpRightVal0to100"
+                        <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="--"
-                            android:textSize="18dp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary"
-                            android:layout_marginTop="2dp" />
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="2dp">
+                            <TextView
+                                android:id="@+id/tvCmpRightVal0to100"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textSize="18dp"
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary" />
+                            <TextView
+                                android:id="@+id/tvCmpRightPB0to100"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="⭐ PB"
+                                android:textSize="10sp"
+                                android:textColor="@color/accent_gold"
+                                android:layout_marginStart="6dp"
+                                android:visibility="gone" />
+                        </LinearLayout>
                         <TextView
                             android:id="@+id/tvCmpRightStatus0to100"
                             android:layout_width="wrap_content"
@@ -518,15 +533,30 @@
                             android:text="100 – 200 KM/H"
                             android:textSize="10dp"
                             android:textColor="@color/text_secondary" />
-                        <TextView
-                            android:id="@+id/tvCmpRightVal100to200"
+                        <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="--"
-                            android:textSize="18dp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary"
-                            android:layout_marginTop="2dp" />
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="2dp">
+                            <TextView
+                                android:id="@+id/tvCmpRightVal100to200"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textSize="18dp"
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary" />
+                            <TextView
+                                android:id="@+id/tvCmpRightPB100to200"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="⭐ PB"
+                                android:textSize="10sp"
+                                android:textColor="@color/accent_gold"
+                                android:layout_marginStart="6dp"
+                                android:visibility="gone" />
+                        </LinearLayout>
                         <TextView
                             android:id="@+id/tvCmpRightStatus100to200"
                             android:layout_width="wrap_content"
@@ -649,15 +679,30 @@
                             android:text="0 – 200 KM/H"
                             android:textSize="10dp"
                             android:textColor="@color/text_secondary" />
-                        <TextView
-                            android:id="@+id/tvCmpRightVal0to200"
+                        <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="--"
-                            android:textSize="18dp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary"
-                            android:layout_marginTop="2dp" />
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="2dp">
+                            <TextView
+                                android:id="@+id/tvCmpRightVal0to200"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textSize="18dp"
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary" />
+                            <TextView
+                                android:id="@+id/tvCmpRightPB0to200"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="⭐ PB"
+                                android:textSize="10sp"
+                                android:textColor="@color/accent_gold"
+                                android:layout_marginStart="6dp"
+                                android:visibility="gone" />
+                        </LinearLayout>
                         <TextView
                             android:id="@+id/tvCmpRightStatus0to200"
                             android:layout_width="wrap_content"
@@ -780,15 +825,30 @@
                             android:text="0 – 402M (¼ MI)"
                             android:textSize="10dp"
                             android:textColor="@color/text_secondary" />
-                        <TextView
-                            android:id="@+id/tvCmpRightVal0to402"
+                        <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="--"
-                            android:textSize="18dp"
-                            android:textStyle="bold"
-                            android:textColor="@color/text_primary"
-                            android:layout_marginTop="2dp" />
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="2dp">
+                            <TextView
+                                android:id="@+id/tvCmpRightVal0to402"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textSize="18dp"
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary" />
+                            <TextView
+                                android:id="@+id/tvCmpRightPB0to402"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="⭐ PB"
+                                android:textSize="10sp"
+                                android:textColor="@color/accent_gold"
+                                android:layout_marginStart="6dp"
+                                android:visibility="gone" />
+                        </LinearLayout>
                         <TextView
                             android:id="@+id/tvCmpRightStatus0to402"
                             android:layout_width="wrap_content"

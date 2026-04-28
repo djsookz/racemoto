@@ -32,18 +32,21 @@ object OfficialTrackCatalog {
     private val assenStartB = GeoPoint(52.962275, 6.524172222222222)
     private val aragonStartA = GeoPoint(41.07823333333333, -0.19787222222222222)
     private val aragonStartB = GeoPoint(41.07833333333333, -0.19776111111111112)
-    private val jerezStart = GeoPoint(36.708333, -6.034167)
-    private val portimaoStart = GeoPoint(37.231944, -8.631944)
-    private val spaStart = GeoPoint(50.437222, 5.971389)
-    private val hungaroringStart = GeoPoint(47.582222, 19.251111)
+    private val jerezStartA = GeoPoint(36.70966388888889, -6.032563888888889)
+    private val jerezStartB = GeoPoint(36.709705555555556, -6.032447222222222)
+    private val portimaoStartA = GeoPoint(37.23209722222222, -8.630919444444444)
+    private val portimaoStartB = GeoPoint(37.232141666666665, -8.630727777777778)
+    private val spaStartA = GeoPoint(50.44403055555556, 5.965080555555555)
+    private val spaStartB = GeoPoint(50.44409444444444, 5.965258333333334)
+    private val hungaroringStartA = GeoPoint(47.57882777777778, 19.24836111111111)
+    private val hungaroringStartB = GeoPoint(47.578925, 19.248475)
 
-    private val megaraStart = GeoPoint(37.986669, 23.362808)
+    private val megaraStartA = GeoPoint(37.98704166666667, 23.36288611111111)
+    private val megaraStartB = GeoPoint(37.98694722222222, 23.362919444444443)
     private val drakonKaloyanovoStartA = GeoPoint(42.341151, 24.736776)
     private val drakonKaloyanovoStartB = GeoPoint(42.341129, 24.736756)
     private val laraA1MotoParkStartA = GeoPoint(42.314175, 23.538624)
     private val laraA1MotoParkStartB = GeoPoint(42.314174, 23.538655)
-    private val sofiaKrasnaPolyanaKartStart = GeoPoint(42.691701, 23.289639)
-    private val slivenKartStart = GeoPoint(42.636831, 26.324128)
 
     val tracks: List<TrackDefinition> = listOf(
         TrackDefinition(
@@ -194,62 +197,62 @@ object OfficialTrackCatalog {
         TrackDefinition(
             id = "jerez_circuit",
             name = "Jerez",
-            description = "Официална писта (приближена старт/финиш точка).",
+            description = "Официална писта.",
             country = "Испания",
             lengthKm = 4.42,
             turns = 13,
             mode = TrackMode.CIRCUIT,
             isEnabled = true,
-            startFinishGate = TrackGate(start = jerezStart, end = jerezStart),
-            lapSequence = listOf(jerezStart)
+            startFinishGate = TrackGate(start = jerezStartA, end = jerezStartB),
+            lapSequence = listOf(jerezStartA, jerezStartB)
         ),
         TrackDefinition(
             id = "portimao_circuit",
             name = "Portimão",
-            description = "Официална писта (приближена старт/финиш точка).",
+            description = "Официална писта.",
             country = "Португалия",
             lengthKm = 4.59,
             turns = 15,
             mode = TrackMode.CIRCUIT,
             isEnabled = true,
-            startFinishGate = TrackGate(start = portimaoStart, end = portimaoStart),
-            lapSequence = listOf(portimaoStart)
+            startFinishGate = TrackGate(start = portimaoStartA, end = portimaoStartB),
+            lapSequence = listOf(portimaoStartA, portimaoStartB)
         ),
         TrackDefinition(
             id = "spa_francorchamps",
             name = "Spa-Francorchamps",
-            description = "Официална писта (приближена старт/финиш точка).",
+            description = "Официална писта.",
             country = "Белгия",
             lengthKm = 7.0,
             turns = 19,
             mode = TrackMode.CIRCUIT,
             isEnabled = true,
-            startFinishGate = TrackGate(start = spaStart, end = spaStart),
-            lapSequence = listOf(spaStart)
+            startFinishGate = TrackGate(start = spaStartA, end = spaStartB),
+            lapSequence = listOf(spaStartA, spaStartB)
         ),
         TrackDefinition(
             id = "hungaroring",
             name = "Hungaroring",
-            description = "Официална писта (приближена старт/финиш точка).",
+            description = "Официална писта.",
             country = "Унгария",
             lengthKm = 4.38,
             turns = 14,
             mode = TrackMode.CIRCUIT,
             isEnabled = true,
-            startFinishGate = TrackGate(start = hungaroringStart, end = hungaroringStart),
-            lapSequence = listOf(hungaroringStart)
+            startFinishGate = TrackGate(start = hungaroringStartA, end = hungaroringStartB),
+            lapSequence = listOf(hungaroringStartA, hungaroringStartB)
         ),
         TrackDefinition(
             id = "megara_circuit",
             name = "Athens Circuit Megara",
-            description = "Официална писта в Гърция (приближена старт/финиш точка).",
+            description = "Официална писта в Гърция.",
             country = "Гърция",
             lengthKm = 2.1,
             turns = 11,
             mode = TrackMode.CIRCUIT,
             isEnabled = true,
-            startFinishGate = TrackGate(start = megaraStart, end = megaraStart),
-            lapSequence = listOf(megaraStart)
+            startFinishGate = TrackGate(start = megaraStartA, end = megaraStartB),
+            lapSequence = listOf(megaraStartA, megaraStartB)
         ),
         TrackDefinition(
             id = "drakon_kaloyanovo",
@@ -274,30 +277,6 @@ object OfficialTrackCatalog {
             isEnabled = true,
             startFinishGate = TrackGate(start = laraA1MotoParkStartA, end = laraA1MotoParkStartB),
             lapSequence = listOf(laraA1MotoParkStartA, laraA1MotoParkStartB)
-        ),
-        TrackDefinition(
-            id = "sofia_krasna_polyana_kart",
-            name = "Sofia Krasna Polyana Kart",
-            description = "Официална писта в България (приближена старт/финиш точка).",
-            country = "България",
-            lengthKm = 0.9,
-            turns = 8,
-            mode = TrackMode.CIRCUIT,
-            isEnabled = true,
-            startFinishGate = TrackGate(start = sofiaKrasnaPolyanaKartStart, end = sofiaKrasnaPolyanaKartStart),
-            lapSequence = listOf(sofiaKrasnaPolyanaKartStart)
-        ),
-        TrackDefinition(
-            id = "sliven_kart_track",
-            name = "Sliven Kart Track",
-            description = "Официална писта в България (приближена старт/финиш точка).",
-            country = "България",
-            lengthKm = 1.2,
-            turns = 9,
-            mode = TrackMode.CIRCUIT,
-            isEnabled = true,
-            startFinishGate = TrackGate(start = slivenKartStart, end = slivenKartStart),
-            lapSequence = listOf(slivenKartStart)
         )
     )
 

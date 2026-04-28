@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1775246181280,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1775479643074,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,7 +1,8 @@\n package com.example.clinometer\r\n \r\n import android.content.Context\r\n+import com.example.clinometer.data.ProfileSessionSummaryStore\r\n import com.google.gson.Gson\r\n import com.google.gson.reflect.TypeToken\r\n \r\n object DragStorage {\r\n@@ -12,8 +13,9 @@\n         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)\r\n         val gson = Gson()\r\n         val json = gson.toJson(sessions)\r\n         prefs.edit().putString(KEY_SESSIONS, json).apply()\r\n+        ProfileSessionSummaryStore.updateDragSummaries(context, sessions)\r\n \r\n         // Debug log\r\n         println(\"✅ Saved ${sessions.size} sessions\")\r\n     }\r\n"
                 }
             ],
             "date": 1775246181280,

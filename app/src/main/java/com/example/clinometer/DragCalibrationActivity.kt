@@ -7,6 +7,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import com.example.clinometer.data.CalibrationReminderStore
 import com.example.clinometer.data.ProfileStorage
 import android.os.Bundle
 import android.util.Log
@@ -42,6 +43,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     
     private lateinit var btnClearAll: Button
     private lateinit var btnCancel: Button
+    private lateinit var btnCalibrateLater: Button
     private lateinit var btnContinue: Button
     
     private lateinit var sensorManager: SensorManager
@@ -52,37 +54,13 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     // UNIVERSAL GRAVITY-BASED CALIBRATION
     private var isCalibrating = false
     private var calibrationStartTime = 0L
-    
-    // Phase 1: GRAVITY + VIBRATION събиране (5 секунди на IDLE!)
-    private val gravitySamplesX = mutableListOf<Float>()
-    private val gravitySamplesY = mutableListOf<Float>()
-    private val gravitySamplesZ = mutableListOf<Float>()
-    private val vibrationMagnitudes = mutableListOf<Float>()  // Linear accel magnitude (за MAX вибрация!)
-    private val GRAVITY_DURATION_MS = 5000L  // 5 секунди за gravity + вибрации
-    
-    // Phase 2: FORWARD събиране (20 samples = ~200ms за бърз и стабилен vector!)
+
+    // FORWARD събиране (20 samples = ~200ms за бърз и стабилен vector!)
     private val forwardSamplesX = mutableListOf<Float>()
     private val forwardSamplesY = mutableListOf<Float>()
     private val forwardSamplesZ = mutableListOf<Float>()
     private val FORWARD_SAMPLES_NEEDED = 20  // 20 samples @ 100Hz = 200ms (баланс между скорост и точност!)
     private var gravityVector = FloatArray(3)  // От phase 1
-    private var maxVibration = 0f  // MAX вибрация от phase 1
-    
-    // LOW-PASS filter за gravity
-    private var lowPassX = 0f
-    private var lowPassY = 0f
-    private var lowPassZ = 0f
-    private val LOW_PASS_ALPHA = 0.05f  // Силно заглаждане
-    
-    enum class CalibrationPhase {
-        IDLE,
-        COLLECTING_GRAVITY,  // 5 sec: gravity + vibrations
-        WAITING_FOR_FORWARD,  // Чакаме реално бутане
-        COLLECTING_FORWARD,  // 20 samples: forward посока
-        COMPLETE
-    }
-    
-    private var calibrationPhase = CalibrationPhase.IDLE
     
     // DEPRECATED старата логика (backward compatibility)
     private var calibratingOrientation: String = ""
@@ -98,7 +76,6 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     private var maxVibrY = 0f
     private var maxVibrZ = 0f
     private var baselineNoiseRms = 0f
-    private val VIBRATION_BUFFER = 0.05f
     private var forwardLearningStartTime = 0L
     private var forwardReferenceUnit: FloatArray? = null
     private var forwardRejectedDirectionSamples = 0
@@ -114,6 +91,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     private var isNewProfile: Boolean = false
     private var isFirstLaunch: Boolean = false
     private var calibrationCompleted: Boolean = false  // Flag за успешна калибрация
+    private var calibrationDeferred: Boolean = false
     private var profileDeleted: Boolean = false  // Flag за изтрит профил (за да избегнем двойно изтриване)
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -121,7 +99,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
         setContentView(R.layout.activity_drag_calibration)
         applySystemBarsPaddingToRoot()
 
-        window.statusBarColor = ContextCompat.getColor(this, R.color.dark_background)
+        window.statusBarColor = ContextCompat.getColor(this, R.color.background_primary)
         
         // Вземаме profileId от intent
         profileId = intent.getLongExtra("PROFILE_ID", -1L)
@@ -134,7 +112,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
         
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.title = "Calibration"
-        supportActionBar?.setBackgroundDrawable(ColorDrawable(ContextCompat.getColor(this, R.color.dark_background)))
+        supportActionBar?.setBackgroundDrawable(ColorDrawable(ContextCompat.getColor(this, R.color.background_primary)))
         
         // Ако е първи профил или нов профил от Garage - скриваме Back бутона
         if (isFirstProfile || isNewProfile) {
@@ -159,6 +137,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
         
         btnClearAll = findViewById(R.id.btnClearAll)
         btnCancel = findViewById(R.id.btnCancel)
+        btnCalibrateLater = findViewById(R.id.btnCalibrateLater)
         btnContinue = findViewById(R.id.btnContinue)
         
         // Показваме името на профила в title
@@ -203,6 +182,10 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
             }
             finish()
         }
+
+        btnCalibrateLater.setOnClickListener {
+            deferCalibrationForLater()
+        }
         
         // Continue бутон - продължава напред
         btnContinue.setOnClickListener {
@@ -224,6 +207,10 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     }
     
     private fun updateUI() {
+        if (DragCalibration.hasAnyCalibration()) {
+            CalibrationReminderStore.clearDragCalibrationDeferred(this, profileId)
+        }
+
         val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
         
         // Portrait UI
@@ -261,6 +248,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
             // Първи профил или нов профил от Garage - показваме Continue бутона
             // Cancel бутонът се показва САМО за нов профил от Garage, НЕ за първи профил
             btnCancel.visibility = if (isFirstProfile) android.view.View.GONE else android.view.View.VISIBLE
+            btnCalibrateLater.visibility = if (isFirstProfile && !DragCalibration.hasAnyCalibration()) android.view.View.VISIBLE else android.view.View.GONE
             btnContinue.visibility = android.view.View.VISIBLE
             btnClearAll.visibility = android.view.View.GONE
             
@@ -269,6 +257,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
         } else {
             // От настройки - показваме само Clear All бутона
             btnCancel.visibility = android.view.View.GONE
+            btnCalibrateLater.visibility = android.view.View.GONE
             btnContinue.visibility = android.view.View.GONE
             btnClearAll.visibility = android.view.View.VISIBLE
             btnClearAll.text = getString(R.string.calibration_btn_clear_all)
@@ -594,6 +583,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
         statusView.setTextColor(ContextCompat.getColor(this, android.R.color.holo_green_dark))
         
         // ВАЖНО: Обновяваме UI веднага след калибрацията
+        CalibrationReminderStore.clearDragCalibrationDeferred(this, profileId)
         updateUI()
         
         // Маркираме че калибрацията е завършена успешно
@@ -625,8 +615,19 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
         // Not used
     }
+
+    private fun deferCalibrationForLater() {
+        CalibrationReminderStore.markDragCalibrationDeferred(this, profileId)
+        calibrationDeferred = true
+
+        startActivity(Intent(this, MainContainerActivity::class.java).apply {
+            putExtra(MainContainerActivity.EXTRA_NAV_ITEM_ID, R.id.navMap)
+        })
+        finish()
+    }
     
     private fun finishCalibration() {
+        CalibrationReminderStore.clearDragCalibrationDeferred(this, profileId)
         when {
             isFirstProfile -> {
                 // Първи профил - отиваме в главното app
@@ -681,7 +682,7 @@ class DragCalibrationActivity : AppCompatActivity(), SensorEventListener {
         
         // Ако е първи профил или нов профил от Garage и няма калибрация - изтриваме профила
         // Проверяваме дали вече не сме изтрили профила (например в handleBackPress)
-        if ((isFirstProfile || isNewProfile) && !calibrationCompleted && !DragCalibration.hasAnyCalibration() && !profileDeleted) {
+        if ((isFirstProfile || isNewProfile) && !calibrationCompleted && !calibrationDeferred && !DragCalibration.hasAnyCalibration() && !profileDeleted) {
             deleteProfileIfNoCalibration()
             profileDeleted = true
         }

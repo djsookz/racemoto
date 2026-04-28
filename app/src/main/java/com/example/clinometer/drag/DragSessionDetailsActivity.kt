@@ -1044,90 +1044,6 @@ class DragAttemptsAdapter(
         setupChartZoom(holder.chart)
     }
     
-    private fun setupChartConfiguration(chart: com.github.mikephil.charting.charts.LineChart, attempt: DragAttempt) {
-        // Тази функция не се използва вече - всички настройки са в setupChart
-        // Оставяме я само за обратна съвместимост, ако някъде се извиква
-        // Настройваме само listener-ите, но трябва да се извиква СЛЕД updateChartData
-        setupChartZoom(chart)
-    }
-    
-    // Помощна функция за показване на маркера на специална точка
-    private fun showMarkerAtPoint(chart: com.github.mikephil.charting.charts.LineChart, entry: com.github.mikephil.charting.data.Entry, pointType: PointTooltipMarker.PointType, exactTime: Float) {
-        val activeAttempt = getChartAttempt(chart) ?: return
-        val activeMode = getChartMode(chart)
-        getChartMarker(chart)?.let { markerView ->
-            val modeDataSetIndex = getCurrentModeDataSetIndex(chart, activeMode) ?: run {
-                when (activeMode) {
-                    ChartMode.SPEED -> {
-                        chart.data?.dataSets?.indexOfFirst {
-                            it.label.contains("Speed", ignoreCase = true) || it.label.isEmpty()
-                        } ?: 0
-                    }
-                    ChartMode.ACCELERATION -> {
-                        chart.data?.dataSets?.indexOfFirst {
-                            it.label.contains("Acceleration", ignoreCase = true) || it.label.contains("Accel", ignoreCase = true)
-                        } ?: 0
-                    }
-                    ChartMode.G_FORCE -> {
-                        chart.data?.dataSets?.indexOfFirst {
-                            it.label.contains("G-Force", ignoreCase = true) || it.label.contains("G Force", ignoreCase = true) || it.label.contains("GForce", ignoreCase = true)
-                        } ?: 0
-                    }
-                }
-            }
-            val specialDataSetIndex = findSpecialPointDataSetIndex(chart, pointType, entry.x)
-            val dataSetIndex = (specialDataSetIndex ?: modeDataSetIndex)
-                .coerceIn(0, (chart.data?.dataSets?.size ?: 1) - 1)
-
-            // За special points ползваме точната Y от самата точка
-            val exactYForHighlight = entry.y
-            
-            // КРИТИЧНО: Използваме точно Y координатата за правилно позициониране
-            val highlight = com.github.mikephil.charting.highlight.Highlight(entry.x, exactYForHighlight, dataSetIndex)
-            
-            // Обновяваме entry-то с точната Y координата
-            val correctedEntry = com.github.mikephil.charting.data.Entry(entry.x, exactYForHighlight)
-            markerView.refreshContent(correctedEntry, highlight)
-            
-            try {
-                // КРИТИЧНО: Активираме маркера за показване
-                val shouldShowField = markerView.javaClass.getDeclaredField("shouldShow")
-                shouldShowField.isAccessible = true
-                shouldShowField.set(markerView, true)
-                
-                val pointTypeField = markerView.javaClass.getDeclaredField("pointType")
-                pointTypeField.isAccessible = true
-                pointTypeField.set(markerView, pointType)
-
-                val isOnSpecialPointField = markerView.javaClass.getDeclaredField("isOnSpecialPoint")
-                isOnSpecialPointField.isAccessible = true
-                isOnSpecialPointField.set(markerView, true)
-
-                val actualValueField = markerView.javaClass.getDeclaredField("actualValue")
-                actualValueField.isAccessible = true
-                actualValueField.set(markerView, entry.y)
-
-                val exactTimeField = markerView.javaClass.getDeclaredField("exactTime")
-                exactTimeField.isAccessible = true
-                exactTimeField.set(markerView, exactTime)
-
-                val modeField = markerView.javaClass.getDeclaredField("mode")
-                modeField.isAccessible = true
-                modeField.set(markerView, activeMode)
-
-                val attemptField = markerView.javaClass.getDeclaredField("attempt")
-                attemptField.isAccessible = true
-                attemptField.set(markerView, activeAttempt)
-            } catch (ex: Exception) {
-                // Reflection failed
-            }
-
-            chart.highlightValue(null, false)
-            chart.highlightValue(highlight, false)
-            chart.invalidate()
-        }
-    }
-    
     // Помощна функция за намиране на най-близката специална точка (използва се и при drag и при tap)
     private fun findClosestSpecialPoint(
         touchX: Float,
@@ -1594,31 +1510,6 @@ class DragAttemptsAdapter(
         // RAW данни - без филтри, показваме всичко както е записано
         return vals.take(limit) to times.take(limit)
     }
-
-    // -------- Start offset helpers (begin charts at 60 km/h) --------
-    private fun getSpeedStartOffsetMs(attempt: DragAttempt, thresholdKmH: Float = 60f): Long {
-        val (speeds, times) = getAlignedSpeedData(attempt)
-        for (i in speeds.indices) {
-            if (speeds[i] >= thresholdKmH) return times[i]
-        }
-        return 0L
-    }
-
-    private fun getStartOffsetMsForMode(attempt: DragAttempt, mode: ChartMode): Long {
-        // Align all modes to the speed start (first >= 4 km/h)
-        return getSpeedStartOffsetMs(attempt)
-    }
-
-    private fun getMaxTimeWithStartOffset(attempt: DragAttempt): Float {
-        // Сега всички timestamps са в наносекунди
-        val maxTsNanos = listOf(
-            attempt.speedTimeStamps.maxOrNull() ?: 0L,
-            attempt.gpsTimeStamps.maxOrNull() ?: 0L,
-            attempt.timeStamps.maxOrNull() ?: 0L
-        ).filter { it > 0 }.maxOrNull() ?: 0L
-        return (maxTsNanos / 1_000_000_000.0f) // Конвертираме от наносекунди в секунди
-    }
-
     private fun getAlignedGData(attempt: DragAttempt): Pair<List<Float>, List<Long>> {
         val vals = attempt.gSamples
         val times = attempt.timeStamps
@@ -2115,13 +2006,6 @@ class DragAttemptsAdapter(
             holder.chart.invalidate()
         }
     }
-
-    private fun getStartTimeForMode(attempt: DragAttempt, mode: ChartMode): Long {
-        // Use measurement start time as reference point for consistency with measurement times
-        val result = 0L // Always start from 0 to match measurement timing
-        
-        return result
-    }
     
     private fun getMaxTimeFromAllMeasurements(attempt: DragAttempt): Double {
         // Намираме максималното време САМО от успешните измервания
@@ -2449,57 +2333,6 @@ class DragAttemptsAdapter(
         currentMarkerView = smartMarker
     }
     
-    private fun determinePointType(x: Float, attempt: DragAttempt, closestTo200Normalized: Float? = null): PointTooltipMarker.PointType? {
-        val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
-        
-        // Проверяваме за 100 km/h точка - много по-тесен радиус
-        // За 100-200 режим НЕ показваме маркер на 100 km/h (графиката започва от там)
-        if (attempt.time0to100 > 0 && measurementMode != MeasurementMode.HUNDRED_TO_200) {
-            val crossing100 = findSpeedCrossingPoint(speedSamples, timestamps, 100f)
-            if (crossing100 != null && kotlin.math.abs(x - crossing100) < 0.05f) {
-                return PointTooltipMarker.PointType.SPEED_100
-            }
-        }
-        
-        // Проверяваме за 200 km/h точка - много по-тесен радиус
-        val shouldCheck200 = when (measurementMode) {
-            MeasurementMode.HUNDRED_TO_200 -> attempt.time100to200 > 0
-            else -> attempt.time0to200 > 0
-        }
-        
-        Log.d("DragSessionDetails", "📊 Checking 200 km/h marker: shouldCheck=$shouldCheck200, time100to200=${attempt.time100to200}")
-        Log.d("DragSessionDetails", "📊 Attempt details: time0to100=${attempt.time0to100}, time0to200=${attempt.time0to200}, time100to200=${attempt.time100to200}")
-        
-        if (shouldCheck200) {
-            // За 100-200 режим: използваме предварително изчисления closestTo200Normalized
-            if (measurementMode == MeasurementMode.HUNDRED_TO_200) {
-                if (closestTo200Normalized != null && kotlin.math.abs(x - closestTo200Normalized!!) < 0.1f) {
-                    Log.d("DragSessionDetails", "📊 Found 200 km/h marker at x=$x, closestTo200=$closestTo200Normalized")
-                    return PointTooltipMarker.PointType.SPEED_200
-                }
-            } else {
-                // За други режими: използваме старата логика
-                val crossing200 = findSpeedCrossingPoint(speedSamples, timestamps, 200f)
-                
-                if (crossing200 != null && kotlin.math.abs(x - crossing200) < 0.05f) {
-                    return PointTooltipMarker.PointType.SPEED_200
-                }
-            }
-        }
-        
-        // Проверяваме за 402m точка - много по-тесен радиус
-        if (attempt.time0to402 > 0) {
-            // Показваме реалното време без нормализация
-            val time402Seconds = attempt.time0to402 / 1_000_000_000.0f
-            if (kotlin.math.abs(x - time402Seconds) < 0.05f) {
-                return PointTooltipMarker.PointType.DISTANCE_402
-            }
-        }
-        
-        // Не е на специална точка
-        return null
-    }
-    
     // Помощна функция - намира скоростта в даден момент
     private fun getSpeedAtTime(attempt: DragAttempt, timeSeconds: Float): Float {
         val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
@@ -2581,172 +2414,6 @@ class DragAttemptsAdapter(
             targetTimeNormalized < normalizedTimes.first() -> values.first()
             targetTimeNormalized > normalizedTimes.last() -> values.last()
             else -> values.lastOrNull() ?: 0f
-        }
-    }
-
-    private fun findValueAtTime(attempt: DragAttempt, targetTimeSeconds: Float, mode: ChartMode): Float {
-        return when (mode) {
-            ChartMode.SPEED -> {
-                val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
-                findClosestValue(speedSamples, timestamps, targetTimeSeconds)
-            }
-            ChartMode.ACCELERATION -> {
-                val (accelSamples, timestamps) = getAlignedAccelData(attempt)
-                findClosestValue(accelSamples, timestamps, targetTimeSeconds)
-            }
-            ChartMode.G_FORCE -> {
-                val (gSamples, timestamps) = getAlignedGData(attempt)
-                findClosestValue(gSamples, timestamps, targetTimeSeconds)
-            }
-        }
-    }
-
-    private fun findClosestValue(values: List<Float>, timestamps: List<Long>, targetTimeSeconds: Float): Float {
-        if (values.isEmpty() || timestamps.isEmpty()) return 0f
-
-        val targetTimeNanos = (targetTimeSeconds * 1_000_000_000).toLong()
-
-        // Намираме най-близкия индекс
-        var closestIndex = 0
-        var minDiff = kotlin.math.abs(timestamps[0] - targetTimeNanos)
-
-        for (i in 1 until timestamps.size) {
-            val diff = kotlin.math.abs(timestamps[i] - targetTimeNanos)
-            if (diff < minDiff) {
-                minDiff = diff
-                closestIndex = i
-            }
-        }
-
-        return values[closestIndex]
-    }
-
-    // Намира точното време (в секунди) когато скоростта пресича targetSpeed, чрез линейна интерполация
-    private fun findInterpolatedTimeForSpeedCrossing(attempt: DragAttempt, targetSpeed: Float): Float {
-        val speedSamples = attempt.speedSamples.filter { it.isFinite() && !it.isNaN() }
-        val timestamps = attempt.speedTimeStamps
-        if (speedSamples.size < 2 || timestamps.size < 2) return 0f
-
-        for (i in 1 until speedSamples.size) {
-            val v0 = speedSamples[i - 1]
-            val v1 = speedSamples[i]
-            if ((v0 <= targetSpeed && v1 >= targetSpeed) || (v0 >= targetSpeed && v1 <= targetSpeed)) {
-                val t0 = timestamps[i - 1] / 1000.0f
-                val t1 = timestamps[i] / 1000.0f
-                if (v1 == v0) return t1
-                val ratio = (targetSpeed - v0) / (v1 - v0)
-                return t0 + (t1 - t0) * ratio
-            }
-        }
-        return 0f
-    }
-    
-    private fun findTimeWhenSpeedReached(attempt: DragAttempt, targetSpeed: Float, mode: ChartMode): Float {
-        // Винаги използваме speed данните за намиране на времето
-        val speedSamples = attempt.speedSamples.filter { it.isFinite() && !it.isNaN() }
-        val speedTimestamps = attempt.speedTimeStamps
-        
-        if (speedSamples.isNotEmpty() && speedTimestamps.isNotEmpty()) {
-            // Намираме началното време за нормализация спрямо текущия режим
-            val startTime = when (mode) {
-                ChartMode.SPEED -> speedTimestamps[0]
-                ChartMode.ACCELERATION -> attempt.gpsTimeStamps.minOrNull() ?: speedTimestamps[0]
-                ChartMode.G_FORCE -> attempt.timeStamps.minOrNull() ?: speedTimestamps[0]
-            }
-            
-            // Намираме кога е постигната целта
-            for (i in speedSamples.indices) {
-                if (speedSamples[i] >= targetSpeed) {
-                    return (speedTimestamps[i] - startTime) / 1000.0f
-                }
-            }
-        }
-        return 0f
-    }
-    
-    private fun findTimeWhenDistanceReached(attempt: DragAttempt, targetDistance: Float, mode: ChartMode): Float {
-        // За 402m използваме измереното време без нормализация
-        val time402Seconds = (attempt.time0to402 / 1_000_000_000.0).toFloat()
-        
-        // Намираме началното време за нормализация спрямо текущия режим
-        val startTime = when (mode) {
-            ChartMode.SPEED -> attempt.speedTimeStamps.minOrNull() ?: 0L
-            ChartMode.ACCELERATION -> attempt.gpsTimeStamps.minOrNull() ?: 0L
-            ChartMode.G_FORCE -> attempt.timeStamps.minOrNull() ?: 0L
-        }
-        
-        // Изчисляваме реалното време спрямо данните
-        val speedStartTime = attempt.speedTimeStamps.minOrNull() ?: 0L
-        val realTimeMs = speedStartTime + (time402Seconds * 1000).toLong()
-        return (realTimeMs - startTime) / 1000.0f
-    }
-    
-    private fun findTimeWhenSpeedReachedInData(attempt: DragAttempt, targetSpeed: Float, mode: ChartMode): Float {
-        // Използваме speed данните за намиране на времето
-        val (speedSamples, speedTimestamps) = getAlignedSpeedData(attempt)
-        
-        if (speedSamples.isNotEmpty() && speedTimestamps.isNotEmpty()) {
-            for (i in speedSamples.indices) {
-                if (speedSamples[i] >= targetSpeed) {
-                    return speedTimestamps[i] / 1000.0f // Конвертираме в секунди
-                }
-            }
-        }
-        return 0f
-    }
-    
-    private fun findTimeWhenDistanceReachedInData(attempt: DragAttempt, targetDistance: Float, mode: ChartMode): Float {
-        // За 402m използваме измереното време без нормализация
-        val time402Seconds = (attempt.time0to402 / 1_000_000_000.0).toFloat()
-        return time402Seconds
-    }
-
-    private fun getMaxMeasuredTimeForGraphs(attempt: DragAttempt): Double {
-        // Използвай duration ако е налична (това е измереното време в nanoseconds)
-        if (attempt.duration > 0) {
-            return attempt.duration / 1_000_000_000.0 // Конвертирай от nanoseconds в секунди
-        }
-
-        // Иначе изчисли от измерените времена
-        val times = mutableListOf<Long>()
-
-        // За различните режими, вземи съответното време
-        when (measurementMode) {
-            MeasurementMode.ZERO_TO_100 -> {
-                if (attempt.time0to100 > 0) times.add(attempt.time0to100)
-            }
-            MeasurementMode.ZERO_TO_200 -> {
-                if (attempt.time0to200 > 0) times.add(attempt.time0to200)
-            }
-            MeasurementMode.HUNDRED_TO_200 -> {
-                if (attempt.time100to200 > 0) times.add(attempt.time100to200)
-            }
-            MeasurementMode.QUARTER_MILE -> {
-                if (attempt.time0to402 > 0) times.add(attempt.time0to402)
-            }
-            MeasurementMode.ALL -> {
-                if (attempt.time0to100 > 0) times.add(attempt.time0to100)
-                if (attempt.time0to200 > 0) times.add(attempt.time0to200)
-                if (attempt.time0to402 > 0) times.add(attempt.time0to402)
-                // Не добавяме 100-200 за ALL защото е част от 0-200
-            }
-        }
-
-        return if (times.isNotEmpty()) {
-            times.maxOrNull()?.let { it / 1_000_000_000.0 } ?: 0.0
-        } else {
-            // Ако няма измерени времена, опитай да изчислиш от timestamps
-            val allTimestamps = listOf(
-                attempt.speedTimeStamps.maxOrNull() ?: 0L,
-                attempt.timeStamps.maxOrNull() ?: 0L,
-                attempt.gpsTimeStamps.maxOrNull() ?: 0L
-            ).filter { it > 0 }
-            
-            if (allTimestamps.isNotEmpty()) {
-                allTimestamps.maxOrNull()!! / 1_000_000_000.0 // Конвертирай от nanoseconds в секунди
-            } else {
-                0.0
-            }
         }
     }
 
@@ -2969,6 +2636,17 @@ class DragAttemptsAdapter(
 
     private fun getDistanceCrossingTimeNs(attempt: DragAttempt, targetDistanceM: Float): Long? {
         if (targetDistanceM <= 0f) return null
+
+        val storedTimeNs = when (targetDistanceM.toInt()) {
+            50 -> attempt.distance50mTimeNs
+            100 -> attempt.distance100mTimeNs
+            200 -> attempt.distance200mTimeNs
+            300 -> attempt.distance300mTimeNs
+            402 -> attempt.time0to402.takeIf { it > 0L } ?: attempt.distance402mTimeNs
+            else -> -1L
+        }
+        if (storedTimeNs > 0L) return storedTimeNs
+
         if (targetDistanceM >= 402f && attempt.time0to402 > 0L) return attempt.time0to402
 
         val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
@@ -3001,7 +2679,11 @@ class DragAttemptsAdapter(
             accumulatedDistance = nextAccumulated
         }
 
-        return if (targetDistanceM >= 402f) attempt.time0to402.takeIf { it > 0L } else null
+        return if (targetDistanceM >= 402f) {
+            attempt.time0to402.takeIf { it > 0L } ?: attempt.distance402mTimeNs.takeIf { it > 0L }
+        } else {
+            null
+        }
     }
 
     private fun computeSessionDistanceBestAttemptIds(): Map<Int, Long> {

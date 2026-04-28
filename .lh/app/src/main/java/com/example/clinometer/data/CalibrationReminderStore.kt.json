@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/data/CalibrationReminderStore.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1776336730859,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1776336730859,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.data\r\n\r\nimport android.content.Context\r\nimport com.example.clinometer.DragCalibration\r\n\r\nobject CalibrationReminderStore {\r\n\r\n    private const val PREFS_NAME = \"CalibrationReminderPrefs\"\r\n\r\n    private fun prefs(context: Context) =\r\n        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)\r\n\r\n    private fun key(profileId: Long) = \"profile_${profileId}_drag_calibration_reminder\"\r\n\r\n    fun markDragCalibrationDeferred(context: Context, profileId: Long) {\r\n        if (profileId <= 0L) {\r\n            return\r\n        }\r\n        prefs(context).edit().putBoolean(key(profileId), true).apply()\r\n    }\r\n\r\n    fun clearDragCalibrationDeferred(context: Context, profileId: Long) {\r\n        if (profileId <= 0L) {\r\n            return\r\n        }\r\n        prefs(context).edit().remove(key(profileId)).apply()\r\n    }\r\n\r\n    fun needsDragCalibrationReminder(context: Context, profileId: Long): Boolean {\r\n        if (profileId <= 0L) {\r\n            return false\r\n        }\r\n        if (DragCalibration.isProfileCalibrated(context, profileId)) {\r\n            clearDragCalibrationDeferred(context, profileId)\r\n            return false\r\n        }\r\n        return prefs(context).getBoolean(key(profileId), false)\r\n    }\r\n\r\n    fun needsSelectedProfileDragCalibrationReminder(context: Context): Boolean {\r\n        val selectedProfileId = ProfileStorage.getSelectedProfileId(context)\r\n        return needsDragCalibrationReminder(context, selectedProfileId)\r\n    }\r\n}"
+        }
+    ]
+}

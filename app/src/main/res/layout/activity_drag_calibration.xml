@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/dark_background"
+    android:background="@color/background_primary"
     android:clipToPadding="false"
     android:paddingBottom="@dimen/navigation_bar_padding">
 
@@ -38,6 +38,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
+                android:background="@drawable/bg_track_metric_speed"
                 android:padding="16dp">
 
                 <TextView
@@ -131,6 +132,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
+                android:background="@drawable/bg_track_metric_speed"
                 android:padding="16dp">
 
                 <TextView
@@ -224,6 +226,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
+                android:background="@drawable/bg_track_metric_speed"
                 android:padding="16dp">
 
                 <TextView
@@ -305,6 +308,19 @@
                 app:cornerRadius="32dp"
                 android:backgroundTint="@android:color/holo_red_dark"
                 android:layout_marginEnd="8dp"/>
+
+            <Button
+                android:id="@+id/btnCalibrateLater"
+                android:layout_width="0dp"
+                android:layout_height="56dp"
+                android:layout_weight="1"
+                android:text="@string/calibration_btn_later"
+                android:textSize="16sp"
+                android:textColor="@android:color/white"
+                app:cornerRadius="32dp"
+                android:backgroundTint="@color/dark_surface"
+                android:layout_marginEnd="8dp"
+                android:visibility="gone"/>
 
             <!-- Continue Button -->
             <Button

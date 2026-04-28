@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/layout/item_track_chart_metric_option.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1775481335000,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1775481335000,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"wrap_content\"\r\n    android:background=\"?attr/selectableItemBackground\"\r\n    android:gravity=\"center_vertical\"\r\n    android:minHeight=\"52dp\"\r\n    android:orientation=\"horizontal\"\r\n    android:paddingStart=\"18dp\"\r\n    android:paddingTop=\"10dp\"\r\n    android:paddingEnd=\"18dp\"\r\n    android:paddingBottom=\"10dp\">\r\n\r\n    <CheckBox\r\n        android:id=\"@+id/cbTrackChartMetricOption\"\r\n        android:layout_width=\"0dp\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:layout_weight=\"1\"\r\n        android:buttonTint=\"@color/primary_color\"\r\n        android:clickable=\"false\"\r\n        android:focusable=\"false\"\r\n        android:textColor=\"@android:color/white\"\r\n        android:textSize=\"16sp\" />\r\n\r\n    <View\r\n        android:id=\"@+id/viewTrackChartMetricColorDot\"\r\n        android:layout_width=\"14dp\"\r\n        android:layout_height=\"14dp\"\r\n        android:layout_marginStart=\"12dp\"\r\n        android:importantForAccessibility=\"no\" />\r\n\r\n</LinearLayout>"
+        }
+    ]
+}

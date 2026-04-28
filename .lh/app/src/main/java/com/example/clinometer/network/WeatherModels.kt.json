@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/network/WeatherModels.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1776466844710,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1776466844710,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.network\r\n\r\ndata class ElevationResponse(\r\n    val elevation: List<Double>\r\n)\r\n"
+        }
+    ]
+}

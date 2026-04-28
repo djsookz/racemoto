@@ -45,7 +45,7 @@ class FirebaseReportsRepository {
         private const val TAG = "ReportsRepository"
         private const val MAX_REPORTS_PER_HOUR = 10 // Rate limit
         private const val MAX_QUERY_RADIUS_KM = 150.0 // Увеличен радиус за магистрали
-        private const val MERGE_DISTANCE_METERS = 50.0
+        private const val DEFAULT_MERGE_DISTANCE_METERS = 100.0
     }
     
     /**
@@ -68,16 +68,23 @@ class FirebaseReportsRepository {
     
     /**
      * Създава нов доклад
-     * Ако има същия тип доклад в радиус 50м, вместо нов запис прави auto-confirm (upvote)
+     * Ако има същия тип доклад в зададения merge радиус, вместо нов запис прави auto-confirm (upvote)
      */
     suspend fun createReport(
         type: ReportType,
         latitude: Double,
         longitude: Double,
+        mergeDistanceMeters: Double? = null,
         description: String? = null
     ): CreateReportOutcome {
         return try {
             val userId = ensureAuthenticated()
+            val resolvedMergeDistanceMeters = (mergeDistanceMeters ?: DEFAULT_MERGE_DISTANCE_METERS)
+                .coerceIn(20.0, 300.0)
+            Log.d(
+                TAG,
+                "createReport type=${type.name} lat=$latitude lon=$longitude mergeRadius=${resolvedMergeDistanceMeters.toInt()}m"
+            )
 
             // Валидация на разположение
             if (!isValidLocation(latitude, longitude)) {
@@ -85,9 +92,18 @@ class FirebaseReportsRepository {
                 return CreateReportOutcome(CreateReportStatus.INVALID_LOCATION)
             }
 
-            // Merge logic: ако вече има същия тип в 50м, потвърждаваме него вместо нов marker
-            val mergeTarget = findMergeTargetReport(type, latitude, longitude)
+            // Merge logic: ако вече има същия тип в зададения радиус, потвърждаваме него вместо нов marker
+            val mergeTarget = findMergeTargetReport(
+                type = type,
+                latitude = latitude,
+                longitude = longitude,
+                mergeDistanceMeters = resolvedMergeDistanceMeters
+            )
             if (mergeTarget != null) {
+                Log.d(
+                    TAG,
+                    "createReport found merge target=${mergeTarget.id} within ${resolvedMergeDistanceMeters.toInt()}m for type=${type.name}"
+                )
                 if (mergeTarget.hasUserVoted(userId)) {
                     Log.d(TAG, "Merge target already voted by user: ${mergeTarget.id}")
                     return CreateReportOutcome(
@@ -154,10 +170,11 @@ class FirebaseReportsRepository {
     private suspend fun findMergeTargetReport(
         type: ReportType,
         latitude: Double,
-        longitude: Double
+        longitude: Double,
+        mergeDistanceMeters: Double
     ): PoliceReport? {
         return try {
-            val mergeRadiusKm = MERGE_DISTANCE_METERS / 1000.0
+            val mergeRadiusKm = mergeDistanceMeters / 1000.0
             val bounds = calculateBoundingBox(latitude, longitude, mergeRadiusKm)
 
             val snapshot = reportsCollection
@@ -179,7 +196,7 @@ class FirebaseReportsRepository {
                         report.location.longitude
                     ) * 1000.0
 
-                    if (distanceMeters <= MERGE_DISTANCE_METERS) {
+                    if (distanceMeters <= mergeDistanceMeters) {
                         report to distanceMeters
                     } else {
                         null
@@ -280,38 +297,6 @@ class FirebaseReportsRepository {
     }
     
     /**
-     * Изтрива доклад (само ако потребителят го е създал или има много downvotes)
-     */
-    suspend fun deleteReport(reportId: String): Boolean {
-        return try {
-            val userId = ensureAuthenticated()
-            val reportRef = reportsCollection.document(reportId)
-            val snapshot = reportRef.get().await()
-            val report = PoliceReport.fromMap(reportId, snapshot.data ?: emptyMap())
-            
-            if (report == null) {
-                return false
-            }
-            
-            // Може да изтриеш само собствен доклад или ако има много downvotes
-            val canDelete = report.reporterUserId == userId || report.shouldBeRemoved()
-            
-            if (canDelete) {
-                reportRef.delete().await()
-                Log.d(TAG, "Report deleted: $reportId")
-                true
-            } else {
-                Log.w(TAG, "User not authorized to delete report: $reportId")
-                false
-            }
-            
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to delete report", e)
-            false
-        }
-    }
-    
-    /**
      * Слуша за доклади в радиус около дадена позиция (realtime)
      * @param centerLat Централна latitude
      * @param centerLon Централна longitude
@@ -370,17 +355,23 @@ class FirebaseReportsRepository {
      */
     private suspend fun canUserCreateReport(userId: String): Boolean {
         return try {
-            val oneHourAgo = Calendar.getInstance().apply {
+            val oneHourAgoMillis = Calendar.getInstance().apply {
                 add(Calendar.HOUR_OF_DAY, -1)
-            }.time
+            }.timeInMillis
             
-            val recentReports = reportsCollection
+            val userReports = reportsCollection
                 .whereEqualTo("reporterUserId", userId)
-                .whereGreaterThan("timestamp", Timestamp(oneHourAgo))
                 .get()
                 .await()
             
-            val count = recentReports.size()
+            val count = userReports.documents.count { document ->
+                val reportData = document.data ?: return@count false
+                val report = PoliceReport.fromMap(document.id, reportData) ?: return@count false
+                val createdAtMillis = report.createdAt?.toDate()?.time
+                    ?: report.timestamp?.toDate()?.time
+                    ?: return@count false
+                createdAtMillis > oneHourAgoMillis
+            }
             Log.d(TAG, "User $userId has $count reports in last hour")
             
             count < MAX_REPORTS_PER_HOUR

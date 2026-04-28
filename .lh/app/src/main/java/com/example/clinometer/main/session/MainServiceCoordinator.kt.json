@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1771581388334,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1775746817865,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -4,9 +4,8 @@\n import android.content.Intent\r\n import android.content.ServiceConnection\r\n import android.os.SystemClock\r\n import android.widget.Chronometer\r\n-import androidx.core.content.ContextCompat\r\n import com.example.clinometer.ForegroundService\r\n import com.example.clinometer.R\r\n import com.example.clinometer.main.MainContainerActivity\r\n \r\n@@ -18,9 +17,9 @@\n     }\r\n \r\n     fun startForegroundAndBind(context: Context, serviceConnection: ServiceConnection) {\r\n         val serviceIntent = createNormalModeServiceIntent(context)\r\n-        ContextCompat.startForegroundService(context, serviceIntent)\r\n+        context.startService(serviceIntent)\r\n         context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)\r\n     }\r\n \r\n     fun applyChronometerStart(\r\n"
                 }
             ],
             "date": 1771581388334,

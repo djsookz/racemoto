@@ -33,6 +33,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.clinometer.*
+import com.example.clinometer.data.ProfileSessionSummaryStore
 import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.data.VehicleData
 import com.example.clinometer.main.MainContainerActivity
@@ -164,10 +165,10 @@ class GarageFragment : Fragment() {
         val profilesSnapshot = profiles.toList()
         lifecycleScope.launch {
             val counts = withContext(Dispatchers.IO) {
-                val allRaces = RouteStorage.loadRaces(appContext)
+                ProfileSessionSummaryStore.ensureInitialized(appContext)
                 val map = mutableMapOf<Long, Int>()
                 profilesSnapshot.forEach { profile ->
-                    map[profile.id] = allRaces.count { it.profileId == profile.id }
+                    map[profile.id] = ProfileSessionSummaryStore.loadSummary(appContext, profile.id).totalSessions
                 }
                 map
             }
@@ -325,6 +326,7 @@ class GarageFragment : Fragment() {
                 
                 profiles.remove(profile)
                 ProfileStorage.saveProfiles(requireContext(), profiles)
+                ProfileSessionSummaryStore.clearProfile(requireContext(), profile.id)
                 adapter.notifyDataSetChanged()
                 updateAddButtonState()
                 updateProfileCount()
@@ -380,66 +382,6 @@ class GarageFragment : Fragment() {
             putExtra(GarageProfilePageActivity.EXTRA_PROFILE_ID, profile.id)
         }
         startActivity(intent)
-    }
-    
-    private fun showQuickProfileSelection() {
-        if (profiles.size <= 1) {
-            Toast.makeText(requireContext(), "ℹ️ Няма други профили за избор", Toast.LENGTH_SHORT).show()
-            return
-        }
-        
-        val selectedId = ProfileStorage.getSelectedProfileId(requireContext())
-        val otherProfiles = profiles.filter { it.id != selectedId }
-        
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_change_vehicle, null)
-        val rvProfileOptions = dialogView.findViewById<RecyclerView>(R.id.rvProfileOptions)
-        val btnCancel = dialogView.findViewById<android.widget.Button>(R.id.btnCancel)
-        
-        val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
-            .setView(dialogView)
-            .create()
-
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        
-        rvProfileOptions.layoutManager = LinearLayoutManager(requireContext())
-        val profileOptionsAdapter = object : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-            override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-                val view = LayoutInflater.from(parent.context)
-                    .inflate(R.layout.item_profile_option, parent, false)
-                return object : RecyclerView.ViewHolder(view) {}
-            }
-            
-            override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-                val profile = otherProfiles[position]
-                val ivVehicleIcon = holder.itemView.findViewById<ImageView>(R.id.ivVehicleIcon)
-                val tvProfileName = holder.itemView.findViewById<TextView>(R.id.tvProfileName)
-                
-                val iconRes = when (profile.vehicleType) {
-                    Profile.VehicleType.CAR -> R.drawable.ic_car
-                    Profile.VehicleType.MOTORCYCLE -> R.drawable.ic_motorcycle
-                }
-                ivVehicleIcon.setImageResource(iconRes)
-                tvProfileName.text = profile.name
-                
-                holder.itemView.setOnClickListener {
-                    dialog.dismiss()
-                    val newProfile = otherProfiles[position]
-                    ProfileStorage.saveSelectedProfile(requireContext(), newProfile.id)
-                    updateActiveProfileCard()
-                    adapter.notifyDataSetChanged()
-                    Toast.makeText(requireContext(), "✅ Сега караш: ${newProfile.name}", Toast.LENGTH_SHORT).show()
-                }
-            }
-            
-            override fun getItemCount(): Int = otherProfiles.size
-        }
-        rvProfileOptions.adapter = profileOptionsAdapter
-        
-        btnCancel.setOnClickListener {
-            dialog.dismiss()
-        }
-        
-        dialog.show()
     }
     
     private fun showCreateProfileDialog() {
@@ -1008,57 +950,6 @@ class GarageFragment : Fragment() {
         val key = "profile_${profile.id}_display_name"
         return prefs.getString(key, null).orEmpty().ifBlank { profile.name }
     }
-
-    private fun getBestTimesFromAllRaces(profileId: Long): BestTimes {
-        val allRaces = RouteStorage.loadRaces(requireContext())
-        val profileRaces = allRaces.filter { it.profileId == profileId }
-
-        val allDragSessions = DragStorage.loadDragSessions(requireContext())
-        val profileDragSessions = allDragSessions.filter { it.profileId == profileId }
-
-        var best0to100 = Long.MAX_VALUE
-        var best0to200 = Long.MAX_VALUE
-        var best100to200 = Long.MAX_VALUE
-        var maxSpeed = 0f
-        var best0to402 = Long.MAX_VALUE
-
-        profileRaces.forEach { race ->
-            if (race.time0to100 > 0 && race.time0to100 < best0to100) best0to100 = race.time0to100
-            if (race.time0to200 > 0 && race.time0to200 < best0to200) best0to200 = race.time0to200
-            if (race.time100to200 > 0 && race.time100to200 < best100to200) best100to200 = race.time100to200
-            if (race.maxSpeed > maxSpeed) maxSpeed = race.maxSpeed
-        }
-
-        profileDragSessions.forEach { session ->
-            if (session.best0to100 > 0 && session.best0to100 < best0to100) best0to100 = session.best0to100
-            if (session.best0to200 > 0 && session.best0to200 < best0to200) best0to200 = session.best0to200
-            if (session.best100to200 > 0 && session.best100to200 < best100to200) best100to200 = session.best100to200
-            if (session.best0to402 > 0 && session.best0to402 < best0to402) best0to402 = session.best0to402
-
-            session.attempts.forEach { attempt ->
-                if (attempt.maxSpeed > maxSpeed) maxSpeed = attempt.maxSpeed
-            }
-        }
-
-        return BestTimes(
-            best0to100 = if (best0to100 == Long.MAX_VALUE) 0L else best0to100,
-            best0to200 = if (best0to200 == Long.MAX_VALUE) 0L else best0to200,
-            best100to200 = if (best100to200 == Long.MAX_VALUE) 0L else best100to200,
-            maxSpeed = maxSpeed,
-            best0to402 = if (best0to402 == Long.MAX_VALUE) 0L else best0to402
-        )
-    }
-
-    private fun formatBestTime(nanos: Long): String =
-        if (nanos > 0) String.format("%.3f", nanos / 1_000_000_000.0) else "--"
-
-    private data class BestTimes(
-        val best0to100: Long,
-        val best0to200: Long,
-        val best100to200: Long,
-        val best0to402: Long,
-        val maxSpeed: Float,
-    )
     
     override fun onResume() {
         super.onResume()

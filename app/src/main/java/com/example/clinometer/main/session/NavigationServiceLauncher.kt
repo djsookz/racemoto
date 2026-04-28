@@ -3,7 +3,6 @@ package com.example.clinometer.main.session
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import androidx.core.content.ContextCompat
 import com.example.clinometer.ForegroundService
 
 object NavigationServiceLauncher {
@@ -38,7 +37,7 @@ object NavigationServiceLauncher {
         val serviceIntent = Intent(context, ForegroundService::class.java).apply {
             putExtra("PRE_WARMING_MODE", true)
         }
-        ContextCompat.startForegroundService(context, serviceIntent)
+        context.startService(serviceIntent)
 
         val activateIntent = Intent(context, ForegroundService::class.java).apply {
             putExtra("ACTIVATE_NORMAL_MODE", true)

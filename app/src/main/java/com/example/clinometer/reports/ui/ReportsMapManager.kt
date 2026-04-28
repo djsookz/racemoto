@@ -1,6 +1,5 @@
 package com.example.clinometer.reports.ui
 
-import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -8,15 +7,8 @@ import android.graphics.Paint
 import android.util.Log
 import com.example.clinometer.reports.data.PoliceReport
 import com.example.clinometer.reports.data.ReportType
-import com.mapbox.geojson.Feature
-import com.mapbox.geojson.FeatureCollection
 import com.mapbox.geojson.Point
 import com.mapbox.maps.MapView
-import com.mapbox.maps.Style
-import com.mapbox.maps.extension.style.layers.addLayer
-import com.mapbox.maps.extension.style.layers.generated.symbolLayer
-import com.mapbox.maps.extension.style.sources.addSource
-import com.mapbox.maps.extension.style.sources.generated.geoJsonSource
 import com.mapbox.maps.plugin.annotation.AnnotationPlugin
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotation
@@ -29,8 +21,7 @@ import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
  * Добавя/маха markers, управлява стилове и click events
  */
 class ReportsMapManager(
-    private val mapView: MapView,
-    private val context: Context
+    private val mapView: MapView
 ) {
     private var annotationManager: PointAnnotationManager? = null
     private val reportAnnotations = mutableMapOf<String, PointAnnotation>()
@@ -41,8 +32,6 @@ class ReportsMapManager(
     
     companion object {
         private const val TAG = "ReportsMapManager"
-        private const val SOURCE_ID = "reports-source"
-        private const val LAYER_ID = "reports-layer"
     }
     
     /**
@@ -243,14 +232,5 @@ class ReportsMapManager(
         annotationManager = null
         onReportClickListener = null
         Log.d(TAG, "ReportsMapManager cleaned up")
-    }
-    
-    /**
-     * Връща report на дадена позиция (ако има marker там)
-     */
-    fun getReportAtPosition(longitude: Double, latitude: Double, toleranceMeters: Double = 50.0): String? {
-        // TODO: Имплементация на spatial query за click detection
-        // Засега връщаме null
-        return null
     }
 }

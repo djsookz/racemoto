@@ -1,80 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">DragMe</string>
-    <string name="welcome">Добре Дошли!</string>
-    <string name="create_profile">Създайте първия си профил на превозното средство, за да продължите.</string>
-    <string name="vehicle_brand">Марка на превозното средство</string>
-    <string name="vehicle_type">Тип превозно средство</string>
+    <string name="compare_attempts">Сравни опити</string>
+    <string name="select_session_to_compare">Избери опит за сравнение</string>
+    <string name="comparing_attempts">Сравнение на опити</string>
+    <string name="current_session">Текущ опит</string>
+    <string name="compare_session">Сравняван опит</string>
+    <string name="drag_compare_session_meta_short">%1$s • %2$s</string>
+    <string name="drag_compare_best_metric">НАЙ-ДОБРО %1$s</string>
+    <string name="drag_compare_attempt_title">Опит #%1$d</string>
+    <string name="drag_compare_attempt_recorded_at">Записан %1$s</string>
+    <string name="drag_compare_attempt_no_data">--</string>
+    <string name="drag_compare_attempts_header">Опити</string>
+    <string name="drag_compare_no_profiles">Първо създай профил в Гараж, за да сравняваш drag опити.</string>
+    <string name="drag_compare_no_sessions_for_profile">Все още няма сесии за сравнение за %1$s.</string>
+    <string name="drag_compare_profile_fallback">Профил %1$d</string>
+    <string name="drag_compare_session_title_fallback">Сесия #%1$d</string>
+    <string name="drag_compare_stat_runs">Опити</string>
+    <string name="drag_compare_stat_trap">Финал</string>
+    <string name="drag_compare_stat_peak_g">Пик G</string>
+    <string name="drag_compare_stat_duration">Време</string>
     <string name="create_profile_button">Създай профил</string>
-    <string name="vehicle_type_car">Кола</string>
-    <string name="vehicle_type_motorcycle">Мотоциклет</string>
-    <string name="error_empty_name">Моля, въведете марка на превозното средство.</string>
     <string name="reset_button">РЕСТАРТ</string>
     <string name="stop_button">КРАЙ</string>
-    <string name="start_session">Започни своята сесия сега.</string>
     <string name="start_button">СТАРТ</string>
     <string name="zero_button">НУЛИРАЙ</string>
-    <string name="profile_button">ПРОФИЛИ</string>
-    <string name="session_button">СЕСИИ</string>
     <string name="dialog_name_profile">Име на профил</string>
     <string name="dialog_input_name_profile">Име</string>
     <string name="dialog_vehicle_type">"Тип "</string>
-    <string name="dialog_create_profile">Създай нов профил</string>
-    <string name="dialog_save_button">Запази</string>
     <string name="dialog_cancel_button">Откажи</string>
     <string name="profile_edit_text">Редактирай профил</string>
     <string name="profile_edit_button">Редактирай</string>
     <string name="profile_save_button">Запази</string>
     <string name="profile_delete_button">Изтрий</string>
-    <string name="profile_header">Профили</string>
-    <string name="profile_add_button">Добави нов профил</string>
     <string name="session_header">Сесии</string>
     <string name="session_today">Днес</string>
     <string name="session_yesterday">Вчера</string>
-    <string name="session_year">Година</string>
-    <string name="session_years">Години</string>
-    <string name="session_month">Месец</string>
-    <string name="session_months">Месеца</string>
-    <string name="session_days">Дни</string>
-    <string name="session_name">Сесия %1$d</string>
     <string name="session_title">Сесия %1$d</string>
-    <string name="session_options_rename">Преименувай</string>
     <string name="session_options_rename_popup_header">Преименуване на сесията</string>
     <string name="session_options_rename_popup_ok">ОК</string>
     <string name="session_new_button">Нова Сесия</string>
     <string name="map_information">Информация</string>
-    <string name="map_max_left">Макс ляв ъгъл: 0°</string>
-    <string name="map_max_right">Макс десен ъгъл: 0°</string>
-    <string name="map_max_speed">Макс скорост: 0 km/h</string>
     <string name="max_speed">Макс. скорост:</string>
     <string name="map_duration">Време: 00:00:00</string>
     <string name="map_distance">Разстояние: -</string>
     <string name="error_missing_session_id">Грешка: Липсва ID на сесията</string>
     <string name="error_session_not_found">Сесията не е намерена</string>
     <string name="error_no_route_data">Няма данни за маршрут</string>
-    <string name="location_title">Μестоположение</string>
     <string name="new_session_button">НОВА СЕСИЯ</string>
-    <string name="distance_format">Разстояние:</string>
     <string name="created_date_format">Създаден: %s</string>
-    <string name="time_format">Време: %s</string>
-    <string name="acceleration_format">%s: %.3fs</string>
-    <string name="speed_label">"Скорост: "</string>
-    <string name="angle_label">Ъгъл:</string>
-    <string name="time_label">"Време: "</string>
-    <string name="speed_unit">км/ч</string>
-    <string name="km_unit">Км</string>
-    <string name="angle_unit">°</string>
     <string name="chart_speed_legend">Скорост (км/ч)</string>
     <string name="chart_angle_legend">Ъгъл (°)</string>
     <string name="tab_speed">Скорост</string>
     <string name="tab_angle">Ъгъл</string>
-    <string name="accel_0_100">0-100 км/ч</string>
-    <string name="accel_0_200">0-200 км/ч</string>
-    <string name="accel_100_200">100-200 км/ч</string>
-    <string name="accel_not_available">--</string>
     <string name="max_left_angle">Макс. ляв ъгъл:</string>
     <string name="max_right_angle">Макс. десен ъгъл:</string>
-    <string name="empty_races_message">Няма данни...</string>
     <string name="dragme">DragMe</string>
     <string name="exit_race_header">Изход от сесия?</string>
     <string name="exit_race">Сигурни ли сте, че искате да излезете? Данните ще бъдат изгубени!</string>
@@ -83,7 +63,6 @@
     <string name="always_on_display">Always On Display</string>
     <string name="settings_title">Настройки</string>
     <string name="mid_range">Средно</string>
-    <string name="profile_details_top_speed">Рекорд</string>
     <string name="sprint">Спринт</string>
     <string name="full_sprint">Фул Спринт</string>
     <string name="drag_best_times_header">Най-добри Времена</string>
@@ -154,6 +133,7 @@
     <string name="calibration_btn_recalibrate">Повтори</string>
     <string name="calibration_btn_clear">Изчисти</string>
     <string name="calibration_btn_clear_all">Изчисти всички калибрации</string>
+    <string name="calibration_btn_later">Калибрирай по-късно</string>
     <string name="calibration_btn_continue">ПРОДЪЛЖИ</string>
     <string name="calibration_btn_cancel">ОТКАЗ</string>
     <string name="calibration_instructions_title">📋 Инструкции</string>
@@ -250,6 +230,7 @@
     <string name="drag_mode_0to200">0-200</string>
     <string name="drag_mode_100to200">100-200</string>
     <string name="drag_mode_quarter">0-402m</string>
+    <string name="drag_mode_unknown">Неизвестно</string>
     <string name="drag_mode_note">Забележка: За 100-200, стартирайте на 90-95 км/ч</string>
     <string name="drag_mode_cancel">Отказ</string>
     
@@ -270,11 +251,9 @@
     <string name="track_session_saved">Сесия създадена: %d обиколки, най-добра: %s</string>
     <string name="track_save_error">Грешка при запазване: %s</string>
     <string name="track_session_deleted">Сесията е изтрита успешно</string>
-    <string name="track_custom_soon">Функцията за персонализирани писти ще бъде добавена скоро...</string>
     
     <!-- Track Session Detail Labels -->
     <string name="track_session_title">Излизане #%d</string>
-    <string name="track_session_info">Информация за сесията</string>
     <string name="track_label_date">Дата:</string>
     <string name="track_label_time">Час:</string>
     <string name="track_label_duration">Времетраене:</string>
@@ -304,12 +283,7 @@
     <string name="track_laps_section">Обиколки</string>
     <string name="track_no_sessions">Няма записани трак сесии</string>
     <string name="track_no_sessions_today">Няма записани сесии за днес</string>
-    <string name="track_selection_title">Избор на писта</string>
-    <string name="track_selection_serres_desc">Професионална писта за мотоциклети и автомобили с 4 timing точки за прецизни измервания.</string>
     <string name="track_create_custom">Създай собствена писта</string>
-    <string name="track_create_custom_desc">Създай собствена писта като маркираш точки на картата за timing измервания.</string>
-    <string name="track_name_serres">Писта Серес</string>
-    <string name="track_name_sofia">София Ринг</string>
     <string name="track_name_custom">Персонализирана писта</string>
     <string name="track_name_unknown">Непозната писта</string>
     
@@ -351,6 +325,9 @@
     <string name="settings_general_header">═══ ОБЩИ ═══</string>
     <string name="settings_drag_header">═══ DRAG ═══</string>
     <string name="settings_drag_calibration">🏁 Калибриране</string>
+    <string name="settings_drag_calibration_required">⚠ Този профил още иска калибриране</string>
+    <string name="settings_drag_calibration_not_calibrated">Не е калибриран</string>
+    <string name="settings_drag_calibration_done">✅ Има поне една калибрация</string>
     
     <!-- Garage -->
     <string name="garage_title">Гараж</string>
@@ -380,15 +357,9 @@
     <string name="garage_profile_stat_max_accel_g_force">Макс G-сила при ускорение</string>
     
     <!-- Profile Details -->
-    <string name="profile_detail_session_text">Сесии</string>
-    <string name="profile_detail_distance_format">0,0 км</string>
     <string name="profile_detail_distance_text">Общо Разстояние</string>
     <string name="profile_detail_duration_format">%1$dч %2$dм</string>
     <string name="profile_detail_duration_text">Общо Време</string>
-    <string name="profile_details_stats">Статистика</string>
-    <string name="seconds">секунди</string>
-    <string name="quarter_mile">Четвърт миля</string>
-    <string name="kmh_unit">км/ч</string>
     <string name="drag_0to100_title">0-100 км/ч</string>
     <string name="drag_0to200_title">0-200 км/ч</string>
     <string name="drag_100to200_title">100-200 км/ч</string>
@@ -407,8 +378,6 @@
     <string name="settings_distance_km">километри</string>
     <string name="settings_temperature_unit">Температура</string>
     <string name="settings_temperature_celsius">Целзий</string>
-    <string name="settings_pressure_unit">Налягане</string>
-    <string name="settings_pressure_hpa">хектопаскал</string>
     <string name="settings_sound_100">Звук при 100 km/h</string>
     <string name="settings_sound_200">Звук при 200 km/h</string>
     <string name="settings_sound_402">Звук при 402m</string>
@@ -425,9 +394,6 @@
     <string name="unit_meters">метри</string>
     <string name="unit_celsius">Целзий</string>
     <string name="unit_fahrenheit">Фаренхайт</string>
-    <string name="unit_hpa">хектопаскал</string>
-    <string name="unit_inhg">инчове живак</string>
-    <string name="unit_mmhg">мм живак</string>
     <string name="track_select_lap_to_compare">Избери обиколка за сравнение</string>
     <string name="track_compare_invalid_current_lap">Текущата обиколка е невалидна за сравнение</string>
     <string name="no_track_laps_to_compare">Няма други обиколки на тази писта за сравнение</string>

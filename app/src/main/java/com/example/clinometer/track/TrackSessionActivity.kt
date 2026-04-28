@@ -13,15 +13,23 @@ import android.hardware.SensorManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
+import android.media.MediaCodec
+import android.media.MediaExtractor
+import android.media.MediaMetadataRetriever
+import android.media.MediaMuxer
+import android.net.Uri
 import android.os.Bundle
 import android.os.Build
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
+import android.util.TypedValue
 import android.view.Surface
 import android.view.View
+import android.view.ViewGroup
 import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -36,6 +44,7 @@ import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
 import com.google.android.material.button.MaterialButton
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -46,14 +55,28 @@ import kotlin.math.asin
 import kotlin.math.roundToInt
 import kotlin.math.tan
 import android.content.res.Configuration
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.FileOutputOptions
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
+import androidx.camera.view.PreviewView
 import com.example.clinometer.settings.SoundManager
 import com.example.clinometer.settings.UnitsManager
 import android.widget.LinearLayout
+import com.example.clinometer.data.ProfileSessionSummaryStore
 import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.main.MainContainerActivity
 import com.example.clinometer.track.catalog.TrackMode
 import com.example.clinometer.track.session.TrackGateCrossingEngine
 import com.example.clinometer.track.session.TrackLapTimingEngine
+import java.io.File
+import java.nio.ByteBuffer
 import java.util.Locale
 
 // Data class for storing lap data
@@ -66,7 +89,15 @@ data class LapData(
     val leanAngleData: MutableList<Float> = mutableListOf(),
     val gyroscopeData: MutableList<Float> = mutableListOf(),
     val routePoints: MutableList<RoutePoint> = mutableListOf(),
+    val longitudinalGData: MutableList<Float> = mutableListOf(),
+    val lateralGData: MutableList<Float> = mutableListOf(),
     val timestamps: MutableList<Long> = mutableListOf(),
+    val displayLeanAngleData: MutableList<Float> = mutableListOf(),
+    val maxBrakingData: MutableList<Float> = mutableListOf(),
+    val maxAccelData: MutableList<Float> = mutableListOf(),
+    val maxCorneringLeftData: MutableList<Float> = mutableListOf(),
+    val maxCorneringRightData: MutableList<Float> = mutableListOf(),
+    val maxResultGData: MutableList<Float> = mutableListOf(),
     val sensorData: MutableList<Any> = mutableListOf() // Placeholder - SDK handles sensor data
 )
 
@@ -115,9 +146,6 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private lateinit var carGForceLayout: View
     private lateinit var gGaugeTrackCar: GGaugeView
     private lateinit var carGScaleControls: View
-    private lateinit var btnCarScaleNormal: MaterialButton
-    private lateinit var btnCarScaleSport: MaterialButton
-    private lateinit var btnCarScaleRace: MaterialButton
     private lateinit var tvCarLateralLeftValue: TextView
     private lateinit var tvCarLateralRightValue: TextView
     private lateinit var tvCarBrakingValue: TextView
@@ -139,12 +167,20 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private lateinit var cardCenterTelemetry: View
     private lateinit var flCenterTelemetry: View
     private lateinit var speedGauge: SpeedGaugeView
+    private lateinit var cardCameraPreview: View
+    private lateinit var cameraPreviewView: PreviewView
+    private lateinit var llCameraPreviewHeader: View
+    private lateinit var llCameraPreviewPlaceholder: View
+    private lateinit var tvCameraPreviewPlaceholder: TextView
+    private lateinit var tvCameraPreviewStatus: TextView
+    private lateinit var btnCameraModeInline: MaterialButton
     private lateinit var tvLapTime: TextView
     private lateinit var llLapsContainer: LinearLayout
     private lateinit var tvNoLaps: TextView
     private lateinit var telemetryGapSpacer: View
     private lateinit var btnStartStop: MaterialButton
     private lateinit var btnLap: MaterialButton
+    private lateinit var btnCameraMode: MaterialButton
     private lateinit var btnTopLeanZero: MaterialButton
     private var tvTrackWeatherTemp: TextView? = null
     private var tvTrackWeatherHumidity: TextView? = null
@@ -167,6 +203,26 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private lateinit var locationManager: LocationManager
     private val gyroscopeData = mutableListOf<Float>()
     private val speedData = mutableListOf<Float>()
+    private var sessionCameraMode = SessionCameraMode.OFF
+    private var pendingSessionCameraMode: SessionCameraMode? = null
+    private var cameraProvider: ProcessCameraProvider? = null
+    private var cameraVideoCapture: VideoCapture<Recorder>? = null
+    private var activeVideoRecording: Recording? = null
+    private var isVideoRecordingActive = false
+    private var sessionVideoRawFile: File? = null
+    private var sessionVideoFinalFile: File? = null
+    private var videoRecordingStartElapsedRealtimeMs: Long = 0L
+    private var videoRecordingStartWallTimeMs: Long = 0L
+    private var videoSyncMarkerOffsetMs: Long? = null
+    private var savedSessionVideoUri: String? = null
+    private var savedSessionVideoPath: String? = null
+    private var savedSessionVideoCameraLabel: String? = null
+    private var savedSessionVideoStartOffsetMs: Long? = null
+    private var savedSessionVideoStartSessionElapsedMs: Long? = null
+    private var savedSessionVideoOverlayExported = false
+    private var pendingCreateOutingAfterVideoFinalize = false
+    private var pendingDiscardVideoAfterFinalize = false
+    private var sessionTelemetryStartWallTimeMs: Long = 0L
     private val handler = Handler(Looper.getMainLooper())
     private var trackWakeLock: PowerManager.WakeLock? = null
     private val updateRunnable = object : Runnable {
@@ -251,6 +307,8 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private var lastStartFinishCrossAtMs: Long = 0L
     private val startFinishCrossDebounceMs: Long = 1500L
     private val pointToPointStartHintMeters: Double = 1500.0
+    private val synthesizedGateWidthMeters = 12.0
+    private val minimumUsableGateLengthMeters = 2.0f
     private var startForwardFilteredMs2: Float = 0f
     private var startLateralFilteredMs2: Float = 0f
     private var startDirectionGoodSamples: Int = 0
@@ -261,6 +319,26 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private var trackLengthMeters: Float = 0f
     private var currentDistanceToLapLineMeters: Float = Float.NaN
     private var currentDistanceToStartLineMeters: Float = Float.NaN
+
+    private enum class TriggerGateRole {
+        CIRCUIT_START_FINISH,
+        START,
+        FINISH
+    }
+
+    private enum class SessionCameraMode(
+        val lensFacing: Int?,
+        val labelResId: Int
+    ) {
+        OFF(null, R.string.track_camera_menu_off),
+        REAR(CameraSelector.LENS_FACING_BACK, R.string.track_camera_label_rear),
+        FRONT(CameraSelector.LENS_FACING_FRONT, R.string.track_camera_label_front)
+    }
+
+    private data class ResolvedGateLine(
+        val start: GeoPoint,
+        val end: GeoPoint
+    )
     private var currentDistanceToFinishLineMeters: Float = Float.NaN
     private val progressRoutePoints = mutableListOf<GeoPoint>()
     private val progressRouteCumulativeMeters = mutableListOf<Float>()
@@ -274,10 +352,11 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private val lapProgressMax = 1000
     companion object {
         private const val LOCATION_PERMISSION_REQUEST = 1001
+        private const val CAMERA_PERMISSION_REQUEST = 1002
         private const val MIN_DISTANCE_FOR_UPDATE = 1f
         private const val MIN_TIME_FOR_UPDATE = 100L
         private const val TRACK_UI_PREFS = "track_ui_prefs"
-        private const val CAR_G_SCALE_PREF_KEY = "car_g_scale_mode"
+        private const val SESSION_VIDEO_PREROLL_MS = 3_000L
     }
     private val gravity = FloatArray(3) { 0f }
     private val gravitySensorValues = FloatArray(3) { 0f }
@@ -334,7 +413,6 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private var hasGpsGForce = false
     private var noGyroGpsLongStatsSmooth = 0f
     private var noGyroLeanLatGSmooth = 0f
-    private var noGyroMagGSmooth = 0f
     // Stationary bias removal and deadband
     private var forwardBiasG = 0f
     private var lateralBiasG = 0f
@@ -427,20 +505,9 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private var noGyroBiasCompensationRangeRuntime = noGyroBiasCompensationRange
     private var noGyroLowGBoostMaxRuntime = noGyroLowGBoostMax
     private var noGyroLowGBoostRangeGRuntime = noGyroLowGBoostRangeG
-
-    private enum class CarGScaleMode(val prefValue: String, val maxG: Float) {
-        NORMAL("normal", 1.2f),
-        SPORT("sport", 2.0f),
-        RACE("race", 3.0f);
-
-        companion object {
-            fun fromPref(value: String?): CarGScaleMode {
-                return entries.firstOrNull { it.prefValue == value } ?: NORMAL
-            }
-        }
-    }
-
-    private var carGScaleMode: CarGScaleMode = CarGScaleMode.NORMAL
+    private val carGaugeBaseVisualMaxG = 1.5f
+    private val carGaugeVisualStepG = 0.3f
+    private var carGaugeDynamicMaxG = carGaugeBaseVisualMaxG
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -494,7 +561,6 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 "Mismatched vehicle mode (track_intent=$trackIntentIsMotorcycle, profile=$profileIsMotorcycle); using profile mode"
             )
         }
-        carGScaleMode = loadCarGScaleMode()
         reloadLeanCalibrationForProfile(currentProfileId, forceResetRuntime = true)
         reloadMotionCalibrationForProfile(currentProfileId)
         val isResumeSession = intent.getBooleanExtra("resume_session", false)
@@ -559,9 +625,6 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         carGForceLayout = findViewById(R.id.carGForceLayout)
         gGaugeTrackCar = findViewById(R.id.gGaugeTrackCar)
         carGScaleControls = findViewById(R.id.carGScaleControls)
-        btnCarScaleNormal = findViewById(R.id.btnCarScaleNormal)
-        btnCarScaleSport = findViewById(R.id.btnCarScaleSport)
-        btnCarScaleRace = findViewById(R.id.btnCarScaleRace)
         tvCarLateralLeftValue = findViewById(R.id.tvCarLateralLeftValue)
         tvCarLateralRightValue = findViewById(R.id.tvCarLateralRightValue)
         tvCarBrakingValue = findViewById(R.id.tvCarBrakingValue)
@@ -583,21 +646,30 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         cardCenterTelemetry = findViewById(R.id.cardCenterTelemetry)
         flCenterTelemetry = findViewById(R.id.flCenterTelemetry)
         speedGauge = findViewById(R.id.speedGauge)
+        cardCameraPreview = findViewById(R.id.cardCameraPreview)
+        cameraPreviewView = findViewById(R.id.cameraPreviewView)
+        llCameraPreviewHeader = findViewById(R.id.llCameraPreviewHeader)
+        llCameraPreviewPlaceholder = findViewById(R.id.llCameraPreviewPlaceholder)
+        tvCameraPreviewPlaceholder = findViewById(R.id.tvCameraPreviewPlaceholder)
+        tvCameraPreviewStatus = findViewById(R.id.tvCameraPreviewStatus)
+        btnCameraModeInline = findViewById(R.id.btnCameraModeInline)
         tvLapTime = findViewById(R.id.tvLapTime)
         llLapsContainer = findViewById(R.id.llLapsContainer)
         tvNoLaps = findViewById(R.id.tvNoLaps)
         telemetryGapSpacer = findViewById(R.id.telemetryGapSpacer)
         btnStartStop = findViewById(R.id.btnStartStop)
         btnLap = findViewById(R.id.btnLap)
+        btnCameraMode = findViewById(R.id.btnCameraMode)
         btnTopLeanZero = findViewById(R.id.btnTopLeanZero)
         tvTrackWeatherTemp = findViewById(R.id.tvTrackWeatherTemp)
         tvTrackWeatherHumidity = findViewById(R.id.tvTrackWeatherHumidity)
+        enforceDpTextSizes(findViewById(android.R.id.content))
         topTelemetryRow.visibility = View.VISIBLE
         cardPredictiveLap.visibility = View.VISIBLE
         cardTopLeanTelemetry.visibility = if (isMotorcycle) View.VISIBLE else View.GONE
         btnTopLeanZero.visibility = if (isMotorcycle) View.VISIBLE else View.GONE
+        resetCarGaugeDynamicScale()
         configureTelemetryProfileUi()
-        setupCarGScaleControls()
         // Keep one authoritative G-force surface from XML for all profiles.
         motoGForceContainer.visibility = View.VISIBLE
         speedGauge.visibility = View.GONE
@@ -610,6 +682,34 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         updateMotoGForceCard()
         updateLapSummaryCards()
         updateTopRightWeatherHeader()
+        updateCameraButtonUi()
+        updateCameraPreviewCardVisibility()
+    }
+
+    private fun enforceDpTextSizes(root: View?) {
+        if (root == null) return
+        val pixelsPerSp = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_SP,
+            1f,
+            resources.displayMetrics
+        )
+        if (pixelsPerSp <= 0f) return
+
+        when (root) {
+            is TextView -> {
+                val sizeInSp = root.textSize / pixelsPerSp
+                root.setTextSize(TypedValue.COMPLEX_UNIT_DIP, sizeInSp)
+            }
+            is ViewGroup -> {
+                for (index in 0 until root.childCount) {
+                    enforceDpTextSizes(root.getChildAt(index))
+                }
+            }
+        }
+    }
+
+    private fun dpToPx(valueDp: Float): Int {
+        return (valueDp * resources.displayMetrics.density).roundToInt()
     }
 
     private fun updateTopRightWeatherHeader() {
@@ -634,18 +734,35 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     }
 
     private fun configureTelemetryProfileUi() {
+        val cardSpacingPx = dpToPx(8f)
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val speedParams = cardTopSpeedTelemetry.layoutParams as LinearLayout.LayoutParams
-        val speedMarginEndMotoPx = (8f * resources.displayMetrics.density).roundToInt()
-        if (isMotorcycle) {
+        if (!isLandscape && isMotorcycle) {
             speedParams.width = 0
-            speedParams.weight = 1.30f
-            speedParams.marginEnd = speedMarginEndMotoPx
-        } else {
+            speedParams.weight = 1.05f
+            speedParams.marginEnd = cardSpacingPx
+        } else if (!isLandscape) {
             speedParams.width = 0
-            speedParams.weight = 1f
-            speedParams.marginEnd = 0
+            speedParams.weight = 1.10f
+            speedParams.marginEnd = cardSpacingPx
         }
         cardTopSpeedTelemetry.layoutParams = speedParams
+
+        val predictiveParams = cardPredictiveLap.layoutParams as LinearLayout.LayoutParams
+        if (!isLandscape) {
+            predictiveParams.width = 0
+            predictiveParams.height = dpToPx(if (isMotorcycle) 126f else 96f)
+            predictiveParams.weight = if (isMotorcycle) 1.05f else 1f
+            predictiveParams.marginEnd = if (isMotorcycle) cardSpacingPx else 0
+        }
+        cardPredictiveLap.layoutParams = predictiveParams
+
+        val leanParams = cardTopLeanTelemetry.layoutParams as LinearLayout.LayoutParams
+        if (!isLandscape) {
+            leanParams.width = 0
+            leanParams.weight = 0.95f
+        }
+        cardTopLeanTelemetry.layoutParams = leanParams
 
         val showMotoAxis = isMotorcycle
         val showMotoBody = isMotorcycle
@@ -653,7 +770,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
 
         llMotoBody.visibility = if (showMotoBody) View.VISIBLE else View.GONE
         carGForceLayout.visibility = if (showCarBody) View.VISIBLE else View.GONE
-        carGScaleControls.visibility = if (showCarBody) View.VISIBLE else View.GONE
+        carGScaleControls.visibility = View.GONE
         llTopSpeedMotoBody.visibility = if (isMotorcycle) View.VISIBLE else View.GONE
         rlTopSpeedCarBody.visibility = if (isMotorcycle) View.GONE else View.VISIBLE
         llMotoTotalValue.visibility = if (showMotoBody) View.VISIBLE else View.GONE
@@ -693,59 +810,83 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         telemetryGapSpacer.visibility = View.GONE
     }
 
-    private fun updateCenterTelemetrySizing() {
-        val density = resources.displayMetrics.density
-        val frameMinHeight = if (isMotorcycle) 0 else (156f * density).roundToInt()
-        flCenterTelemetry.minimumHeight = frameMinHeight
+    private fun updateCameraPreviewCardVisibility() {
+        val isCameraEnabled = sessionCameraMode != SessionCameraMode.OFF
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val previewParams = cardCameraPreview.layoutParams as? LinearLayout.LayoutParams
+        previewParams?.let {
+            if (!isLandscape) {
+                it.height = 0
+                it.weight = 1f
+                it.topMargin = dpToPx(6f)
+                it.bottomMargin = dpToPx(4f)
+            }
+            cardCameraPreview.layoutParams = it
+        }
+        cardCameraPreview.minimumHeight = dpToPx(if (isLandscape) 96f else 128f)
+        cardCameraPreview.visibility = View.VISIBLE
 
-        val cardParams = cardCenterTelemetry.layoutParams as? LinearLayout.LayoutParams ?: return
-        cardParams.bottomMargin = if (isMotorcycle) (2f * density).roundToInt() else (8f * density).roundToInt()
-        cardCenterTelemetry.layoutParams = cardParams
-    }
+        llCameraPreviewHeader.visibility = if (isCameraEnabled) View.VISIBLE else View.GONE
+        btnCameraModeInline.visibility = if (isCameraEnabled) View.VISIBLE else View.GONE
+        cameraPreviewView.visibility = if (isCameraEnabled) View.VISIBLE else View.INVISIBLE
 
-    private fun setupCarGScaleControls() {
-        btnCarScaleNormal.setOnClickListener { setCarGScaleMode(CarGScaleMode.NORMAL, persist = true) }
-        btnCarScaleSport.setOnClickListener { setCarGScaleMode(CarGScaleMode.SPORT, persist = true) }
-        btnCarScaleRace.setOnClickListener { setCarGScaleMode(CarGScaleMode.RACE, persist = true) }
-        setCarGScaleMode(carGScaleMode, persist = false)
-    }
+        if (!isCameraEnabled) {
+            llCameraPreviewPlaceholder.visibility = View.VISIBLE
+            btnCameraMode.visibility = View.VISIBLE
+            tvCameraPreviewPlaceholder.text = getString(R.string.track_camera_placeholder_hint)
+            tvCameraPreviewStatus.text = getString(R.string.track_camera_preview_status_off)
+            return
+        }
 
-    private fun setCarGScaleMode(mode: CarGScaleMode, persist: Boolean) {
-        carGScaleMode = mode
-        gGaugeTrackCar.visualMaxG = mode.maxG
-        applyCarGScaleButtonState()
-        if (persist) {
-            getSharedPreferences(TRACK_UI_PREFS, MODE_PRIVATE)
-                .edit()
-                .putString(CAR_G_SCALE_PREF_KEY, mode.prefValue)
-                .apply()
+        btnCameraMode.visibility = View.GONE
+        llCameraPreviewPlaceholder.visibility = View.GONE
+        if (!isVideoRecordingActive) {
+            tvCameraPreviewStatus.text = getString(R.string.track_camera_preview_status_ready)
         }
     }
 
-    private fun loadCarGScaleMode(): CarGScaleMode {
-        val prefValue = getSharedPreferences(TRACK_UI_PREFS, MODE_PRIVATE)
-            .getString(CAR_G_SCALE_PREF_KEY, CarGScaleMode.NORMAL.prefValue)
-        return CarGScaleMode.fromPref(prefValue)
+    private fun updateCameraButtonUi() {
+        btnCameraMode.text = getString(R.string.track_camera_select_button).uppercase(Locale.getDefault())
+
+        val tintColor = when (sessionCameraMode) {
+            SessionCameraMode.OFF -> Color.parseColor("#1C2128")
+            SessionCameraMode.REAR,
+            SessionCameraMode.FRONT -> Color.parseColor("#FF6020")
+        }
+        btnCameraMode.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FF6020"))
+        btnCameraModeInline.backgroundTintList = ColorStateList.valueOf(tintColor)
     }
 
-    private fun applyCarGScaleButtonState() {
-        setScaleButtonStyle(btnCarScaleNormal, carGScaleMode == CarGScaleMode.NORMAL)
-        setScaleButtonStyle(btnCarScaleSport, carGScaleMode == CarGScaleMode.SPORT)
-        setScaleButtonStyle(btnCarScaleRace, carGScaleMode == CarGScaleMode.RACE)
+    private fun updateCenterTelemetrySizing() {
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val frameMinHeight = when {
+            isLandscape -> 0
+            isMotorcycle -> 0
+            else -> dpToPx(156f)
+        }
+        flCenterTelemetry.minimumHeight = frameMinHeight
+
+        val cardParams = cardCenterTelemetry.layoutParams as? LinearLayout.LayoutParams ?: return
+        if (!isLandscape) {
+            cardParams.bottomMargin = dpToPx(4f)
+        }
+        cardCenterTelemetry.layoutParams = cardParams
     }
 
-    private fun setScaleButtonStyle(button: MaterialButton, selected: Boolean) {
-        val primaryOrange = ContextCompat.getColor(this, R.color.primary_color)
-        val darkSurface = ContextCompat.getColor(this, R.color.dark_surface)
-        val textLight = ContextCompat.getColor(this, R.color.white)
+    private fun resetCarGaugeDynamicScale() {
+        carGaugeDynamicMaxG = carGaugeBaseVisualMaxG
+        gGaugeTrackCar.visualMaxG = carGaugeBaseVisualMaxG
+    }
 
-        val background = if (selected) primaryOrange else darkSurface
-        val foreground = if (selected) textLight else primaryOrange
+    private fun resolveCarGaugeVisualMaxG(currentResultG: Float): Float {
+        val requiredMax = max(carGaugeBaseVisualMaxG, max(maxCarResultG, currentResultG))
+        if (requiredMax <= carGaugeDynamicMaxG) {
+            return carGaugeDynamicMaxG
+        }
 
-        button.backgroundTintList = ColorStateList.valueOf(background)
-        button.strokeColor = ColorStateList.valueOf(primaryOrange)
-        button.strokeWidth = if (selected) 0 else 2
-        button.setTextColor(foreground)
+        val stepsAboveBase = ceil(((requiredMax - carGaugeBaseVisualMaxG) / carGaugeVisualStepG).toDouble()).toInt()
+        carGaugeDynamicMaxG = carGaugeBaseVisualMaxG + stepsAboveBase * carGaugeVisualStepG
+        return carGaugeDynamicMaxG
     }
 
     private fun updateLapSummaryCards(currentLapElapsedMs: Long? = null) {
@@ -841,6 +982,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         pbCarLateralLeft.progress = (leftX * 100f).roundToInt().coerceIn(0, pbCarLateralLeft.max)
         pbCarLateralRight.progress = (rightX * 100f).roundToInt().coerceIn(0, pbCarLateralRight.max)
 
+        gGaugeTrackCar.visualMaxG = resolveCarGaugeVisualMaxG(resultG)
         gGaugeTrackCar.gForceX = currentLateralG
         gGaugeTrackCar.gForceY = currentLongitudinalG
         gGaugeTrackCar.peakGForce = maxCarResultG
@@ -891,7 +1033,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         when {
             absLean < leanDisplayDirectionThresholdDeg -> {
                 tvTopLeanDirection.text = ""
-                tvTopLeanDirection.visibility = View.INVISIBLE
+                tvTopLeanDirection.visibility = View.GONE
             }
             displayLeanAngle < 0f -> {
                 tvTopLeanDirection.visibility = View.VISIBLE
@@ -1431,45 +1573,51 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     }
 
     private fun updateDistanceToLapLine(location: Location) {
-        if (trackPoints.size < 2) {
+        if (trackPoints.isEmpty()) {
             currentDistanceToLapLineMeters = Float.NaN
             currentDistanceToStartLineMeters = Float.NaN
             currentDistanceToFinishLineMeters = Float.NaN
             return
         }
 
-        val startLineIndices = 0 to 1
-        val finishLineIndices = when {
-            currentTrackMode == TrackMode.POINT_TO_POINT && trackPoints.size >= 4 -> {
-                (trackPoints.size - 2) to (trackPoints.size - 1)
+        if (hasGateBasedTriggering()) {
+            val startLine = getStartLinePoints()
+            val finishLine = getFinishLinePoints()
+            if (startLine == null || finishLine == null) {
+                currentDistanceToLapLineMeters = Float.NaN
+                currentDistanceToStartLineMeters = Float.NaN
+                currentDistanceToFinishLineMeters = Float.NaN
+                return
             }
-            startFinishLineIndices.size >= 4 && trackPoints.size >= 4 -> {
-                (trackPoints.size - 2) to (trackPoints.size - 1)
+
+            currentDistanceToStartLineMeters = gateCrossingEngine.distanceToLineMeters(
+                pointLat = location.latitude,
+                pointLon = location.longitude,
+                lineStartLat = startLine.first.geoPoint.latitude,
+                lineStartLon = startLine.first.geoPoint.longitude,
+                lineEndLat = startLine.second.geoPoint.latitude,
+                lineEndLon = startLine.second.geoPoint.longitude
+            ).toFloat()
+
+            currentDistanceToFinishLineMeters = gateCrossingEngine.distanceToLineMeters(
+                pointLat = location.latitude,
+                pointLon = location.longitude,
+                lineStartLat = finishLine.first.geoPoint.latitude,
+                lineStartLon = finishLine.first.geoPoint.longitude,
+                lineEndLat = finishLine.second.geoPoint.latitude,
+                lineEndLon = finishLine.second.geoPoint.longitude
+            ).toFloat()
+        } else {
+            val startPoint = trackPoints.firstOrNull()
+            val finishPoint = when {
+                currentTrackMode == TrackMode.POINT_TO_POINT -> trackPoints.lastOrNull()
+                trackPoints.size >= 2 -> trackPoints[1]
+                else -> trackPoints.firstOrNull()
             }
-            else -> startLineIndices
+
+            currentDistanceToStartLineMeters = startPoint?.let { distanceToTrackPoint(location, it) } ?: Float.NaN
+            currentDistanceToFinishLineMeters = finishPoint?.let { distanceToTrackPoint(location, it) } ?: Float.NaN
         }
-
-        val startLineStart = trackPoints[startLineIndices.first]
-        val startLineEnd = trackPoints[startLineIndices.second]
-        currentDistanceToStartLineMeters = gateCrossingEngine.distanceToLineMeters(
-            pointLat = location.latitude,
-            pointLon = location.longitude,
-            lineStartLat = startLineStart.geoPoint.latitude,
-            lineStartLon = startLineStart.geoPoint.longitude,
-            lineEndLat = startLineEnd.geoPoint.latitude,
-            lineEndLon = startLineEnd.geoPoint.longitude
-        ).toFloat()
-
-        val finishLineStart = trackPoints[finishLineIndices.first]
-        val finishLineEnd = trackPoints[finishLineIndices.second]
-        currentDistanceToFinishLineMeters = gateCrossingEngine.distanceToLineMeters(
-            pointLat = location.latitude,
-            pointLon = location.longitude,
-            lineStartLat = finishLineStart.geoPoint.latitude,
-            lineStartLon = finishLineStart.geoPoint.longitude,
-            lineEndLat = finishLineEnd.geoPoint.latitude,
-            lineEndLon = finishLineEnd.geoPoint.longitude
-        ).toFloat()
 
         currentDistanceToLapLineMeters = if (awaitingStart) {
             currentDistanceToStartLineMeters
@@ -1483,6 +1631,177 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             latitude = (line.start.latitude + line.end.latitude) / 2.0,
             longitude = (line.start.longitude + line.end.longitude) / 2.0
         )
+    }
+
+    private fun hasGateBasedTriggering(): Boolean {
+        return startFinishLineIndices.size >= 4 && startFinishLineIndices.all { it in trackPoints.indices }
+    }
+
+    private fun getStartLinePoints(): Pair<TrackPoint, TrackPoint>? {
+        if (startFinishLineIndices.size < 2) return null
+        val start = trackPoints.getOrNull(startFinishLineIndices[0]) ?: return null
+        val end = trackPoints.getOrNull(startFinishLineIndices[1]) ?: return null
+        return start to end
+    }
+
+    private fun getFinishLinePoints(): Pair<TrackPoint, TrackPoint>? {
+        if (startFinishLineIndices.size < 4) return null
+        val start = trackPoints.getOrNull(startFinishLineIndices[2]) ?: return null
+        val end = trackPoints.getOrNull(startFinishLineIndices[3]) ?: return null
+        return start to end
+    }
+
+    private fun addCircuitGateTrigger(line: ResolvedGateLine) {
+        val gateStart = TrackPoint(line.start.latitude, line.start.longitude)
+        val gateEnd = TrackPoint(line.end.latitude, line.end.longitude)
+        trackPoints.addAll(listOf(gateStart, gateEnd, gateStart, gateEnd))
+        startFinishLineIndices.addAll(listOf(0, 1, 2, 3))
+        repeat(4) {
+            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
+        }
+    }
+
+    private fun addPointToPointGateTriggers(startLine: ResolvedGateLine, finishLine: ResolvedGateLine) {
+        trackPoints.add(TrackPoint(startLine.start.latitude, startLine.start.longitude))
+        trackPoints.add(TrackPoint(startLine.end.latitude, startLine.end.longitude))
+        trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START)
+        trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START)
+
+        trackPoints.add(TrackPoint(finishLine.start.latitude, finishLine.start.longitude))
+        trackPoints.add(TrackPoint(finishLine.end.latitude, finishLine.end.longitude))
+        trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.FINISH)
+        trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.FINISH)
+
+        startFinishLineIndices.addAll(listOf(0, 1, 2, 3))
+    }
+
+    private fun addCircuitPointFallback(center: GeoPoint) {
+        val midpoint = TrackPoint(center.latitude, center.longitude)
+        trackPoints.addAll(listOf(midpoint, midpoint))
+        trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
+        trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
+    }
+
+    private fun addPointToPointPointFallback(startCenter: GeoPoint, finishCenter: GeoPoint) {
+        trackPoints.add(TrackPoint(startCenter.latitude, startCenter.longitude))
+        trackPoints.add(TrackPoint(finishCenter.latitude, finishCenter.longitude))
+        trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START)
+        trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.FINISH)
+    }
+
+    private fun resolveUsableGateLine(
+        gateStart: GeoPoint?,
+        gateEnd: GeoPoint?,
+        routePoints: List<GeoPoint>,
+        role: TriggerGateRole
+    ): ResolvedGateLine? {
+        if (gateStart != null && gateEnd != null && distanceMeters(gateStart, gateEnd) >= minimumUsableGateLengthMeters) {
+            return ResolvedGateLine(start = gateStart, end = gateEnd)
+        }
+
+        val center = resolveFallbackGateCenter(gateStart, gateEnd, routePoints, role) ?: return null
+        val travelBearing = estimateGateTravelBearing(routePoints, role) ?: return null
+        android.util.Log.d(
+            "TrackSessionActivity",
+            "Synthesizing ${role.name.lowercase(Locale.US)} gate from route heading for $trackId"
+        )
+        return buildGateLineAroundCenter(center, travelBearing)
+    }
+
+    private fun resolveFallbackGateCenter(
+        gateStart: GeoPoint?,
+        gateEnd: GeoPoint?,
+        routePoints: List<GeoPoint>,
+        role: TriggerGateRole
+    ): GeoPoint? {
+        return when {
+            gateStart != null && gateEnd != null -> GeoPoint(
+                latitude = (gateStart.latitude + gateEnd.latitude) / 2.0,
+                longitude = (gateStart.longitude + gateEnd.longitude) / 2.0
+            )
+            gateStart != null -> gateStart
+            gateEnd != null -> gateEnd
+            role == TriggerGateRole.FINISH -> routePoints.lastOrNull()
+            else -> routePoints.firstOrNull()
+        }
+    }
+
+    private fun estimateGateTravelBearing(routePoints: List<GeoPoint>, role: TriggerGateRole): Double? {
+        val segment = when (role) {
+            TriggerGateRole.FINISH -> findDistinctRouteSegment(routePoints, searchFromStart = false)
+            TriggerGateRole.CIRCUIT_START_FINISH,
+            TriggerGateRole.START -> findDistinctRouteSegment(routePoints, searchFromStart = true)
+        } ?: return null
+
+        return bearingDegrees(segment.first, segment.second)
+    }
+
+    private fun findDistinctRouteSegment(
+        routePoints: List<GeoPoint>,
+        searchFromStart: Boolean
+    ): Pair<GeoPoint, GeoPoint>? {
+        if (routePoints.size < 2) return null
+
+        if (searchFromStart) {
+            for (index in 0 until routePoints.lastIndex) {
+                val from = routePoints[index]
+                val to = routePoints[index + 1]
+                if (distanceMeters(from, to) >= minimumUsableGateLengthMeters) {
+                    return from to to
+                }
+            }
+        } else {
+            for (index in routePoints.lastIndex downTo 1) {
+                val from = routePoints[index - 1]
+                val to = routePoints[index]
+                if (distanceMeters(from, to) >= minimumUsableGateLengthMeters) {
+                    return from to to
+                }
+            }
+        }
+
+        return null
+    }
+
+    private fun bearingDegrees(from: GeoPoint, to: GeoPoint): Double {
+        val fromLocation = Location("gate_from").apply {
+            latitude = from.latitude
+            longitude = from.longitude
+        }
+        val toLocation = Location("gate_to").apply {
+            latitude = to.latitude
+            longitude = to.longitude
+        }
+        return fromLocation.bearingTo(toLocation).toDouble()
+    }
+
+    private fun buildGateLineAroundCenter(center: GeoPoint, travelBearingDegrees: Double): ResolvedGateLine {
+        val lineBearing = (travelBearingDegrees + 90.0) % 360.0
+        val halfWidthMeters = synthesizedGateWidthMeters / 2.0
+        return ResolvedGateLine(
+            start = offsetGeoPointByBearing(center, lineBearing, halfWidthMeters),
+            end = offsetGeoPointByBearing(center, (lineBearing + 180.0) % 360.0, halfWidthMeters)
+        )
+    }
+
+    private fun offsetGeoPointByBearing(center: GeoPoint, bearingDegrees: Double, distanceMeters: Double): GeoPoint {
+        val bearingRad = Math.toRadians(bearingDegrees)
+        val dNorth = cos(bearingRad) * distanceMeters
+        val dEast = sin(bearingRad) * distanceMeters
+        val dLat = dNorth / 111_320.0
+        val dLon = dEast / (111_320.0 * cos(Math.toRadians(center.latitude)).coerceAtLeast(0.0001))
+        return GeoPoint(
+            latitude = center.latitude + dLat,
+            longitude = center.longitude + dLon
+        )
+    }
+
+    private fun distanceToTrackPoint(location: Location, trackPoint: TrackPoint): Float {
+        val trackLocation = Location("track_point").apply {
+            latitude = trackPoint.geoPoint.latitude
+            longitude = trackPoint.geoPoint.longitude
+        }
+        return location.distanceTo(trackLocation)
     }
 
     private fun calculateCustomTrackLengthMeters(
@@ -1567,8 +1886,537 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         btnTopLeanZero.setOnClickListener {
             calibrateLeanZero()
         }
+        btnCameraMode.setOnClickListener {
+            showSessionCameraModeMenu(btnCameraMode)
+        }
+        btnCameraModeInline.setOnClickListener {
+            showSessionCameraModeMenu(btnCameraModeInline)
+        }
         btnPredictiveGapMode.setOnClickListener {
             showPredictiveGapModeMenu()
+        }
+    }
+
+    private fun showSessionCameraModeMenu(anchorView: View) {
+        if (isRecording || activeVideoRecording != null) {
+            showToast(getString(R.string.track_camera_change_while_recording))
+            return
+        }
+
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
+            showToast(getString(R.string.track_camera_unavailable))
+            return
+        }
+
+        val popup = PopupMenu(this, anchorView)
+        popup.menu.add(0, 1, 0, getString(R.string.track_camera_menu_off))
+        popup.menu.add(0, 2, 1, getString(R.string.track_camera_menu_rear))
+        popup.menu.add(0, 3, 2, getString(R.string.track_camera_menu_front))
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                1 -> applySessionCameraMode(SessionCameraMode.OFF)
+                2 -> requestOrApplySessionCameraMode(SessionCameraMode.REAR)
+                3 -> requestOrApplySessionCameraMode(SessionCameraMode.FRONT)
+            }
+            true
+        }
+        popup.show()
+    }
+
+    private fun requestOrApplySessionCameraMode(mode: SessionCameraMode) {
+        if (mode == SessionCameraMode.OFF) {
+            applySessionCameraMode(mode)
+            return
+        }
+
+        val requiredPermissions = requiredSessionVideoPermissions()
+        if (requiredPermissions.all { permission ->
+                ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+            }) {
+            applySessionCameraMode(mode)
+        } else {
+            pendingSessionCameraMode = mode
+            ActivityCompat.requestPermissions(this, requiredPermissions, CAMERA_PERMISSION_REQUEST)
+        }
+    }
+
+    private fun requiredSessionVideoPermissions(): Array<String> {
+        val permissions = mutableListOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
+        )
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            permissions += Manifest.permission.WRITE_EXTERNAL_STORAGE
+        }
+        return permissions.toTypedArray()
+    }
+
+    private fun applySessionCameraMode(mode: SessionCameraMode) {
+        pendingSessionCameraMode = null
+        sessionCameraMode = mode
+        updateCameraButtonUi()
+        updateCameraPreviewCardVisibility()
+
+        if (mode == SessionCameraMode.OFF) {
+            unbindSessionCamera()
+            return
+        }
+
+        tvCameraPreviewPlaceholder.text = getString(mode.labelResId)
+        bindSessionCameraPreview()
+    }
+
+    private fun bindSessionCameraPreview() {
+        val lensFacing = sessionCameraMode.lensFacing ?: return
+        val targetRotation = resolveSessionVideoTargetRotation()
+
+        if (!isVideoRecordingActive) {
+            tvCameraPreviewStatus.text = getString(R.string.track_camera_preview_status_ready)
+        }
+
+        val providerFuture = ProcessCameraProvider.getInstance(this)
+        providerFuture.addListener({
+            try {
+                val provider = providerFuture.get()
+                cameraProvider = provider
+                provider.unbindAll()
+
+                val preview = Preview.Builder()
+                    .setTargetRotation(targetRotation)
+                    .build().also {
+                    it.surfaceProvider = cameraPreviewView.surfaceProvider
+                }
+                val recorder = Recorder.Builder()
+                    .setQualitySelector(
+                        QualitySelector.fromOrderedList(listOf(Quality.FHD, Quality.HD))
+                    )
+                    .build()
+                val videoCapture = VideoCapture.withOutput(recorder).also {
+                    it.targetRotation = targetRotation
+                }
+                val selector = CameraSelector.Builder()
+                    .requireLensFacing(lensFacing)
+                    .build()
+
+                provider.bindToLifecycle(this, selector, preview, videoCapture)
+                cameraVideoCapture = videoCapture
+            } catch (error: Exception) {
+                Log.e("TrackSessionActivity", "Unable to bind session camera", error)
+                sessionCameraMode = SessionCameraMode.OFF
+                cameraVideoCapture = null
+                cameraProvider?.unbindAll()
+                updateCameraButtonUi()
+                updateCameraPreviewCardVisibility()
+                showToast(getString(R.string.track_camera_unavailable))
+            }
+        }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun unbindSessionCamera() {
+        if (activeVideoRecording != null) return
+        cameraProvider?.unbindAll()
+        cameraVideoCapture = null
+        llCameraPreviewPlaceholder.visibility = View.VISIBLE
+    }
+
+    private fun resetSessionVideoState(clearSavedMetadata: Boolean, deleteFiles: Boolean) {
+        if (deleteFiles) {
+            deleteFileIfExists(sessionVideoRawFile)
+            if (sessionVideoFinalFile != sessionVideoRawFile) {
+                deleteFileIfExists(sessionVideoFinalFile)
+            }
+            savedSessionVideoUri?.takeIf { it.isNotBlank() }?.let(::deleteVideoUriIfExists)
+            savedSessionVideoPath?.takeIf { it.isNotBlank() }?.let { deleteFileIfExists(File(it)) }
+        }
+
+        activeVideoRecording = null
+        isVideoRecordingActive = false
+        sessionVideoRawFile = null
+        sessionVideoFinalFile = null
+        videoRecordingStartElapsedRealtimeMs = 0L
+        videoRecordingStartWallTimeMs = 0L
+        videoSyncMarkerOffsetMs = null
+        pendingCreateOutingAfterVideoFinalize = false
+        pendingDiscardVideoAfterFinalize = false
+        if (clearSavedMetadata) {
+            savedSessionVideoUri = null
+            savedSessionVideoPath = null
+            savedSessionVideoCameraLabel = null
+            savedSessionVideoStartOffsetMs = null
+            savedSessionVideoStartSessionElapsedMs = null
+            savedSessionVideoOverlayExported = false
+        }
+    }
+
+    private data class ProcessedSessionVideo(
+        val file: File,
+        val actualTrimStartMs: Long
+    )
+
+    private fun startSessionVideoRecordingIfNeeded() {
+        resetSessionVideoState(clearSavedMetadata = true, deleteFiles = true)
+
+        if (sessionCameraMode == SessionCameraMode.OFF) {
+            tvCameraPreviewStatus.text = getString(R.string.track_camera_preview_status_off)
+            return
+        }
+
+        val videoCapture = cameraVideoCapture
+        if (videoCapture == null) {
+            bindSessionCameraPreview()
+            showToast(getString(R.string.track_camera_unavailable))
+            return
+        }
+
+        val rawFile = buildSessionVideoFile("raw")
+        sessionVideoRawFile = rawFile
+        savedSessionVideoCameraLabel = currentSessionCameraLabel()
+        videoRecordingStartElapsedRealtimeMs = SystemClock.elapsedRealtime()
+        videoRecordingStartWallTimeMs = System.currentTimeMillis()
+
+        try {
+            videoCapture.targetRotation = resolveSessionVideoTargetRotation()
+            val outputOptions = FileOutputOptions.Builder(rawFile).build()
+            var pendingRecording = videoCapture.output.prepareRecording(this, outputOptions)
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                pendingRecording = pendingRecording.withAudioEnabled()
+            }
+            activeVideoRecording = pendingRecording.start(
+                ContextCompat.getMainExecutor(this),
+                ::handleSessionVideoRecordEvent
+            )
+        } catch (error: Exception) {
+            Log.e("TrackSessionActivity", "Unable to start session video recording", error)
+            resetSessionVideoState(clearSavedMetadata = true, deleteFiles = true)
+            showToast(getString(R.string.track_camera_video_failed))
+        }
+    }
+
+    private fun handleSessionVideoRecordEvent(event: VideoRecordEvent) {
+        when (event) {
+            is VideoRecordEvent.Start -> {
+                isVideoRecordingActive = true
+                videoRecordingStartElapsedRealtimeMs = SystemClock.elapsedRealtime()
+                videoRecordingStartWallTimeMs = System.currentTimeMillis()
+                tvCameraPreviewStatus.text = getString(R.string.track_camera_preview_status_recording)
+                llCameraPreviewPlaceholder.visibility = View.GONE
+            }
+
+            is VideoRecordEvent.Finalize -> handleSessionVideoFinalize(event)
+        }
+    }
+
+    private fun handleSessionVideoFinalize(event: VideoRecordEvent.Finalize) {
+        val rawFile = sessionVideoRawFile
+        val shouldCreateOuting = pendingCreateOutingAfterVideoFinalize
+        val shouldDiscard = pendingDiscardVideoAfterFinalize
+
+        activeVideoRecording = null
+        isVideoRecordingActive = false
+        pendingCreateOutingAfterVideoFinalize = false
+        pendingDiscardVideoAfterFinalize = false
+
+        if (event.hasError() || rawFile == null || !rawFile.exists()) {
+            Log.e("TrackSessionActivity", "Session video finalize failed: ${event.error}")
+            resetSessionVideoState(clearSavedMetadata = true, deleteFiles = true)
+            tvCameraPreviewStatus.text = getString(R.string.track_camera_preview_status_ready)
+            if (shouldCreateOuting) {
+                showToast(getString(R.string.track_camera_video_failed))
+                createOuting()
+            }
+            return
+        }
+
+        tvCameraPreviewStatus.text = getString(R.string.track_camera_preview_status_processing)
+        val trimStartMs = resolveRequestedSessionVideoTrimStartMs()
+        Thread {
+            val processedVideo = processSessionVideoFile(rawFile, trimStartMs)
+            persistProcessedSessionVideo(
+                rawFile = rawFile,
+                processedVideo = processedVideo,
+                shouldCreateOuting = shouldCreateOuting,
+                shouldDiscard = shouldDiscard
+            )
+        }.start()
+    }
+
+    private fun persistProcessedSessionVideo(
+        rawFile: File,
+        processedVideo: ProcessedSessionVideo?,
+        shouldCreateOuting: Boolean,
+        shouldDiscard: Boolean
+    ) {
+        val processedFile = processedVideo?.file
+        if (shouldDiscard) {
+            deleteFileIfExists(processedFile)
+            if (processedFile != rawFile) {
+                deleteFileIfExists(rawFile)
+            }
+            resetSessionVideoState(clearSavedMetadata = true, deleteFiles = true)
+        } else {
+            val savedUri = processedFile?.let {
+                TrackSessionVideoExport.saveVideoToLibrary(this, it, buildSessionVideoBaseTitle())
+            }
+            val sessionStartSessionElapsedMs = processedVideo?.let { video ->
+                resolveSessionVideoStartSessionElapsedMs(video.actualTrimStartMs)
+            }
+            savedSessionVideoUri = savedUri?.toString()
+            savedSessionVideoPath = null
+            sessionVideoFinalFile = null
+            savedSessionVideoStartOffsetMs = sessionStartSessionElapsedMs?.let { (-it).coerceAtLeast(0L) }
+            savedSessionVideoStartSessionElapsedMs = sessionStartSessionElapsedMs
+            savedSessionVideoOverlayExported = false
+
+            if (savedUri != null) {
+                savedSessionVideoCameraLabel = currentSessionCameraLabel()
+                deleteFileIfExists(processedFile)
+                if (processedFile != rawFile) {
+                    deleteFileIfExists(rawFile)
+                }
+            } else {
+                sessionVideoFinalFile = processedFile
+                savedSessionVideoPath = processedFile?.absolutePath
+                savedSessionVideoCameraLabel = if (processedFile != null) currentSessionCameraLabel() else null
+                if (processedFile != null && processedFile != rawFile) {
+                    deleteFileIfExists(rawFile)
+                }
+            }
+        }
+
+        runOnUiThread {
+            if (sessionCameraMode == SessionCameraMode.OFF) {
+                tvCameraPreviewStatus.text = getString(R.string.track_camera_preview_status_off)
+            } else {
+                tvCameraPreviewStatus.text = getString(R.string.track_camera_preview_status_ready)
+            }
+
+            if (shouldCreateOuting) {
+                if (savedSessionVideoUri != null || savedSessionVideoPath != null) {
+                    showToast(getString(R.string.track_camera_video_saved))
+                } else {
+                    showToast(getString(R.string.track_camera_video_failed))
+                }
+                createOuting()
+            }
+        }
+    }
+
+    private fun processSessionVideoFile(rawFile: File, trimStartMs: Long): ProcessedSessionVideo? {
+        if (!rawFile.exists()) return null
+        if (trimStartMs <= 0L) return ProcessedSessionVideo(rawFile, 0L)
+
+        val trimmedFile = buildSessionVideoFile("trimmed")
+        return try {
+            val actualTrimStartMs = trimVideoFile(rawFile, trimmedFile, trimStartMs)
+            if (actualTrimStartMs != null) {
+                ProcessedSessionVideo(trimmedFile, actualTrimStartMs)
+            } else {
+                deleteFileIfExists(trimmedFile)
+                ProcessedSessionVideo(rawFile, 0L)
+            }
+        } catch (error: Exception) {
+            Log.e("TrackSessionActivity", "Unable to trim session video", error)
+            deleteFileIfExists(trimmedFile)
+            ProcessedSessionVideo(rawFile, 0L)
+        }
+    }
+
+    private fun trimVideoFile(sourceFile: File, targetFile: File, startMs: Long): Long? {
+        var extractor: MediaExtractor? = null
+        var muxer: MediaMuxer? = null
+
+        return try {
+            extractor = MediaExtractor().apply {
+                setDataSource(sourceFile.absolutePath)
+            }
+
+            var sourceVideoTrackIndex = -1
+            val selectedTrackIndexes = mutableListOf<Int>()
+            val selectedTrackFormats = mutableMapOf<Int, android.media.MediaFormat>()
+            for (index in 0 until extractor.trackCount) {
+                val format = extractor.getTrackFormat(index)
+                val mime = format.getString(android.media.MediaFormat.KEY_MIME) ?: continue
+                if (mime.startsWith("video/") || mime.startsWith("audio/")) {
+                    selectedTrackIndexes += index
+                    selectedTrackFormats[index] = format
+                    if (mime.startsWith("video/") && sourceVideoTrackIndex < 0) {
+                        sourceVideoTrackIndex = index
+                    }
+                }
+            }
+
+            if (sourceVideoTrackIndex < 0 || selectedTrackIndexes.isEmpty()) {
+                return null
+            }
+
+            val orientationHintDegrees = resolveVideoOrientationHintDegrees(sourceFile)
+
+            extractor.selectTrack(sourceVideoTrackIndex)
+            extractor.seekTo(startMs * 1000L, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+            val actualStartUs = extractor.sampleTime.coerceAtLeast(0L)
+            extractor.unselectTrack(sourceVideoTrackIndex)
+
+            muxer = MediaMuxer(targetFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            val trackIndexMap = mutableMapOf<Int, Int>()
+            var maxInputSize = 262_144
+            selectedTrackIndexes.forEach { sourceTrackIndex ->
+                val format = selectedTrackFormats[sourceTrackIndex] ?: return@forEach
+                extractor.selectTrack(sourceTrackIndex)
+                trackIndexMap[sourceTrackIndex] = muxer.addTrack(format)
+                if (format.containsKey(android.media.MediaFormat.KEY_MAX_INPUT_SIZE)) {
+                    maxInputSize = max(maxInputSize, format.getInteger(android.media.MediaFormat.KEY_MAX_INPUT_SIZE))
+                }
+            }
+            if (orientationHintDegrees != 0) {
+                muxer.setOrientationHint(orientationHintDegrees)
+            }
+            extractor.seekTo(actualStartUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+            muxer.start()
+
+            val buffer = ByteBuffer.allocate(maxInputSize.coerceAtLeast(262_144))
+            val bufferInfo = MediaCodec.BufferInfo()
+
+            while (true) {
+                val sourceTrackIndex = extractor.sampleTrackIndex
+                if (sourceTrackIndex < 0) {
+                    break
+                }
+
+                val targetTrackIndex = trackIndexMap[sourceTrackIndex]
+                if (targetTrackIndex == null) {
+                    extractor.advance()
+                    continue
+                }
+
+                val sampleTimeUs = extractor.sampleTime
+                if (sampleTimeUs < actualStartUs) {
+                    extractor.advance()
+                    continue
+                }
+
+                bufferInfo.offset = 0
+                bufferInfo.size = extractor.readSampleData(buffer, 0)
+                if (bufferInfo.size < 0) {
+                    break
+                }
+                bufferInfo.presentationTimeUs = sampleTimeUs - actualStartUs
+                bufferInfo.flags = extractor.sampleFlags
+                muxer.writeSampleData(targetTrackIndex, buffer, bufferInfo)
+                extractor.advance()
+            }
+
+            actualStartUs / 1000L
+        } finally {
+            try {
+                muxer?.stop()
+            } catch (_: Exception) {
+            }
+            try {
+                muxer?.release()
+            } catch (_: Exception) {
+            }
+            try {
+                extractor?.release()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun resolveRequestedSessionVideoTrimStartMs(): Long {
+        val videoStartWallTimeMs = videoRecordingStartWallTimeMs
+        val sessionStartWallTimeMs = sessionTelemetryStartWallTimeMs
+        if (videoStartWallTimeMs > 0L && sessionStartWallTimeMs > 0L) {
+            val sessionStartOffsetMs = sessionStartWallTimeMs - videoStartWallTimeMs
+            return (sessionStartOffsetMs - SESSION_VIDEO_PREROLL_MS).coerceAtLeast(0L)
+        }
+
+        return ((videoSyncMarkerOffsetMs ?: 0L) - SESSION_VIDEO_PREROLL_MS).coerceAtLeast(0L)
+    }
+
+    private fun resolveSessionVideoStartSessionElapsedMs(actualTrimStartMs: Long): Long {
+        val videoStartWallTimeMs = videoRecordingStartWallTimeMs
+        val sessionStartWallTimeMs = sessionTelemetryStartWallTimeMs
+        if (videoStartWallTimeMs > 0L && sessionStartWallTimeMs > 0L) {
+            return (videoStartWallTimeMs + actualTrimStartMs) - sessionStartWallTimeMs
+        }
+
+        val legacySessionStartOffsetMs = ((videoSyncMarkerOffsetMs ?: 0L) - actualTrimStartMs).coerceAtLeast(0L)
+        return -legacySessionStartOffsetMs
+    }
+
+    private fun resolveSessionVideoTargetRotation(): Int {
+        return if (::cameraPreviewView.isInitialized) {
+            cameraPreviewView.display?.rotation ?: resolveDisplayRotation()
+        } else {
+            resolveDisplayRotation()
+        }
+    }
+
+    private fun resolveVideoOrientationHintDegrees(sourceFile: File): Int {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(sourceFile.absolutePath)
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)
+                ?.toIntOrNull()
+                ?.let { rotation ->
+                    when (((rotation % 360) + 360) % 360) {
+                        90, 180, 270 -> ((rotation % 360) + 360) % 360
+                        else -> 0
+                    }
+                }
+                ?: 0
+        } catch (_: Exception) {
+            0
+        } finally {
+            try {
+                retriever.release()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun updateSessionVideoSyncMarkerIfNeeded() {
+        if (sessionCameraMode == SessionCameraMode.OFF) return
+        if (videoSyncMarkerOffsetMs != null) return
+        if (videoRecordingStartElapsedRealtimeMs <= 0L) return
+
+        videoSyncMarkerOffsetMs = (SystemClock.elapsedRealtime() - videoRecordingStartElapsedRealtimeMs)
+            .coerceAtLeast(0L)
+    }
+
+    private fun buildSessionVideoFile(tag: String): File {
+        val directory = File(getExternalFilesDir(Environment.DIRECTORY_MOVIES), "track_sessions")
+        if (!directory.exists()) {
+            directory.mkdirs()
+        }
+        return File(directory, "track_session_${tag}_${System.currentTimeMillis()}.mp4")
+    }
+
+    private fun buildSessionVideoBaseTitle(): String? {
+        val directTrackName = trackName.trim().takeIf { it.isNotBlank() }
+        if (directTrackName != null) return directTrackName
+
+        return trackId.trim().takeIf { it.isNotBlank() }
+    }
+
+    private fun currentSessionCameraLabel(): String {
+        return when (sessionCameraMode) {
+            SessionCameraMode.FRONT -> getString(R.string.track_camera_label_front)
+            SessionCameraMode.REAR -> getString(R.string.track_camera_label_rear)
+            SessionCameraMode.OFF -> ""
+        }
+    }
+
+    private fun deleteFileIfExists(file: File?) {
+        if (file == null) return
+        if (file.exists()) {
+            file.delete()
+        }
+    }
+
+    private fun deleteVideoUriIfExists(uriString: String) {
+        runCatching {
+            contentResolver.delete(Uri.parse(uriString), null, null)
         }
     }
 
@@ -1800,6 +2648,15 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, MIN_TIME_FOR_UPDATE, MIN_DISTANCE_FOR_UPDATE, this)
         }
     }
+
+    private fun refreshTrackDistanceCacheFromLastKnownLocation() {
+        currentDistanceToLapLineMeters = Float.NaN
+        currentDistanceToStartLineMeters = Float.NaN
+        currentDistanceToFinishLineMeters = Float.NaN
+
+        val location = lastLocation ?: resolveLastKnownTrackLocation() ?: return
+        updateDistanceToLapLine(location)
+    }
     private fun loadTrackData() {
         trackPoints.clear()
         trackPointTypes.clear()
@@ -1848,35 +2705,69 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             val startFinishGate = trackDefinition?.startFinishGate
             val startGate = trackDefinition?.startGate
             val finishGate = trackDefinition?.finishGate
-            if (currentTrackMode == TrackMode.CIRCUIT && startFinishGate != null) {
-                val gateStart = TrackPoint(startFinishGate.start.latitude, startFinishGate.start.longitude)
-                val gateEnd = TrackPoint(startFinishGate.end.latitude, startFinishGate.end.longitude)
-                trackPoints.addAll(listOf(gateStart, gateEnd, gateStart, gateEnd))
-                startFinishLineIndices.addAll(listOf(0, 1, 2, 3))
-                hasValidStartTrigger = true
+            val resolvedStartFinishGate = resolveUsableGateLine(
+                gateStart = startFinishGate?.start,
+                gateEnd = startFinishGate?.end,
+                routePoints = officialRoutePoints,
+                role = TriggerGateRole.CIRCUIT_START_FINISH
+            )
+            val resolvedStartGate = resolveUsableGateLine(
+                gateStart = startGate?.start,
+                gateEnd = startGate?.end,
+                routePoints = officialRoutePoints,
+                role = TriggerGateRole.START
+            )
+            val resolvedFinishGate = resolveUsableGateLine(
+                gateStart = finishGate?.start,
+                gateEnd = finishGate?.end,
+                routePoints = officialRoutePoints,
+                role = TriggerGateRole.FINISH
+            )
 
-                trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
-                trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
-                trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
-                trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
-            } else if (currentTrackMode == TrackMode.POINT_TO_POINT && startGate != null && finishGate != null) {
-                val startA = TrackPoint(startGate.start.latitude, startGate.start.longitude)
-                val startB = TrackPoint(startGate.end.latitude, startGate.end.longitude)
-                val finishA = TrackPoint(finishGate.start.latitude, finishGate.start.longitude)
-                val finishB = TrackPoint(finishGate.end.latitude, finishGate.end.longitude)
-
-                trackPoints.add(startA)
-                trackPoints.add(startB)
-                trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START)
-                trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START)
-
-                trackPoints.add(finishA)
-                trackPoints.add(finishB)
-                trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.FINISH)
-                trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.FINISH)
-
-                startFinishLineIndices.addAll(listOf(0, 1, 2, 3))
-                hasValidStartTrigger = true
+            if (currentTrackMode == TrackMode.CIRCUIT) {
+                when {
+                    resolvedStartFinishGate != null -> {
+                        addCircuitGateTrigger(resolvedStartFinishGate)
+                        hasValidStartTrigger = true
+                    }
+                    else -> {
+                        val fallbackStartPoint = resolveFallbackGateCenter(
+                            gateStart = startFinishGate?.start,
+                            gateEnd = startFinishGate?.end,
+                            routePoints = officialRoutePoints,
+                            role = TriggerGateRole.CIRCUIT_START_FINISH
+                        )
+                        if (fallbackStartPoint != null) {
+                            addCircuitPointFallback(fallbackStartPoint)
+                            hasValidStartTrigger = true
+                        }
+                    }
+                }
+            } else {
+                when {
+                    resolvedStartGate != null && resolvedFinishGate != null -> {
+                        addPointToPointGateTriggers(resolvedStartGate, resolvedFinishGate)
+                        hasValidStartTrigger = true
+                    }
+                    else -> {
+                        val fallbackStartPoint = resolveFallbackGateCenter(
+                            gateStart = startGate?.start,
+                            gateEnd = startGate?.end,
+                            routePoints = officialRoutePoints,
+                            role = TriggerGateRole.START
+                        )
+                        val fallbackFinishPoint = resolveFallbackGateCenter(
+                            gateStart = finishGate?.start,
+                            gateEnd = finishGate?.end,
+                            routePoints = officialRoutePoints,
+                            role = TriggerGateRole.FINISH
+                        )
+                        if (fallbackStartPoint != null && fallbackFinishPoint != null) {
+                            addPointToPointPointFallback(fallbackStartPoint, fallbackFinishPoint)
+                            hasValidStartTrigger = true
+                        }
+                    }
+                }
             }
 
             if (trackPoints.isEmpty() && trackDefinition != null && trackDefinition.lapSequence.isNotEmpty()) {
@@ -1925,83 +2816,70 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                     trackLengthMeters = progressRouteLengthMeters
                 }
 
+                val customTriggerRoutePoints = customProgressRoute.ifEmpty { customRoutePrimary }
+                val resolvedCustomStartGate = resolveUsableGateLine(
+                    gateStart = customTrackV2.startGate?.start,
+                    gateEnd = customTrackV2.startGate?.end,
+                    routePoints = customTriggerRoutePoints,
+                    role = if (currentTrackMode == TrackMode.CIRCUIT) {
+                        TriggerGateRole.CIRCUIT_START_FINISH
+                    } else {
+                        TriggerGateRole.START
+                    }
+                )
+                val resolvedCustomFinishGate = resolveUsableGateLine(
+                    gateStart = customTrackV2.finishGate?.start,
+                    gateEnd = customTrackV2.finishGate?.end,
+                    routePoints = customTriggerRoutePoints,
+                    role = TriggerGateRole.FINISH
+                )
+
                 when (currentTrackMode) {
                     TrackMode.CIRCUIT -> {
-                        val gate = customTrackV2.startGate
-                        if (gate != null) {
-                            val gateStart = TrackPoint(gate.start.latitude, gate.start.longitude)
-                            val gateEnd = TrackPoint(gate.end.latitude, gate.end.longitude)
-                            trackPoints.addAll(listOf(gateStart, gateEnd, gateStart, gateEnd))
-                            startFinishLineIndices.addAll(listOf(0, 1, 2, 3))
-                            hasValidStartTrigger = true
-
-                            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
-                            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
-                            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
-                            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START_FINISH)
-                        } else {
-                            android.util.Log.w("TrackSessionActivity", "Custom circuit missing startGate: $trackId")
+                        when {
+                            resolvedCustomStartGate != null -> {
+                                addCircuitGateTrigger(resolvedCustomStartGate)
+                                hasValidStartTrigger = true
+                            }
+                            else -> {
+                                val fallbackStartPoint = resolveFallbackGateCenter(
+                                    gateStart = customTrackV2.startGate?.start,
+                                    gateEnd = customTrackV2.startGate?.end,
+                                    routePoints = customTriggerRoutePoints,
+                                    role = TriggerGateRole.CIRCUIT_START_FINISH
+                                )
+                                if (fallbackStartPoint != null) {
+                                    addCircuitPointFallback(fallbackStartPoint)
+                                    hasValidStartTrigger = true
+                                } else {
+                                    android.util.Log.w("TrackSessionActivity", "Custom circuit missing usable start trigger: $trackId")
+                                }
+                            }
                         }
                     }
                     TrackMode.POINT_TO_POINT -> {
-                        val startGate = customTrackV2.startGate
-                        val finishGate = customTrackV2.finishGate
-
-                        val hasStartLine = startGate != null &&
-                            (startGate.start.latitude != startGate.end.latitude || startGate.start.longitude != startGate.end.longitude)
-                        val hasFinishLine = finishGate != null &&
-                            (finishGate.start.latitude != finishGate.end.latitude || finishGate.start.longitude != finishGate.end.longitude)
-
-                        if (hasStartLine && hasFinishLine) {
-                            val startA = TrackPoint(startGate!!.start.latitude, startGate.start.longitude)
-                            val startB = TrackPoint(startGate.end.latitude, startGate.end.longitude)
-                            trackPoints.add(startA)
-                            trackPoints.add(startB)
-                            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START)
-                            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.START)
-
-                            trackPoints.addAll(
-                                customTrackV2.referencePath.map { point ->
-                                    TrackPoint(point.latitude, point.longitude)
-                                }
-                            )
-                            repeat(customTrackV2.referencePath.size) {
-                                trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.SNAP_HELPER)
-                            }
-
-                            val finishA = TrackPoint(finishGate!!.start.latitude, finishGate.start.longitude)
-                            val finishB = TrackPoint(finishGate.end.latitude, finishGate.end.longitude)
-                            trackPoints.add(finishA)
-                            trackPoints.add(finishB)
-                            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.FINISH)
-                            trackPointTypes.add(com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.FINISH)
-
-                            startFinishLineIndices.addAll(listOf(0, 1, trackPoints.size - 2, trackPoints.size - 1))
-                            hasValidStartTrigger = true
-                        } else {
-                            startGate?.let { gate ->
-                                trackPoints.add(
-                                    TrackPoint(
-                                        latitude = (gate.start.latitude + gate.end.latitude) / 2.0,
-                                        longitude = (gate.start.longitude + gate.end.longitude) / 2.0
-                                    )
-                                )
+                        when {
+                            resolvedCustomStartGate != null && resolvedCustomFinishGate != null -> {
+                                addPointToPointGateTriggers(resolvedCustomStartGate, resolvedCustomFinishGate)
                                 hasValidStartTrigger = true
                             }
-
-                            trackPoints.addAll(
-                                customTrackV2.referencePath.map { point ->
-                                    TrackPoint(point.latitude, point.longitude)
-                                }
-                            )
-
-                            finishGate?.let { gate ->
-                                trackPoints.add(
-                                    TrackPoint(
-                                        latitude = (gate.start.latitude + gate.end.latitude) / 2.0,
-                                        longitude = (gate.start.longitude + gate.end.longitude) / 2.0
-                                    )
+                            else -> {
+                                val fallbackStartPoint = resolveFallbackGateCenter(
+                                    gateStart = customTrackV2.startGate?.start,
+                                    gateEnd = customTrackV2.startGate?.end,
+                                    routePoints = customTriggerRoutePoints,
+                                    role = TriggerGateRole.START
                                 )
+                                val fallbackFinishPoint = resolveFallbackGateCenter(
+                                    gateStart = customTrackV2.finishGate?.start,
+                                    gateEnd = customTrackV2.finishGate?.end,
+                                    routePoints = customTriggerRoutePoints,
+                                    role = TriggerGateRole.FINISH
+                                )
+                                if (fallbackStartPoint != null && fallbackFinishPoint != null) {
+                                    addPointToPointPointFallback(fallbackStartPoint, fallbackFinishPoint)
+                                    hasValidStartTrigger = true
+                                }
                             }
                         }
                     }
@@ -2078,6 +2956,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     }
 
     private fun startSessionImmediately() {
+        refreshTrackDistanceCacheFromLastKnownLocation()
         startLocationUpdates()
         startSession()
     }
@@ -2088,6 +2967,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             showAwaitingStartDialog()
         }
 
+        resetSessionVideoState(clearSavedMetadata = true, deleteFiles = true)
         isRecording = true
         acquireTrackWakeLock()
         sessionStartTime = System.currentTimeMillis()
@@ -2107,9 +2987,11 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         updateTopSpeedTelemetry(0f)
         updateTopLeanTelemetry(0f)
         updateLapSummaryCards(0L)
+        resetCarGaugeDynamicScale()
         
         // ✅ Keep zero until start crossing only when awaitingStart is enabled
         lapStartTime = if (awaitingStart) 0L else System.currentTimeMillis()
+        sessionTelemetryStartWallTimeMs = lapStartTime
         
         sectorStartTime = 0L
         currentSector = 0
@@ -2193,6 +3075,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         lastStartFinishCrossAtMs = 0L
         val sharedPrefs = getSharedPreferences("track_sessions", MODE_PRIVATE)
         sharedPrefs.edit().putBoolean("has_active_session", true).putString("active_track_id", trackId).putString("active_track_name", trackName).apply()
+        startSessionVideoRecordingIfNeeded()
     }
     private fun stopRecording() {
         isRecording = false
@@ -2210,9 +3093,19 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         handler.removeCallbacks(updateRunnable)
         locationManager.removeUpdates(this)
         updateLapSummaryCards()
-        createOuting()
+        if (activeVideoRecording != null) {
+            pendingCreateOutingAfterVideoFinalize = true
+            pendingDiscardVideoAfterFinalize = false
+            tvCameraPreviewStatus.text = getString(R.string.track_camera_preview_status_processing)
+            activeVideoRecording?.stop()
+        } else {
+            createOuting()
+        }
     }
-    private fun stopRecordingWithoutSaving() {
+    private fun stopRecordingWithoutSaving(
+        showDataLostToast: Boolean = true,
+        resumeIdleLocationTracking: Boolean = false
+    ) {
         isRecording = false
         resetLeanAutoZeroState()
         releaseTrackWakeLock()
@@ -2227,9 +3120,22 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         // Не премахваме ACCELEROMETER сензора, защото се нуждаем от него за g-сили
         handler.removeCallbacks(updateRunnable)
         locationManager.removeUpdates(this)
+        if (activeVideoRecording != null) {
+            pendingDiscardVideoAfterFinalize = true
+            pendingCreateOutingAfterVideoFinalize = false
+            activeVideoRecording?.stop()
+        } else {
+            resetSessionVideoState(clearSavedMetadata = true, deleteFiles = true)
+        }
         clearActiveSession()
+        if (resumeIdleLocationTracking) {
+            refreshTrackDistanceCacheFromLastKnownLocation()
+            startLocationUpdates()
+        }
         updateLapSummaryCards()
-        showToast(getString(R.string.track_data_lost))
+        if (showDataLostToast) {
+            showToast(getString(R.string.track_data_lost))
+        }
     }
     private fun recordLap() {
         if (isRecording) {
@@ -2523,6 +3429,12 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             speedGauge.gForceY = finalLongG
 
             updateNoGyroSessionStatistics(finalLatG)
+            appendAccelerationHistory(deviceLinearAccel)
+            appendCurrentLapTelemetrySample(
+                deviceAccel = deviceLinearAccel,
+                sampleTimestamp = System.currentTimeMillis(),
+                displayLeanAngleSample = if (isMotorcycle) displayLeanAngle else currentCalibratedLean
+            )
             runOnUiThread { updateMotoGForceCard() }
             return
         }
@@ -3175,23 +4087,47 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             speedGauge.setLeanAngle(displayLeanAngle)
         }
 
-        // Keep small history if needed elsewhere
+        appendAccelerationHistory(deviceAccel)
+        appendCurrentLapTelemetrySample(
+            deviceAccel = deviceAccel,
+            sampleTimestamp = System.currentTimeMillis(),
+            displayLeanAngleSample = if (isMotorcycle) displayLeanAngle else currentCalibratedLean
+        )
+    }
+
+    private fun appendAccelerationHistory(deviceAccel: FloatArray) {
         accelerationData.add(deviceAccel[0])
         accelerationData.add(deviceAccel[1])
         accelerationData.add(deviceAccel[2])
         if (accelerationData.size > 1500) {
             repeat(3) { accelerationData.removeAt(0) }
         }
-        
-        // Add to current lap data
+    }
+
+    private fun appendCurrentLapTelemetrySample(
+        deviceAccel: FloatArray,
+        sampleTimestamp: Long,
+        displayLeanAngleSample: Float
+    ) {
         if (isRecording && lapStartTime > 0L) {
             currentLapData.accelerationData.addAll(deviceAccel.toList())
             currentLapData.leanAngleData.add(currentCalibratedLean)
-            currentLapData.timestamps.add(System.currentTimeMillis())
+            currentLapData.displayLeanAngleData.add(
+                if (displayLeanAngleSample.isFinite()) displayLeanAngleSample else currentCalibratedLean
+            )
+            currentLapData.longitudinalGData.add(currentLongitudinalG)
+            currentLapData.lateralGData.add(currentLateralG)
+            currentLapData.maxBrakingData.add(maxBraking)
+            currentLapData.maxAccelData.add(maxAcceleration)
+            currentLapData.maxCorneringLeftData.add(maxCorneringLeftG)
+            currentLapData.maxCorneringRightData.add(maxCorneringRightG)
+            currentLapData.maxResultGData.add(maxCarResultG)
+            currentLapData.timestamps.add(sampleTimestamp)
         } else {
             android.util.Log.d("TrackSessionActivity", "Not adding sensor data: isRecording=$isRecording, awaitingStart=$awaitingStart, lapStartTime=$lapStartTime")
         }
     }
+
     private fun clamp(v: Float, min: Float, max: Float) = when {
         v < min -> min
         v > max -> max
@@ -3323,7 +4259,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
             lineEndLon = point2.geoPoint.longitude
         )
 
-        if (!crossed && ignoreDebounce) {
+        if (!crossed) {
             val previousSide = lineSide(
                 point1.geoPoint.latitude,
                 point1.geoPoint.longitude,
@@ -3340,30 +4276,29 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 location.latitude,
                 location.longitude
             )
-            val minDistanceToLine = minOf(
-                gateCrossingEngine.distanceToLineMeters(
-                    pointLat = previous.latitude,
-                    pointLon = previous.longitude,
-                    lineStartLat = point1.geoPoint.latitude,
-                    lineStartLon = point1.geoPoint.longitude,
-                    lineEndLat = point2.geoPoint.latitude,
-                    lineEndLon = point2.geoPoint.longitude
-                ),
-                gateCrossingEngine.distanceToLineMeters(
-                    pointLat = location.latitude,
-                    pointLon = location.longitude,
-                    lineStartLat = point1.geoPoint.latitude,
-                    lineStartLon = point1.geoPoint.longitude,
-                    lineEndLat = point2.geoPoint.latitude,
-                    lineEndLon = point2.geoPoint.longitude
-                )
+            val previousDistanceToLine = gateCrossingEngine.distanceToLineMeters(
+                pointLat = previous.latitude,
+                pointLon = previous.longitude,
+                lineStartLat = point1.geoPoint.latitude,
+                lineStartLon = point1.geoPoint.longitude,
+                lineEndLat = point2.geoPoint.latitude,
+                lineEndLon = point2.geoPoint.longitude
             )
+            val currentDistanceToLine = gateCrossingEngine.distanceToLineMeters(
+                pointLat = location.latitude,
+                pointLon = location.longitude,
+                lineStartLat = point1.geoPoint.latitude,
+                lineStartLon = point1.geoPoint.longitude,
+                lineEndLat = point2.geoPoint.latitude,
+                lineEndLon = point2.geoPoint.longitude
+            )
+            val minDistanceToLine = minOf(previousDistanceToLine, currentDistanceToLine)
 
             val sideChanged = (previousSide > 0.0 && currentSide < 0.0) || (previousSide < 0.0 && currentSide > 0.0)
             val veryNearLine = minDistanceToLine <= 12.0
             if (sideChanged && veryNearLine) {
                 crossed = true
-                android.util.Log.d("TrackSessionActivity", "✅ POINT_TO_POINT tolerant line cross detected (near-line side change)")
+                android.util.Log.d("TrackSessionActivity", "✅ TOLERANT LINE CROSS DETECTED (near-line side change)")
             }
         }
 
@@ -3403,34 +4338,33 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         
         // For custom circuit tracks with start/finish LINE (4 points total: 2 + 2 duplicate):
         // Check if we're crossing the start/finish line
-        if (startFinishLineIndices.isNotEmpty() && startFinishLineIndices.size >= 2) {
+        if (hasGateBasedTriggering()) {
+            val startLine = getStartLinePoints() ?: return
+            val finishLine = getFinishLinePoints() ?: return
+
             // Check line crossing
             if (awaitingStart) {
                 if (currentTrackMode == TrackMode.POINT_TO_POINT) {
-                    handlePointToPointStagingAndStart(location, trackPoints[0], trackPoints[1])
+                    handlePointToPointStagingAndStart(location, startLine.first, startLine.second)
                     return
                 }
 
                 val distanceToStartLine = gateCrossingEngine.distanceToLineMeters(
                     pointLat = location.latitude,
                     pointLon = location.longitude,
-                    lineStartLat = trackPoints[0].geoPoint.latitude,
-                    lineStartLon = trackPoints[0].geoPoint.longitude,
-                    lineEndLat = trackPoints[1].geoPoint.latitude,
-                    lineEndLon = trackPoints[1].geoPoint.longitude
+                    lineStartLat = startLine.first.geoPoint.latitude,
+                    lineStartLon = startLine.first.geoPoint.longitude,
+                    lineEndLat = startLine.second.geoPoint.latitude,
+                    lineEndLon = startLine.second.geoPoint.longitude
                 )
                 updateAwaitingStartDialog(distanceToStartLine)
                 val meters = distanceToStartLine.toInt().coerceAtLeast(0)
                 tvLapTime.text = "До старт/финал: ${meters} m"
 
                 // Check initial start/finish line (indices 0 and 1)
-                val crossed = checkStartFinishLineCrossing(location, trackPoints[0], trackPoints[1])
+                val crossed = checkStartFinishLineCrossing(location, startLine.first, startLine.second)
                 if (crossed) {
-                    if (isStartDirectionConfirmed()) {
-                        beginTimedSession(location)
-                    } else {
-                        tvLapTime.text = "Потегли напред през линията"
-                    }
+                    beginTimedSession(location)
                 }
                 return
             } else if (lapStartTime == 0L) {
@@ -3438,14 +4372,10 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 android.util.Log.w("TrackSessionActivity", "⚠️ UNEXPECTED: lapStartTime == 0L but not awaitingStart")
                 return
             } else {
-                // Check if we're at the lap completion line (last 2 points)
-                val lapLineIndex1 = trackPoints.size - 2
-                val lapLineIndex2 = trackPoints.size - 1
-                
                 val crossed = checkStartFinishLineCrossing(
                     location = location,
-                    point1 = trackPoints[lapLineIndex1],
-                    point2 = trackPoints[lapLineIndex2],
+                    point1 = finishLine.first,
+                    point2 = finishLine.second,
                     ignoreDebounce = currentTrackMode == TrackMode.POINT_TO_POINT
                 )
                 if (crossed) {
@@ -3483,7 +4413,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                     recordLap()
                     
                     // Stay at lap completion line for next lap
-                    currentTrackPointIndex = lapLineIndex1
+                    currentTrackPointIndex = startFinishLineIndices[2]
                 }
                 return
             }
@@ -3584,6 +4514,10 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     private fun beginTimedSession(location: Location) {
         awaitingStart = false
         lapStartTime = System.currentTimeMillis()
+        if (sessionTelemetryStartWallTimeMs <= 0L) {
+            sessionTelemetryStartWallTimeMs = lapStartTime
+        }
+        updateSessionVideoSyncMarkerIfNeeded()
         updateProjectedRouteDistance(location)
         projectedRouteDistanceAtLapStartMeters = currentProjectedRouteDistanceMeters
         updateCurrentLapBadge(1)
@@ -3615,7 +4549,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
 
         sectorStartTime = lapStartTime
         currentSector = 0
-        currentTrackPointIndex = if (startFinishLineIndices.size >= 4) 2 else 1
+        currentTrackPointIndex = if (hasGateBasedTriggering()) 2 else 1
         statsFilteredLongG = 0f
         statsFilteredLatG = 0f
         maxLeanAngle = 0f
@@ -3679,13 +4613,104 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         )
 
         if (strictCrossed) {
-            if (isStartDirectionConfirmed()) {
-                android.util.Log.d("TrackSessionActivity", "POINT_TO_POINT start line crossed - run started")
+            val gpsCourseDirectionConfirmed = resolvePointToPointStartCourseDirectionConfirmation(
+                startLineA = startLineA,
+                startLineB = startLineB,
+                location = location
+            )
+            val directionConfirmed = gpsCourseDirectionConfirmed ?: isStartDirectionConfirmed()
+
+            if (directionConfirmed) {
+                android.util.Log.d(
+                    "TrackSessionActivity",
+                    "POINT_TO_POINT start line crossed - run started (gpsDirection=$gpsCourseDirectionConfirmed)"
+                )
                 beginTimedSession(location)
             } else {
-                tvLapTime.text = "Потегли напред през линията"
+                tvLapTime.text = "Премини през линията в посока към трасето"
             }
         }
+    }
+
+    private fun resolvePointToPointStartCourseDirectionConfirmation(
+        startLineA: TrackPoint,
+        startLineB: TrackPoint,
+        location: Location
+    ): Boolean? {
+        val previous = previousLocationForCrossing ?: return null
+        val courseReferencePoint = resolvePointToPointCourseReferencePoint() ?: return null
+
+        val targetSide = lineSide(
+            startLineA.geoPoint.latitude,
+            startLineA.geoPoint.longitude,
+            startLineB.geoPoint.latitude,
+            startLineB.geoPoint.longitude,
+            courseReferencePoint.latitude,
+            courseReferencePoint.longitude
+        )
+        if (kotlin.math.abs(targetSide) < 1e-9) return null
+
+        val previousSide = lineSide(
+            startLineA.geoPoint.latitude,
+            startLineA.geoPoint.longitude,
+            startLineB.geoPoint.latitude,
+            startLineB.geoPoint.longitude,
+            previous.latitude,
+            previous.longitude
+        )
+        val currentSide = lineSide(
+            startLineA.geoPoint.latitude,
+            startLineA.geoPoint.longitude,
+            startLineB.geoPoint.latitude,
+            startLineB.geoPoint.longitude,
+            location.latitude,
+            location.longitude
+        )
+
+        val targetIsPositive = targetSide > 0.0
+        val previousWasOutside = if (targetIsPositive) previousSide <= 0.0 else previousSide >= 0.0
+        val currentIsInside = if (targetIsPositive) currentSide >= 0.0 else currentSide <= 0.0
+        val confirmed = previousWasOutside && currentIsInside
+
+        android.util.Log.d(
+            "TrackSessionActivity",
+            "POINT_TO_POINT GPS start direction confirmation: targetSide=$targetSide, previousSide=$previousSide, currentSide=$currentSide, confirmed=$confirmed"
+        )
+
+        return confirmed
+    }
+
+    private fun resolvePointToPointCourseReferencePoint(): GeoPoint? {
+        val startLine = getStartLinePoints()
+        if (startLine != null) {
+            val startCenter = GeoPoint(
+                latitude = (startLine.first.latitude + startLine.second.latitude) / 2.0,
+                longitude = (startLine.first.longitude + startLine.second.longitude) / 2.0
+            )
+            progressRoutePoints.firstOrNull { point ->
+                distanceMeters(startCenter, point) > 20f
+            }?.let { return it }
+        }
+
+        val firstSnapHelperIndex = trackPointTypes.indexOfFirst {
+            it == com.example.clinometer.tracking.CustomTrack.TrackPoint.PointType.SNAP_HELPER
+        }
+        if (firstSnapHelperIndex in trackPoints.indices) {
+            return trackPoints[firstSnapHelperIndex].geoPoint
+        }
+
+        if (startFinishLineIndices.size >= 4) {
+            val finishStart = trackPoints.getOrNull(startFinishLineIndices[2])
+            val finishEnd = trackPoints.getOrNull(startFinishLineIndices[3])
+            if (finishStart != null && finishEnd != null) {
+                return GeoPoint(
+                    latitude = (finishStart.latitude + finishEnd.latitude) / 2.0,
+                    longitude = (finishStart.longitude + finishEnd.longitude) / 2.0
+                )
+            }
+        }
+
+        return trackPoints.getOrNull(2)?.geoPoint
     }
 
     private fun updateStartDirectionGate(deviceLinearAccel: FloatArray) {
@@ -3738,6 +4763,46 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         if (dialog.isShowing) {
             messageView.text = message
         }
+    }
+
+    private fun resolveAwaitingStartDistanceMeters(): Double? {
+        val cachedDistance = currentDistanceToStartLineMeters
+        if (cachedDistance.isFinite() && cachedDistance >= 0f) {
+            return cachedDistance.toDouble()
+        }
+
+        val location = lastLocation ?: resolveLastKnownTrackLocation() ?: return null
+        return if (hasGateBasedTriggering()) {
+            val startLine = getStartLinePoints() ?: return null
+            gateCrossingEngine.distanceToLineMeters(
+                pointLat = location.latitude,
+                pointLon = location.longitude,
+                lineStartLat = startLine.first.geoPoint.latitude,
+                lineStartLon = startLine.first.geoPoint.longitude,
+                lineEndLat = startLine.second.geoPoint.latitude,
+                lineEndLon = startLine.second.geoPoint.longitude
+            )
+        } else {
+            val startPoint = trackPoints.firstOrNull() ?: return null
+            distanceToTrackPoint(location, startPoint).toDouble()
+        }
+    }
+
+    private fun resolveLastKnownTrackLocation(): Location? {
+        if (!::locationManager.isInitialized) return null
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return null
+        }
+
+        return sequenceOf(
+            LocationManager.GPS_PROVIDER,
+            LocationManager.NETWORK_PROVIDER,
+            LocationManager.PASSIVE_PROVIDER
+        )
+            .mapNotNull { provider ->
+                runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull()
+            }
+            .maxByOrNull { location -> location.time }
     }
 
     private fun buildAwaitingStartMessage(metersLabel: String, isNearStartLine: Boolean): CharSequence {
@@ -3793,9 +4858,21 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == LOCATION_PERMISSION_REQUEST) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startLocationUpdates()
+        when (requestCode) {
+            LOCATION_PERMISSION_REQUEST -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    startLocationUpdates()
+                }
+            }
+
+            CAMERA_PERMISSION_REQUEST -> {
+                val requestedMode = pendingSessionCameraMode
+                pendingSessionCameraMode = null
+                if (requestedMode != null && grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                    applySessionCameraMode(requestedMode)
+                } else {
+                    showToast(getString(R.string.track_camera_permission_denied))
+                }
             }
         }
     }
@@ -3815,6 +4892,9 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         gravitySensor?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         magnetometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
+        if (sessionCameraMode != SessionCameraMode.OFF && activeVideoRecording == null) {
+            bindSessionCameraPreview()
+        }
     }
     override fun onPause() {
         super.onPause()
@@ -3827,12 +4907,14 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         gravitySensor?.let { sensorManager.unregisterListener(this, it) }
         magnetometer?.let { sensorManager.unregisterListener(this, it) }
         gyroscope?.let { sensorManager.unregisterListener(this, it) }
+        unbindSessionCamera()
     }
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(updateRunnable)
         locationManager.removeUpdates(this)
         releaseTrackWakeLock()
+        unbindSessionCamera()
         soundManager.release()
     }
 
@@ -3855,6 +4937,7 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         tvNoLaps.visibility = android.view.View.GONE
         val inflater = layoutInflater
         val lapView = inflater.inflate(R.layout.lap_item_session_template, llLapsContainer, false)
+        enforceDpTextSizes(lapView)
         lapView.tag = lapNumber
         val tvLapNumber = lapView.findViewById<TextView>(R.id.tvLapNumber)
         val tvLapTime = lapView.findViewById<TextView>(R.id.tvLapTime)
@@ -4050,9 +5133,16 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
     }
 
     private fun showAwaitingStartDialog() {
+        val initialDistanceMeters = resolveAwaitingStartDistanceMeters()
         val message = buildAwaitingStartMessage(
-            metersLabel = "-- м",
-            isNearStartLine = false
+            metersLabel = initialDistanceMeters
+                ?.toInt()
+                ?.coerceAtLeast(0)
+                ?.let { meters -> "$meters м" }
+                ?: "-- м",
+            isNearStartLine = initialDistanceMeters?.let { distance ->
+                distance <= pointToPointStartHintMeters
+            } ?: false
         )
         dismissAwaitingStartDialog()
 
@@ -4062,7 +5152,11 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
 
         messageView.text = message
         cancelButton.setOnClickListener {
-            stopRecording()
+            dismissAwaitingStartDialog()
+            stopRecordingWithoutSaving(
+                showDataLostToast = false,
+                resumeIdleLocationTracking = true
+            )
         }
 
         awaitingStartMessageView = messageView
@@ -4111,6 +5205,12 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                 } else {
                     "-- km/h"
                 }
+                val sessionVideoUri = savedSessionVideoUri.orEmpty()
+                val sessionVideoPath = savedSessionVideoPath.orEmpty()
+                val sessionVideoCamera = savedSessionVideoCameraLabel.orEmpty()
+                val sessionVideoStartOffsetMs = savedSessionVideoStartOffsetMs ?: 0L
+                val sessionVideoElapsedAtStartMs = savedSessionVideoStartSessionElapsedMs ?: -sessionVideoStartOffsetMs
+                val sessionVideoOverlayExported = savedSessionVideoOverlayExported
                 val outingData = mapOf(
                     "trackName" to trackName,
                     "mode" to if (currentTrackMode == TrackMode.POINT_TO_POINT) "point_to_point" else "circuit",
@@ -4131,7 +5231,13 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
                     "temperature" to sessionTemperature,
                     "humidity" to sessionHumidity,
                     "windSpeed" to sessionWindSpeed,
-                    "weatherIcon" to cachedWeatherIcon.toString()
+                    "weatherIcon" to cachedWeatherIcon.toString(),
+                    "videoUri" to sessionVideoUri,
+                    "videoPath" to sessionVideoPath,
+                    "videoCamera" to sessionVideoCamera,
+                    "videoSessionStartOffsetMs" to sessionVideoStartOffsetMs.toString(),
+                    "videoSessionElapsedAtStartMs" to sessionVideoElapsedAtStartMs.toString(),
+                    "videoOverlayExported" to sessionVideoOverlayExported.toString()
                 )
                 val isResumeSession = intent.getBooleanExtra("resume_session", false)
                 val sessionIdRaw = if (isResumeSession) {
@@ -4214,6 +5320,30 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         editor.putString("${sessionId}_outing_${outingNumber}_humidity", outingData["humidity"])
         editor.putString("${sessionId}_outing_${outingNumber}_wind_speed", outingData["windSpeed"])
         editor.putInt("${sessionId}_outing_${outingNumber}_weather_icon", outingData["weatherIcon"]?.toIntOrNull() ?: -1)
+        val videoUri = outingData["videoUri"].orEmpty()
+        val videoPath = outingData["videoPath"].orEmpty()
+        val videoCamera = outingData["videoCamera"].orEmpty()
+        val videoSessionStartOffsetMs = outingData["videoSessionStartOffsetMs"]?.toLongOrNull() ?: 0L
+        val videoSessionElapsedAtStartMs = outingData["videoSessionElapsedAtStartMs"]?.toLongOrNull() ?: -videoSessionStartOffsetMs.coerceAtLeast(0L)
+        val videoOverlayExported = outingData["videoOverlayExported"].toBoolean()
+        if (videoUri.isNotBlank()) {
+            editor.putString("${sessionId}_outing_${outingNumber}_video_uri", videoUri)
+        } else {
+            editor.remove("${sessionId}_outing_${outingNumber}_video_uri")
+        }
+        if (videoPath.isNotBlank()) {
+            editor.putString("${sessionId}_outing_${outingNumber}_video_path", videoPath)
+        } else {
+            editor.remove("${sessionId}_outing_${outingNumber}_video_path")
+        }
+        if (videoCamera.isNotBlank()) {
+            editor.putString("${sessionId}_outing_${outingNumber}_video_camera", videoCamera)
+        } else {
+            editor.remove("${sessionId}_outing_${outingNumber}_video_camera")
+        }
+        editor.putLong("${sessionId}_outing_${outingNumber}_video_session_start_offset_ms", videoSessionStartOffsetMs)
+        editor.putLong("${sessionId}_outing_${outingNumber}_video_session_elapsed_at_start_ms", videoSessionElapsedAtStartMs)
+        editor.putBoolean("${sessionId}_outing_${outingNumber}_video_overlay_exported", videoOverlayExported)
         editor.putInt("${sessionId}_outing_count", outingNumber)
         for (i in lapTimes.indices) {
             editor.putString("${sessionId}_outing_${outingNumber}_lap_${i + 1}", formatTime(lapTimes[i]))
@@ -4221,8 +5351,39 @@ class TrackSessionActivity : BaseActivity(), SensorEventListener, LocationListen
         
         // Save lap data
         saveLapData(editor, sessionId, outingNumber)
+        saveVideoExportLapSnapshot(editor, sessionId, outingNumber)
         
         editor.apply()
+        ProfileSessionSummaryStore.refreshTrackSummary(this, currentProfileId)
+    }
+
+    private fun saveVideoExportLapSnapshot(
+        editor: android.content.SharedPreferences.Editor,
+        sessionId: String,
+        outingNumber: Int
+    ) {
+        val snapshotKey = "${sessionId}_outing_${outingNumber}_video_export_lap_data"
+        val hasSnapshot = currentLapData.startTime > 0L &&
+            (currentLapData.routePoints.isNotEmpty() ||
+                currentLapData.timestamps.isNotEmpty() ||
+                currentLapData.speedData.isNotEmpty())
+        if (!hasSnapshot) {
+            editor.remove(snapshotKey)
+            return
+        }
+
+        val lastSavedLap = lapData.lastOrNull()
+        val isDuplicateOfLastSavedLap = lastSavedLap != null &&
+            lastSavedLap.lapNumber == currentLapData.lapNumber &&
+            lastSavedLap.startTime == currentLapData.startTime &&
+            lastSavedLap.endTime == currentLapData.endTime
+        if (isDuplicateOfLastSavedLap) {
+            editor.remove(snapshotKey)
+            return
+        }
+
+        val gson = com.google.gson.Gson()
+        editor.putString(snapshotKey, gson.toJson(currentLapData))
     }
     
     private fun saveLapData(editor: android.content.SharedPreferences.Editor, sessionId: String, outingNumber: Int) {

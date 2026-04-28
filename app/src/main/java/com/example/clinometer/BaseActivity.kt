@@ -15,6 +15,7 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import android.view.WindowManager
 import androidx.preference.PreferenceManager
+import com.example.clinometer.data.CalibrationReminderStore
 import com.example.clinometer.settings.LanguageManager
 import com.example.clinometer.main.MainContainerActivity
 
@@ -34,6 +35,12 @@ abstract class BaseActivity : AppCompatActivity() {
         applySystemBarsPaddingToRoot()
         setupScreenKeepOn()
         setupBottomNavigation()
+        updateSettingsReminderBadge()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateSettingsReminderBadge()
     }
 
     private fun setupScreenKeepOn() {
@@ -123,12 +130,29 @@ abstract class BaseActivity : AppCompatActivity() {
         resetNavItemState(R.id.navTrack)
         resetNavItemState(R.id.navOptions)
         setNavItemActive(activeItemId)
+        updateSettingsReminderBadge()
     }
 
     private fun resetNavItemState(itemId: Int) {
         val layout = findViewById<LinearLayout>(itemId) ?: return
-        val imageView = layout.getChildAt(0) as? ImageView
-        val textView = layout.getChildAt(1) as? TextView
+        val imageViewId = when (itemId) {
+            R.id.navDrag -> R.id.ivNavDrag
+            R.id.navTrack -> R.id.ivNavTrack
+            R.id.navMap -> R.id.ivNavMap
+            R.id.navGarage -> R.id.ivNavGarage
+            R.id.navOptions -> R.id.ivNavOptions
+            else -> return
+        }
+        val textViewId = when (itemId) {
+            R.id.navDrag -> R.id.tvNavDrag
+            R.id.navTrack -> R.id.tvNavTrack
+            R.id.navMap -> R.id.tvNavMap
+            R.id.navGarage -> R.id.tvNavGarage
+            R.id.navOptions -> R.id.tvNavOptions
+            else -> return
+        }
+        val imageView = layout.findViewById<ImageView>(imageViewId)
+        val textView = layout.findViewById<TextView>(textViewId)
 
         val iconColor = if (isWhiteIcon(itemId)) {
             ContextCompat.getColor(this, android.R.color.white)
@@ -152,8 +176,24 @@ abstract class BaseActivity : AppCompatActivity() {
 
     private fun setNavItemActive(itemId: Int) {
         val layout = findViewById<LinearLayout>(itemId) ?: return
-        val imageView = layout.getChildAt(0) as? ImageView
-        val textView = layout.getChildAt(1) as? TextView
+        val imageViewId = when (itemId) {
+            R.id.navDrag -> R.id.ivNavDrag
+            R.id.navTrack -> R.id.ivNavTrack
+            R.id.navMap -> R.id.ivNavMap
+            R.id.navGarage -> R.id.ivNavGarage
+            R.id.navOptions -> R.id.ivNavOptions
+            else -> return
+        }
+        val textViewId = when (itemId) {
+            R.id.navDrag -> R.id.tvNavDrag
+            R.id.navTrack -> R.id.tvNavTrack
+            R.id.navMap -> R.id.tvNavMap
+            R.id.navGarage -> R.id.tvNavGarage
+            R.id.navOptions -> R.id.tvNavOptions
+            else -> return
+        }
+        val imageView = layout.findViewById<ImageView>(imageViewId)
+        val textView = layout.findViewById<TextView>(textViewId)
 
         val iconColor = ContextCompat.getColor(this, R.color.primary_color)
         val tint = ColorStateList.valueOf(iconColor)
@@ -225,5 +265,14 @@ abstract class BaseActivity : AppCompatActivity() {
         startActivity(intent)
         overridePendingTransition(0, 0)
         finish()
+    }
+
+    private fun updateSettingsReminderBadge() {
+        findViewById<TextView>(R.id.tvNavOptionsBadge)?.visibility =
+            if (CalibrationReminderStore.needsSelectedProfileDragCalibrationReminder(this)) {
+                android.view.View.VISIBLE
+            } else {
+                android.view.View.GONE
+            }
     }
 }

@@ -2,6 +2,7 @@ package com.example.clinometer
 
 import android.content.Context
 import android.util.Log
+import com.example.clinometer.data.ProfileSessionSummaryStore
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
@@ -25,6 +26,7 @@ object RouteStorage {
                     it.write(json.toByteArray())
                     it.flush() // Принудително изпращане на данните
                 }
+                ProfileSessionSummaryStore.updateRouteSummaries(context, races)
             } catch (e: Exception) {
                 Log.e("RouteStorage", "Error saving races", e)
             }

@@ -1,9 +1,6 @@
 package com.example.clinometer.settings
 
 import android.content.Context
-import android.media.AudioAttributes
-import android.media.MediaPlayer
-import android.media.SoundPool
 import android.speech.tts.TextToSpeech
 import androidx.preference.PreferenceManager
 import java.util.*
@@ -12,16 +9,9 @@ import java.util.*
  * Manager за звукови ефекти в Drag режим
  */
 class SoundManager(private val context: Context) {
-    
-    private var soundPool: SoundPool? = null
+
     private var tts: TextToSpeech? = null
-    private var mediaPlayer: MediaPlayer? = null
-    
-    private var beep100SoundId: Int = 0
-    private var beep200SoundId: Int = 0
-    private var beep402SoundId: Int = 0
-    private var countdownSoundId: Int = 0
-    
+
     private var ttsInitialized = false
     
     companion object {
@@ -41,23 +31,7 @@ class SoundManager(private val context: Context) {
     }
     
     init {
-        initializeSoundPool()
         initializeTTS()
-    }
-    
-    private fun initializeSoundPool() {
-        val audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_GAME)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        
-        soundPool = SoundPool.Builder()
-            .setMaxStreams(3)
-            .setAudioAttributes(audioAttributes)
-            .build()
-        
-        // Зареждаме звуковете (ще ги създадем след малко)
-        // За сега използваме системния beep или ще създадем custom sounds
     }
     
     private fun initializeTTS() {
@@ -105,7 +79,7 @@ class SoundManager(private val context: Context) {
         return PreferenceManager.getDefaultSharedPreferences(context)
             .getBoolean(PREF_SOUND_LAP_COMPLETE_ENABLED, DEFAULT_SOUND_ENABLED)
     }
-    
+
     fun isPersonalBestEnabled(): Boolean {
         return PreferenceManager.getDefaultSharedPreferences(context)
             .getBoolean(PREF_SOUND_PERSONAL_BEST_ENABLED, DEFAULT_SOUND_ENABLED)
@@ -288,15 +262,9 @@ class SoundManager(private val context: Context) {
      * Освобождава ресурсите
      */
     fun release() {
-        soundPool?.release()
-        soundPool = null
-        
         tts?.stop()
         tts?.shutdown()
         tts = null
-        
-        mediaPlayer?.release()
-        mediaPlayer = null
     }
 }
 

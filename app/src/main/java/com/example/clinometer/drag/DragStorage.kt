@@ -1,6 +1,7 @@
 package com.example.clinometer
 
 import android.content.Context
+import com.example.clinometer.data.ProfileSessionSummaryStore
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 
@@ -13,6 +14,7 @@ object DragStorage {
         val gson = Gson()
         val json = gson.toJson(sessions)
         prefs.edit().putString(KEY_SESSIONS, json).apply()
+        ProfileSessionSummaryStore.updateDragSummaries(context, sessions)
 
         // Debug log
         println("✅ Saved ${sessions.size} sessions")

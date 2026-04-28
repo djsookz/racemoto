@@ -128,7 +128,6 @@ import com.example.clinometer.main.location.MapZoomSmoother
 import com.example.clinometer.main.location.MotionPredictor
 import com.example.clinometer.main.location.LocationUpdateCoordinator
 import com.example.clinometer.main.location.SensorMath
-import com.example.clinometer.main.navigation.ManeuverDisplayPresenter
 import com.example.clinometer.main.navigation.GeoBearing
 import com.example.clinometer.main.navigation.NavigationStepSelector
 import com.example.clinometer.main.navigation.RouteMath
@@ -217,14 +216,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var navigationOriginBearing: Float = 0f
     private var allowMotorways: Boolean = true
     private var preferredRoutePolyline: String? = null
-    private var hasAppliedPreferredRoute: Boolean = false
     private var hasTrimmedAlternativesForNav: Boolean = false
     private var directionsResponseJson: String? = null
     
 
     private var directionsService: com.example.clinometer.navigation.MapboxDirectionsService? = null
     private var mapboxAccessToken: String = ""
-    private var isRerouting = false
     
 
     // SDK-driven navigation rendering (Mapbox mode)
@@ -232,15 +229,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     private var routeLineView: MapboxRouteLineView? = null
     private val routeArrowApi: MapboxRouteArrowApi by lazy { MapboxRouteArrowApi() }
     private var routeArrowView: MapboxRouteArrowView? = null
-    private var isSdkNavigationReady: Boolean = false
     private var hasRequestedInitialSdkRoute: Boolean = false
-    private var hasInitializedSdkCamera: Boolean = false // legacy name: means "we already requested following"
     private var hasDoneInitialOverview: Boolean = false   // prevent overview on reroute (match TestNavigationActivity)
     private var shouldAnimateToFollowing: Boolean = false // Flag to animate to following after first location update
 
     private var viewportDataSource: MapboxNavigationViewportDataSource? = null
     private var navigationCamera: NavigationCamera? = null
     private val navigationLocationProvider = NavigationLocationProvider()
+    private val rawPuckLocationProvider = NavigationLocationProvider()
     private lateinit var maneuverApi: MapboxManeuverApi
     private var maneuverContainer: View? = null
     private var maneuverView: MapboxManeuverView? = null
@@ -269,7 +265,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
                     mapboxNavigation.registerRouteProgressObserver(sdkRouteProgressObserver)
                     mapboxNavigation.registerArrivalObserver(sdkArrivalObserver)
                 }
-                mapboxNavigation.startTripSession()
+                mapboxNavigation.startTripSession(withForegroundService = false)
             }
 
             override fun onDetached(mapboxNavigation: MapboxNavigation) {
@@ -464,7 +460,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
     }
 
     private val sdkLocationObserver = object : LocationObserver {
-        override fun onNewRawLocation(rawLocation: com.mapbox.common.location.Location) {}
+        override fun onNewRawLocation(rawLocation: com.mapbox.common.location.Location) {
+            rawPuckLocationProvider.changePosition(rawLocation, emptyList())
+        }
 
         override fun onNewLocationMatcherResult(locationMatcherResult: LocationMatcherResult) {
             val enhancedLocation = locationMatcherResult.enhancedLocation
@@ -738,7 +736,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val launchData = NavigationLaunchDataParser.parse(this, intent)
 
         hasDoneInitialOverview = launchData.startFromPreview
-        hasInitializedSdkCamera = false
         hasRequestedInitialSdkRoute = false
 
         directionsResponseJson = launchData.directionsResponseJson
@@ -758,7 +755,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         navigationRouteGeometry = launchData.parsedRouteGeometry
         navigationRoutePoints = launchData.routePoints
 
-        hasAppliedPreferredRoute = false
         hasTrimmedAlternativesForNav = false
 
         navigationSteps = launchData.navigationSteps
@@ -1051,7 +1047,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
         SdkStyleSetup.configureLocationPuck(
             mapView = mv,
-            navigationLocationProvider = navigationLocationProvider,
+            navigationLocationProvider = rawPuckLocationProvider,
             density = resources.displayMetrics.density
         )
 
@@ -1066,7 +1062,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             )
         }
 
-        isSdkNavigationReady = true
         setupNavigationCameraButtons()
     }
 
@@ -1076,40 +1071,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
             routeArrowOptionsBuilder.withSlotName("middle")
         }
         return MapboxRouteArrowView(routeArrowOptionsBuilder.build())
-    }
-
-    private fun setupNavigationRoute(style: Style) {
-        if (!isNavigationActive) {
-            return
-        }
-        
-        try {
-            val components = NavigationRouteRenderComponentsFactory.ensure(
-                context = this,
-                routeLineApi = routeLineApi,
-                routeLineView = routeLineView,
-                routeArrowView = routeArrowView,
-                createRouteArrowView = ::createRouteArrowView
-            )
-            routeLineApi = components.routeLineApi
-            routeLineView = components.routeLineView
-            routeArrowView = components.routeArrowView
-
-            if (navigationRouteGeometry != null) {
-                setupNavigationRouteFallback(style)
-            }
-            
-
-            navigationDestination?.let { destination ->
-                NavigationDestinationLayerBinder.bindIfNeeded(style, destination)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-
-            if (navigationRouteGeometry != null) {
-                setupNavigationRouteFallback(style)
-            }
-        }
     }
     
     private fun setupNavigationRouteFallback(style: Style) {
@@ -1236,17 +1197,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     private fun updateCameraModeIcon() {
         MainCameraModeBinder.updateIcon(cameraNorthModeButton, isNorthUpMode)
-    }
-
-    private fun setMapCenter(lat: Double, lon: Double) {
-        val pitch = getCameraPitch()
-        mapboxMapView?.mapboxMap?.setCamera(
-            CameraOptions.Builder()
-                .center(MapboxPoint.fromLngLat(lon, lat))
-                .zoom(currentZoom.toDouble())
-                .pitch(pitch)
-                .build()
-        )
     }
     
     override fun onStart() {
@@ -1803,81 +1753,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         }
     }
     
-    private fun recalculateRoute(currentLocation: GeoPoint) {
-        if (navigationDestination == null || directionsService == null || mapboxAccessToken.isEmpty()) {
-            return
-        }
-        
-        if (isRerouting) {
-            return
-        }
-        
-        isRerouting = true
-        
-        val currentLat = currentLocation.latitude
-        val currentLon = currentLocation.longitude
-        val destLat = navigationDestination!!.latitude()
-        val destLon = navigationDestination!!.longitude()
-        
-
-        val coordinates = "$currentLon,$currentLat;$destLon,$destLat"
-        
-        lifecycleScope.launch {
-            try {
-                val response = withContext(Dispatchers.IO) {
-                    directionsService!!.getRoute(
-                        coordinates, 
-                        mapboxAccessToken, 
-                        alternatives = false, // ВАЖНО: При reroute не искаме alternatives
-                        exclude = if (!allowMotorways) "motorway" else null
-                    )
-                }
-                
-                if (response.isSuccessful && response.body() != null) {
-                    val directionsResponse = response.body()!!
-                    val route = directionsResponse.routes.firstOrNull()
-                    
-                    if (route != null) {
-
-                        val coordinatesList = route.geometry.coordinates.map { coord ->
-                            com.mapbox.geojson.Point.fromLngLat(coord[0], coord[1])
-                        }
-                        navigationRouteGeometry = com.mapbox.geojson.LineString.fromLngLats(coordinatesList)
-                        navigationRoutePoints = navigationRouteGeometry?.coordinates() ?: emptyList()
-                        
-
-                        navigationSteps = route.legs.flatMap { it.steps }
-                        directionsResponseJson = com.google.gson.Gson().toJson(directionsResponse)
-                        
-                        // ВАЖНО: След reroute, новият маршрут ще стане preferred когато SDK върне NavigationRoute
-                        // preferredRoutePolyline ще се зададе в sdkRoutesObserver след като получим polyline string от SDK
-                        
-                        currentStepIndex = 0
-                        
-
-                        routeArrowView = null
-                        
-                        
-
-                        
-
-                        // Заявка за нов маршрут от SDK
-                        // След като SDK върне маршрутите, sdkRoutesObserver ще зададе preferredRoutePolyline
-                        if (mapboxMapView != null) {
-                            requestInitialSdkRouteIfPossible()
-                        }
-                    } else {
-                    }
-                } else {
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                isRerouting = false
-            }
-        }
-    }
-    
     private fun onDestinationReached() {
         if (hasReachedDestination) return
         hasReachedDestination = true
@@ -1973,74 +1848,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         val notificationManager = getSystemService(NotificationManager::class.java)
         notificationManager.notify(notificationId, notification)
     }
-    
-    private fun updateCurrentNavigationStep(currentLocation: GeoPoint) {
-        if (navigationSteps.isEmpty() || navigationRoutePoints.isEmpty()) return
-        
 
-        if (currentStepIndex >= navigationSteps.size) {
-            currentStepIndex = 0
-        }
-        
-
-
-
-        val selection = NavigationStepSelector.select(
-            currentLocation = currentLocation,
-            navigationSteps = navigationSteps,
-            currentStepIndex = currentStepIndex
-        )
-        val bestStepIndex = selection.stepIndex
-        
-
-
-        if (bestStepIndex != currentStepIndex) {
-
-            if (bestStepIndex > currentStepIndex || (currentStepIndex - bestStepIndex) <= 2) {
-                currentStepIndex = bestStepIndex
-            }
-        }
-        
-
-        if (currentStepIndex < navigationSteps.size) {
-            val distanceToManeuver = if (currentStepIndex == bestStepIndex) {
-                selection.distanceToManeuver
-            } else {
-                val currentStep = navigationSteps[currentStepIndex]
-                RouteMath.calculateDistanceToManeuver(currentLocation, currentStep)
-            }
-            updateManeuverView(currentStepIndex, distanceToManeuver)
-        }
-    }
-
-    private fun updateManeuverView(stepIndex: Int, distanceToManeuver: Double = -1.0) {
-        if (stepIndex >= navigationSteps.size) {
-            maneuverViewContainer?.visibility = View.GONE
-            return
-        }
-        
-        val step = navigationSteps[stepIndex]
-        maneuverViewContainer?.visibility = View.VISIBLE
-
-        val display = ManeuverDisplayPresenter.build(
-            context = this,
-            step = step,
-            distanceToManeuver = distanceToManeuver
-        )
-
-        tvManeuverDistance?.text = display.distanceText
-        tvManeuverPrimary?.text = display.primaryText
-
-        if (display.secondaryText != null) {
-            tvManeuverSecondary?.text = display.secondaryText
-            tvManeuverSecondary?.visibility = View.VISIBLE
-        } else {
-            tvManeuverSecondary?.visibility = View.GONE
-        }
-
-        ivManeuverIcon?.setImageResource(display.iconRes)
-    }
-    
     private fun updateMapAnimation() {
         // In Mapbox navigation mode, SDK NavigationCamera drives the camera.
         if (isNavigationActive) return

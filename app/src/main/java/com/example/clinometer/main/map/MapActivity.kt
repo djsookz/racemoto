@@ -5,14 +5,21 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.DashPathEffect
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.BaseAdapter
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.LinearLayout
+import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -32,8 +39,8 @@ import com.github.mikephil.charting.highlight.Highlight
 import com.github.mikephil.charting.listener.ChartTouchListener
 import com.github.mikephil.charting.listener.OnChartGestureListener
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener
+import com.google.gson.Gson
 import com.google.android.material.tabs.TabLayout
-import com.example.clinometer.settings.MapProviderManager
 import com.mapbox.geojson.Point as MapboxPoint
 import com.mapbox.geojson.LineString
 import com.mapbox.geojson.Feature
@@ -53,14 +60,8 @@ import com.mapbox.maps.plugin.compass.compass
 import com.mapbox.maps.plugin.attribution.attribution
 import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationOptions
-import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager
-import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
-import com.mapbox.maps.plugin.annotation.generated.CircleAnnotationManager
-import com.mapbox.maps.plugin.annotation.generated.CircleAnnotationOptions
 import com.mapbox.maps.plugin.annotation.annotations
-import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.createPolylineAnnotationManager
-import com.mapbox.maps.plugin.annotation.generated.createCircleAnnotationManager
 import android.animation.ValueAnimator
 import android.os.Handler
 import android.os.Looper
@@ -73,12 +74,26 @@ import androidx.core.content.ContextCompat
 import com.example.clinometer.data.ProfileStorage
 import com.github.mikephil.charting.components.YAxis
 import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
 class MapActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_INLINE_RACE = "inline_race"
         const val EXTRA_INLINE_ROUTE_POINTS = "inline_route_points"
         const val EXTRA_RETURN_TO_PREVIOUS = "return_to_previous"
+        private const val NORMAL_ENTRY_ROUTE_ANIMATION_DURATION_MS = 4000L
+        private const val NORMAL_ENTRY_ROUTE_ANIMATION_START_DELAY_MS = 800L
+
+        private const val TRACK_UI_PREFS = "track_ui_prefs"
+        private const val TRACK_CHART_VISIBLE_METRICS_MOTO_PREF_KEY = "track_chart_visible_metrics_moto"
+        private const val TRACK_CHART_VISIBLE_METRICS_CAR_PREF_KEY = "track_chart_visible_metrics_car"
+        private const val TRACK_OVERLAY_AXIS_MAX = 100f
+        private const val TRACK_GRAVITY = 9.80665f
+        private const val TRACK_CHART_G_VISUAL_STEP_G = 0.1f
     }
     
     override fun attachBaseContext(newBase: Context) {
@@ -86,15 +101,11 @@ class MapActivity : AppCompatActivity() {
     }
     
     private lateinit var routePoints: List<RoutePoint>
+    private var isTrackContext = false
     private var mapboxMapView: MapboxMapView? = null
     private var raceId: Long = -1L
     private var race: Race? = null
     private var mapboxPolylineAnnotationManager: PolylineAnnotationManager? = null
-    private var mapboxPointAnnotationManager: PointAnnotationManager? = null
-    private var mapboxCircleAnnotationManager: CircleAnnotationManager? = null
-    private var mapboxPulsingCircleAnnotation: com.mapbox.maps.plugin.annotation.generated.CircleAnnotation? = null
-    private var pulsingAnimator: ValueAnimator? = null
-    private val pulsingHandler = Handler(Looper.getMainLooper())
     private lateinit var chart: LineChart
     private lateinit var tabLayout: TabLayout
     private var currentMode: Mode = Mode.SPEED
@@ -107,16 +118,119 @@ class MapActivity : AppCompatActivity() {
     private var mapboxRouteSourceId = "route-source-dynamic"
     private var mapboxRouteLayerId = "route-layer-dynamic"
     private var mapboxStyle: Style? = null
-    private var lastMapboxUpdateTime = 0L
-    private var pendingMapboxUpdate: Runnable? = null
-    private val mapboxUpdateHandler = Handler(Looper.getMainLooper())
     private var zoomButtonsHideRunnable: Runnable? = null
     private val zoomButtonsHandler = Handler(Looper.getMainLooper())
-    
-    private var markerAnimator: android.animation.ValueAnimator? = null
-    private var currentMarkerLat = 0.0
-    private var currentMarkerLon = 0.0
-    private var isMarkerInitialized = false
+
+    private var normalEntryRouteAnimator: ValueAnimator? = null
+    private var pendingNormalEntryRouteAnimationStart: Runnable? = null
+    private var hasStartedNormalEntryRouteAnimation = false
+    private var isNormalEntryRouteAnimationRunning = false
+    private var isMapReadyForNormalEntryRouteAnimation = false
+    private var isChartReadyForNormalEntryRouteAnimation = false
+    private var trackSignedTelemetrySamples: List<TrackSignedTelemetrySample> = emptyList()
+    private var currentTrackLapData: LapData? = null
+    private var isMotorcycleProfile = false
+    private var hasAppliedInitialChartStartPosition = false
+    private val visibleTrackMetrics = linkedSetOf<TrackChartMetric>()
+
+    private data class TrackSignedTelemetrySample(
+        val timeSeconds: Float,
+        val longitudinalG: Float,
+        val lateralG: Float
+    )
+
+    private data class TrackOverlayScale(
+        val positiveLimit: Float,
+        val negativeLimit: Float
+    )
+
+    private fun TrackSignedTelemetrySample.toTrackChartDisplaySample(): TrackSignedTelemetrySample {
+        return copy(
+            longitudinalG = -longitudinalG,
+            lateralG = -lateralG
+        )
+    }
+
+    private fun List<TrackSignedTelemetrySample>.toTrackChartVisualSamples(): List<TrackSignedTelemetrySample> {
+        if (isEmpty()) return emptyList()
+
+        var displayedLongitudinalG = 0f
+        var displayedLateralG = 0f
+
+        return map { sample ->
+            displayedLongitudinalG = resolveTrackChartVisualGValue(sample.longitudinalG, displayedLongitudinalG)
+            displayedLateralG = resolveTrackChartVisualGValue(sample.lateralG, displayedLateralG)
+            sample.copy(
+                longitudinalG = displayedLongitudinalG,
+                lateralG = displayedLateralG
+            )
+        }
+    }
+
+    private fun resolveTrackChartVisualGValue(rawValue: Float, currentDisplayedValue: Float): Float {
+        if (abs(rawValue - currentDisplayedValue) < TRACK_CHART_G_VISUAL_STEP_G) {
+            return currentDisplayedValue
+        }
+        return snapTrackChartGValue(rawValue)
+    }
+
+    private fun snapTrackChartGValue(value: Float): Float {
+        val snapped = (value / TRACK_CHART_G_VISUAL_STEP_G).roundToInt() * TRACK_CHART_G_VISUAL_STEP_G
+        return if (abs(snapped) < TRACK_CHART_G_VISUAL_STEP_G / 2f) 0f else snapped
+    }
+
+    private enum class TrackChartMetric(val labelResId: Int, val prefValue: String) {
+        SPEED(R.string.chart_speed_legend, "speed"),
+        ANGLE(R.string.chart_angle_legend, "angle"),
+        LONGITUDINAL_G(R.string.chart_longitudinal_g_legend, "longitudinal_g"),
+        LATERAL_G(R.string.chart_lateral_g_legend, "lateral_g");
+
+        companion object {
+            fun fromPref(prefValue: String): TrackChartMetric? {
+                return entries.firstOrNull { it.prefValue == prefValue }
+            }
+        }
+    }
+
+    private fun TrackChartMetric.chartColorInt(): Int {
+        return when (this) {
+            TrackChartMetric.SPEED -> Color.rgb(252, 120, 5)
+            TrackChartMetric.ANGLE -> Color.rgb(5, 252, 227)
+            TrackChartMetric.LONGITUDINAL_G -> Color.rgb(164, 214, 72)
+            TrackChartMetric.LATERAL_G -> Color.rgb(255, 106, 150)
+        }
+    }
+
+    private inner class TrackChartMetricDialogAdapter(
+        private val items: List<TrackChartMetric>
+    ) : BaseAdapter() {
+        override fun getCount(): Int = items.size
+
+        override fun getItem(position: Int): TrackChartMetric = items[position]
+
+        override fun getItemId(position: Int): Long = position.toLong()
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+            val view = convertView ?: LayoutInflater.from(parent.context)
+                .inflate(R.layout.item_track_chart_metric_option, parent, false)
+
+            val metric = getItem(position)
+            val checkBox = view.findViewById<CheckBox>(R.id.cbTrackChartMetricOption)
+            val colorDot = view.findViewById<View>(R.id.viewTrackChartMetricColorDot)
+
+            checkBox.text = getString(metric.labelResId)
+            checkBox.isChecked = visibleTrackMetrics.contains(metric)
+            checkBox.isClickable = false
+            checkBox.isFocusable = false
+
+            colorDot.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(metric.chartColorInt())
+            }
+
+            return view
+        }
+    }
 
     private enum class Mode {
         SPEED, ANGLE
@@ -132,7 +246,7 @@ class MapActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val isTrackContext = intent.getBooleanExtra(TrackMapExtras.EXTRA_TRACK_CONTEXT, false)
+        isTrackContext = intent.getBooleanExtra(TrackMapExtras.EXTRA_TRACK_CONTEXT, false)
         val layoutResId = if (isTrackContext) {
             R.layout.activity_track_map
         } else {
@@ -171,7 +285,9 @@ class MapActivity : AppCompatActivity() {
         
         val profiles = ProfileStorage.loadProfiles(this)
         val profile = profiles.find { it.id == raceToEdit.profileId }
-        val isMotorcycle = profile?.vehicleType == Profile.VehicleType.MOTORCYCLE
+        isMotorcycleProfile = profile?.vehicleType == Profile.VehicleType.MOTORCYCLE
+        val isMotorcycle = isMotorcycleProfile
+        initializeVisibleTrackMetrics()
 
         trackMapIntegration = TrackMapIntegration.fromIntent(intent, isMotorcycle)
 
@@ -180,6 +296,7 @@ class MapActivity : AppCompatActivity() {
         } else {
             RouteStorage.loadRoutePoints(this, raceId)
         }
+        currentTrackLapData = if (isTrackContext) loadCurrentTrackLapData() else null
         
         if (routePoints.isEmpty()) {
         }
@@ -217,11 +334,12 @@ class MapActivity : AppCompatActivity() {
         val convertedMaxSpeed = UnitsManager.formatSpeed(raceToEdit.maxSpeed, this, 0)
         findViewById<TextView>(R.id.tvMaxSpeedInfo).text = "$convertedMaxSpeed"
 
-        val btnNewRoute = findViewById<Button>(R.id.btnStart)
-        trackMapIntegration.configureStartButton(this, btnNewRoute) {
-            startActivity(Intent(this, MainContainerActivity::class.java).apply {
-                putExtra(MainContainerActivity.EXTRA_NAV_ITEM_ID, R.id.navMap)
-            })
+        findViewById<Button?>(R.id.btnStart)?.let { btnNewRoute ->
+            trackMapIntegration.configureStartButton(this, btnNewRoute) {
+                startActivity(Intent(this, MainContainerActivity::class.java).apply {
+                    putExtra(MainContainerActivity.EXTRA_NAV_ITEM_ID, R.id.navMap)
+                })
+            }
         }
 
         val avgSpeed = if (raceToEdit.duration > 0) {
@@ -256,12 +374,17 @@ class MapActivity : AppCompatActivity() {
 
         chart = findViewById(R.id.chart)
         tabLayout = findViewById(R.id.tabs)
+        findViewById<View?>(R.id.btnTrackChartSettings)?.setOnClickListener {
+            showTrackChartMetricsDialog()
+        }
         trackMapIntegration.configureTrackUi(this, chart, raceId, race)
         updateLapSessionStatisticsCard()
         
         setupMapboxMap()
         setupZoomButtons()
-        showFullRoute()
+        if (isTrackContext) {
+            showFullRoute()
+        }
 
         findViewById<TextView>(R.id.tvTotalTime).text = formatTime(raceToEdit.duration)
 
@@ -298,6 +421,8 @@ class MapActivity : AppCompatActivity() {
             setupTabs(isMotorcycle)
             
             updateChartData(currentMode, isMotorcycle)
+            isChartReadyForNormalEntryRouteAnimation = true
+            maybeStartNormalEntryRouteAnimation()
         } catch (e: Exception) {
             Toast.makeText(this, "Chart error: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -313,40 +438,47 @@ class MapActivity : AppCompatActivity() {
 
         card.visibility = View.VISIBLE
 
+        val tvLapTimeValue = findViewById<TextView>(R.id.tvLapTimeValue)
+        val tvLapMaxSpeedValue = findViewById<TextView>(R.id.tvLapMaxSpeedValue)
+        val tvLapMinSpeedValue = findViewById<TextView>(R.id.tvLapMinSpeedValue)
+        val tvLapAvgSpeedValue = findViewById<TextView>(R.id.tvLapAvgSpeedValue)
         val tvLapMaxAcceleration = findViewById<TextView>(R.id.tvLapMaxAcceleration)
         val tvLapMaxBraking = findViewById<TextView>(R.id.tvLapMaxBraking)
+        val tvLapBottomMetricLeftLabel = findViewById<TextView>(R.id.tvLapBottomMetricLeftLabel)
+        val tvLapBottomMetricRightLabel = findViewById<TextView>(R.id.tvLapBottomMetricRightLabel)
         val tvLapMaxLeanLeft = findViewById<TextView>(R.id.tvLapMaxLeanLeft)
         val tvLapMaxLeanRight = findViewById<TextView>(R.id.tvLapMaxLeanRight)
 
-        val gravity = 9.80665f
-        var maxAccelerationG = 0f
-        var maxBrakingG = 0f
+        val lapRoutePoints = currentTrackLapData?.routePoints?.takeIf { it.isNotEmpty() } ?: routePoints
 
-        for (i in 1 until routePoints.size) {
-            val previous = routePoints[i - 1]
-            val current = routePoints[i]
-            val deltaTimeMs = current.timestamp - previous.timestamp
-            if (deltaTimeMs <= 0L) continue
+        val lapDurationMs = currentTrackLapData
+            ?.takeIf { it.endTime > it.startTime }
+            ?.let { it.endTime - it.startTime }
+            ?: ((lapRoutePoints.lastOrNull()?.timestamp ?: 0L) - (lapRoutePoints.firstOrNull()?.timestamp ?: 0L)).coerceAtLeast(0L)
+        val speedSamples = currentTrackLapData?.speedData?.takeIf { it.isNotEmpty() } ?: lapRoutePoints.map { it.speed }
+        val maxSpeed = speedSamples.maxOrNull() ?: 0f
+        val minSpeed = speedSamples.minOrNull() ?: 0f
+        val avgSpeed = if (speedSamples.isNotEmpty()) speedSamples.average().toFloat() else 0f
 
-            val deltaTimeSec = deltaTimeMs / 1000f
-            val previousSpeedMs = previous.speed / 3.6f
-            val currentSpeedMs = current.speed / 3.6f
-            val accelerationMs2 = (currentSpeedMs - previousSpeedMs) / deltaTimeSec
+        val displayTelemetry = buildTrackSignedTelemetrySamples().map { it.toTrackChartDisplaySample() }
+        val maxAccelerationG = displayTelemetry
+            .maxOfOrNull { it.longitudinalG }
+            ?.coerceAtLeast(0f)
+            ?: 0f
+        val maxBrakingG = displayTelemetry
+            .minOfOrNull { it.longitudinalG }
+            ?.let { abs(it.coerceAtMost(0f)) }
+            ?: 0f
+        val maxCorneringLeftG = displayTelemetry
+            .minOfOrNull { it.lateralG }
+            ?.let { abs(it.coerceAtMost(0f)) }
+            ?: 0f
+        val maxCorneringRightG = displayTelemetry
+            .maxOfOrNull { it.lateralG }
+            ?.coerceAtLeast(0f)
+            ?: 0f
 
-            if (accelerationMs2 > 0f) {
-                val accelerationG = accelerationMs2 / gravity
-                if (accelerationG > maxAccelerationG) {
-                    maxAccelerationG = accelerationG
-                }
-            } else {
-                val brakingG = abs(accelerationMs2) / gravity
-                if (brakingG > maxBrakingG) {
-                    maxBrakingG = brakingG
-                }
-            }
-        }
-
-        val maxLeanLeft = routePoints
+        val maxLeanLeft = lapRoutePoints
             .asSequence()
             .map { it.angle }
             .filter { it < 0f }
@@ -354,17 +486,43 @@ class MapActivity : AppCompatActivity() {
             ?.let { abs(it) }
             ?: 0f
 
-        val maxLeanRight = routePoints
+        val maxLeanRight = lapRoutePoints
             .asSequence()
             .map { it.angle }
             .filter { it > 0f }
             .maxOrNull()
             ?: 0f
 
+        tvLapTimeValue.text = formatTrackLapStatisticsTime(lapDurationMs)
+        tvLapMaxSpeedValue.text = UnitsManager.formatSpeed(maxSpeed, this, 0)
+        tvLapMinSpeedValue.text = UnitsManager.formatSpeed(minSpeed, this, 0)
+        tvLapAvgSpeedValue.text = UnitsManager.formatSpeed(avgSpeed, this, 0)
         tvLapMaxAcceleration.text = String.format(Locale.getDefault(), "%.2f G", maxAccelerationG)
         tvLapMaxBraking.text = String.format(Locale.getDefault(), "%.2f G", maxBrakingG)
-        tvLapMaxLeanLeft.text = String.format(Locale.getDefault(), "%.0f°", maxLeanLeft)
-        tvLapMaxLeanRight.text = String.format(Locale.getDefault(), "%.0f°", maxLeanRight)
+
+        if (isMotorcycleProfile) {
+            tvLapBottomMetricLeftLabel.setText(R.string.track_max_lean_left)
+            tvLapBottomMetricRightLabel.setText(R.string.track_max_lean_right)
+            tvLapMaxLeanLeft.setTextColor(Color.rgb(90, 184, 255))
+            tvLapMaxLeanRight.setTextColor(Color.rgb(90, 184, 255))
+            tvLapMaxLeanLeft.text = String.format(Locale.getDefault(), "%.0f°", maxLeanLeft)
+            tvLapMaxLeanRight.text = String.format(Locale.getDefault(), "%.0f°", maxLeanRight)
+        } else {
+            tvLapBottomMetricLeftLabel.setText(R.string.track_max_cornering_left)
+            tvLapBottomMetricRightLabel.setText(R.string.track_max_cornering_right)
+            tvLapMaxLeanLeft.setTextColor(Color.rgb(255, 106, 150))
+            tvLapMaxLeanRight.setTextColor(Color.rgb(255, 106, 150))
+            tvLapMaxLeanLeft.text = String.format(Locale.getDefault(), "%.2f G", maxCorneringLeftG)
+            tvLapMaxLeanRight.text = String.format(Locale.getDefault(), "%.2f G", maxCorneringRightG)
+        }
+    }
+
+    private fun formatTrackLapStatisticsTime(durationMs: Long): String {
+        val totalMillis = durationMs.coerceAtLeast(0L)
+        val minutes = totalMillis / 60_000
+        val seconds = (totalMillis % 60_000) / 1_000
+        val millis = totalMillis % 1_000
+        return String.format(Locale.getDefault(), "%02d:%02d.%03d", minutes, seconds, millis)
     }
 
     private fun setupMapboxMap() {
@@ -378,18 +536,29 @@ class MapActivity : AppCompatActivity() {
         mapboxMapView = MapboxMapView(this)
         mapContainer.addView(mapboxMapView)
         mapboxPolylineAnnotationManager = mapboxMapView?.annotations?.createPolylineAnnotationManager()
-        
-        val bounds = calculateBounds(routePoints.map { it.geoPoint })
-        
-        mapboxMapView?.mapboxMap?.setCamera(
-            CameraOptions.Builder()
-                .center(MapboxPoint.fromLngLat(
-                    (bounds.minLon + bounds.maxLon) / 2.0,
-                    (bounds.minLat + bounds.maxLat) / 2.0
-                ))
-                .zoom(calculateZoomLevel(bounds))
-                .build()
-        )
+
+        if (isTrackContext && routePoints.isNotEmpty()) {
+            val firstPoint = routePoints.first().geoPoint
+            mapboxMapView?.mapboxMap?.setCamera(
+                CameraOptions.Builder()
+                    .center(MapboxPoint.fromLngLat(firstPoint.longitude, firstPoint.latitude))
+                    .zoom(17.0)
+                    .pitch(0.0)
+                    .build()
+            )
+        } else {
+            val bounds = calculateBounds(routePoints.map { it.geoPoint })
+
+            mapboxMapView?.mapboxMap?.setCamera(
+                CameraOptions.Builder()
+                    .center(MapboxPoint.fromLngLat(
+                        (bounds.minLon + bounds.maxLon) / 2.0,
+                        (bounds.minLat + bounds.maxLat) / 2.0
+                    ))
+                    .zoom(calculateZoomLevel(bounds))
+                    .build()
+            )
+        }
         
         mapboxMapView?.scalebar?.enabled = false
         mapboxMapView?.compass?.enabled = false
@@ -442,8 +611,8 @@ class MapActivity : AppCompatActivity() {
         }
         
         val markerPoint = if (routePoints.isNotEmpty()) {
-            val lastPoint = routePoints.last().geoPoint
-            MapboxPoint.fromLngLat(lastPoint.longitude, lastPoint.latitude)
+            val initialPoint = routePoints.first().geoPoint
+            MapboxPoint.fromLngLat(initialPoint.longitude, initialPoint.latitude)
         } else {
             val firstPoint = routePoints.firstOrNull()?.geoPoint
             if (firstPoint != null) {
@@ -594,10 +763,14 @@ class MapActivity : AppCompatActivity() {
             )
         }
         
-        showFullRoute()
-        
-        mapboxMapView?.post {
-            setupMapZoom()
+        if (isTrackContext) {
+            showFullRoute()
+        } else {
+            mapboxMapView?.post {
+                setupMapZoom()
+                isMapReadyForNormalEntryRouteAnimation = true
+                maybeStartNormalEntryRouteAnimation()
+            }
         }
     }
     private data class Bounds(
@@ -680,26 +853,20 @@ class MapActivity : AppCompatActivity() {
             chart.xAxis.axisMinimum = firstTime - duration
             chart.xAxis.axisMaximum = lastTime + duration
 
-            chart.moveViewToX(firstTime - duration * 0.1f)
-
             chart.setVisibleXRangeMaximum(duration)
 
-            val initialCenterX = (chart.lowestVisibleX + chart.highestVisibleX) / 2f
-            try {
-                updateReaderPosition(initialCenterX)
-            } catch (e: Exception) {
+            if (!isTrackContext) {
+                chart.moveViewToX(firstTime - duration * 0.1f)
+
+                val initialCenterX = (chart.lowestVisibleX + chart.highestVisibleX) / 2f
+                try {
+                    updateReaderPosition(initialCenterX)
+                } catch (_: Exception) {
+                }
             }
         }
 
-        val centerLine = com.github.mikephil.charting.components.LimitLine(0f).apply {
-            lineColor = android.graphics.Color.RED
-            lineWidth = 2f
-            enableDashedLine(10f, 10f, 0f)
-        }
-
         chart.setExtraOffsets(0f, 0f, 0f, 0f)
-
-        val originalRenderer = chart.renderer
         chart.renderer = object : com.github.mikephil.charting.renderer.LineChartRenderer(
             chart, chart.animator, chart.viewPortHandler
         ) {
@@ -796,6 +963,9 @@ class MapActivity : AppCompatActivity() {
             scaleGestureDetector.onTouchEvent(event)
 
             if (event.action == MotionEvent.ACTION_DOWN) {
+                if (isNormalEntryRouteAnimationRunning) {
+                    cancelNormalEntryRouteAnimation(showFullRoute = true, resetChartToStart = false)
+                }
                 hasUserInteracted = true
             }
 
@@ -867,6 +1037,7 @@ class MapActivity : AppCompatActivity() {
         chart.xAxis.textColor = android.graphics.Color.WHITE
         chart.axisLeft.textColor = android.graphics.Color.WHITE
         chart.legend.textColor = android.graphics.Color.WHITE
+        chart.legend.isEnabled = !isTrackContext
 
         chart.invalidate()
     }
@@ -875,11 +1046,6 @@ class MapActivity : AppCompatActivity() {
         if (routePoints.isEmpty()) return
         
         val allGeoPoints = routePoints.map { it.geoPoint }
-        
-        val profiles = ProfileStorage.loadProfiles(this)
-        val race = RouteStorage.loadRaces(this).find { it.id == intent.getLongExtra("RACE_ID", -1) }
-        val profile = race?.let { profiles.find { p -> p.id == it.profileId } }
-        val isMotorcycle = profile?.vehicleType == Profile.VehicleType.MOTORCYCLE
         
         if (allGeoPoints.size >= 2) {
                 val boundingBox = BoundingBox.fromGeoPointsSafe(allGeoPoints)
@@ -961,6 +1127,9 @@ class MapActivity : AppCompatActivity() {
         mapboxMapView?.setOnTouchListener { view, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    if (isNormalEntryRouteAnimationRunning) {
+                        cancelNormalEntryRouteAnimation(showFullRoute = true, resetChartToStart = false)
+                    }
                     view.parent?.requestDisallowInterceptTouchEvent(true)
                     showZoomButtons()
                 }
@@ -1099,6 +1268,116 @@ class MapActivity : AppCompatActivity() {
         }
     }
 
+    private fun clearDisplayedRoute() {
+        val style = mapboxStyle ?: return
+
+        try {
+            val source = style.getSourceAs<com.mapbox.maps.extension.style.sources.generated.GeoJsonSource>(mapboxRouteSourceId)
+            source?.featureCollection(FeatureCollection.fromFeatures(emptyList()))
+        } catch (e: Exception) {
+        }
+    }
+
+    private fun maybeStartNormalEntryRouteAnimation() {
+        if (isTrackContext || hasStartedNormalEntryRouteAnimation) return
+        if (!isMapReadyForNormalEntryRouteAnimation || !isChartReadyForNormalEntryRouteAnimation) return
+
+        if (routePoints.size < 2) {
+            hasStartedNormalEntryRouteAnimation = true
+            showFullRoute()
+            resetNormalChartToStart()
+            return
+        }
+
+        startNormalEntryRouteAnimation()
+    }
+
+    private fun startNormalEntryRouteAnimation() {
+        val dataEndTime = ((routePoints.lastOrNull()?.timestamp ?: 0L) - (routePoints.firstOrNull()?.timestamp ?: 0L)) / 1000f
+        if (dataEndTime <= 0f) {
+            hasStartedNormalEntryRouteAnimation = true
+            showFullRoute()
+            resetNormalChartToStart()
+            return
+        }
+
+        hasStartedNormalEntryRouteAnimation = true
+        chart.post {
+            pendingNormalEntryRouteAnimationStart?.let { chart.removeCallbacks(it) }
+            pendingNormalEntryRouteAnimationStart = Runnable {
+                pendingNormalEntryRouteAnimationStart = null
+                isNormalEntryRouteAnimationRunning = true
+                hasUserInteracted = false
+                clearDisplayedRoute()
+                updateMapboxMarkerPosition(routePoints.first().geoPoint, moveCamera = false)
+                moveChartViewportToTime(0f)
+                updateReaderPosition(0f, forceRouteProgress = true, moveCamera = false)
+
+                normalEntryRouteAnimator?.cancel()
+                normalEntryRouteAnimator = ValueAnimator.ofFloat(0f, dataEndTime).apply {
+                    duration = NORMAL_ENTRY_ROUTE_ANIMATION_DURATION_MS
+                    addUpdateListener { animator ->
+                        val timeInSeconds = animator.animatedValue as Float
+                        moveChartViewportToTime(timeInSeconds)
+                        updateReaderPosition(timeInSeconds, forceRouteProgress = true, moveCamera = false)
+                        chart.invalidate()
+                    }
+                    addListener(object : android.animation.AnimatorListenerAdapter() {
+                        private var cancelled = false
+
+                        override fun onAnimationCancel(animation: android.animation.Animator) {
+                            cancelled = true
+                        }
+
+                        override fun onAnimationEnd(animation: android.animation.Animator) {
+                            isNormalEntryRouteAnimationRunning = false
+                            normalEntryRouteAnimator = null
+                            if (!cancelled) {
+                                showFullRoute()
+                                resetNormalChartToStart()
+                            }
+                        }
+                    })
+                    start()
+                }
+            }
+            chart.postDelayed(pendingNormalEntryRouteAnimationStart, NORMAL_ENTRY_ROUTE_ANIMATION_START_DELAY_MS)
+        }
+    }
+
+    private fun cancelNormalEntryRouteAnimation(showFullRoute: Boolean, resetChartToStart: Boolean) {
+        if (!isNormalEntryRouteAnimationRunning && normalEntryRouteAnimator == null && pendingNormalEntryRouteAnimationStart == null) return
+
+        pendingNormalEntryRouteAnimationStart?.let { chart.removeCallbacks(it) }
+        pendingNormalEntryRouteAnimationStart = null
+
+        normalEntryRouteAnimator?.cancel()
+        normalEntryRouteAnimator = null
+        isNormalEntryRouteAnimationRunning = false
+
+        if (showFullRoute) {
+            showFullRoute()
+        }
+        if (resetChartToStart) {
+            resetNormalChartToStart()
+        }
+    }
+
+    private fun moveChartViewportToTime(timeInSeconds: Float) {
+        val clampedTime = timeInSeconds.coerceAtLeast(0f)
+        val routeDuration = ((routePoints.lastOrNull()?.timestamp ?: 0L) - (routePoints.firstOrNull()?.timestamp ?: 0L)) / 1000f
+        val visibleRange = chart.visibleXRange.takeIf { it > 0f } ?: routeDuration.coerceAtLeast(1f)
+        chart.moveViewToX(clampedTime - visibleRange / 2f)
+    }
+
+    private fun resetNormalChartToStart() {
+        if (isTrackContext) return
+
+        moveChartViewportToTime(0f)
+        updateReaderPosition(0f, forceRouteProgress = false, moveCamera = false)
+        chart.invalidate()
+    }
+
     private fun startRouteDrawingTimer() {
         routeDrawingRunnable?.let { routeDrawingTimer?.removeCallbacks(it) }
         
@@ -1165,7 +1444,11 @@ class MapActivity : AppCompatActivity() {
         return Pair(interpolatedSpeed, interpolatedAngle)
     }
     
-    private fun updateReaderPosition(timeInSeconds: Float) {
+    private fun updateReaderPosition(
+        timeInSeconds: Float,
+        forceRouteProgress: Boolean = false,
+        moveCamera: Boolean = true
+    ) {
         val (index, interpolatedPoint) = findInterpolatedPosition(timeInSeconds)
         if (index in routePoints.indices) {
             val startTime = if (routePoints.isNotEmpty()) routePoints.first().timestamp / 1000f else 0f
@@ -1183,20 +1466,22 @@ class MapActivity : AppCompatActivity() {
             if (trackProgress == true) {
                 isDrawingRoute = true
                 startRouteDrawingTimer()
-            } else if (trackProgress == null && hasUserInteracted) {
-                drawMapboxRouteUpToIndex(index, interpolatedPoint)
-                isDrawingRoute = true
-                startRouteDrawingTimer()
+            } else if (trackProgress == null && (hasUserInteracted || forceRouteProgress)) {
+                drawMapboxRouteUpToIndex(index, interpolatedPoint, moveCamera)
+                if (hasUserInteracted) {
+                    isDrawingRoute = true
+                    startRouteDrawingTimer()
+                }
             } else if (trackProgress == null) {
-                updateMapboxMarkerPosition(interpolatedPoint)
+                updateMapboxMarkerPosition(interpolatedPoint, moveCamera)
             }
 
             val currentProfileId = ProfileStorage.getSelectedProfileId(this)
             val profiles = ProfileStorage.loadProfiles(this)
             val profile = profiles.find { it.id == currentProfileId }
 
-            findViewById<TextView>(R.id.tvReaderSpeed).text =
-                "${"%.0f".format(interpolatedSpeed)} ${getString(R.string.speed_unit)}"
+            findViewById<TextView?>(R.id.tvReaderSpeed)?.text =
+                UnitsManager.formatSpeed(interpolatedSpeed, this, 0)
 
             val angleContainer = findViewById<LinearLayout>(R.id.readerAngleContainer)
 
@@ -1206,6 +1491,13 @@ class MapActivity : AppCompatActivity() {
             } else {
                 angleContainer?.visibility = View.GONE
             }
+
+            updateTrackChartLegendValues(
+                timeInSeconds = timeInSeconds,
+                speedKmh = interpolatedSpeed,
+                angleDegrees = interpolatedAngle,
+                isMotorcycle = profile?.vehicleType == Profile.VehicleType.MOTORCYCLE
+            )
         }
     }
     
@@ -1223,7 +1515,7 @@ class MapActivity : AppCompatActivity() {
                 CameraOptions.Builder()
                     .center(point)
                     .zoom(currentCamera?.zoom ?: 17.0)
-                    .pitch(currentCamera?.pitch ?: 45.0)
+                    .pitch(if (isTrackContext) 0.0 else (currentCamera?.pitch ?: 45.0))
                     .bearing(currentCamera?.bearing ?: 0.0)
                     .build()
             )
@@ -1237,11 +1529,15 @@ class MapActivity : AppCompatActivity() {
         }
     }
     
-    private fun drawMapboxRouteUpToIndex(index: Int, interpolatedPoint: GeoPoint) {
+    private fun drawMapboxRouteUpToIndex(
+        index: Int,
+        interpolatedPoint: GeoPoint,
+        moveCamera: Boolean = true
+    ) {
         val style = mapboxStyle ?: return
         
         try {
-            updateMapboxMarkerPosition(interpolatedPoint)
+            updateMapboxMarkerPosition(interpolatedPoint, moveCamera)
             
             val coordinates = mutableListOf<MapboxPoint>()
             
@@ -1262,6 +1558,12 @@ class MapActivity : AppCompatActivity() {
     }
 
     private fun setupTabs(isMotorcycle: Boolean) {
+        if (isTrackContext) {
+            tabLayout.removeAllTabs()
+            tabLayout.visibility = View.GONE
+            return
+        }
+
         if (!isMotorcycle) {
             tabLayout.visibility = View.GONE
             return
@@ -1283,6 +1585,11 @@ class MapActivity : AppCompatActivity() {
     }
 
     private fun updateChartData(mode: Mode, isMotorcycle: Boolean) {
+        if (isTrackContext) {
+            updateTrackChartData(isMotorcycle)
+            return
+        }
+
         
         val startTime = if (routePoints.isNotEmpty()) routePoints.first().timestamp / 1000f else 0f
         val speedEntries = routePoints.map { Entry((it.timestamp / 1000f) - startTime, it.speed) }
@@ -1341,6 +1648,495 @@ class MapActivity : AppCompatActivity() {
         }
 
         chart.invalidate()
+    }
+
+    private fun updateTrackChartData(isMotorcycle: Boolean) {
+        if (routePoints.isEmpty()) {
+            chart.clear()
+            trackSignedTelemetrySamples = emptyList()
+            return
+        }
+
+        val startTime = routePoints.first().timestamp / 1000f
+        val lineData = LineData()
+        val showSpeed = visibleTrackMetrics.contains(TrackChartMetric.SPEED)
+        val showAngle = isMotorcycle && visibleTrackMetrics.contains(TrackChartMetric.ANGLE)
+        val showLongitudinalG = visibleTrackMetrics.contains(TrackChartMetric.LONGITUDINAL_G)
+        val showLateralG = !isMotorcycle && visibleTrackMetrics.contains(TrackChartMetric.LATERAL_G)
+
+        val speedEntries = routePoints.map { Entry((it.timestamp / 1000f) - startTime, it.speed) }
+        if (showSpeed) {
+            val speedDataSet = LineDataSet(speedEntries, getString(R.string.chart_speed_legend)).apply {
+                color = Color.rgb(252, 120, 5)
+                lineWidth = 2f
+                setDrawValues(false)
+                setDrawCircles(false)
+                setMode(LineDataSet.Mode.LINEAR)
+                axisDependency = YAxis.AxisDependency.LEFT
+            }
+            lineData.addDataSet(speedDataSet)
+        }
+
+        if (showAngle) {
+            val angleScale = resolveTrackOverlayScale(routePoints.map { it.angle })
+            val angleEntries = routePoints.map {
+                Entry(
+                    (it.timestamp / 1000f) - startTime,
+                    scaleToTrackOverlayAxis(it.angle, angleScale)
+                )
+            }
+            if (angleEntries.isNotEmpty()) {
+                lineData.addDataSet(
+                    createTrackOverlayDataSet(
+                        entries = angleEntries,
+                        label = getString(R.string.chart_angle_legend),
+                        colorInt = Color.rgb(5, 252, 227)
+                    )
+                )
+            }
+        }
+
+        val displaySignedTelemetry = buildTrackSignedTelemetrySamples()
+            .map { it.toTrackChartDisplaySample() }
+
+        val chartSignedTelemetry = displaySignedTelemetry
+            .toTrackChartVisualSamples()
+        trackSignedTelemetrySamples = chartSignedTelemetry
+        val longitudinalValues = chartSignedTelemetry.map { it.longitudinalG }
+        val lateralValues = chartSignedTelemetry.map { it.lateralG }
+        val gOverlayScale = if (showLongitudinalG || showLateralG) {
+            resolveTrackOverlayScale(buildList {
+                if (showLongitudinalG) addAll(longitudinalValues)
+                if (showLateralG) addAll(lateralValues)
+            })
+        } else {
+            TrackOverlayScale(positiveLimit = 1f, negativeLimit = 1f)
+        }
+        val longitudinalEntries = chartSignedTelemetry.map {
+            Entry(it.timeSeconds, scaleToTrackOverlayAxis(it.longitudinalG, gOverlayScale))
+        }
+        val lateralEntries = chartSignedTelemetry.map {
+            Entry(it.timeSeconds, scaleToTrackOverlayAxis(it.lateralG, gOverlayScale))
+        }
+
+        if (showLongitudinalG) {
+            lineData.addDataSet(
+                createTrackOverlayDataSet(
+                    entries = longitudinalEntries,
+                    label = getString(R.string.chart_longitudinal_g_legend),
+                    colorInt = Color.rgb(164, 214, 72),
+                    mode = LineDataSet.Mode.HORIZONTAL_BEZIER
+                )
+            )
+        }
+        if (showLateralG) {
+            lineData.addDataSet(
+                createTrackOverlayDataSet(
+                    entries = lateralEntries,
+                    label = getString(R.string.chart_lateral_g_legend),
+                    colorInt = Color.rgb(255, 106, 150),
+                    mode = LineDataSet.Mode.HORIZONTAL_BEZIER
+                )
+            )
+        }
+
+        chart.data = lineData
+        applyInitialChartStartPositionIfNeeded()
+
+        val maxSpeed = routePoints.maxOfOrNull { it.speed } ?: 0f
+        val speedAxisMax = resolveTrackSpeedAxisMax(maxSpeed)
+        chart.axisLeft.apply {
+            isEnabled = showSpeed
+            axisMinimum = 0f
+            axisMaximum = speedAxisMax
+            granularity = 1f
+            setLabelCount(6, true)
+            setDrawZeroLine(false)
+            setDrawAxisLine(showSpeed)
+            setDrawLabels(showSpeed)
+            setDrawGridLines(showSpeed)
+        }
+
+        val showOverlayAxis = showAngle || showLongitudinalG || showLateralG
+        chart.axisRight.apply {
+            isEnabled = showOverlayAxis
+            setDrawLabels(false)
+            setDrawGridLines(false)
+            setDrawAxisLine(false)
+            axisMinimum = -TRACK_OVERLAY_AXIS_MAX
+            axisMaximum = TRACK_OVERLAY_AXIS_MAX
+            setDrawZeroLine(showOverlayAxis)
+            zeroLineColor = Color.GRAY
+            zeroLineWidth = 1f
+        }
+
+        chart.invalidate()
+
+        val centerX = (chart.lowestVisibleX + chart.highestVisibleX) / 2f
+        updateTrackChartLegendValues(
+            timeInSeconds = centerX,
+            speedKmh = interpolateSpeedAndAngle(centerX, startTime).first,
+            angleDegrees = interpolateSpeedAndAngle(centerX, startTime).second,
+            isMotorcycle = isMotorcycle
+        )
+    }
+
+    private fun applyInitialChartStartPositionIfNeeded() {
+        if (hasAppliedInitialChartStartPosition || routePoints.isEmpty()) return
+
+        val startTime = routePoints.first().timestamp / 1000f
+        val dataStartTime = 0f
+        val dataEndTime = (routePoints.last().timestamp / 1000f) - startTime
+        val duration = (dataEndTime - dataStartTime).coerceAtLeast(0f)
+
+        chart.post {
+            if (hasAppliedInitialChartStartPosition) return@post
+
+            val targetX = if (duration > 0f) {
+                dataStartTime - duration / 2f
+            } else {
+                dataStartTime
+            }
+
+            chart.moveViewToX(targetX)
+            try {
+                updateReaderPosition(dataStartTime)
+            } catch (_: Exception) {
+            }
+            chart.invalidate()
+            hasAppliedInitialChartStartPosition = true
+        }
+    }
+
+    private fun createTrackOverlayDataSet(
+        entries: List<Entry>,
+        label: String,
+        colorInt: Int,
+        mode: LineDataSet.Mode = LineDataSet.Mode.LINEAR
+    ): LineDataSet {
+        return LineDataSet(entries, label).apply {
+            color = colorInt
+            lineWidth = 1.6f
+            setDrawValues(false)
+            setDrawCircles(false)
+            setMode(mode)
+            axisDependency = YAxis.AxisDependency.RIGHT
+        }
+    }
+
+    private fun resolveTrackSpeedAxisMax(maxSpeed: Float): Float {
+        return maxSpeed.coerceAtLeast(1f)
+    }
+
+    private fun resolveTrackOverlayScale(values: List<Float>): TrackOverlayScale {
+        val positiveLimit = values.maxOfOrNull { it.coerceAtLeast(0f) }?.takeIf { it > 0f } ?: 1f
+        val negativeLimit = values.minOfOrNull { it.coerceAtMost(0f) }
+            ?.let(::abs)
+            ?.takeIf { it > 0f }
+            ?: 1f
+        return TrackOverlayScale(
+            positiveLimit = positiveLimit,
+            negativeLimit = negativeLimit
+        )
+    }
+
+    private fun scaleToTrackOverlayAxis(value: Float, scale: TrackOverlayScale): Float {
+        val divisor = if (value >= 0f) scale.positiveLimit else scale.negativeLimit
+        if (divisor <= 0f) return 0f
+        return ((value / divisor) * TRACK_OVERLAY_AXIS_MAX)
+            .coerceIn(-TRACK_OVERLAY_AXIS_MAX, TRACK_OVERLAY_AXIS_MAX)
+    }
+
+    private fun initializeVisibleTrackMetrics() {
+        visibleTrackMetrics.clear()
+        val availableMetrics = getAvailableTrackMetrics()
+        val prefKey = getTrackChartMetricsPrefKey()
+        val rawSavedValues = getSharedPreferences(TRACK_UI_PREFS, MODE_PRIVATE)
+            .getStringSet(prefKey, null)
+            ?.toSet()
+        val savedValues = rawSavedValues?.let(::normalizeSavedTrackMetricPrefValues)
+
+        val metricsToShow = if (savedValues == null) {
+            getDefaultTrackMetrics()
+        } else {
+            savedValues.mapNotNull(TrackChartMetric::fromPref)
+                .filter { it in availableMetrics }
+                .ifEmpty { getDefaultTrackMetrics() }
+        }
+
+        visibleTrackMetrics += metricsToShow
+
+        if (savedValues != null && savedValues != rawSavedValues) {
+            persistVisibleTrackMetrics()
+        }
+    }
+
+    private fun normalizeSavedTrackMetricPrefValues(savedValues: Set<String>): Set<String> {
+        if (!isMotorcycleProfile) return savedValues
+        if (TrackChartMetric.LATERAL_G.prefValue !in savedValues) return savedValues
+        if (TrackChartMetric.LONGITUDINAL_G.prefValue in savedValues) return savedValues - TrackChartMetric.LATERAL_G.prefValue
+
+        return savedValues
+            .minus(TrackChartMetric.LATERAL_G.prefValue)
+            .plus(TrackChartMetric.LONGITUDINAL_G.prefValue)
+    }
+
+    private fun showTrackChartMetricsDialog() {
+        if (!isTrackContext) return
+
+        val availableMetrics = getAvailableTrackMetrics()
+        val adapter = TrackChartMetricDialogAdapter(availableMetrics)
+        val listView = ListView(this).apply {
+            divider = null
+            dividerHeight = 0
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            this.adapter = adapter
+            setOnItemClickListener { _, _, position, _ ->
+                val metric = availableMetrics[position]
+                if (visibleTrackMetrics.contains(metric)) {
+                    visibleTrackMetrics -= metric
+                } else {
+                    visibleTrackMetrics += metric
+                }
+                persistVisibleTrackMetrics()
+                updateChartData(currentMode, isMotorcycleProfile)
+                adapter.notifyDataSetChanged()
+            }
+        }
+
+        AlertDialog.Builder(this, R.style.CustomAlertDialog)
+            .setTitle(R.string.track_chart_display_options)
+            .setView(listView)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+
+    private fun persistVisibleTrackMetrics() {
+        getSharedPreferences(TRACK_UI_PREFS, MODE_PRIVATE)
+            .edit()
+            .putStringSet(
+                getTrackChartMetricsPrefKey(),
+                visibleTrackMetrics.map { it.prefValue }.toSet()
+            )
+            .apply()
+    }
+
+    private fun getTrackChartMetricsPrefKey(): String {
+        return if (isMotorcycleProfile) {
+            TRACK_CHART_VISIBLE_METRICS_MOTO_PREF_KEY
+        } else {
+            TRACK_CHART_VISIBLE_METRICS_CAR_PREF_KEY
+        }
+    }
+
+    private fun getDefaultTrackMetrics(): List<TrackChartMetric> {
+        return if (isMotorcycleProfile) {
+            listOf(
+                TrackChartMetric.SPEED,
+                TrackChartMetric.ANGLE
+            )
+        } else {
+            listOf(TrackChartMetric.SPEED)
+        }
+    }
+
+    private fun getAvailableTrackMetrics(): List<TrackChartMetric> {
+        return if (isMotorcycleProfile) {
+            listOf(
+                TrackChartMetric.SPEED,
+                TrackChartMetric.ANGLE,
+                TrackChartMetric.LONGITUDINAL_G
+            )
+        } else {
+            listOf(
+                TrackChartMetric.SPEED,
+                TrackChartMetric.LONGITUDINAL_G,
+                TrackChartMetric.LATERAL_G
+            )
+        }
+    }
+
+    private fun interpolateTrackTelemetrySample(timeInSeconds: Float): TrackSignedTelemetrySample? {
+        if (trackSignedTelemetrySamples.isEmpty()) return null
+        if (trackSignedTelemetrySamples.size == 1) return trackSignedTelemetrySamples.first()
+
+        val first = trackSignedTelemetrySamples.first()
+        val last = trackSignedTelemetrySamples.last()
+        if (timeInSeconds <= first.timeSeconds) return first
+        if (timeInSeconds >= last.timeSeconds) return last
+
+        for (index in 0 until trackSignedTelemetrySamples.size - 1) {
+            val before = trackSignedTelemetrySamples[index]
+            val after = trackSignedTelemetrySamples[index + 1]
+            if (timeInSeconds in before.timeSeconds..after.timeSeconds) {
+                val span = after.timeSeconds - before.timeSeconds
+                val factor = if (span <= 0f) 0f else ((timeInSeconds - before.timeSeconds) / span).coerceIn(0f, 1f)
+                return TrackSignedTelemetrySample(
+                    timeSeconds = timeInSeconds,
+                    longitudinalG = before.longitudinalG + (after.longitudinalG - before.longitudinalG) * factor,
+                    lateralG = before.lateralG + (after.lateralG - before.lateralG) * factor
+                )
+            }
+        }
+
+        return last
+    }
+
+    private fun updateTrackChartLegendValues(
+        timeInSeconds: Float,
+        speedKmh: Float,
+        angleDegrees: Float,
+        isMotorcycle: Boolean
+    ) {
+        val container = findViewById<View?>(R.id.trackChartValueLegendContainer) ?: return
+        container.visibility = if (isTrackContext && visibleTrackMetrics.isNotEmpty()) View.VISIBLE else View.GONE
+
+        val speedItem = findViewById<View?>(R.id.trackChartSpeedValueItem)
+        speedItem?.visibility = if (visibleTrackMetrics.contains(TrackChartMetric.SPEED)) View.VISIBLE else View.GONE
+
+        findViewById<TextView?>(R.id.tvTrackChartSpeedValue)?.text = UnitsManager.formatSpeed(speedKmh, this, 0)
+
+        val angleItem = findViewById<View?>(R.id.trackChartAngleValueItem)
+        if (isMotorcycle && visibleTrackMetrics.contains(TrackChartMetric.ANGLE)) {
+            angleItem?.visibility = View.VISIBLE
+            findViewById<TextView?>(R.id.tvTrackChartAngleValue)?.text = formatTrackAngleValue(angleDegrees)
+        } else {
+            angleItem?.visibility = View.GONE
+        }
+
+        val telemetry = interpolateTrackTelemetrySample(timeInSeconds)
+        val longItem = findViewById<View?>(R.id.trackChartLongGValueItem)
+        longItem?.visibility = if (visibleTrackMetrics.contains(TrackChartMetric.LONGITUDINAL_G)) View.VISIBLE else View.GONE
+        findViewById<TextView?>(R.id.tvTrackChartLongGValue)?.text = formatTrackGValue(telemetry?.longitudinalG ?: 0f)
+        val latItem = findViewById<View?>(R.id.trackChartLatGValueItem)
+        latItem?.visibility = if (!isMotorcycle && visibleTrackMetrics.contains(TrackChartMetric.LATERAL_G)) View.VISIBLE else View.GONE
+        findViewById<TextView?>(R.id.tvTrackChartLatGValue)?.text = formatTrackGValue(telemetry?.lateralG ?: 0f)
+    }
+
+    private fun formatTrackAngleValue(angleDegrees: Float): String {
+        val safeAngle = if (abs(angleDegrees) < 0.5f) 0f else angleDegrees
+        return String.format(Locale.getDefault(), "%.0f°", safeAngle)
+    }
+
+    private fun formatTrackGValue(gValue: Float): String {
+        val safeValue = if (abs(gValue) < 0.005f) 0f else gValue
+        return String.format(Locale.getDefault(), "%.1f G", safeValue)
+    }
+
+    private fun buildTrackSignedTelemetrySamples(): List<TrackSignedTelemetrySample> {
+        buildTrackSignedTelemetrySamplesFromLapData()?.let { return it }
+
+        if (routePoints.isEmpty()) return emptyList()
+
+        val startTime = routePoints.first().timestamp / 1000f
+        if (routePoints.size == 1) {
+            return listOf(TrackSignedTelemetrySample(0f, 0f, 0f))
+        }
+
+        return routePoints.indices.map { index ->
+            val current = routePoints[index]
+            val longitudinalG = when {
+                index == 0 -> computeSignedLongitudinalG(current, routePoints[1])
+                index == routePoints.lastIndex -> computeSignedLongitudinalG(routePoints[index - 1], current)
+                else -> computeSignedLongitudinalG(routePoints[index - 1], routePoints[index + 1])
+            }
+            val lateralG = when {
+                routePoints.size < 3 -> 0f
+                index == 0 -> computeSignedLateralG(routePoints[0], routePoints[1], routePoints[2])
+                index == routePoints.lastIndex -> computeSignedLateralG(
+                    routePoints[index - 2],
+                    routePoints[index - 1],
+                    routePoints[index]
+                )
+                else -> computeSignedLateralG(routePoints[index - 1], current, routePoints[index + 1])
+            }
+
+            TrackSignedTelemetrySample(
+                timeSeconds = (current.timestamp / 1000f) - startTime,
+                longitudinalG = longitudinalG,
+                lateralG = lateralG
+            )
+        }
+    }
+
+    private fun buildTrackSignedTelemetrySamplesFromLapData(): List<TrackSignedTelemetrySample>? {
+        val lapData = currentTrackLapData ?: return null
+        if (lapData.timestamps.isEmpty()) return null
+        if (lapData.longitudinalGData.isEmpty() && lapData.lateralGData.isEmpty()) return null
+
+        val sampleCount = minOf(
+            lapData.timestamps.size,
+            maxOf(lapData.longitudinalGData.size, lapData.lateralGData.size)
+        )
+        if (sampleCount <= 0) return null
+
+        val baseTime = lapData.startTime.takeIf { it > 0L } ?: lapData.timestamps.first()
+        return (0 until sampleCount).map { index ->
+            TrackSignedTelemetrySample(
+                timeSeconds = ((lapData.timestamps[index] - baseTime).coerceAtLeast(0L)) / 1000f,
+                longitudinalG = lapData.longitudinalGData.getOrElse(index) { 0f },
+                lateralG = lapData.lateralGData.getOrElse(index) { 0f }
+            )
+        }
+    }
+
+    private fun loadCurrentTrackLapData(): LapData? {
+        val sessionId = intent.getStringExtra(TrackMapExtras.EXTRA_TRACK_SESSION_ID).orEmpty()
+        val outingNumber = intent.getIntExtra(TrackMapExtras.EXTRA_TRACK_OUTING_NUMBER, -1)
+        val lapNumber = intent.getIntExtra(TrackMapExtras.EXTRA_TRACK_LAP_NUMBER, -1)
+        if (sessionId.isEmpty() || outingNumber <= 0 || lapNumber <= 0) return null
+
+        val sharedPrefs = getSharedPreferences("track_outings", MODE_PRIVATE)
+        val lapJson = sharedPrefs.getString("${sessionId}_outing_${outingNumber}_lap_data_${lapNumber}", null)
+            ?: return null
+
+        return try {
+            Gson().fromJson(lapJson, LapData::class.java)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun computeSignedLongitudinalG(start: RoutePoint, end: RoutePoint): Float {
+        val deltaTimeMs = end.timestamp - start.timestamp
+        if (deltaTimeMs <= 0L) return 0f
+
+        val deltaTimeSec = deltaTimeMs / 1000f
+        val startSpeedMs = start.speed / 3.6f
+        val endSpeedMs = end.speed / 3.6f
+        return -((endSpeedMs - startSpeedMs) / deltaTimeSec / TRACK_GRAVITY)
+    }
+
+    private fun computeSignedLateralG(previous: RoutePoint, current: RoutePoint, next: RoutePoint): Float {
+        val deltaTimeMs = next.timestamp - previous.timestamp
+        if (deltaTimeMs <= 0L) return 0f
+
+        val speedMs = current.speed / 3.6f
+        if (speedMs < 2.5f) return 0f
+
+        val incomingBearing = calculateBearingRadians(previous.geoPoint, current.geoPoint) ?: return 0f
+        val outgoingBearing = calculateBearingRadians(current.geoPoint, next.geoPoint) ?: return 0f
+        val deltaTimeSec = deltaTimeMs / 1000f
+        val bearingDelta = atan2(
+            sin((outgoingBearing - incomingBearing).toDouble()),
+            cos((outgoingBearing - incomingBearing).toDouble())
+        ).toFloat()
+        val turnRate = bearingDelta / deltaTimeSec
+        return -(speedMs * turnRate / TRACK_GRAVITY)
+    }
+
+    private fun calculateBearingRadians(start: GeoPoint, end: GeoPoint): Float? {
+        if (start.latitude == end.latitude && start.longitude == end.longitude) {
+            return null
+        }
+
+        val startLat = Math.toRadians(start.latitude)
+        val endLat = Math.toRadians(end.latitude)
+        val deltaLon = Math.toRadians(end.longitude - start.longitude)
+        val y = sin(deltaLon) * cos(endLat)
+        val x = cos(startLat) * sin(endLat) - sin(startLat) * cos(endLat) * cos(deltaLon)
+        return atan2(y, x).toFloat()
     }
 
     
@@ -1451,6 +2247,7 @@ class MapActivity : AppCompatActivity() {
     
     override fun onDestroy() {
         super.onDestroy()
+        cancelNormalEntryRouteAnimation(showFullRoute = false, resetChartToStart = false)
         stopRouteDrawingTimer()
         trackMapIntegration.clear()
         zoomButtonsHideRunnable?.let { zoomButtonsHandler.removeCallbacks(it) }

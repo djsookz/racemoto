@@ -55,7 +55,6 @@
             android:layout_marginBottom="24dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="4dp"
-            app:cardBackgroundColor="#2C2C2C"
             android:clickable="true"
             android:focusable="true">
 
@@ -63,6 +62,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
+                android:background="@drawable/bg_track_metric_speed"
                 android:padding="24dp">
 
                 <LinearLayout
@@ -124,7 +124,6 @@
             android:layout_height="wrap_content"
             app:cardCornerRadius="12dp"
             app:cardElevation="4dp"
-            app:cardBackgroundColor="#2C2C2C"
             android:clickable="true"
             android:focusable="true">
 
@@ -132,6 +131,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
+                android:background="@drawable/bg_track_metric_speed"
                 android:padding="24dp">
 
                 <LinearLayout

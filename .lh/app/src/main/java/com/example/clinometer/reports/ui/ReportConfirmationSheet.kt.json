@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1774618826847,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1776338873744,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -22,22 +22,16 @@\n     private var onDismiss: (() -> Unit)? = null\r\n     private var countdownTimer: CountDownTimer? = null\r\n     \r\n     companion object {\r\n-        private const val ARG_REPORT_TYPE = \"report_type\"\r\n-        private const val ARG_REPORT_ID = \"report_id\"\r\n         private const val COUNTDOWN_SECONDS = 10\r\n         \r\n         fun newInstance(\r\n             report: PoliceReport,\r\n             onResponse: (Boolean) -> Unit,\r\n             onDismiss: () -> Unit\r\n         ): ReportConfirmationSheet {\r\n             return ReportConfirmationSheet().apply {\r\n-                arguments = Bundle().apply {\r\n-                    putString(ARG_REPORT_TYPE, report.type)\r\n-                    putString(ARG_REPORT_ID, report.id)\r\n-                }\r\n                 this.report = report\r\n                 this.onResponse = onResponse\r\n                 this.onDismiss = onDismiss\r\n             }\r\n@@ -67,9 +61,9 @@\n         val tvCountdown = view.findViewById<TextView>(R.id.tvCountdown)\r\n         val btnYes = view.findViewById<Button>(R.id.btnConfirmYes)\r\n         val btnNo = view.findViewById<Button>(R.id.btnConfirmNo)\r\n         \r\n-        tvQuestion.text = \"Все още тук ли е\\n${reportType.icon} ${reportType.displayName.toLowerCase()}?\"\r\n+        tvQuestion.text = \"Все още тук ли е\\n${reportType.icon} ${reportType.displayName.lowercase()}?\"\r\n         \r\n         // Button handlers\r\n         btnYes.setOnClickListener {\r\n             onResponse?.invoke(true)\r\n"
                 }
             ],
             "date": 1774618826847,

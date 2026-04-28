@@ -58,20 +58,4 @@ object LeanCalibrationStore {
         clearOrientation(context, profileId, isLandscape = false)
         clearOrientation(context, profileId, isLandscape = true)
     }
-
-    fun resolveOffset(snapshot: LeanCalibrationSnapshot, isLandscape: Boolean): Pair<Boolean, Float> {
-        return if (isLandscape) {
-            if (snapshot.landscapeCalibrated) {
-                true to snapshot.landscapeOffsetDeg
-            } else {
-                false to 0f
-            }
-        } else {
-            if (snapshot.portraitCalibrated) {
-                true to snapshot.portraitOffsetDeg
-            } else {
-                false to 0f
-            }
-        }
-    }
 }

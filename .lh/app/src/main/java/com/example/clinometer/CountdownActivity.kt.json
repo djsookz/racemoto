@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1771575193361,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1775746817865,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -61,9 +61,9 @@\n         // но с флаг че е в режим \"pre-warming\" - само GPS, без хронометър\r\n         val serviceIntent = Intent(this, ForegroundService::class.java).apply {\r\n             putExtra(\"PRE_WARMING_MODE\", true)\r\n         }\r\n-        ContextCompat.startForegroundService(this, serviceIntent)\r\n+        startService(serviceIntent)\r\n         \r\n         // Bind към service за калибрация\r\n         bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)\r\n \r\n"
                 }
             ],
             "date": 1771575193361,

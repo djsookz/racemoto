@@ -120,6 +120,12 @@ reportsIntegration.showVoteDialog(report)
 }
 ```
 
+## Firestore индекси
+
+Текущата rate limiting логика не зависи от composite index.
+
+Проверката за "до 10 доклада на час" чете докладите само по `reporterUserId` и филтрира последния час локално по `createdAt`/`timestamp`, така че не е нужен допълнителен Firestore index за тази част.
+
 ## Firestore правила (Security Rules)
 
 За production трябва да добавиш security rules във Firebase Console:

@@ -46,7 +46,6 @@ class SearchResultsAdapter(
     )
 
     private sealed interface Row {
-        data class Header(val title: String) : Row
         data class SearchResult(val feature: GeocodingFeature) : Row
         data class QuickDestination(val item: QuickDestinationItem) : Row
     }
@@ -63,59 +62,14 @@ class SearchResultsAdapter(
         notifyDataSetChanged()
     }
 
-    fun showQuickDestinations(
-        home: QuickDestinationItem?,
-        work: QuickDestinationItem?,
-        favorites: List<QuickDestinationItem>,
-        recents: List<QuickDestinationItem>
-    ) {
-        val newRows = mutableListOf<Row>()
-
-        if (home != null || work != null) {
-            newRows += Row.Header("Преки пътища")
-            home?.let { newRows += Row.QuickDestination(it) }
-            work?.let { newRows += Row.QuickDestination(it) }
-        }
-
-        if (favorites.isNotEmpty()) {
-            newRows += Row.Header("Любими")
-            favorites.forEach { favorite ->
-                newRows += Row.QuickDestination(favorite)
-            }
-        }
-
-        if (recents.isNotEmpty()) {
-            newRows += Row.Header("Скорошни")
-            recents.forEach { recent ->
-                newRows += Row.QuickDestination(recent)
-            }
-        }
-
-        rows = newRows
-        notifyDataSetChanged()
-    }
-
     override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-        return when (viewType) {
-            VIEW_TYPE_HEADER -> {
-                val view = android.view.LayoutInflater.from(parent.context)
-                    .inflate(R.layout.item_search_section_header, parent, false)
-                HeaderViewHolder(view)
-            }
-            else -> {
         val view = android.view.LayoutInflater.from(parent.context)
             .inflate(R.layout.item_search_result, parent, false)
         return ViewHolder(view)
-            }
-        }
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (val row = rows[position]) {
-            is Row.Header -> {
-                val headerHolder = holder as HeaderViewHolder
-                headerHolder.titleText.text = row.title
-            }
             is Row.SearchResult -> {
                 val itemHolder = holder as ViewHolder
                 val feature = row.feature
@@ -213,10 +167,7 @@ class SearchResultsAdapter(
     }
 
     override fun getItemViewType(position: Int): Int {
-        return when (rows[position]) {
-            is Row.Header -> VIEW_TYPE_HEADER
-            is Row.SearchResult, is Row.QuickDestination -> VIEW_TYPE_ITEM
-        }
+        return VIEW_TYPE_ITEM
     }
 
     override fun getItemCount() = rows.size
@@ -260,12 +211,7 @@ class SearchResultsAdapter(
         }
     }
 
-    class HeaderViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val titleText: TextView = view.findViewById(R.id.tvSectionHeader)
-    }
-
     companion object {
-        private const val VIEW_TYPE_HEADER = 0
         private const val VIEW_TYPE_ITEM = 1
     }
 }

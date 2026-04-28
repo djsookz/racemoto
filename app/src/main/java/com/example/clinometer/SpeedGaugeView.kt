@@ -106,113 +106,6 @@ class SpeedGaugeView @JvmOverloads constructor(
         fillPaint.shader = null
     }
 
-    private fun drawLeanAngleGauge(canvas: Canvas) {
-        // Arc sits on the top half of the speed circle
-        // 180° arc: from 180° (left) to 0° (right), i.e. the upper semicircle
-        // Center of arc = top of circle (270° = 12 o'clock)
-        // Lean -90° maps to 180° (9 o'clock), 0° maps to 270° (12 o'clock), +90° maps to 360°/0° (3 o'clock)
-        val gaugeRadius = radius * 0.86f
-        val gaugeRect = RectF(
-            centerX - gaugeRadius,
-            centerY - gaugeRadius,
-            centerX + gaugeRadius,
-            centerY + gaugeRadius
-        )
-
-        // Gray background arc: upper semicircle (180° sweep from startAngle 180°)
-        arcPaint.strokeWidth = dp(13f)
-        arcPaint.color = Color.parseColor("#4A5060")
-        canvas.drawArc(gaugeRect, 180f, 180f, false, arcPaint)
-
-        // Blue: max left lean (from 270° going counter-clockwise toward 180°)
-        if (maxLeanLeft > 0f) {
-            val leftSweep = (maxLeanLeft / 90f).coerceIn(0f, 1f) * 90f
-            arcPaint.color = Color.parseColor("#FF6020")
-            canvas.drawArc(gaugeRect, 270f, -leftSweep, false, arcPaint)
-        }
-
-        // Blue: max right lean (from 270° going clockwise toward 360°)
-        if (maxLeanRight > 0f) {
-            val rightSweep = (maxLeanRight / 90f).coerceIn(0f, 1f) * 90f
-            arcPaint.color = Color.parseColor("#FF6020")
-            canvas.drawArc(gaugeRect, 270f, rightSweep, false, arcPaint)
-        }
-
-        // White marker dot at live lean angle position
-        // leanAngle: -90 (left) → 0 (top) → +90 (right)
-        // Map to drawing angle: -90 → 180°, 0 → 270°, +90 → 360°
-        val drawAngle = 270.0 + leanAngle.toDouble()
-        val markerRad = Math.toRadians(drawAngle)
-        val markerX = centerX + gaugeRadius * cos(markerRad).toFloat()
-        val markerY = centerY + gaugeRadius * sin(markerRad).toFloat()
-
-        fillPaint.color = Color.parseColor("#F2F4F8")
-        canvas.drawCircle(markerX, markerY, dp(5f), fillPaint)
-    }
-
-    private fun drawCenterDisk(canvas: Canvas) {
-        fillPaint.color = Color.parseColor("#2A323B")
-        canvas.drawCircle(centerX, centerY, radius, fillPaint)
-
-        if (!isMotorcycle) {
-            val totalG = sqrt(gForceX * gForceX + gForceY * gForceY)
-            val normalized = (totalG / 1.8f).coerceIn(0f, 1f)
-            val ringRadius = radius * 0.93f
-            val ringRect = RectF(
-                centerX - ringRadius,
-                centerY - ringRadius,
-                centerX + ringRadius,
-                centerY + ringRadius
-            )
-
-            arcPaint.style = Paint.Style.STROKE
-            arcPaint.strokeCap = Paint.Cap.ROUND
-            arcPaint.strokeWidth = dp(5f)
-            arcPaint.color = Color.parseColor("#4A5060")
-            canvas.drawArc(ringRect, -90f, 360f, false, arcPaint)
-
-            arcPaint.color = Color.argb((90 + normalized * 150f).roundToInt(), 255, 96, 32)
-            canvas.drawArc(ringRect, -90f, 360f * normalized, false, arcPaint)
-        }
-
-        textPaint.textAlign = Paint.Align.CENTER
-        if (!isMotorcycle) {
-            textPaint.color = Color.WHITE
-            textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-            textPaint.textSize = dp(62f)
-            canvas.drawText(currentSpeed.roundToInt().toString(), centerX, centerY + radius * 0.18f, textPaint)
-
-            textPaint.textSize = dp(24f)
-            textPaint.color = Color.parseColor("#E0E6EF")
-            canvas.drawText("kph", centerX, centerY + radius * 0.48f, textPaint)
-        }
-    }
-
-    private fun drawGapText(canvas: Canvas) {
-        textPaint.textAlign = Paint.Align.CENTER
-        val gap = currentLapTime - targetLapTime
-        val color = if (targetLapTime <= 0f) {
-            Color.parseColor("#8C97AA")
-        } else if ((lockedGapSign ?: if (gap <= 0f) -1 else 1) <= 0) {
-            Color.parseColor("#00E985")
-        } else {
-            Color.parseColor("#EB3E23")
-        }
-        val text = if (targetLapTime > 0f) {
-            if (gap >= 0f) String.format("GAP +%.2fs", gap) else String.format("GAP %.2fs", gap)
-        } else {
-            "GAP --"
-        }
-
-        textPaint.textSize = dp(10f)
-        textPaint.color = color
-        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText(text, centerX, centerY + radius * 0.85f, textPaint)
-    }
-
-    private fun drawMotoTelemetry(canvas: Canvas) {
-    }
-
     private fun drawCarTelemetry(canvas: Canvas) {
         val graphCenterX = centerX
         val graphCenterY = height * 0.80f
@@ -369,56 +262,6 @@ class SpeedGaugeView @JvmOverloads constructor(
         }
     }
 
-    private fun drawCompactGBar(
-        canvas: Canvas,
-        x: Float,
-        y: Float,
-        value: Float,
-        fillFromStart: Boolean
-    ) {
-        val barWidth = dp(96f)
-        val barHeight = dp(7f)
-        val maxValue = 1.5f
-        val normalized = (value / maxValue).coerceIn(0f, 1f)
-
-        val left = x - barWidth / 2f
-        val right = x + barWidth / 2f
-        val top = y
-        val bottom = y + barHeight
-
-        fillPaint.color = Color.parseColor("#4A5060")
-        canvas.drawRoundRect(RectF(left, top, right, bottom), dp(4f), dp(4f), fillPaint)
-
-        val fillWidth = barWidth * normalized
-        val fillRect = if (fillFromStart) {
-            RectF(left, top, left + fillWidth, bottom)
-        } else {
-            RectF(right - fillWidth, top, right, bottom)
-        }
-        fillPaint.color = Color.parseColor("#FF6020")
-        canvas.drawRoundRect(fillRect, dp(4f), dp(4f), fillPaint)
-    }
-
-    private fun drawBottomMetric(
-        canvas: Canvas,
-        x: Float,
-        y: Float,
-        align: Paint.Align,
-        valueText: String,
-        title: String
-    ) {
-        textPaint.textAlign = align
-        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        textPaint.textSize = dp(19f)
-        textPaint.color = Color.parseColor("#F2F5FA")
-        canvas.drawText(valueText, x, y, textPaint)
-
-        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        textPaint.textSize = dp(10f)
-        textPaint.color = Color.parseColor("#E3E8F3")
-        canvas.drawText(title, x, y + dp(18f), textPaint)
-    }
-
     private fun dp(value: Float): Float = value * resources.displayMetrics.density
 
     private fun Canvas.drawText(text: String, x: Float, y: Float, paint: Paint = textPaint) {
@@ -453,30 +296,6 @@ class SpeedGaugeView @JvmOverloads constructor(
             maxLeanLeft = max(maxLeanLeft, abs(leanAngle))
         } else {
             maxLeanRight = max(maxLeanRight, leanAngle)
-        }
-        invalidate()
-    }
-
-    fun setDotByNormalizedG(normX: Float, normY: Float) {
-        gForceX = normX
-        gForceY = normY
-        invalidate()
-    }
-
-    fun setMotorcycleMode(motorcycle: Boolean) {
-        isMotorcycle = motorcycle
-        if (!motorcycle) {
-            leanAngle = 0f
-            maxLeanLeft = 0f
-            maxLeanRight = 0f
-            updateCarTelemetryState()
-        } else {
-            gTrail.clear()
-            peakBrakeG = 0f
-            peakAccelG = 0f
-            peakLatLeftG = 0f
-            peakLatRightG = 0f
-            peakTotalG = 0f
         }
         invalidate()
     }

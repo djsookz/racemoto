@@ -3,6 +3,7 @@ package com.example.clinometer.track
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -23,10 +24,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.widget.addTextChangedListener
+import androidx.lifecycle.lifecycleScope
 import com.example.clinometer.GeoPoint
 import com.example.clinometer.R
 import com.example.clinometer.TrackSelectionActivity
 import com.example.clinometer.applySystemBarsPaddingToRoot
+import com.example.clinometer.navigation.MapboxDirectionsService
 import com.example.clinometer.tracking.CustomTrack
 import com.example.clinometer.tracking.CustomTrackDefinitionV2
 import com.example.clinometer.tracking.CustomTrackCreationMode
@@ -57,6 +60,13 @@ import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.createPolylineAnnotationManager
 import com.mapbox.maps.plugin.gestures.addOnMapClickListener
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -83,6 +93,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var pointManager: PointAnnotationManager
+    private lateinit var liveLocationPointManager: PointAnnotationManager
     private lateinit var polylineManager: PolylineAnnotationManager
 
     private var trackType: CustomTrack.TrackType = CustomTrack.TrackType.CIRCUIT
@@ -107,15 +118,23 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
     private val undoStack = ArrayDeque<EditorSnapshot>()
     private var dragSnapshotCaptured = false
     private val gson = Gson()
+    private var directionsService: MapboxDirectionsService? = null
+    private var mapboxAccessToken: String = ""
     private var isDrivingCaptureActive = false
     private val drivingRoutePoints = mutableListOf<Point>()
+    private val phoneRoutePreviewPoints = mutableListOf<Point>()
     private var lastDrivingRoutePoint: Point? = null
     private var lastDrivingSampleLocation: Location? = null
     private var drivingRecordedDistanceMeters: Float = 0f
+    private var phoneRoutePreviewDistanceMeters: Float? = null
     private var drivingCaptureStartedAtMs: Long = 0L
     private var hasMovedAwayFromStartLine: Boolean = false
     private var followLocationCallback: LocationCallback? = null
+    private val routePreviewHandler = Handler(Looper.getMainLooper())
+    private var phoneRouteRefreshRunnable: Runnable? = null
+    private var phoneRouteRequestId: Long = 0L
     private var currentLiveLocation: Location? = null
+    private var liveLocationAnnotation: PointAnnotation? = null
     private val trackGateCrossingEngine = TrackGateCrossingEngine(lineThresholdMeters = 18.0)
 
     private data class ExchangePoint(
@@ -124,13 +143,15 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
     )
 
     private data class CustomTrackExchange(
-        val version: Int = 1,
+        val version: Int = 2,
         val name: String,
         val mode: String,
         val checkpointPoints: List<ExchangePoint> = emptyList(),
         val circuitGatePoints: List<ExchangePoint> = emptyList(),
         val startGatePoints: List<ExchangePoint> = emptyList(),
-        val finishGatePoints: List<ExchangePoint> = emptyList()
+        val finishGatePoints: List<ExchangePoint> = emptyList(),
+        val referencePath: List<ExchangePoint>? = null,
+        val measuredDistanceMeters: Float? = null
     )
 
     private val importTrackLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -204,6 +225,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         initViews()
         setupMap()
         setupButtons()
+        initializeRoutePreviewRouting()
         updateUIForTrackType(resetTool = true)
         initializeGPS()
 
@@ -251,6 +273,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         )
 
         pointManager = mapView.annotations.createPointAnnotationManager()
+        liveLocationPointManager = mapView.annotations.createPointAnnotationManager()
         polylineManager = mapView.annotations.createPolylineAnnotationManager()
 
         pointManager.addDragListener(object : OnPointAnnotationDragListener {
@@ -271,9 +294,11 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             override fun onAnnotationDragFinished(annotation: Annotation<*>) {
                 val pointAnnotation = annotation as? PointAnnotation ?: return
                 handleAnnotationDragged(pointAnnotation)
+                normalizeCircuitCheckpointOrderIfNeeded(preferredCheckpoint = pointAnnotation.point)
                 dragSnapshotCaptured = false
                 redrawAnnotations()
                 updateBuilderState()
+                schedulePhoneRoutePreviewRefresh(immediate = true)
             }
         })
 
@@ -330,6 +355,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             if (gateIndex != null && gateIndex in circuitGatePoints.indices) {
                 circuitGatePoints[gateIndex] = annotation.point
                 selectedPoint = SelectedPoint(SelectedPointKind.GATE, gateIndex)
+                updatePhoneRoutePreviewFallback()
                 redrawPolylines()
                 updateBuilderState()
                 return
@@ -339,6 +365,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             if (checkpointIndex != null && checkpointIndex in checkpointPoints.indices) {
                 checkpointPoints[checkpointIndex] = annotation.point
                 selectedPoint = SelectedPoint(SelectedPointKind.CHECKPOINT, checkpointIndex)
+                updatePhoneRoutePreviewFallback()
                 redrawPolylines()
                 updateBuilderState()
             }
@@ -349,6 +376,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         if (startIndex != null && startIndex in startGatePoints.indices) {
             startGatePoints[startIndex] = annotation.point
             selectedPoint = SelectedPoint(SelectedPointKind.START, startIndex)
+            updatePhoneRoutePreviewFallback()
             redrawPolylines()
             updateBuilderState()
             return
@@ -358,6 +386,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         if (finishIndex != null && finishIndex in finishGatePoints.indices) {
             finishGatePoints[finishIndex] = annotation.point
             selectedPoint = SelectedPoint(SelectedPointKind.FINISH, finishIndex)
+            updatePhoneRoutePreviewFallback()
             redrawPolylines()
             updateBuilderState()
             return
@@ -367,6 +396,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         if (checkpointIndex != null && checkpointIndex in checkpointPoints.indices) {
             checkpointPoints[checkpointIndex] = annotation.point
             selectedPoint = SelectedPoint(SelectedPointKind.CHECKPOINT, checkpointIndex)
+            updatePhoneRoutePreviewFallback()
             redrawPolylines()
             updateBuilderState()
         }
@@ -435,6 +465,243 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         return "${safeName}.racemoto-track.json"
     }
 
+    private fun initializeRoutePreviewRouting() {
+        try {
+            val resourceId = resources.getIdentifier("mapbox_access_token", "string", packageName)
+            mapboxAccessToken = resources.getString(resourceId)
+        } catch (_: Resources.NotFoundException) {
+            mapboxAccessToken = ""
+            Log.w(TAG, "Mapbox token missing. Phone custom routes will use straight-line fallback.")
+            return
+        }
+
+        directionsService = Retrofit.Builder()
+            .baseUrl("https://api.mapbox.com/")
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(MapboxDirectionsService::class.java)
+    }
+
+    private fun lineMidpoint(points: List<Point>): Point? {
+        if (points.size < 2) return null
+        return Point.fromLngLat(
+            (points[0].longitude() + points[1].longitude()) / 2.0,
+            (points[0].latitude() + points[1].latitude()) / 2.0
+        )
+    }
+
+    private fun collapseNearbyPoints(points: List<Point>, minDistanceMeters: Double = 5.0): List<Point> {
+        if (points.isEmpty()) return emptyList()
+
+        val result = mutableListOf(points.first())
+        for (index in 1 until points.size) {
+            val point = points[index]
+            if (distanceMeters(result.last(), point) >= minDistanceMeters) {
+                result.add(point)
+            }
+        }
+        return result
+    }
+
+    private fun buildPhoneRouteControlPoints(): List<Point> {
+        val points = mutableListOf<Point>()
+        val orderedCheckpoints = currentCheckpointPointsInTrackOrder()
+
+        when (trackType) {
+            CustomTrack.TrackType.CIRCUIT -> {
+                if (circuitGatePoints.size != 2 || orderedCheckpoints.size != CIRCUIT_CHECKPOINT_COUNT) {
+                    return emptyList()
+                }
+                val startMid = lineMidpoint(circuitGatePoints) ?: return emptyList()
+                points.add(startMid)
+                points.addAll(orderedCheckpoints)
+                points.add(startMid)
+            }
+            CustomTrack.TrackType.POINT_TO_POINT -> {
+                if (
+                    startGatePoints.size != 2 ||
+                    finishGatePoints.size != 2 ||
+                    orderedCheckpoints.size < POINT_TO_POINT_MIN_CHECKPOINTS
+                ) {
+                    return emptyList()
+                }
+                val startMid = lineMidpoint(startGatePoints) ?: return emptyList()
+                val finishMid = lineMidpoint(finishGatePoints) ?: return emptyList()
+                points.add(startMid)
+                points.addAll(orderedCheckpoints)
+                points.add(finishMid)
+            }
+        }
+
+        return collapseNearbyPoints(points)
+    }
+
+    private fun calculatePointPathDistanceMeters(points: List<Point>): Float {
+        if (points.size < 2) return 0f
+        var totalMeters = 0f
+        for (index in 1 until points.size) {
+            totalMeters += distanceMeters(points[index - 1], points[index]).toFloat()
+        }
+        return totalMeters
+    }
+
+    private fun setPhoneRoutePreview(points: List<Point>, distanceMeters: Float?) {
+        phoneRoutePreviewPoints.clear()
+        phoneRoutePreviewPoints.addAll(points)
+        phoneRoutePreviewDistanceMeters = distanceMeters?.takeIf { it.isFinite() && it > 0f }
+    }
+
+    private fun clearPhoneRoutePreview() {
+        phoneRouteRefreshRunnable?.let(routePreviewHandler::removeCallbacks)
+        phoneRouteRefreshRunnable = null
+        phoneRouteRequestId += 1
+        phoneRoutePreviewPoints.clear()
+        phoneRoutePreviewDistanceMeters = null
+    }
+
+    private fun updatePhoneRoutePreviewFallback() {
+        if (creationMode != CreationMode.PHONE) return
+
+        if (!canRequestOnlinePhoneRoutePreview()) {
+            clearPhoneRoutePreview()
+            return
+        }
+
+        val controlPoints = buildPhoneRouteControlPoints()
+        if (controlPoints.size < 2) {
+            clearPhoneRoutePreview()
+            return
+        }
+
+        setPhoneRoutePreview(controlPoints, calculatePointPathDistanceMeters(controlPoints))
+    }
+
+    private fun canRequestOnlinePhoneRoutePreview(): Boolean {
+        if (creationMode != CreationMode.PHONE) return false
+
+        return when (trackType) {
+            CustomTrack.TrackType.CIRCUIT -> {
+                circuitGatePoints.size == 2 && checkpointPoints.size == CIRCUIT_CHECKPOINT_COUNT
+            }
+            CustomTrack.TrackType.POINT_TO_POINT -> {
+                startGatePoints.size == 2 &&
+                    finishGatePoints.size == 2 &&
+                    checkpointPoints.size >= POINT_TO_POINT_MIN_CHECKPOINTS
+            }
+        }
+    }
+
+    private fun schedulePhoneRoutePreviewRefresh(immediate: Boolean = false) {
+        if (creationMode != CreationMode.PHONE) return
+
+        phoneRouteRefreshRunnable?.let(routePreviewHandler::removeCallbacks)
+        if (!canRequestOnlinePhoneRoutePreview()) {
+            clearPhoneRoutePreview()
+            redrawPolylines()
+            updateBuilderState()
+            return
+        }
+
+        val runnable = Runnable { refreshPhoneRoutePreviewFromWaypoints() }
+        phoneRouteRefreshRunnable = runnable
+
+        if (immediate) {
+            routePreviewHandler.post(runnable)
+        } else {
+            routePreviewHandler.postDelayed(runnable, 250L)
+        }
+    }
+
+    private fun refreshPhoneRoutePreviewFromWaypoints() {
+        phoneRouteRefreshRunnable = null
+        if (creationMode != CreationMode.PHONE) return
+
+        val controlPoints = buildPhoneRouteControlPoints()
+        if (controlPoints.size < 2) {
+            clearPhoneRoutePreview()
+            redrawPolylines()
+            updateBuilderState()
+            return
+        }
+
+        updatePhoneRoutePreviewFallback()
+        redrawPolylines()
+        updateBuilderState()
+
+        if (!canRequestOnlinePhoneRoutePreview()) {
+            phoneRouteRequestId += 1
+            return
+        }
+
+        val routeService = directionsService ?: return
+        if (mapboxAccessToken.isBlank()) return
+
+        val requestId = ++phoneRouteRequestId
+        val coordinates = controlPoints.joinToString(separator = ";") { point ->
+            "${point.longitude()},${point.latitude()}"
+        }
+
+        lifecycleScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) {
+                    routeService.getRoute(
+                        coordinates = coordinates,
+                        accessToken = mapboxAccessToken,
+                        steps = false,
+                        bannerInstructions = false,
+                        alternatives = false
+                    )
+                }
+
+                if (requestId != phoneRouteRequestId) return@launch
+                if (!response.isSuccessful) {
+                    Log.w(TAG, "Phone route preview request failed: ${response.code()}")
+                    return@launch
+                }
+
+                val route = response.body()?.routes?.firstOrNull() ?: return@launch
+                val routePoints = route.geometry.coordinates.mapNotNull { coordinate ->
+                    if (coordinate.size < 2) {
+                        null
+                    } else {
+                        Point.fromLngLat(coordinate[0], coordinate[1])
+                    }
+                }
+                if (routePoints.size < 2) return@launch
+
+                setPhoneRoutePreview(routePoints, route.distance.toFloat())
+                redrawPolylines()
+                updateBuilderState()
+            } catch (error: Exception) {
+                if (requestId == phoneRouteRequestId) {
+                    Log.w(TAG, "Phone route preview fallback kept after routing error: ${error.message}")
+                }
+            }
+        }
+    }
+
+    private fun currentReferencePathPoints(): List<Point> {
+        return when (creationMode) {
+            CreationMode.DRIVING -> drivingRoutePoints
+            CreationMode.PHONE -> phoneRoutePreviewPoints
+        }
+    }
+
+    private fun currentMeasuredDistanceMeters(): Float? {
+        return when (creationMode) {
+            CreationMode.DRIVING -> drivingRecordedDistanceMeters.takeIf { it > 50f }
+            CreationMode.PHONE -> phoneRoutePreviewDistanceMeters?.takeIf { it > 50f }
+        }
+    }
+
+    private fun formatDistanceLabel(distanceMeters: Float): String {
+        return if (distanceMeters >= 1000f) {
+            String.format(Locale.US, "%.2f km", distanceMeters / 1000f).replace('.', ',')
+        } else {
+            "${distanceMeters.toInt()} m"
+        }
+    }
+
     private fun importTrackFromUri(uri: android.net.Uri) {
         try {
             val content = contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
@@ -468,14 +735,18 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
     }
 
     private fun createExportPayload(): CustomTrackExchange {
+        val referencePath = currentReferencePathPoints()
+        val orderedCheckpoints = currentCheckpointPointsInTrackOrder()
         return CustomTrackExchange(
-            version = 1,
+            version = 2,
             name = etTrackName.text.toString().trim().ifEmpty { "Custom Писта" },
             mode = trackType.name,
-            checkpointPoints = checkpointPoints.map { ExchangePoint(lat = it.latitude(), lon = it.longitude()) },
+            checkpointPoints = orderedCheckpoints.map { ExchangePoint(lat = it.latitude(), lon = it.longitude()) },
             circuitGatePoints = circuitGatePoints.map { ExchangePoint(lat = it.latitude(), lon = it.longitude()) },
             startGatePoints = startGatePoints.map { ExchangePoint(lat = it.latitude(), lon = it.longitude()) },
-            finishGatePoints = finishGatePoints.map { ExchangePoint(lat = it.latitude(), lon = it.longitude()) }
+            finishGatePoints = finishGatePoints.map { ExchangePoint(lat = it.latitude(), lon = it.longitude()) },
+            referencePath = referencePath.map { ExchangePoint(lat = it.latitude(), lon = it.longitude()) },
+            measuredDistanceMeters = currentMeasuredDistanceMeters()
         )
     }
 
@@ -509,6 +780,11 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         circuitGatePoints.clear()
         startGatePoints.clear()
         finishGatePoints.clear()
+        clearPhoneRoutePreview()
+        drivingRoutePoints.clear()
+        lastDrivingRoutePoint = null
+        lastDrivingSampleLocation = null
+        drivingRecordedDistanceMeters = 0f
 
         checkpointPoints.addAll(imported.checkpointPoints.map { Point.fromLngLat(it.lon, it.lat) })
 
@@ -525,11 +801,27 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             }
         }
 
+        val importedReferencePath = imported.referencePath.orEmpty().map { Point.fromLngLat(it.lon, it.lat) }
+        if (creationMode == CreationMode.DRIVING) {
+            drivingRoutePoints.addAll(importedReferencePath)
+            lastDrivingRoutePoint = drivingRoutePoints.lastOrNull()
+            drivingRecordedDistanceMeters = imported.measuredDistanceMeters ?: calculatePointPathDistanceMeters(drivingRoutePoints)
+        } else if (importedReferencePath.size >= 2) {
+            setPhoneRoutePreview(
+                importedReferencePath,
+                imported.measuredDistanceMeters ?: calculatePointPathDistanceMeters(importedReferencePath)
+            )
+        }
+
+        normalizeCircuitCheckpointOrderIfNeeded()
         updateUIForTrackType(resetTool = false)
         redrawAnnotations()
         fitCameraToTrackPoints()
         mapView.post { fitCameraToTrackPoints() }
         updateBuilderState()
+        if (creationMode == CreationMode.PHONE && phoneRoutePreviewPoints.size < 2) {
+            schedulePhoneRoutePreviewRefresh(immediate = true)
+        }
         return true
     }
 
@@ -578,10 +870,11 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                 } else {
                     "1) Въведете име на писта\n" +
                     "2) Поставете 2 точки за старт/финиш линия\n" +
-                    "3) Местете линията с drag за прецизна позиция\n" +
-                    "4) Добавете точно 4 checkpoint точки\n" +
-                    "5) Tap на точка за избор, drag за местене, UNDO за изтриване\n" +
-                    "6) Запазете"
+                    "3) Оранжевата линия се генерира след всичките 4 checkpoint точки\n" +
+                    "4) Местете точките с drag за прецизна позиция\n" +
+                    "5) Добавете точно 4 checkpoint точки\n" +
+                    "6) Tap на точка за избор, drag за местене, UNDO за изтриване\n" +
+                    "7) Запазете"
                 }
             }
 
@@ -607,9 +900,10 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                     "1) Въведете име на трасе\n" +
                     "2) Поставете 2 точки за старт линия\n" +
                     "3) Поставете 2 точки за финиш линия\n" +
-                    "4) Добавете поне 2 checkpoint точки\n" +
-                    "5) Tap на точка за избор, drag за местене, UNDO за изтриване\n" +
-                    "6) Запазете"
+                    "4) Оранжевата линия се генерира автоматично по checkpoints\n" +
+                    "5) Добавете поне 2 checkpoint точки\n" +
+                    "6) Tap на точка за избор, drag за местене, UNDO за изтриване\n" +
+                    "7) Запазете"
                 }
             }
         }
@@ -640,8 +934,11 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             CustomTrack.TrackType.POINT_TO_POINT -> handlePointToPointMapClick(point)
         }
 
+        normalizeCircuitCheckpointOrderIfNeeded()
+        updatePhoneRoutePreviewFallback()
         redrawAnnotations()
         updateBuilderState()
+        schedulePhoneRoutePreviewRefresh()
     }
 
     private fun handleCircuitMapClick(point: Point) {
@@ -811,7 +1108,202 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             checkpointAnnotationIndexById[annotation.id] = index
         }
 
+        updateLiveLocationAnnotation(currentLiveLocation)
         redrawPolylines()
+    }
+
+    private fun updateLiveLocationAnnotation(location: Location?) {
+        if (!::liveLocationPointManager.isInitialized) return
+
+        if (location == null) {
+            liveLocationAnnotation?.let(liveLocationPointManager::delete)
+            liveLocationAnnotation = null
+            return
+        }
+
+        val point = Point.fromLngLat(location.longitude, location.latitude)
+        val existingAnnotation = liveLocationAnnotation
+        if (existingAnnotation == null) {
+            liveLocationAnnotation = liveLocationPointManager.create(
+                PointAnnotationOptions()
+                    .withPoint(point)
+                    .withIconImage(createLiveLocationBitmap())
+                    .withIconAnchor(IconAnchor.CENTER)
+                    .withDraggable(false)
+            )
+            return
+        }
+
+        existingAnnotation.point = point
+        liveLocationPointManager.update(existingAnnotation)
+    }
+
+    private fun createLiveLocationBitmap(): Bitmap {
+        val size = 56
+        val center = size / 2f
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val haloPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#66F59E0B")
+        }
+        val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#F59E0B")
+        }
+        val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            style = Paint.Style.STROKE
+            strokeWidth = 4f
+        }
+
+        canvas.drawCircle(center, center, 20f, haloPaint)
+        canvas.drawCircle(center, center, 11f, corePaint)
+        canvas.drawCircle(center, center, 11f, strokePaint)
+
+        return bitmap
+    }
+
+    private fun currentCheckpointPointsInTrackOrder(): List<Point> {
+        return when (trackType) {
+            CustomTrack.TrackType.CIRCUIT -> buildOrderedCircuitCheckpointPoints(checkpointPoints)
+            CustomTrack.TrackType.POINT_TO_POINT -> checkpointPoints.toList()
+        }
+    }
+
+    private fun normalizeCircuitCheckpointOrderIfNeeded(preferredCheckpoint: Point? = null) {
+        if (creationMode != CreationMode.PHONE) return
+        if (trackType != CustomTrack.TrackType.CIRCUIT) return
+        if (circuitGatePoints.size != 2 || checkpointPoints.size != CIRCUIT_CHECKPOINT_COUNT) return
+
+        val referenceCheckpoint = preferredCheckpoint ?: selectedCheckpointPoint()
+        val ordered = buildOrderedCircuitCheckpointPoints(checkpointPoints)
+        if (ordered.size != checkpointPoints.size) return
+        if (ordered.indices.all { index -> pointsAreNear(ordered[index], checkpointPoints[index]) }) {
+            return
+        }
+
+        checkpointPoints.clear()
+        checkpointPoints.addAll(ordered)
+
+        if (referenceCheckpoint != null) {
+            selectedPoint = SelectedPoint(
+                kind = SelectedPointKind.CHECKPOINT,
+                index = nearestPointIndex(checkpointPoints, referenceCheckpoint)
+            )
+        }
+    }
+
+    private fun selectedCheckpointPoint(): Point? {
+        val selected = selectedPoint ?: return null
+        if (selected.kind != SelectedPointKind.CHECKPOINT) return null
+        if (selected.index !in checkpointPoints.indices) return null
+        return checkpointPoints[selected.index]
+    }
+
+    private fun buildOrderedCircuitCheckpointPoints(points: List<Point>): List<Point> {
+        if (trackType != CustomTrack.TrackType.CIRCUIT) return points.toList()
+        if (circuitGatePoints.size != 2 || points.size != CIRCUIT_CHECKPOINT_COUNT) return points.toList()
+
+        val startMid = lineMidpoint(circuitGatePoints) ?: return points.toList()
+        var bestOrder = points.toList()
+        var bestScore = Double.POSITIVE_INFINITY
+
+        forEachPointPermutation(points) { candidate ->
+            val closedLoop = buildList {
+                add(startMid)
+                addAll(candidate)
+                add(startMid)
+            }
+            val intersectionPenalty = countPolylineSelfIntersections(closedLoop) * 1_000_000.0
+            val routeLength = calculatePointPathDistanceMeters(closedLoop).toDouble()
+            val entryBalancePenalty = abs(distanceMeters(startMid, candidate.first()) - distanceMeters(startMid, candidate.last()))
+            val score = intersectionPenalty + routeLength + entryBalancePenalty
+            if (score < bestScore) {
+                bestScore = score
+                bestOrder = candidate.toList()
+            }
+        }
+
+        return bestOrder
+    }
+
+    private fun forEachPointPermutation(points: List<Point>, onPermutation: (List<Point>) -> Unit) {
+        val working = points.toMutableList()
+
+        fun permute(startIndex: Int) {
+            if (startIndex >= working.lastIndex) {
+                onPermutation(working.toList())
+                return
+            }
+
+            for (index in startIndex until working.size) {
+                val current = working[startIndex]
+                working[startIndex] = working[index]
+                working[index] = current
+                permute(startIndex + 1)
+                working[index] = working[startIndex]
+                working[startIndex] = current
+            }
+        }
+
+        permute(0)
+    }
+
+    private fun countPolylineSelfIntersections(points: List<Point>): Int {
+        if (points.size < 4) return 0
+
+        var intersections = 0
+        val segmentCount = points.size - 1
+        for (firstIndex in 0 until segmentCount) {
+            val firstStart = points[firstIndex]
+            val firstEnd = points[firstIndex + 1]
+            for (secondIndex in firstIndex + 1 until segmentCount) {
+                if (secondIndex <= firstIndex + 1) continue
+                if (firstIndex == 0 && secondIndex == segmentCount - 1) continue
+
+                val secondStart = points[secondIndex]
+                val secondEnd = points[secondIndex + 1]
+                if (segmentsIntersect(firstStart, firstEnd, secondStart, secondEnd)) {
+                    intersections += 1
+                }
+            }
+        }
+        return intersections
+    }
+
+    private fun segmentsIntersect(aStart: Point, aEnd: Point, bStart: Point, bEnd: Point): Boolean {
+        val eps = 1e-10
+        val o1 = orientation(aStart, aEnd, bStart)
+        val o2 = orientation(aStart, aEnd, bEnd)
+        val o3 = orientation(bStart, bEnd, aStart)
+        val o4 = orientation(bStart, bEnd, aEnd)
+
+        if ((o1 > eps && o2 < -eps || o1 < -eps && o2 > eps) && (o3 > eps && o4 < -eps || o3 < -eps && o4 > eps)) {
+            return true
+        }
+
+        if (abs(o1) <= eps && pointOnSegment(aStart, bStart, aEnd)) return true
+        if (abs(o2) <= eps && pointOnSegment(aStart, bEnd, aEnd)) return true
+        if (abs(o3) <= eps && pointOnSegment(bStart, aStart, bEnd)) return true
+        if (abs(o4) <= eps && pointOnSegment(bStart, aEnd, bEnd)) return true
+
+        return false
+    }
+
+    private fun orientation(start: Point, middle: Point, end: Point): Double {
+        return (middle.longitude() - start.longitude()) * (end.latitude() - start.latitude()) -
+            (middle.latitude() - start.latitude()) * (end.longitude() - start.longitude())
+    }
+
+    private fun pointOnSegment(start: Point, point: Point, end: Point): Boolean {
+        return point.longitude() >= minOf(start.longitude(), end.longitude()) - 1e-10 &&
+            point.longitude() <= maxOf(start.longitude(), end.longitude()) + 1e-10 &&
+            point.latitude() >= minOf(start.latitude(), end.latitude()) - 1e-10 &&
+            point.latitude() <= maxOf(start.latitude(), end.latitude()) + 1e-10
+    }
+
+    private fun pointsAreNear(first: Point, second: Point): Boolean {
+        return distanceMeters(first, second) <= 0.5
     }
 
     private fun redrawPolylines() {
@@ -850,6 +1342,15 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                         .withLineWidth(6.0)
                 )
             }
+        }
+
+        if (phoneRoutePreviewPoints.size >= 2) {
+            polylineManager.create(
+                PolylineAnnotationOptions()
+                    .withPoints(phoneRoutePreviewPoints)
+                    .withLineColor("#F59E0B")
+                    .withLineWidth(4.0)
+            )
         }
     }
 
@@ -958,8 +1459,10 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         }
 
         selectedPoint = null
+        updatePhoneRoutePreviewFallback()
         redrawAnnotations()
         updateBuilderState()
+        schedulePhoneRoutePreviewRefresh(immediate = true)
         Toast.makeText(this, "Избраната точка е изтрита", Toast.LENGTH_SHORT).show()
         return true
     }
@@ -977,8 +1480,10 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
 
         val snapshot = undoStack.removeLast()
         restoreSnapshot(snapshot)
+        updatePhoneRoutePreviewFallback()
         redrawAnnotations()
         updateBuilderState()
+        schedulePhoneRoutePreviewRefresh(immediate = true)
     }
 
     private fun clearTrack() {
@@ -992,6 +1497,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                 startGatePoints.clear()
                 finishGatePoints.clear()
                 drivingRoutePoints.clear()
+                clearPhoneRoutePreview()
                 lastDrivingRoutePoint = null
                 lastDrivingSampleLocation = null
                 drivingRecordedDistanceMeters = 0f
@@ -1038,22 +1544,20 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             null
         }
 
-        val sectorGates = checkpointPoints.map { cp ->
+        val orderedCheckpoints = currentCheckpointPointsInTrackOrder()
+        val sectorGates = orderedCheckpoints.map { cp ->
             val geo = GeoPoint(cp.latitude(), cp.longitude())
             GateLine(start = geo, end = geo)
         }
 
-        val referencePath = if (creationMode == CreationMode.DRIVING && drivingRoutePoints.size >= 2) {
-            drivingRoutePoints.map { p -> GeoPoint(p.latitude(), p.longitude()) }
+        val referencePathPoints = currentReferencePathPoints()
+        val referencePath = if (referencePathPoints.size >= 2) {
+            referencePathPoints.map { point -> GeoPoint(point.latitude(), point.longitude()) }
         } else {
-            checkpointPoints.map { cp -> GeoPoint(cp.latitude(), cp.longitude()) }
+            orderedCheckpoints.map { cp -> GeoPoint(cp.latitude(), cp.longitude()) }
         }
 
-        val measuredDistance = if (creationMode == CreationMode.DRIVING && drivingRecordedDistanceMeters > 50f) {
-            drivingRecordedDistanceMeters
-        } else {
-            null
-        }
+        val measuredDistance = currentMeasuredDistanceMeters()
 
         val trackV2 = CustomTrackDefinitionV2(
             id = trackId,
@@ -1130,7 +1634,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         btnStopDrawing.text = if (hasSelection) "DELETE" else "UNDO"
         btnStopDrawing.isEnabled = if (hasSelection) true else undoStack.isNotEmpty()
 
-        tvStatus.text = when (trackType) {
+        val baseStatus = when (trackType) {
             CustomTrack.TrackType.CIRCUIT -> {
                 when {
                     selectedPoint != null -> "✅ Избрана точка: drag за местене, UNDO за изтриване"
@@ -1154,6 +1658,15 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                 }
             }
         }
+
+        val routeDistanceStatus = currentMeasuredDistanceMeters()?.let { distance ->
+            if (distance > 50f) {
+                "\nМаршрут: ~${formatDistanceLabel(distance)}"
+            } else {
+                null
+            }
+        }.orEmpty()
+        tvStatus.text = baseStatus + routeDistanceStatus
 
         btnAddStartFinish.alpha = if (activeTool == BuilderTool.SET_CIRCUIT_GATE) 1f else 0.75f
         btnAddStart.alpha = if (activeTool == BuilderTool.SET_START) 1f else 0.75f
@@ -1499,6 +2012,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
         startGatePoints.clear()
         finishGatePoints.clear()
         drivingRoutePoints.clear()
+        clearPhoneRoutePreview()
         lastDrivingRoutePoint = null
         lastDrivingSampleLocation = null
         drivingRecordedDistanceMeters = 0f
@@ -1571,6 +2085,11 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                 }
                 total
             }
+        } else if (creationMode == CreationMode.PHONE && routePathList.size >= 2) {
+            setPhoneRoutePreview(
+                routePathList,
+                trackV2?.measuredDistanceMeters ?: calculatePointPathDistanceMeters(routePathList)
+            )
         }
 
         when (trackType) {
@@ -1591,6 +2110,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             }
         }
 
+        normalizeCircuitCheckpointOrderIfNeeded()
         updateUIForTrackType(resetTool = false)
         redrawAnnotations()
         fitCameraToTrackPoints()
@@ -1601,6 +2121,9 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             fitCameraToTrackPoints()
         }, 250L)
         updateBuilderState()
+        if (creationMode == CreationMode.PHONE && phoneRoutePreviewPoints.size < 2) {
+            schedulePhoneRoutePreviewRefresh(immediate = true)
+        }
         Toast.makeText(this, "Режим: редакция на '$resolvedName'", Toast.LENGTH_SHORT).show()
     }
 
@@ -1664,6 +2187,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
             override fun onLocationResult(result: LocationResult) {
                 for (location in result.locations) {
                     currentLiveLocation = location
+                    updateLiveLocationAnnotation(location)
                     centerCameraOnLocation(location)
                     if (isDrivingCaptureActive) {
                         appendDrivingRoutePoint(location)
@@ -1716,6 +2240,7 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
                     }
                     location?.let {
                         currentLiveLocation = it
+                        updateLiveLocationAnnotation(it)
                         centerCameraOnLocation(it)
                     }
                 }
@@ -1756,8 +2281,10 @@ class CustomTrackBuilderActivity : AppCompatActivity() {
     override fun onDestroy() {
         stopDrivingCapture(showToast = false)
         stopLocationCameraFollow()
+        routePreviewHandler.removeCallbacksAndMessages(null)
         super.onDestroy()
         pointManager.deleteAll()
+        liveLocationPointManager.deleteAll()
         polylineManager.deleteAll()
         mapContainer.removeAllViews()
     }

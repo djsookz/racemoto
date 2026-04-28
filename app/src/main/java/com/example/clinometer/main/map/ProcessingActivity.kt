@@ -55,9 +55,6 @@ class ProcessingActivity : AppCompatActivity() {
             return
         }
         
-        val gpsPoints = rawRoutePoints.map { it.geoPoint }
-        val speedData = rawRoutePoints.map { it.speed }
-        
         android.util.Log.d("ProcessingActivity", "✅ Loaded ${rawRoutePoints.size} points from storage for raceId $raceId")
         
         // КРИТИЧЕН ЛОГ: Проверка на angle данните!
@@ -74,14 +71,12 @@ class ProcessingActivity : AppCompatActivity() {
         android.util.Log.d("ProcessingActivity", "   Last 5 angles: ${angleData.takeLast(5)}")
         
         // Start processing
-        startProcessing(ArrayList(gpsPoints), ArrayList(speedData), ArrayList(rawRoutePoints), raceId)
+        startProcessing(ArrayList(rawRoutePoints), raceId)
     }
     
     private var processingStartTime = 0L
     
     private fun startProcessing(
-        gpsPoints: ArrayList<GeoPoint>,
-        speedData: ArrayList<Float>,
         rawRoutePoints: ArrayList<RoutePoint>,
         raceId: Long
     ) {
@@ -97,8 +92,6 @@ class ProcessingActivity : AppCompatActivity() {
                 
                 // Step 2: Return raw GPS points (no filtering)
                 updateProgress(30, "")
-                
-                val hmmStartTime = System.currentTimeMillis()
                 
                 // Important: Process in IO dispatcher to avoid blocking UI
                 val processedPoints = withContext(Dispatchers.IO) {
@@ -142,14 +135,8 @@ class ProcessingActivity : AppCompatActivity() {
                 runOnUiThread {
                     statusText.text = "✅ Complete!"
                 }
-                
-                val processingTime = (System.currentTimeMillis() - processingStartTime) / 1000
+
                 android.util.Log.d("ProcessingActivity", "✅ Processing complete! RaceId: $raceId, Points: ${enhancedRoutePoints.size}")
-                
-                // Проверка дали има обработени точки
-                val hasProcessedData = enhancedRoutePoints.isNotEmpty()
-                val snappedCount = enhancedRoutePoints.count { it.geoPoint != rawRoutePoints.getOrNull(enhancedRoutePoints.indexOf(it))?.geoPoint }
-                val snappingWorked = snappedCount > enhancedRoutePoints.size * 0.5 // Повече от 50% са snap-нати
                 
                 // Показваме резултат на потребителя
                 runOnUiThread {

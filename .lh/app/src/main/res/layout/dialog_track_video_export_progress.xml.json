@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/layout/dialog_track_video_export_progress.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1776279430151,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1776279430151,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"wrap_content\"\r\n    android:layout_margin=\"8dp\"\r\n    android:background=\"@drawable/bg_track_metric_speed\"\r\n    android:orientation=\"vertical\"\r\n    android:padding=\"20dp\">\r\n\r\n    <TextView\r\n        android:id=\"@+id/tvTrackVideoExportTitle\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"@string/track_session_video_export_progress_title\"\r\n        android:textColor=\"@color/white\"\r\n        android:textSize=\"18sp\"\r\n        android:textStyle=\"bold\" />\r\n\r\n    <TextView\r\n        android:id=\"@+id/tvTrackVideoExportMessage\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:layout_marginTop=\"10dp\"\r\n        android:lineSpacingExtra=\"2dp\"\r\n        android:text=\"@string/track_session_video_export_progress_message\"\r\n        android:textColor=\"@color/white\"\r\n        android:textSize=\"14sp\" />\r\n\r\n    <ProgressBar\r\n        style=\"?android:attr/progressBarStyleHorizontal\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"8dp\"\r\n        android:layout_marginTop=\"18dp\"\r\n        android:indeterminate=\"true\"\r\n        android:indeterminateTint=\"@color/primary_color\"\r\n        android:progressBackgroundTint=\"#26FFFFFF\" />\r\n\r\n</LinearLayout>"
+        }
+    ]
+}

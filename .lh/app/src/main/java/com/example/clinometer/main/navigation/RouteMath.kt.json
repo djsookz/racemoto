@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1771581388334,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1776466844836,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,40 +1,10 @@\n package com.example.clinometer.main.navigation\r\n \r\n import com.example.clinometer.GeoPoint\r\n import com.example.clinometer.navigation.DirectionsStep\r\n-import java.text.SimpleDateFormat\r\n-import java.util.Date\r\n-import java.util.Locale\r\n-import kotlin.math.atan2\r\n-import kotlin.math.cos\r\n-import kotlin.math.sin\r\n-import kotlin.math.sqrt\r\n \r\n object RouteMath {\r\n-    fun formatDistanceCompact(meters: Double): String {\r\n-        return if (meters >= 1000) {\r\n-            String.format(\"%.2f\", meters / 1000.0)\r\n-        } else {\r\n-            String.format(\"%.0f m\", meters)\r\n-        }\r\n-    }\r\n-\r\n-    fun formatDurationMinutesBucket(minutes: Int): String {\r\n-        val hrs = minutes / 60\r\n-        val mins = minutes % 60\r\n-        return if (hrs > 0) {\r\n-            String.format(\"%d:%02d\", hrs, mins)\r\n-        } else {\r\n-            String.format(\"%02d min\", mins)\r\n-        }\r\n-    }\r\n-\r\n-    fun formatEta(etaMillis: Long): String {\r\n-        val df = SimpleDateFormat(\"HH:mm\", Locale.getDefault())\r\n-        return df.format(Date(etaMillis))\r\n-    }\r\n-\r\n     fun calculateDistanceToManeuver(currentLocation: GeoPoint, step: DirectionsStep): Double {\r\n         step.maneuver?.location?.let { loc ->\r\n             if (loc.size >= 2) {\r\n                 val maneuverPoint = GeoPoint(loc[1], loc[0])\r\n@@ -43,19 +13,8 @@\n         }\r\n         return step.distance\r\n     }\r\n \r\n-    fun haversineDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {\r\n-        val earthRadiusMeters = 6371000.0\r\n-        val dLat = Math.toRadians(lat2 - lat1)\r\n-        val dLon = Math.toRadians(lon2 - lon1)\r\n-        val a = sin(dLat / 2) * sin(dLat / 2) +\r\n-            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *\r\n-            sin(dLon / 2) * sin(dLon / 2)\r\n-        val c = 2 * atan2(sqrt(a), sqrt(1 - a))\r\n-        return earthRadiusMeters * c\r\n-    }\r\n-\r\n     fun formatDistance(meters: Double): String {\r\n         return when {\r\n             meters >= 1000 -> String.format(\"%.1f km\", meters / 1000)\r\n             meters >= 100 -> String.format(\"%.0f m\", meters)\r\n"
                 }
             ],
             "date": 1771581388334,

@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 15,
+            "activePatchIndex": 18,
             "patches": [
                 {
                     "date": 1771575193360,
@@ -68,6 +68,18 @@
                 {
                     "date": 1775203513099,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -148,11 +148,8 @@\n         <activity\r\n             android:name=\".TrackSessionActivity\"\r\n             android:exported=\"false\" />\r\n         <activity\r\n-            android:name=\".garage.ProfileDetailActivity\"\r\n-            android:screenOrientation=\"portrait\" />\r\n-        <activity\r\n             android:name=\".garage.GarageProfilePageActivity\"\r\n             android:screenOrientation=\"portrait\" />\r\n         <activity\r\n             android:name=\".garage.GarageFuelEntryActivity\"\r\n"
+                },
+                {
+                    "date": 1775823996796,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -127,8 +127,12 @@\n         <activity\r\n             android:name=\".TrackSessionDetailActivity\"\r\n             android:exported=\"false\" />\r\n         <activity\r\n+            android:name=\".TrackSessionVideoActivity\"\r\n+            android:exported=\"false\"\r\n+            android:screenOrientation=\"portrait\" />\r\n+        <activity\r\n             android:name=\".TrackLapCompareActivity\"\r\n             android:exported=\"false\" />\r\n         <activity\r\n             android:name=\".TrackLapCompareSelectionActivity\"\r\n"
+                },
+                {
+                    "date": 1775843843526,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -11,8 +11,9 @@\n     <uses-permission android:name=\"android.permission.WRITE_EXTERNAL_STORAGE\" android:maxSdkVersion=\"28\" />\r\n     <uses-permission android:name=\"android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS\" />\r\n     <uses-permission android:name=\"android.permission.VIBRATE\" />\r\n     <uses-permission android:name=\"android.permission.CAMERA\" />\r\n+    <uses-permission android:name=\"android.permission.RECORD_AUDIO\" />\r\n     <uses-permission android:name=\"android.permission.READ_EXTERNAL_STORAGE\" android:maxSdkVersion=\"32\" />\r\n     <uses-permission android:name=\"android.permission.READ_MEDIA_IMAGES\" />\r\n     <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />\r\n     <uses-permission android:name=\"android.permission.RECEIVE_BOOT_COMPLETED\" />\r\n"
+                },
+                {
+                    "date": 1776365549805,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -111,13 +111,8 @@\n             android:exported=\"false\"\r\n             android:configChanges=\"orientation|screenSize|keyboardHidden\" />\r\n \r\n         <activity\r\n-            android:name=\".CountdownActivity\"\r\n-            android:exported=\"false\"\r\n-            android:configChanges=\"orientation|screenSize|keyboardHidden\"/>\r\n-\r\n-        <activity\r\n             android:name=\".DragCalibrationActivity\"\r\n             android:theme=\"@style/Theme.DragMe.Calibration\"/>\r\n         <activity\r\n             android:name=\".SmartMotionCalibrationActivity\"\r\n"
                 }
             ],
             "date": 1771575193360,

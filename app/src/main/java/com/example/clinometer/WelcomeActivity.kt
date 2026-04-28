@@ -31,7 +31,7 @@ class WelcomeActivity : AppCompatActivity() {
         // START button → check permissions and navigate
         findViewById<MaterialButton>(R.id.btnStart).setOnClickListener {
             if (checkPermissions()) {
-                navigateToVehicleSelection()
+                checkBatteryOptimization()
             } else {
                 requestPermissions()
             }
@@ -93,7 +93,7 @@ class WelcomeActivity : AppCompatActivity() {
     }
     
     private fun checkBatteryOptimization() {
-        if (BatteryOptimizationHelper.shouldShowBatteryOptimizationDialog(this)) {
+        if (BatteryOptimizationHelper.shouldShowOptimizationSetup(this)) {
             // Отваряме цяла страница за всички оптимизации
             val intent = Intent(this, OptimizationSetupActivity::class.java).apply {
                 putExtra("IS_FIRST_LAUNCH", true)

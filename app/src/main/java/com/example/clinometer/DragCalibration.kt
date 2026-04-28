@@ -31,7 +31,6 @@ object DragCalibration {
     @Volatile var forwardAxisPortrait = floatArrayOf(1f, 0f, 0f)
     @Volatile var lateralAxisPortrait = floatArrayOf(0f, 1f, 0f)
     @Volatile var baselinePortrait = floatArrayOf(0f, 0f, 0f) // Baseline шум от 5 секунди неподвижност
-    @Volatile var noiseStdDevPortrait = 0f // Deprecated - запазено за backward compatibility
     @Volatile var maxVibrXPortrait = 0f // Максимална вибрация по X ос
     @Volatile var maxVibrYPortrait = 0f // Максимална вибрация по Y ос
     @Volatile var maxVibrZPortrait = 0f // Максимална вибрация по Z ос
@@ -43,16 +42,12 @@ object DragCalibration {
     @Volatile var forwardAxisLandscape = floatArrayOf(1f, 0f, 0f)
     @Volatile var lateralAxisLandscape = floatArrayOf(0f, 1f, 0f)
     @Volatile var baselineLandscape = floatArrayOf(0f, 0f, 0f) // Baseline шум от 5 секунди неподвижност
-    @Volatile var noiseStdDevLandscape = 0f // Deprecated - запазено за backward compatibility
     @Volatile var maxVibrXLandscape = 0f // Максимална вибрация по X ос
     @Volatile var maxVibrYLandscape = 0f // Максимална вибрация по Y ос
     @Volatile var maxVibrZLandscape = 0f // Максимална вибрация по Z ос
     @Volatile var calibrationConfidenceLandscape = 0f // 0..100 quality score
     @Volatile var isLandscapeCalibrated = false
     @Volatile var landscapeCalibrationTime = 0L
-    
-    // Дали е в процес на учебно ускорение (само за DragCalibrationActivity)
-    @Volatile var isLearningForward = false
     
     // Deprecated - за backward compatibility
     @Volatile var forwardAxis = floatArrayOf(1f, 0f, 0f)
@@ -152,7 +147,6 @@ object DragCalibration {
                     p.getFloat(keyPrefix + "portrait_baselineY", 0f),
                     p.getFloat(keyPrefix + "portrait_baselineZ", 0f)
                 )
-                noiseStdDevPortrait = p.getFloat(keyPrefix + "portrait_noiseStdDev", 0f) // Backward compat
                 maxVibrXPortrait = p.getFloat(keyPrefix + "portrait_maxVibrX", 0f)
                 maxVibrYPortrait = p.getFloat(keyPrefix + "portrait_maxVibrY", 0f)
                 maxVibrZPortrait = p.getFloat(keyPrefix + "portrait_maxVibrZ", 0f)
@@ -182,7 +176,6 @@ object DragCalibration {
                     p.getFloat(keyPrefix + "landscape_baselineY", 0f),
                     p.getFloat(keyPrefix + "landscape_baselineZ", 0f)
                 )
-                noiseStdDevLandscape = p.getFloat(keyPrefix + "landscape_noiseStdDev", 0f) // Backward compat
                 maxVibrXLandscape = p.getFloat(keyPrefix + "landscape_maxVibrX", 0f)
                 maxVibrYLandscape = p.getFloat(keyPrefix + "landscape_maxVibrY", 0f)
                 maxVibrZLandscape = p.getFloat(keyPrefix + "landscape_maxVibrZ", 0f)
@@ -264,7 +257,6 @@ object DragCalibration {
             putFloat(keyPrefix + "portrait_baselineX", baselinePortrait[0])
             putFloat(keyPrefix + "portrait_baselineY", baselinePortrait[1])
             putFloat(keyPrefix + "portrait_baselineZ", baselinePortrait[2])
-            putFloat(keyPrefix + "portrait_noiseStdDev", noiseStdDevPortrait) // Backward compat
             putFloat(keyPrefix + "portrait_maxVibrX", maxVibrXPortrait)
             putFloat(keyPrefix + "portrait_maxVibrY", maxVibrYPortrait)
             putFloat(keyPrefix + "portrait_maxVibrZ", maxVibrZPortrait)
@@ -282,7 +274,6 @@ object DragCalibration {
             putFloat(keyPrefix + "landscape_baselineX", baselineLandscape[0])
             putFloat(keyPrefix + "landscape_baselineY", baselineLandscape[1])
             putFloat(keyPrefix + "landscape_baselineZ", baselineLandscape[2])
-            putFloat(keyPrefix + "landscape_noiseStdDev", noiseStdDevLandscape) // Backward compat
             putFloat(keyPrefix + "landscape_maxVibrX", maxVibrXLandscape)
             putFloat(keyPrefix + "landscape_maxVibrY", maxVibrYLandscape)
             putFloat(keyPrefix + "landscape_maxVibrZ", maxVibrZLandscape)
@@ -315,7 +306,6 @@ object DragCalibration {
         forwardAxisPortrait = floatArrayOf(1f, 0f, 0f)
         lateralAxisPortrait = floatArrayOf(0f, 1f, 0f)
         baselinePortrait = floatArrayOf(0f, 0f, 0f)
-        noiseStdDevPortrait = 0f
         maxVibrXPortrait = 0f
         maxVibrYPortrait = 0f
         maxVibrZPortrait = 0f
@@ -326,13 +316,10 @@ object DragCalibration {
         forwardAxisLandscape = floatArrayOf(1f, 0f, 0f)
         lateralAxisLandscape = floatArrayOf(0f, 1f, 0f)
         baselineLandscape = floatArrayOf(0f, 0f, 0f)
-        noiseStdDevLandscape = 0f
         maxVibrXLandscape = 0f
         maxVibrYLandscape = 0f
         maxVibrZLandscape = 0f
         calibrationConfidenceLandscape = 0f
-        
-        isLearningForward = false
         
         // Backward compatibility
         isCalibrated = false
@@ -345,16 +332,6 @@ object DragCalibration {
     }
     
     /**
-     * Стартира процеса на учебно ускорение
-     */
-    fun startLearning() {
-        if (!isCalibrated) {
-            isLearningForward = true
-            Log.d("DragCalibration", "Започва учебно ускорение...")
-        }
-    }
-    
-    /**
      * Заключва forward/lateral оси за PORTRAIT (от DragCalibrationActivity)
      */
     fun lockPortraitAxes(forward: FloatArray, lateral: FloatArray, baseline: FloatArray,
@@ -363,13 +340,11 @@ object DragCalibration {
         forwardAxisPortrait = forward.clone()
         lateralAxisPortrait = lateral.clone()
         baselinePortrait = baseline.clone()
-        noiseStdDevPortrait = 0f // Deprecated
         maxVibrXPortrait = maxVibrX
         maxVibrYPortrait = maxVibrY
         maxVibrZPortrait = maxVibrZ
         calibrationConfidencePortrait = confidence.coerceIn(0f, 100f)
         isPortraitCalibrated = true
-        isLearningForward = false
         portraitCalibrationTime = System.currentTimeMillis()
         
         // UNIVERSAL калибрация (за ForegroundService)
@@ -424,13 +399,11 @@ object DragCalibration {
         forwardAxisLandscape = forward.clone()
         lateralAxisLandscape = lateral.clone()
         baselineLandscape = baseline.clone()
-        noiseStdDevLandscape = 0f // Deprecated
         maxVibrXLandscape = maxVibrX
         maxVibrYLandscape = maxVibrY
         maxVibrZLandscape = maxVibrZ
         calibrationConfidenceLandscape = confidence.coerceIn(0f, 100f)
         isLandscapeCalibrated = true
-        isLearningForward = false
         landscapeCalibrationTime = System.currentTimeMillis()
         
         // UNIVERSAL калибрация (за ForegroundService)
@@ -481,39 +454,11 @@ object DragCalibration {
     /**
      * Връща осите за дадена ориентация (null ако не е калибрирана)
      */
-    fun getAxesForOrientation(isLandscape: Boolean): Pair<FloatArray, FloatArray>? {
-        return if (isLandscape) {
-            if (isLandscapeCalibrated) {
-                Pair(forwardAxisLandscape, lateralAxisLandscape)
-            } else null
-        } else {
-            if (isPortraitCalibrated) {
-                Pair(forwardAxisPortrait, lateralAxisPortrait)
-            } else null
-        }
-    }
-    
-    /**
-     * Връща baseline вектора за дадена ориентация (null ако не е калибрирана)
-     */
     fun getBaselineForOrientation(isLandscape: Boolean): FloatArray? {
         return if (isLandscape) {
             if (isLandscapeCalibrated) baselineLandscape.clone() else null
         } else {
             if (isPortraitCalibrated) baselinePortrait.clone() else null
-        }
-    }
-    
-    /**
-     * Връща noise std dev за дадена ориентация (0f ако не е калибрирана)
-     * DEPRECATED - използвай getMaxVibrationsPerAxis
-     */
-    @Deprecated("Use getMaxVibrationsPerAxis instead")
-    fun getNoiseStdDevForOrientation(isLandscape: Boolean): Float {
-        return if (isLandscape) {
-            if (isLandscapeCalibrated) noiseStdDevLandscape else 0f
-        } else {
-            if (isPortraitCalibrated) noiseStdDevPortrait else 0f
         }
     }
     
@@ -603,76 +548,6 @@ object DragCalibration {
             universalCalibrationTime = calibrationTime
         }
         return true
-    }
-    
-    /**
-     * Запазва UNIVERSAL калибрация (gravity-based, работи с всяка ориентация!)
-     */
-    fun lockUniversalCalibration(
-        gravity: FloatArray,
-        forward: FloatArray,
-        maxVibration: Float,
-        maxVibrX: Float = maxVibrXUniversal,
-        maxVibrY: Float = maxVibrYUniversal,
-        maxVibrZ: Float = maxVibrZUniversal
-    ) {
-        // Нормализираме gravity → DOWN
-        val gravityMag = kotlin.math.sqrt(
-            gravity[0] * gravity[0] +
-            gravity[1] * gravity[1] +
-            gravity[2] * gravity[2]
-        )
-        gravityVector = floatArrayOf(gravity[0], gravity[1], gravity[2])
-        
-        // Нормализираме forward
-        val forwardMag = kotlin.math.sqrt(
-            forward[0] * forward[0] +
-            forward[1] * forward[1] +
-            forward[2] * forward[2]
-        )
-        forwardVector = floatArrayOf(
-            forward[0] / forwardMag,
-            forward[1] / forwardMag,
-            forward[2] / forwardMag
-        )
-        
-        // Изчисляваме RIGHT = cross(DOWN, FORWARD)
-        val downNorm = floatArrayOf(
-            gravity[0] / gravityMag,
-            gravity[1] / gravityMag,
-            gravity[2] / gravityMag
-        )
-        rightVector = floatArrayOf(
-            downNorm[1] * forwardVector[2] - downNorm[2] * forwardVector[1],
-            downNorm[2] * forwardVector[0] - downNorm[0] * forwardVector[2],
-            downNorm[0] * forwardVector[1] - downNorm[1] * forwardVector[0]
-        )
-        val rightMag = kotlin.math.sqrt(
-            rightVector[0] * rightVector[0] +
-                rightVector[1] * rightVector[1] +
-                rightVector[2] * rightVector[2]
-        )
-        if (rightMag > 0.0001f) {
-            rightVector[0] /= rightMag
-            rightVector[1] /= rightMag
-            rightVector[2] /= rightMag
-        }
-        
-        maxVibrationBaseline = maxVibration
-        maxVibrXUniversal = maxVibrX
-        maxVibrYUniversal = maxVibrY
-        maxVibrZUniversal = maxVibrZ
-        isUniversalCalibrated = true
-        universalCalibrationTime = System.currentTimeMillis()
-        
-        saveToPrefs()
-        
-        Log.d("DragCalibration", "✅ UNIVERSAL калибрация заключена!")
-        Log.d("DragCalibration", "   Gravity (mag=${String.format("%.2f", gravityMag)}): [${String.format("%.3f", gravityVector[0])}, ${String.format("%.3f", gravityVector[1])}, ${String.format("%.3f", gravityVector[2])}]")
-        Log.d("DragCalibration", "   Forward: [${String.format("%.3f", forwardVector[0])}, ${String.format("%.3f", forwardVector[1])}, ${String.format("%.3f", forwardVector[2])}]")
-        Log.d("DragCalibration", "   Right: [${String.format("%.3f", rightVector[0])}, ${String.format("%.3f", rightVector[1])}, ${String.format("%.3f", rightVector[2])}]")
-        Log.d("DragCalibration", "   🔥 MAX вибрация: ${String.format("%.2f", maxVibration)} m/s²")
-        Log.d("DragCalibration", "   🎯 ДИНАМИЧЕН праг: ${String.format("%.2f", maxVibration * 1.5f)} m/s² (1.5× MAX вибрация)")
     }
     
     /**
@@ -834,18 +709,6 @@ object DragCalibration {
      * Връща динамичния праг (1.5× MAX вибрация от калибрацията)
      * @deprecated Използвайте getWeightedDynamicThreshold() за по-точна детекция
      */
-    fun getDynamicThreshold(): Float {
-        return maxVibrationBaseline * 1.5f
-    }
-    
-    /**
-     * Връща WEIGHTED динамичния праг (като в калибрацията) за по-точна детекция.
-     * ИЗПОЛЗВА ПРАВИЛНАТА КАЛИБРАЦИЯ СПОРЕД ОРИЕНТАЦИЯТА!
-     * 
-     * @param linearAccel Clean linear acceleration (X, Y, Z) без gravity
-     * @param isLandscape Дали е в Landscape режим
-     * @return Weighted threshold за текущия acceleration pattern
-     */
     fun getWeightedDynamicThreshold(linearAccel: FloatArray, isLandscape: Boolean): Float {
         val mag = kotlin.math.sqrt(
             linearAccel[0] * linearAccel[0] +
@@ -929,7 +792,6 @@ object DragCalibration {
             forwardAxisLandscape = floatArrayOf(1f, 0f, 0f)
             lateralAxisLandscape = floatArrayOf(0f, 1f, 0f)
             baselineLandscape = floatArrayOf(0f, 0f, 0f)
-            noiseStdDevLandscape = 0f
             maxVibrXLandscape = 0f
             maxVibrYLandscape = 0f
             maxVibrZLandscape = 0f
@@ -940,7 +802,6 @@ object DragCalibration {
             forwardAxisPortrait = floatArrayOf(1f, 0f, 0f)
             lateralAxisPortrait = floatArrayOf(0f, 1f, 0f)
             baselinePortrait = floatArrayOf(0f, 0f, 0f)
-            noiseStdDevPortrait = 0f
             maxVibrXPortrait = 0f
             maxVibrYPortrait = 0f
             maxVibrZPortrait = 0f

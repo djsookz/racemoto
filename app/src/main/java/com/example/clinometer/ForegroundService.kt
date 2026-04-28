@@ -1,10 +1,6 @@
  package com.example.clinometer
 
 import android.Manifest
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -22,7 +18,6 @@ import android.location.Location
 import android.os.*
 import android.util.Log
 import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -31,7 +26,6 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.example.clinometer.data.ProfileStorage
-import com.example.clinometer.main.MainActivity
 import kotlin.math.abs
 import kotlin.math.asin
 import kotlin.math.atan2
@@ -110,7 +104,6 @@ class ForegroundService : Service(), SensorEventListener {
     private var selectedProfileIdForLeanCalibration: Long = -1L
 
     private val gravity = FloatArray(3)
-    private val linearAcceleration = FloatArray(3)
     private val alpha = 0.8f
     @Volatile private var isRealAcceleration = false
     @Volatile private var currentG = 0f
@@ -123,13 +116,10 @@ class ForegroundService : Service(), SensorEventListener {
     
     private var linearAccelTriggered = false
     private var linearAccelTriggerTime = 0L
-    private val REQUIRED_ACCEL_SAMPLES = 2
     private var consecutiveAccelSamples = 0
     private var triggerForwardFiltered = 0f
     private var triggerLateralFiltered = 0f
     private val triggerFilterAlpha = 0.35f
-    private val triggerMinThreshold = 0.45f
-    private val triggerDirectionalRatio = 1.8f
     private var currentMeasurementMode = "ALL"
     @Volatile private var activeRunOrientationLandscape: Boolean? = null
 
@@ -247,7 +237,6 @@ class ForegroundService : Service(), SensorEventListener {
     fun getMaxRightAngle(): Float = maxRightAngle
     fun getMaxSpeed(): Float = maxSpeed
     fun getLastLocation(): Location? = lastLocation
-    fun getAccelerationData(): AccelerationData = accelerationTracking
     fun getRecentGSamples(): List<Float> = synchronized(gSamplesBuffer) { gSamplesBuffer.toList() }
     fun getRecentGTimeStamps(): List<Long> = synchronized(gTimeStamps) { gTimeStamps.toList() }
     fun getRecentGpsAccelSamples(): List<Float> = synchronized(gpsAccelBuffer) { gpsAccelBuffer.toList() }
@@ -318,7 +307,6 @@ class ForegroundService : Service(), SensorEventListener {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "${packageName}:wakeLock")
         wakeLock.acquire()
-        startForeground(1, createNotification())
         fusedClient = LocationServices.getFusedLocationProviderClient(this)
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         setupLocationUpdates()
@@ -381,16 +369,6 @@ class ForegroundService : Service(), SensorEventListener {
         accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
         gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
         gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME) }
-    }
-
-    private fun createNotification(): Notification {
-        val channelId = "tracking_channel"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "Tracking", NotificationManager.IMPORTANCE_LOW)
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
-        val pendingIntent = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
-        return NotificationCompat.Builder(this, channelId).setContentTitle("RaceMoto Tracking").setContentText("Recording data...").setSmallIcon(R.drawable.ic_launcher_foreground).setContentIntent(pendingIntent).build()
     }
 
     override fun onDestroy() {

@@ -21,11 +21,13 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.PreferenceManager
+import com.example.clinometer.data.ProfileSessionSummaryStore
 import com.example.clinometer.data.ProfileStorage
 import com.google.android.material.button.MaterialButton
 import com.example.clinometer.settings.UnitsManager
 import com.example.clinometer.network.WeatherApiService
 import com.example.clinometer.network.OpenMeteoService
+import com.example.clinometer.utils.WeatherIconMapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,8 +43,11 @@ class TrackFragment : Fragment(), LocationListener {
     private lateinit var btnStartNewSession: android.widget.Button
     private lateinit var llEnvironment: LinearLayout
     private lateinit var tvTemperature: TextView
+    private lateinit var tvWeatherHumidity: TextView
+    private lateinit var tvWeatherWind: TextView
     private lateinit var tvAltitude: TextView
     private lateinit var tvHeaderModelName: TextView
+    private lateinit var ivWeatherCondition: ImageView
     private lateinit var ivHeaderProfileImage: android.widget.ImageView
     private lateinit var locationManager: LocationManager
     
@@ -57,24 +62,12 @@ class TrackFragment : Fragment(), LocationListener {
     }
     private var currentTemperature: Float? = null
     private var currentAltitude: Float? = null
-    private lateinit var headerSofiaRing: LinearLayout
-    private lateinit var contentSofiaRing: LinearLayout
-    private lateinit var arrowSofiaRing: TextView
-    private lateinit var headerCustomTrack: LinearLayout
-    private lateinit var contentCustomTrack: LinearLayout
-    private lateinit var arrowCustomTrack: TextView
-    
-    private lateinit var session1SofiaRing: LinearLayout
-    private lateinit var session2SofiaRing: LinearLayout
-    private lateinit var session3SofiaRing: LinearLayout
-    private lateinit var session1CustomTrack: LinearLayout
-    private lateinit var session2CustomTrack: LinearLayout
+    private var currentHumidity: Int? = null
+    private var currentWindKph: Float? = null
+    private var currentWeatherIcon: Int = R.drawable.ic_weather_cloudy
     
     private lateinit var tvNoSessions: TextView
     private lateinit var llSessionsContainer: LinearLayout
-    
-    private var sofiaRingExpanded = true
-    private var customTrackExpanded = true
     
     private var hasActiveSession = false
     private var activeSessionTrackId: String? = null
@@ -122,124 +115,18 @@ class TrackFragment : Fragment(), LocationListener {
         btnStartNewSession = view.findViewById(R.id.btnStartNewSession)
         llEnvironment = view.findViewById(R.id.llEnvironment)
         tvTemperature = view.findViewById(R.id.tvTemperature)
+        tvWeatherHumidity = view.findViewById(R.id.tvWeatherHumidity)
+        tvWeatherWind = view.findViewById(R.id.tvWeatherWind)
         tvAltitude = view.findViewById(R.id.tvAltitude)
         tvHeaderModelName = view.findViewById(R.id.tvHeaderModelName)
+        ivWeatherCondition = view.findViewById(R.id.ivWeatherCondition)
         ivHeaderProfileImage = view.findViewById(R.id.ivHeaderProfileImage)
-        headerSofiaRing = view.findViewById(R.id.headerSofiaRing)
-        contentSofiaRing = view.findViewById(R.id.contentSofiaRing)
-        arrowSofiaRing = view.findViewById(R.id.arrowSofiaRing)
-        headerCustomTrack = view.findViewById(R.id.headerCustomTrack)
-        contentCustomTrack = view.findViewById(R.id.contentCustomTrack)
-        arrowCustomTrack = view.findViewById(R.id.arrowCustomTrack)
-        
-        session1SofiaRing = view.findViewById(R.id.session1SofiaRing)
-        session2SofiaRing = view.findViewById(R.id.session2SofiaRing)
-        session3SofiaRing = view.findViewById(R.id.session3SofiaRing)
-        session1CustomTrack = view.findViewById(R.id.session1CustomTrack)
-        session2CustomTrack = view.findViewById(R.id.session2CustomTrack)
-        
         tvNoSessions = view.findViewById(R.id.tvNoSessions)
         llSessionsContainer = view.findViewById(R.id.llSessionsContainer)
     }
     
     private fun setupClickListeners() {
         btnStartNewSession.setOnClickListener { startNewSession() }
-        
-        headerSofiaRing.setOnClickListener { toggleAccordion("sofiaRing") }
-        headerCustomTrack.setOnClickListener { toggleAccordion("customTrack") }
-        setupSessionClickListeners()
-    }
-    
-    private fun setupSessionClickListeners() {
-        // Sofia Ring sessions - placeholder implementation
-        session1SofiaRing.setOnClickListener {
-            openSessionDetail(
-                "Излизане #1", "23.12.2024", "14:30", "2:15:30",
-                "Sofia Ring", 15, "Kawasaki Ninja ZX-10R",
-                "1:23.456", "45 km/h", "285 km/h", "2.8g", "1.2g"
-            )
-        }
-        
-        session2SofiaRing.setOnClickListener {
-            openSessionDetail(
-                "Излизане #2", "23.12.2024", "16:45", "1:45:20",
-                "Sofia Ring", 12, "Kawasaki Ninja ZX-10R",
-                "1:25.123", "52 km/h", "278 km/h", "2.6g", "1.1g"
-            )
-        }
-        
-        session3SofiaRing.setOnClickListener {
-            openSessionDetail(
-                "Излизане #3", "23.12.2024", "18:20", "2:00:10",
-                "Sofia Ring", 18, "Kawasaki Ninja ZX-10R",
-                "1:22.890", "48 km/h", "290 km/h", "2.9g", "1.3g"
-            )
-        }
-        
-        // Custom Track sessions
-        session1CustomTrack.setOnClickListener {
-            openSessionDetail(
-                "Излизане #1", "22.12.2024", "15:00", "1:30:45",
-                "Custom Track", 10, "Kawasaki Ninja ZX-10R",
-                "1:18.567", "55 km/h", "275 km/h", "2.5g", "1.0g"
-            )
-        }
-        
-        session2CustomTrack.setOnClickListener {
-            openSessionDetail(
-                "Излизане #2", "22.12.2024", "17:15", "1:55:30",
-                "Custom Track", 14, "Kawasaki Ninja ZX-10R",
-                "1:19.234", "50 km/h", "280 km/h", "2.7g", "1.1g"
-            )
-        }
-    }
-    
-    private fun openSessionDetail(
-        sessionNumber: String, sessionDate: String, sessionTime: String,
-        duration: String, trackName: String, laps: Int, vehicle: String,
-        bestLapTime: String, minSpeed: String, maxSpeed: String,
-        maxAcceleration: String, maxCornering: String
-    ) {
-        val intent = Intent(requireContext(), TrackSessionDetailActivity::class.java).apply {
-            putExtra("session_number", sessionNumber)
-            putExtra("session_date", sessionDate)
-            putExtra("session_time", sessionTime)
-            putExtra("duration", duration)
-            putExtra("track_name", trackName)
-            putExtra("laps", laps)
-            putExtra("vehicle", vehicle)
-            putExtra("best_lap_time", bestLapTime)
-            putExtra("min_speed", minSpeed)
-            putExtra("max_speed", maxSpeed)
-            putExtra("max_acceleration", maxAcceleration)
-            putExtra("max_cornering", maxCornering)
-        }
-        startActivity(intent)
-    }
-    
-    private fun toggleAccordion(trackType: String) {
-        when (trackType) {
-            "sofiaRing" -> {
-                sofiaRingExpanded = !sofiaRingExpanded
-                if (sofiaRingExpanded) {
-                    contentSofiaRing.visibility = View.VISIBLE
-                    arrowSofiaRing.text = "▼"
-                } else {
-                    contentSofiaRing.visibility = View.GONE
-                    arrowSofiaRing.text = "▶"
-                }
-            }
-            "customTrack" -> {
-                customTrackExpanded = !customTrackExpanded
-                if (customTrackExpanded) {
-                    contentCustomTrack.visibility = View.VISIBLE
-                    arrowCustomTrack.text = "▼"
-                } else {
-                    contentCustomTrack.visibility = View.GONE
-                    arrowCustomTrack.text = "▶"
-                }
-            }
-        }
     }
     
     private fun startNewSession() {
@@ -299,6 +186,7 @@ class TrackFragment : Fragment(), LocationListener {
         }
         
         editor.apply()
+        ProfileSessionSummaryStore.refreshTrackSummary(requireContext(), ProfileStorage.getSelectedProfileId(requireContext()))
         loadAllSessions()
         showToast(getString(R.string.track_session_deleted))
         showNoSessionsMessage()
@@ -967,9 +855,24 @@ class TrackFragment : Fragment(), LocationListener {
         } else {
             "--m"
         }
+
+        val humidityText = currentHumidity?.let { "$it%" }
+            ?: getString(R.string.drag_weather_humidity_placeholder)
+
+        val windText = currentWindKph?.let {
+            String.format(Locale.getDefault(), "%.0f km/h", it)
+        } ?: getString(R.string.drag_weather_wind_placeholder)
+
+        val (weatherIconRes, weatherTintRes) = resolveWeatherIconStyle(currentWeatherIcon, currentHumidity)
         
         tvTemperature.text = tempText
         tvAltitude.text = altText
+        tvWeatherHumidity.text = humidityText
+        tvWeatherWind.text = windText
+        ivWeatherCondition.setImageResource(weatherIconRes)
+        ivWeatherCondition.imageTintList = android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(context, weatherTintRes)
+        )
         
         if (currentTemperature != null || currentAltitude != null) {
             llEnvironment.visibility = LinearLayout.VISIBLE
@@ -1014,6 +917,13 @@ class TrackFragment : Fragment(), LocationListener {
                 if (weatherResponse.isSuccessful && weatherResponse.body() != null) {
                     val weather = weatherResponse.body()!!
                     currentTemperature = weather.current.temp_c.toFloat()
+                    currentHumidity = weather.current.humidity
+                    currentWindKph = weather.current.wind_kph.toFloat()
+                    currentWeatherIcon = WeatherIconMapper.getWeatherApiIcon(
+                        weather.current.condition.code,
+                        weather.current.cloud,
+                        weather.current.is_day == 1
+                    )
                 }
                 
                 val elevationResponse = openMeteoService.getElevation(
@@ -1047,6 +957,9 @@ class TrackFragment : Fragment(), LocationListener {
         val prefs = PreferenceManager.getDefaultSharedPreferences(requireContext())
         val cachedTemp = prefs.getFloat("cached_temperature", Float.NaN)
         val cachedAlt = prefs.getFloat("cached_altitude", Float.NaN)
+        val cachedHumidity = prefs.getInt("cached_humidity", -1)
+        val cachedWindKph = prefs.getFloat("cached_wind_kph", Float.NaN)
+        val cachedWeatherIcon = prefs.getInt("cached_weather_icon", -1)
         val cachedLat = prefs.getFloat("cached_location_lat", Float.NaN)
         val cachedLon = prefs.getFloat("cached_location_lon", Float.NaN)
         
@@ -1057,6 +970,18 @@ class TrackFragment : Fragment(), LocationListener {
         if (!cachedAlt.isNaN() && !cachedLat.isNaN() && !cachedLon.isNaN()) {
             currentAltitude = cachedAlt
         }
+
+        if (cachedHumidity >= 0 && !cachedLat.isNaN() && !cachedLon.isNaN()) {
+            currentHumidity = cachedHumidity
+        }
+
+        if (!cachedWindKph.isNaN() && !cachedLat.isNaN() && !cachedLon.isNaN()) {
+            currentWindKph = cachedWindKph
+        }
+
+        if (cachedWeatherIcon != -1) {
+            currentWeatherIcon = cachedWeatherIcon
+        }
     }
     
     private fun cacheWeatherData(location: Location) {
@@ -1066,6 +991,9 @@ class TrackFragment : Fragment(), LocationListener {
         
         currentTemperature?.let { editor.putFloat("cached_temperature", it) }
         currentAltitude?.let { editor.putFloat("cached_altitude", it) }
+        currentHumidity?.let { editor.putInt("cached_humidity", it) }
+        currentWindKph?.let { editor.putFloat("cached_wind_kph", it) }
+        editor.putInt("cached_weather_icon", currentWeatherIcon)
         editor.putLong("cached_weather_time", System.currentTimeMillis())
         editor.putFloat("cached_location_lat", location.latitude.toFloat())
         editor.putFloat("cached_location_lon", location.longitude.toFloat())
@@ -1122,16 +1050,31 @@ class TrackFragment : Fragment(), LocationListener {
 
             // 2. Зареждаме снимката или показваме иконка
             if (!activeProfile.imagePath.isNullOrEmpty()) {
-                val imageFile = java.io.File(requireContext().getExternalFilesDir(null), activeProfile.imagePath)
+                val imagePath = activeProfile.imagePath.orEmpty()
+                val imageFile = java.io.File(requireContext().getExternalFilesDir(null), imagePath)
                 if (imageFile.exists()) {
-                    // Image is already scaled on disk, just load it
-                    val bitmap = android.graphics.BitmapFactory.decodeFile(imageFile.absolutePath)
-                    if (bitmap != null) {
-                        ivHeaderProfileImage.setImageBitmap(bitmap)
-                        ivHeaderProfileImage.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-                        ivHeaderProfileImage.setPadding(0, 0, 0, 0)
-                    } else {
-                        showDefaultIcon(activeProfile.vehicleType)
+                    val expectedProfileId = activeProfile.id
+                    val expectedImagePath = imagePath
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        val bitmap = withContext(Dispatchers.IO) {
+                            android.graphics.BitmapFactory.decodeFile(imageFile.absolutePath)
+                        }
+                        if (!isAdded || view == null) return@launch
+
+                        val selectedProfileId = ProfileStorage.getSelectedProfileId(requireContext())
+                        val selectedProfile = ProfileStorage.loadProfiles(requireContext())
+                            .find { it.id == selectedProfileId }
+                        if (selectedProfile?.id != expectedProfileId || selectedProfile.imagePath != expectedImagePath) {
+                            return@launch
+                        }
+
+                        if (bitmap != null) {
+                            ivHeaderProfileImage.setImageBitmap(bitmap)
+                            ivHeaderProfileImage.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                            ivHeaderProfileImage.setPadding(0, 0, 0, 0)
+                        } else {
+                            showDefaultIcon(activeProfile.vehicleType)
+                        }
                     }
                 } else {
                     showDefaultIcon(activeProfile.vehicleType)

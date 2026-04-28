@@ -16,7 +16,6 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
-import android.os.CountDownTimer
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -24,7 +23,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.ProgressBar
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -43,11 +42,12 @@ import com.example.clinometer.settings.UnitsManager
 import com.example.clinometer.network.WeatherApiService
 import com.example.clinometer.network.OpenMeteoService
 import com.example.clinometer.utils.WeatherIconMapper
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.Locale
 
 /**
  * Fragment за Drag страницата - конвертиран от DragPageActivity с ПЪЛНА функционалност
@@ -55,16 +55,18 @@ import retrofit2.converter.gson.GsonConverterFactory
 class DragFragment : Fragment(), SensorEventListener, LocationListener {
     
     private lateinit var tvTemperature: TextView
+    private lateinit var tvWeatherHumidity: TextView
+    private lateinit var tvWeatherWind: TextView
     private lateinit var tvAltitude: TextView
     private lateinit var tvNoData: TextView
     private lateinit var recyclerView: RecyclerView
     private lateinit var btnStartSession: Button
     private lateinit var tvHeaderModelName: TextView
+    private lateinit var ivWeatherCondition: ImageView
     private lateinit var ivHeaderProfileImage: android.widget.ImageView
     
     private lateinit var sensorManager: SensorManager
     private lateinit var locationManager: LocationManager
-    private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var openMeteoService: OpenMeteoService
     private lateinit var weatherApiService: WeatherApiService
     
@@ -87,9 +89,7 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
     
     private var currentLatitude: Double? = null
     private var currentLongitude: Double? = null
-    
-    private var countdownDialog: AlertDialog? = null
-    private var countdownTimer: CountDownTimer? = null
+
     private lateinit var soundManager: SoundManager
     
     // Професионално решение: lazy initialization на SharedPreferences
@@ -106,8 +106,6 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "SESSION_UPDATED") {
                 loadSessions()
-                dragAdapter.notifyDataSetChanged()
-                updateNoDataVisibility()
             }
         }
     }
@@ -136,8 +134,8 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         initializeLocationServices()
         initializeSensors()
         loadCurrentProfile()
-        loadSessions()
         setupRecyclerView()
+        loadSessions()
         checkLocationPermission()
         
         // Регистрираме слушателя за промени в профила
@@ -151,11 +149,14 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
     
     private fun initializeViews(view: View) {
         tvTemperature = view.findViewById(R.id.tvTemperature)
+        tvWeatherHumidity = view.findViewById(R.id.tvWeatherHumidity)
+        tvWeatherWind = view.findViewById(R.id.tvWeatherWind)
         tvAltitude = view.findViewById(R.id.tvAltitude)
         tvNoData = view.findViewById(R.id.tvNoData)
         recyclerView = view.findViewById(R.id.rvDragSessions)
         btnStartSession = view.findViewById(R.id.btnStartDragSession)
         tvHeaderModelName = view.findViewById(R.id.tvHeaderModelName)
+        ivWeatherCondition = view.findViewById(R.id.ivWeatherCondition)
         ivHeaderProfileImage = view.findViewById(R.id.ivHeaderProfileImage)
         
         btnStartSession.setOnClickListener {
@@ -171,8 +172,6 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
     }
     
     private fun initializeLocationServices() {
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
-        
         val retrofitOpenMeteo = Retrofit.Builder()
             .baseUrl("https://api.open-meteo.com/")
             .addConverterFactory(GsonConverterFactory.create())
@@ -217,16 +216,24 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
     }
     
     private fun loadSessions() {
+        if (!isAdded) return
+
+        val appContext = requireContext().applicationContext
         val currentProfileId = getCurrentProfileId()
-        
-        val loadedSessions = DragStorage.loadDragSessions(requireContext())
-            .filter { it.profileId == currentProfileId }
-            .sortedByDescending { it.timestamp }
-        
-        sessions.clear()
-        sessions.addAll(loadedSessions)
-        
-        updateNoDataVisibility()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val loadedSessions = withContext(Dispatchers.IO) {
+                DragStorage.loadDragSessions(appContext)
+                    .filter { it.profileId == currentProfileId }
+                    .sortedByDescending { it.timestamp }
+            }
+
+            sessions.clear()
+            sessions.addAll(loadedSessions)
+            if (::dragAdapter.isInitialized) {
+                dragAdapter.notifyDataSetChanged()
+            }
+            updateNoDataVisibility()
+        }
     }
     
     private fun setupRecyclerView() {
@@ -271,9 +278,24 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         } else {
             "--m"
         }
+
+        val humidityText = currentHumidity?.let { "$it%" }
+            ?: getString(R.string.drag_weather_humidity_placeholder)
+
+        val windText = currentWindKph?.let {
+            String.format(Locale.getDefault(), "%.0f km/h", it)
+        } ?: getString(R.string.drag_weather_wind_placeholder)
+
+        val (weatherIconRes, weatherTintRes) = resolveWeatherIconStyle(currentWeatherIcon, currentHumidity)
         
         tvTemperature.text = tempText
         tvAltitude.text = altText
+        tvWeatherHumidity.text = humidityText
+        tvWeatherWind.text = windText
+        ivWeatherCondition.setImageResource(weatherIconRes)
+        ivWeatherCondition.imageTintList = android.content.res.ColorStateList.valueOf(
+            ContextCompat.getColor(requireContext(), weatherTintRes)
+        )
     }
 
     private fun isWeatherCacheStale(): Boolean {
@@ -370,50 +392,62 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         
         return distanceKm > CACHE_LOCATION_THRESHOLD_KM
     }
+
+    private fun resolveLastKnownLocation(): Location? {
+        if (!checkLocationPermission()) return null
+
+        return listOf(
+            LocationManager.GPS_PROVIDER,
+            LocationManager.NETWORK_PROVIDER,
+            LocationManager.PASSIVE_PROVIDER
+        ).asSequence()
+            .mapNotNull { provider -> runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull() }
+            .maxByOrNull { it.time }
+    }
     
-    private fun fetchWeatherAndElevation() {
+    private fun fetchWeatherAndElevation(location: Location? = resolveLastKnownLocation()) {
         if (!checkLocationPermission()) return
-        
-        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            if (location != null) {
-                viewLifecycleOwner.lifecycleScope.launch {
-                    try {
-                        val weatherResponse = weatherApiService.getCurrentWeather(
-                            apiKey = "547cc84c36a447ab8fe131642251808",
-                            location = "${location.latitude},${location.longitude}",
-                            lang = "bg"
-                        )
-                        if (weatherResponse.isSuccessful && weatherResponse.body() != null) {
-                            val weather = weatherResponse.body()!!
-                            currentTemperature = weather.current.temp_c.toFloat()
-                            currentHumidity = weather.current.humidity
-                            currentWindKph = weather.current.wind_kph.toFloat()
-                            currentWeatherIcon = WeatherIconMapper.getWeatherApiIcon(
-                                weather.current.condition.code,
-                                weather.current.cloud,
-                                weather.current.is_day == 1
-                            )
-                            updateEnvironmentDisplay()
-                        }
-                        
-                        val elevationResponse = openMeteoService.getElevation(
-                            location.latitude,
-                            location.longitude
-                        )
-                        if (elevationResponse.isSuccessful && elevationResponse.body() != null) {
-                            val elevation = elevationResponse.body()!!.elevation.firstOrNull()
-                            elevation?.let {
-                                currentAltitude = it.toFloat()
-                                updateEnvironmentDisplay()
-                            }
-                        }
-                        
-                        cacheWeatherData(location)
+        val currentLocation = location ?: return
+
+        currentLatitude = currentLocation.latitude
+        currentLongitude = currentLocation.longitude
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val weatherResponse = weatherApiService.getCurrentWeather(
+                    apiKey = "547cc84c36a447ab8fe131642251808",
+                    location = "${currentLocation.latitude},${currentLocation.longitude}",
+                    lang = "bg"
+                )
+                if (weatherResponse.isSuccessful && weatherResponse.body() != null) {
+                    val weather = weatherResponse.body()!!
+                    currentTemperature = weather.current.temp_c.toFloat()
+                    currentHumidity = weather.current.humidity
+                    currentWindKph = weather.current.wind_kph.toFloat()
+                    currentWeatherIcon = WeatherIconMapper.getWeatherApiIcon(
+                        weather.current.condition.code,
+                        weather.current.cloud,
+                        weather.current.is_day == 1
+                    )
+                    updateEnvironmentDisplay()
+                }
+
+                val elevationResponse = openMeteoService.getElevation(
+                    currentLocation.latitude,
+                    currentLocation.longitude
+                )
+                if (elevationResponse.isSuccessful && elevationResponse.body() != null) {
+                    val elevation = elevationResponse.body()!!.elevation.firstOrNull()
+                    elevation?.let {
+                        currentAltitude = it.toFloat()
                         updateEnvironmentDisplay()
-                    } catch (e: Exception) {
-                        // Handle errors silently
                     }
                 }
+
+                cacheWeatherData(currentLocation)
+                updateEnvironmentDisplay()
+            } catch (e: Exception) {
+                // Handle errors silently
             }
         }
     }
@@ -422,65 +456,6 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         startLocationUpdates()
         preStartDragService(mode)
         startDragRun(mode)
-    }
-    
-    private fun showCountdownDialog(mode: MeasurementMode) {
-        val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_countdown, null)
-        
-        val dialog = AlertDialog.Builder(requireContext(), R.style.CustomAlertDialog)
-            .setView(dialogView)
-            .setCancelable(false)
-            .create()
-        
-        val tvCountdown = dialogView.findViewById<TextView>(R.id.tvCountdown)
-        val tvModeInfo = dialogView.findViewById<TextView>(R.id.tvModeInfo)
-        val progressBar = dialogView.findViewById<ProgressBar>(R.id.progressBar)
-        val btnCancel = dialogView.findViewById<Button>(R.id.btnCancelCountdown)
-        
-        tvModeInfo.text = when(mode) {
-            MeasurementMode.ALL -> getString(R.string.drag_measuring_all)
-            MeasurementMode.ZERO_TO_100 -> getString(R.string.drag_measuring_0to100)
-            MeasurementMode.ZERO_TO_200 -> getString(R.string.drag_measuring_0to200)
-            MeasurementMode.HUNDRED_TO_200 -> getString(R.string.drag_measuring_100to200)
-            MeasurementMode.QUARTER_MILE -> getString(R.string.drag_measuring_402m)
-        }
-        
-        countdownDialog = dialog
-        startLocationUpdates()
-        preStartDragService(mode)
-        
-        countdownTimer = object : CountDownTimer(5000, 1000) {
-            override fun onTick(millisUntilFinished: Long) {
-                val seconds = (millisUntilFinished / 1000).toInt() + 1
-                val progress = ((5000 - millisUntilFinished) * 100 / 5000).toInt()
-                
-                tvCountdown.text = seconds.toString()
-                progressBar.progress = progress
-                soundManager.speakCountdown(seconds)
-            }
-            
-            override fun onFinish() {
-                soundManager.speakCountdown(0)
-                dialog.dismiss()
-                clearCountdownState()
-                startDragRun(mode)
-            }
-        }
-        
-        btnCancel.setOnClickListener {
-            countdownTimer?.cancel()
-            stopLocationUpdates()
-            dialog.dismiss()
-            clearCountdownState()
-        }
-        
-        dialog.show()
-        countdownTimer?.start()
-    }
-    
-    private fun clearCountdownState() {
-        countdownDialog = null
-        countdownTimer = null
     }
     
     private fun startLocationUpdates() {
@@ -599,11 +574,7 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
             putExtra("profileId", currentProfile?.id)
         }
         
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            requireContext().startForegroundService(serviceIntent)
-        } else {
-            requireContext().startService(serviceIntent)
-        }
+        requireContext().startService(serviceIntent)
     }
     
     private fun startDragRun(mode: MeasurementMode) {
@@ -632,8 +603,6 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
                 if (resultCode == Activity.RESULT_OK) {
                     loadCurrentProfile()
                     loadSessions()
-                    dragAdapter.notifyDataSetChanged()
-                    updateNoDataVisibility()
                     fetchWeatherAndElevation()
                 }
             }
@@ -645,10 +614,13 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
             .setTitle(getString(R.string.delete_session_title))
             .setMessage(getString(R.string.delete_session_message))
             .setPositiveButton(getString(R.string.delete)) { _, _ ->
-                DragStorage.deleteDragSession(requireContext(), session.id)
-                sessions.remove(session)
-                dragAdapter.notifyDataSetChanged()
-                updateNoDataVisibility()
+                val appContext = requireContext().applicationContext
+                viewLifecycleOwner.lifecycleScope.launch {
+                    withContext(Dispatchers.IO) {
+                        DragStorage.deleteDragSession(appContext, session.id)
+                    }
+                    loadSessions()
+                }
             }
             .setNegativeButton(getString(R.string.dialog_cancel_button), null)
             .create()
@@ -703,8 +675,6 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         }
         
         loadSessions()
-        dragAdapter.notifyDataSetChanged()
-        updateNoDataVisibility()
         
         loadCachedWeatherData()
         updateEnvironmentDisplay()
@@ -728,10 +698,9 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
                     0f,
                     this
                 )
-                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                    if (location != null && shouldFetchWeatherData(location)) {
-                        fetchWeatherAndElevation()
-                    }
+                val lastKnownLocation = resolveLastKnownLocation()
+                if (lastKnownLocation != null && shouldFetchWeatherData(lastKnownLocation)) {
+                    fetchWeatherAndElevation(lastKnownLocation)
                 }
             } catch (e: SecurityException) {
                 // Handle permission error
@@ -753,8 +722,6 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         super.onDestroyView()
         locationManager.removeUpdates(this)
         sensorManager.unregisterListener(this)
-        countdownTimer?.cancel()
-        countdownDialog?.dismiss()
         soundManager.release()
         
         // Важно: отписваме се, за да няма memory leaks
@@ -794,6 +761,10 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
             currentAltitude = location.altitude.toFloat()
             updateEnvironmentDisplay()
         }
+
+        if (shouldFetchWeatherData(location)) {
+            fetchWeatherAndElevation(location)
+        }
     }
     
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
@@ -822,16 +793,31 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
 
             // 2. Зареждаме снимката или показваме иконка
             if (!activeProfile.imagePath.isNullOrEmpty()) {
-                val imageFile = java.io.File(requireContext().getExternalFilesDir(null), activeProfile.imagePath)
+                val imagePath = activeProfile.imagePath.orEmpty()
+                val imageFile = java.io.File(requireContext().getExternalFilesDir(null), imagePath)
                 if (imageFile.exists()) {
-                    // Image is already scaled on disk, just load it
-                    val bitmap = android.graphics.BitmapFactory.decodeFile(imageFile.absolutePath)
-                    if (bitmap != null) {
-                        ivHeaderProfileImage.setImageBitmap(bitmap)
-                        ivHeaderProfileImage.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
-                        ivHeaderProfileImage.setPadding(0, 0, 0, 0)
-                    } else {
-                        showDefaultIcon(activeProfile.vehicleType)
+                    val expectedProfileId = activeProfile.id
+                    val expectedImagePath = imagePath
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        val bitmap = withContext(Dispatchers.IO) {
+                            android.graphics.BitmapFactory.decodeFile(imageFile.absolutePath)
+                        }
+                        if (!isAdded || view == null) return@launch
+
+                        val selectedProfileId = ProfileStorage.getSelectedProfileId(requireContext())
+                        val selectedProfile = ProfileStorage.loadProfiles(requireContext())
+                            .find { it.id == selectedProfileId }
+                        if (selectedProfile?.id != expectedProfileId || selectedProfile.imagePath != expectedImagePath) {
+                            return@launch
+                        }
+
+                        if (bitmap != null) {
+                            ivHeaderProfileImage.setImageBitmap(bitmap)
+                            ivHeaderProfileImage.scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                            ivHeaderProfileImage.setPadding(0, 0, 0, 0)
+                        } else {
+                            showDefaultIcon(activeProfile.vehicleType)
+                        }
                     }
                 } else {
                     showDefaultIcon(activeProfile.vehicleType)
@@ -852,5 +838,36 @@ class DragFragment : Fragment(), SensorEventListener, LocationListener {
         val padding = (6 * resources.displayMetrics.density).toInt()
         ivHeaderProfileImage.setPadding(padding, padding, padding, padding)
         ivHeaderProfileImage.visibility = View.VISIBLE
+    }
+
+    private fun resolveWeatherIconStyle(iconRes: Int, humidityPercent: Int?): Pair<Int, Int> {
+        val baseIcon = when (iconRes) {
+            R.drawable.ic_weather_sunny -> R.drawable.ic_weather_sunny
+            R.drawable.ic_weather_clear_night -> R.drawable.ic_weather_clear_night
+            R.drawable.ic_weather_partly_cloudy,
+            R.drawable.ic_weather_partly_cloudy_night -> R.drawable.ic_weather_partly_cloudy
+            R.drawable.ic_weather_cloudy -> R.drawable.ic_weather_cloudy
+            R.drawable.ic_weather_rainy -> R.drawable.ic_weather_rainy
+            R.drawable.ic_weather_snowy -> R.drawable.ic_weather_snowy
+            else -> R.drawable.ic_weather_cloudy
+        }
+
+        val finalIcon = if (baseIcon == R.drawable.ic_weather_sunny && (humidityPercent ?: 0) >= 70) {
+            R.drawable.ic_weather_cloudy
+        } else {
+            baseIcon
+        }
+
+        val tintRes = when (finalIcon) {
+            R.drawable.ic_weather_sunny -> R.color.warning_color
+            R.drawable.ic_weather_rainy -> R.color.accent_light
+            R.drawable.ic_weather_snowy -> R.color.accent_light
+            R.drawable.ic_weather_clear_night -> R.color.text_secondary_light
+            R.drawable.ic_weather_partly_cloudy -> R.color.text_secondary_light
+            R.drawable.ic_weather_cloudy -> R.color.text_secondary_light
+            else -> R.color.text_secondary_light
+        }
+
+        return finalIcon to tintRes
     }
 }

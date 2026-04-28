@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-
-    <string-array name="vehicle_types">
-        <item>@string/vehicle_type_car</item>
-        <item>@string/vehicle_type_motorcycle</item>
-    </string-array>
-</resources>

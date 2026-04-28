@@ -44,13 +44,6 @@ object GarageFuelEntryStorage {
         return Gson().fromJson(json, type) ?: mutableListOf()
     }
 
-    fun addEntry(context: Context, entry: GarageFuelEntry) {
-        val entries = loadEntries(context, entry.profileId)
-        entries.add(0, entry)
-
-        persistEntries(context, entry.profileId, entries)
-    }
-
     fun findEntry(context: Context, profileId: Long, entryId: Long): GarageFuelEntry? {
         return loadEntries(context, profileId).firstOrNull { it.id == entryId }
     }

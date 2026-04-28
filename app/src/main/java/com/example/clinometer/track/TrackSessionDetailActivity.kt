@@ -2,20 +2,27 @@ package com.example.clinometer
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.media.MediaMetadataRetriever
+import android.net.Uri
 import android.location.Location
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.webkit.MimeTypeMap
 import android.view.View
 import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.preference.PreferenceManager
 import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.main.MainContainerActivity
@@ -26,6 +33,9 @@ import com.example.clinometer.track.TrackMapExtras
 import com.example.clinometer.track.enrichRoutePointsWithLeanPeaks
 import com.google.gson.Gson
 import com.google.android.material.button.MaterialButton
+import java.io.File
+import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.sqrt
 
 class TrackSessionDetailActivity : AppCompatActivity() {
@@ -69,6 +79,14 @@ class TrackSessionDetailActivity : AppCompatActivity() {
     private lateinit var tvMaxCorneringRight: TextView
     private lateinit var tvLapsSectionTitle: TextView
     private lateinit var cardLaps: CardView
+    private lateinit var cardSessionVideo: CardView
+    private lateinit var ivSessionVideoThumbnail: ImageView
+    private lateinit var tvSessionVideoTitle: TextView
+    private lateinit var tvSessionVideoMeta: TextView
+    private lateinit var btnSessionVideoOpen: MaterialButton
+    private lateinit var btnSessionVideoExport: MaterialButton
+    private lateinit var btnSessionVideoRender: MaterialButton
+    private lateinit var flSessionVideoPreview: View
     
     // Lap click listeners
     private lateinit var llLapsContainer: LinearLayout
@@ -79,6 +97,16 @@ class TrackSessionDetailActivity : AppCompatActivity() {
     private var outingNumber: Int = 1
     private var totalLaps: Int = 0
     private var isPointToPointSession: Boolean = false
+    private var sessionVideoUri: Uri? = null
+    private var sessionVideoFile: File? = null
+    private var sessionVideoStartOffsetMs: Long = 0L
+    private var sessionVideoElapsedAtStartMs: Long = 0L
+    private var sessionVideoOverlayExported: Boolean = true
+    private var hasManualVideoExportMetadata = false
+    private var isManualVideoExportRunning = false
+    private var activeVideoOverlayExporter: TrackSessionVideoOverlayExporter? = null
+    private var exportProgressDialog: AlertDialog? = null
+    private var sessionIsMotorcycle = false
 
     private data class LapRowEntry(
         val lapNumber: Int,
@@ -205,6 +233,14 @@ class TrackSessionDetailActivity : AppCompatActivity() {
         tvMaxCorneringRight = findViewById(R.id.tvMaxCorneringRight)
         tvLapsSectionTitle = findViewById(R.id.tvLapsSectionTitle)
         cardLaps = findViewById(R.id.cardLaps)
+        cardSessionVideo = findViewById(R.id.cardSessionVideo)
+        ivSessionVideoThumbnail = findViewById(R.id.ivSessionVideoThumbnail)
+        tvSessionVideoTitle = findViewById(R.id.tvSessionVideoTitle)
+        tvSessionVideoMeta = findViewById(R.id.tvSessionVideoMeta)
+        btnSessionVideoOpen = findViewById(R.id.btnSessionVideoOpen)
+        btnSessionVideoExport = findViewById(R.id.btnSessionVideoExport)
+        btnSessionVideoRender = findViewById(R.id.btnSessionVideoRender)
+        flSessionVideoPreview = findViewById(R.id.flSessionVideoPreview)
         
         // Initialize lap views
         llLapsContainer = findViewById(R.id.llLapsContainer)
@@ -214,6 +250,18 @@ class TrackSessionDetailActivity : AppCompatActivity() {
     private fun setupClickListeners() {
         btnBack.setOnClickListener {
             onBackPressed()
+        }
+        flSessionVideoPreview.setOnClickListener {
+            openSessionVideo()
+        }
+        btnSessionVideoOpen.setOnClickListener {
+            openSessionVideo()
+        }
+        btnSessionVideoExport.setOnClickListener {
+            exportSessionVideo()
+        }
+        btnSessionVideoRender.setOnClickListener {
+            renderSessionVideo()
         }
     }
     
@@ -421,29 +469,76 @@ class TrackSessionDetailActivity : AppCompatActivity() {
     }
 
     private fun loadLapDataForDetails(sharedPrefs: android.content.SharedPreferences, requestedLapNumber: Int): LapData? {
-        val currentProfileId = ProfileStorage.getSelectedProfileId(this)
-        val baseTrackId = extractTrackIdFromSessionId(trackId)
-        var actualSessionId = "${currentProfileId}_${baseTrackId}"
-        var lapDataCount = sharedPrefs.getInt("${actualSessionId}_outing_${outingNumber}_lap_data_count", 0)
-
-        if (lapDataCount == 0 && trackId.isNotEmpty()) {
-            val fullCount = sharedPrefs.getInt("${trackId}_outing_${outingNumber}_lap_data_count", 0)
-            if (fullCount > 0) {
-                actualSessionId = trackId
-                lapDataCount = fullCount
-            }
-        }
-
-        if (lapDataCount <= 0) return null
-
-        val safeLapNumber = requestedLapNumber.coerceIn(1, lapDataCount)
-        val lapJson = sharedPrefs.getString("${actualSessionId}_outing_${outingNumber}_lap_data_${safeLapNumber}", null) ?: return null
+        val lapDataContext = resolveLapDataSessionContext(sharedPrefs) ?: return null
+        val safeLapNumber = requestedLapNumber.coerceIn(1, lapDataContext.lapDataCount)
+        val lapJson = sharedPrefs.getString(
+            "${lapDataContext.sessionId}_outing_${outingNumber}_lap_data_${safeLapNumber}",
+            null
+        ) ?: return null
 
         return try {
             Gson().fromJson(lapJson, LapData::class.java)
         } catch (_: Exception) {
             null
         }
+    }
+
+    private data class LapDataSessionContext(
+        val sessionId: String,
+        val lapDataCount: Int
+    )
+
+    private fun resolveLapDataSessionContext(sharedPrefs: android.content.SharedPreferences): LapDataSessionContext? {
+        val currentProfileId = ProfileStorage.getSelectedProfileId(this)
+        val baseTrackId = extractTrackIdFromSessionId(trackId)
+        val sessionCandidates = linkedSetOf<String>()
+
+        if (trackId.isNotBlank()) {
+            sessionCandidates += trackId
+        }
+        if (baseTrackId.isNotBlank()) {
+            sessionCandidates += "${currentProfileId}_${baseTrackId}"
+            sessionCandidates += baseTrackId
+        }
+
+        return sessionCandidates.firstNotNullOfOrNull { sessionIdCandidate ->
+            val lapDataCount = sharedPrefs.getInt(
+                "${sessionIdCandidate}_outing_${outingNumber}_lap_data_count",
+                0
+            )
+            if (lapDataCount > 0) {
+                LapDataSessionContext(sessionIdCandidate, lapDataCount)
+            } else {
+                null
+            }
+        }
+    }
+
+    private inline fun forEachSessionLapData(
+        sharedPrefs: android.content.SharedPreferences,
+        onLapData: (LapData) -> Unit
+    ): Boolean {
+        val lapDataContext = resolveLapDataSessionContext(sharedPrefs) ?: return false
+        val gson = Gson()
+        var foundLapData = false
+
+        for (lapIndex in 1..lapDataContext.lapDataCount) {
+            val lapJson = sharedPrefs.getString(
+                "${lapDataContext.sessionId}_outing_${outingNumber}_lap_data_${lapIndex}",
+                null
+            ) ?: continue
+
+            val lapData = try {
+                gson.fromJson(lapJson, LapData::class.java)
+            } catch (_: Exception) {
+                null
+            } ?: continue
+
+            foundLapData = true
+            onLapData(lapData)
+        }
+
+        return foundLapData
     }
 
     private fun normalizeRoutePointsForMap(points: List<RoutePoint>): List<RoutePoint> {
@@ -525,6 +620,19 @@ class TrackSessionDetailActivity : AppCompatActivity() {
         val sessionHumidity = prefs.getString("${trackId}_outing_${outingNumber}_humidity", "--%") ?: "--%"
         val sessionWindSpeed = prefs.getString("${trackId}_outing_${outingNumber}_wind_speed", "-- km/h") ?: "-- km/h"
         val sessionWeatherIcon = prefs.getInt("${trackId}_outing_${outingNumber}_weather_icon", -1)
+        val sessionVideoUri = prefs.getString("${trackId}_outing_${outingNumber}_video_uri", "") ?: ""
+        val sessionVideoPath = prefs.getString("${trackId}_outing_${outingNumber}_video_path", "") ?: ""
+        val sessionVideoCamera = prefs.getString("${trackId}_outing_${outingNumber}_video_camera", "") ?: ""
+        val sessionVideoStartOffsetKey = "${trackId}_outing_${outingNumber}_video_session_start_offset_ms"
+        val sessionVideoElapsedAtStartKey = "${trackId}_outing_${outingNumber}_video_session_elapsed_at_start_ms"
+        sessionVideoStartOffsetMs = prefs.getLong(sessionVideoStartOffsetKey, 0L).coerceAtLeast(0L)
+        sessionVideoElapsedAtStartMs = if (prefs.contains(sessionVideoElapsedAtStartKey)) {
+            prefs.getLong(sessionVideoElapsedAtStartKey, 0L)
+        } else {
+            -sessionVideoStartOffsetMs
+        }
+        sessionVideoOverlayExported = prefs.getBoolean("${trackId}_outing_${outingNumber}_video_overlay_exported", false)
+        hasManualVideoExportMetadata = prefs.contains(sessionVideoElapsedAtStartKey) || prefs.contains(sessionVideoStartOffsetKey)
         val mode = prefs.getString("${trackId}_outing_${outingNumber}_mode", "circuit") ?: "circuit"
         isPointToPointSession = mode == "point_to_point"
         
@@ -540,6 +648,7 @@ class TrackSessionDetailActivity : AppCompatActivity() {
         
         val sessionProfile = resolveSessionProfile()
         val isMotorcycleSession = sessionProfile?.vehicleType == Profile.VehicleType.MOTORCYCLE
+        sessionIsMotorcycle = isMotorcycleSession
 
         // Get vehicle name from session profile
         val vehicleName = getActiveVehicleName(sessionProfile)
@@ -697,6 +806,401 @@ class TrackSessionDetailActivity : AppCompatActivity() {
             tvLapsSectionTitle.text = getString(R.string.track_laps_section)
             cardLaps.visibility = android.view.View.VISIBLE
         }
+
+        bindSessionVideoCard(sessionVideoUri, sessionVideoPath, sessionVideoCamera)
+    }
+
+    private fun bindSessionVideoCard(videoUriString: String, videoPath: String, videoCamera: String) {
+        sessionVideoUri = videoUriString
+            .takeIf { it.isNotBlank() }
+            ?.let(Uri::parse)
+
+        sessionVideoFile = videoPath
+            .takeIf { it.isNotBlank() }
+            ?.let { File(it) }
+            ?.takeIf { it.exists() }
+
+        val playbackUri = resolveSessionVideoPlaybackUri()
+
+        if (playbackUri == null) {
+            cardSessionVideo.visibility = View.GONE
+            return
+        }
+
+        cardSessionVideo.visibility = View.VISIBLE
+        tvSessionVideoTitle.text = getString(R.string.track_session_video_title)
+
+        var durationLabel = ""
+        val retriever = MediaMetadataRetriever()
+        try {
+            retriever.setDataSource(this, playbackUri)
+            val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                ?.toLongOrNull()
+                ?: 0L
+            durationLabel = formatSessionVideoDuration(durationMs)
+            val frame = retriever.getFrameAtTime(0L)
+            if (frame != null) {
+                ivSessionVideoThumbnail.setImageBitmap(frame)
+            } else {
+                ivSessionVideoThumbnail.setImageDrawable(null)
+            }
+        } catch (_: Exception) {
+            cardSessionVideo.visibility = View.GONE
+            return
+        } finally {
+            try {
+                retriever.release()
+            } catch (_: Exception) {
+            }
+        }
+
+        val metaParts = buildList {
+            add(
+                getString(
+                    if (sessionVideoOverlayExported) {
+                        R.string.track_session_video_meta_pro
+                    } else {
+                        R.string.track_session_video_meta_raw
+                    }
+                )
+            )
+            if (videoCamera.isNotBlank()) add(videoCamera.uppercase(Locale.getDefault()))
+            if (durationLabel.isNotBlank()) add(durationLabel)
+        }
+        tvSessionVideoMeta.text = metaParts.joinToString(" • ")
+        updateSessionVideoRenderButton(hasPlayableVideo = true)
+    }
+
+    private fun updateSessionVideoRenderButton(hasPlayableVideo: Boolean) {
+        val canRender = hasPlayableVideo && hasManualVideoExportMetadata && !sessionVideoOverlayExported
+        btnSessionVideoRender.visibility = if (hasPlayableVideo && (hasManualVideoExportMetadata || sessionVideoOverlayExported)) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+        btnSessionVideoRender.isEnabled = canRender && !isManualVideoExportRunning
+        btnSessionVideoRender.alpha = if (btnSessionVideoRender.isEnabled) 1f else 0.65f
+        btnSessionVideoRender.text = when {
+            isManualVideoExportRunning -> getString(R.string.track_session_video_rendering_button)
+            sessionVideoOverlayExported -> getString(R.string.track_session_video_rendered_button)
+            canRender -> getString(R.string.track_session_video_render_button)
+            else -> getString(R.string.track_session_video_render_unavailable_button)
+        }
+    }
+
+    private fun formatSessionVideoDuration(durationMs: Long): String {
+        val safeMs = durationMs.coerceAtLeast(0L)
+        val totalSeconds = safeMs / 1000L
+        val minutes = totalSeconds / 60L
+        val seconds = totalSeconds % 60L
+        return String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
+    }
+
+    private fun openSessionVideo() {
+        if (resolveSessionVideoPlaybackUri() == null) {
+            Toast.makeText(this, getString(R.string.track_session_video_unavailable), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        startActivity(Intent(this, TrackSessionVideoActivity::class.java).apply {
+            putExtra("video_uri", sessionVideoUri?.toString())
+            putExtra("video_path", sessionVideoFile?.absolutePath)
+            putExtra("video_title", tvTitle.text.toString())
+        })
+    }
+
+    private fun exportSessionVideo() {
+        val shareUri = resolveSessionVideoPlaybackUri()
+        if (shareUri == null) {
+            Toast.makeText(this, getString(R.string.track_session_video_unavailable), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = resolveVideoMimeType(shareUri)
+            putExtra(Intent.EXTRA_STREAM, shareUri)
+            putExtra(Intent.EXTRA_TITLE, tvTitle.text.toString())
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        runCatching {
+            startActivity(Intent.createChooser(shareIntent, getString(R.string.track_session_video_share_title)))
+        }.onFailure {
+            Toast.makeText(this, getString(R.string.track_session_video_share_failed), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun renderSessionVideo() {
+        if (isManualVideoExportRunning) return
+
+        val sourceUri = resolveSessionVideoPlaybackUri()
+        if (sourceUri == null) {
+            Toast.makeText(this, getString(R.string.track_session_video_unavailable), Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!hasManualVideoExportMetadata) {
+            Toast.makeText(this, getString(R.string.track_session_video_render_not_supported), Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (sessionVideoOverlayExported) {
+            Toast.makeText(this, getString(R.string.track_session_video_render_already_done), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val prefs = getSharedPreferences("track_outings", MODE_PRIVATE)
+        val overlayModel = buildStoredSessionVideoOverlayModel(prefs)
+        if (overlayModel == null) {
+            Toast.makeText(this, getString(R.string.track_session_video_render_failed), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val outputFile = File(cacheDir, "track_session_overlay_${System.currentTimeMillis()}.mp4")
+        isManualVideoExportRunning = true
+        updateSessionVideoRenderButton(hasPlayableVideo = true)
+        showVideoExportProgressDialog()
+
+        val exporter = TrackSessionVideoOverlayExporter(this)
+        activeVideoOverlayExporter?.cancel()
+        activeVideoOverlayExporter = exporter
+        exporter.export(
+            request = TrackSessionVideoOverlayExporter.ExportRequest(
+                inputUri = sourceUri,
+                outputFile = outputFile,
+                trimStartMs = 0L,
+                overlayModel = overlayModel
+            ),
+            onSuccess = { renderedFile ->
+                activeVideoOverlayExporter = null
+                persistRenderedSessionVideo(renderedFile)
+            },
+            onError = { error ->
+                android.util.Log.e("TrackSessionDetailActivity", "Manual telemetry export failed", error)
+                activeVideoOverlayExporter = null
+                outputFile.delete()
+                isManualVideoExportRunning = false
+                dismissVideoExportProgressDialog()
+                updateSessionVideoRenderButton(hasPlayableVideo = resolveSessionVideoPlaybackUri() != null)
+                Toast.makeText(this, getString(R.string.track_session_video_render_failed), Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    private fun showVideoExportProgressDialog() {
+        if (isFinishing || isDestroyed) return
+        if (exportProgressDialog?.isShowing == true) return
+
+        val dialogView = layoutInflater.inflate(R.layout.dialog_track_video_export_progress, null)
+        exportProgressDialog = AlertDialog.Builder(this, R.style.CustomAlertDialog)
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+            .also { dialog ->
+                dialog.setCanceledOnTouchOutside(false)
+                dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                dialog.show()
+            }
+    }
+
+    private fun dismissVideoExportProgressDialog() {
+        exportProgressDialog?.dismiss()
+        exportProgressDialog = null
+    }
+
+    private fun buildStoredSessionVideoOverlayModel(
+        sharedPrefs: android.content.SharedPreferences
+    ): TrackSessionVideoOverlayExporter.OverlayModel? {
+        val laps = mutableListOf<LapData>()
+        forEachSessionLapData(sharedPrefs) { lapData ->
+            laps += lapData
+        }
+
+        val extraLapJson = sharedPrefs.getString(
+            "${trackId}_outing_${outingNumber}_video_export_lap_data",
+            null
+        )
+        if (!extraLapJson.isNullOrBlank()) {
+            runCatching { Gson().fromJson(extraLapJson, LapData::class.java) }
+                .getOrNull()
+                ?.takeIf { extraLap ->
+                    val lastLap = laps.lastOrNull()
+                    lastLap == null ||
+                        lastLap.lapNumber != extraLap.lapNumber ||
+                        lastLap.startTime != extraLap.startTime ||
+                        lastLap.endTime != extraLap.endTime
+                }
+                ?.let { laps += it }
+        }
+
+        val orderedLaps = laps
+            .filter { it.startTime > 0L }
+            .sortedBy { it.startTime }
+        if (orderedLaps.isEmpty()) return null
+
+        val sessionStartWallTimeMs = orderedLaps.minOfOrNull { it.startTime } ?: return null
+        val lapSegments = orderedLaps.mapIndexed { index, lap ->
+            TrackSessionVideoOverlayExporter.LapSegment(
+                lapNumber = if (lap.lapNumber > 0) lap.lapNumber else index + 1,
+                startMs = lap.startTime - sessionStartWallTimeMs,
+                durationMs = resolveStoredLapDurationMs(sharedPrefs, index + 1, lap),
+                isCompleted = index < totalLaps
+            )
+        }
+
+        val routeSamples = orderedLaps.flatMap { lap ->
+            val lapOffsetMs = lap.startTime - sessionStartWallTimeMs
+            lap.routePoints.map { point ->
+                TrackSessionVideoOverlayExporter.RouteSample(
+                    timeMs = lapOffsetMs + point.timestamp,
+                    geoPoint = point.geoPoint,
+                    speedKmh = point.speed
+                )
+            }
+        }.sortedBy { it.timeMs }
+
+        val gSamples = orderedLaps.flatMap { lap ->
+            val sampleCount = minOf(lap.timestamps.size, lap.longitudinalGData.size, lap.lateralGData.size)
+            (0 until sampleCount).map { sampleIndex ->
+                TrackSessionVideoOverlayExporter.GSample(
+                    timeMs = lap.timestamps[sampleIndex] - sessionStartWallTimeMs,
+                    longitudinalG = lap.longitudinalGData[sampleIndex],
+                    lateralG = lap.lateralGData[sampleIndex],
+                    maxBraking = lap.maxBrakingData.getOrNull(sampleIndex)?.takeIf { it.isFinite() },
+                    maxAccel = lap.maxAccelData.getOrNull(sampleIndex)?.takeIf { it.isFinite() },
+                    maxLeft = lap.maxCorneringLeftData.getOrNull(sampleIndex)?.takeIf { it.isFinite() },
+                    maxRight = lap.maxCorneringRightData.getOrNull(sampleIndex)?.takeIf { it.isFinite() },
+                    maxResultG = lap.maxResultGData.getOrNull(sampleIndex)?.takeIf { it.isFinite() }
+                )
+            }
+        }.sortedBy { it.timeMs }
+
+        val leanSamples = orderedLaps.flatMap { lap ->
+            val sampleCount = minOf(
+                lap.timestamps.size,
+                maxOf(lap.displayLeanAngleData.size, lap.leanAngleData.size)
+            )
+            (0 until sampleCount).mapNotNull { sampleIndex ->
+                val angle = lap.displayLeanAngleData.getOrNull(sampleIndex)
+                    ?: lap.leanAngleData.getOrNull(sampleIndex)?.let(::normalizeLegacyOverlayLeanAngle)
+                    ?: return@mapNotNull null
+                if (!angle.isFinite()) {
+                    null
+                } else {
+                    TrackSessionVideoOverlayExporter.LeanSample(
+                        timeMs = lap.timestamps[sampleIndex] - sessionStartWallTimeMs,
+                        angleDeg = angle
+                    )
+                }
+            }
+        }.sortedBy { it.timeMs }
+
+        val miniMapPoints = TrackMiniMapShapeResolver(this).resolveMiniMapPoints(
+            trackId = extractTrackIdFromSessionId(trackId),
+            orderedLaps = orderedLaps,
+            routeFallback = routeSamples.map { it.geoPoint },
+            isCircuit = !isPointToPointSession
+        ).ifEmpty {
+            routeSamples.map { it.geoPoint }.distinctBy { point ->
+                String.format(Locale.US, "%.6f:%.6f", point.latitude, point.longitude)
+            }
+        }
+
+        return TrackSessionVideoOverlayExporter.OverlayModel(
+            isMotorcycle = sessionIsMotorcycle,
+            videoStartSessionElapsedMs = sessionVideoElapsedAtStartMs,
+            lapSegments = lapSegments,
+            routeSamples = routeSamples,
+            gSamples = gSamples,
+            leanSamples = leanSamples,
+            miniMapPoints = miniMapPoints
+        )
+    }
+
+    private fun resolveStoredLapDurationMs(
+        sharedPrefs: android.content.SharedPreferences,
+        lapNumber: Int,
+        lapData: LapData
+    ): Long {
+        val completedLapTime = sharedPrefs.getString(
+            "${trackId}_outing_${outingNumber}_lap_${lapNumber}",
+            null
+        )
+        val completedDuration = completedLapTime?.let(::parseFlexibleTimeToMs)
+        if (completedDuration != null) {
+            return completedDuration.coerceAtLeast(0L)
+        }
+        if (lapData.endTime > lapData.startTime) {
+            return (lapData.endTime - lapData.startTime).coerceAtLeast(0L)
+        }
+        val routeDuration = lapData.routePoints.maxOfOrNull { it.timestamp }
+        if (routeDuration != null) return routeDuration.coerceAtLeast(0L)
+        val sensorDuration = lapData.timestamps.maxOrNull()?.let { it - lapData.startTime }
+        return sensorDuration?.coerceAtLeast(0L) ?: 0L
+    }
+
+    private fun normalizeLegacyOverlayLeanAngle(angleDeg: Float): Float {
+        return if (abs(angleDeg) < 1.8f) 0f else angleDeg
+    }
+
+    private fun persistRenderedSessionVideo(renderedFile: File) {
+        val savedUri = TrackSessionVideoExport.saveVideoToLibrary(this, renderedFile, tvTitle.text?.toString())
+        renderedFile.delete()
+
+        if (savedUri == null) {
+            isManualVideoExportRunning = false
+            dismissVideoExportProgressDialog()
+            updateSessionVideoRenderButton(hasPlayableVideo = resolveSessionVideoPlaybackUri() != null)
+            Toast.makeText(this, getString(R.string.track_session_video_render_failed), Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val oldVideoUriString = sessionVideoUri?.toString().orEmpty()
+        val oldVideoFilePath = sessionVideoFile?.absolutePath.orEmpty()
+        val prefs = getSharedPreferences("track_outings", MODE_PRIVATE)
+        prefs.edit().apply {
+            putString("${trackId}_outing_${outingNumber}_video_uri", savedUri.toString())
+            remove("${trackId}_outing_${outingNumber}_video_path")
+            putBoolean("${trackId}_outing_${outingNumber}_video_overlay_exported", true)
+            apply()
+        }
+
+        if (oldVideoUriString.isNotBlank() && oldVideoUriString != savedUri.toString()) {
+            runCatching { contentResolver.delete(Uri.parse(oldVideoUriString), null, null) }
+        }
+        if (oldVideoFilePath.isNotBlank()) {
+            runCatching { File(oldVideoFilePath).delete() }
+        }
+
+        sessionVideoUri = savedUri
+        sessionVideoFile = null
+        sessionVideoOverlayExported = true
+        isManualVideoExportRunning = false
+        dismissVideoExportProgressDialog()
+        loadSessionData()
+        Toast.makeText(this, getString(R.string.track_session_video_render_success), Toast.LENGTH_SHORT).show()
+    }
+
+    private fun resolveSessionVideoPlaybackUri(): Uri? {
+        sessionVideoUri?.let { return it }
+        return sessionVideoFile
+            ?.takeIf { it.exists() }
+            ?.let { file ->
+                FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
+            }
+    }
+
+    private fun resolveVideoMimeType(uri: Uri): String {
+        return contentResolver.getType(uri)
+            ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(
+                MimeTypeMap.getFileExtensionFromUrl(uri.toString())
+            )
+            ?: "video/mp4"
+    }
+
+    override fun onDestroy() {
+        activeVideoOverlayExporter?.cancel()
+        activeVideoOverlayExporter = null
+        dismissVideoExportProgressDialog()
+        super.onDestroy()
     }
 
     private fun parseLapTime(lapTime: String): Long {
@@ -808,52 +1312,15 @@ class TrackSessionDetailActivity : AppCompatActivity() {
         return finalIcon to tintRes
     }
 
-    private fun computeSessionMinSpeed(prefs: android.content.SharedPreferences): Float? {
-        val lapDataCount = prefs.getInt("${trackId}_outing_${outingNumber}_lap_data_count", 0)
-        if (lapDataCount <= 0) return null
-
-        var minSpeed = Float.POSITIVE_INFINITY
-        val gson = Gson()
-
-        for (lapIndex in 1..lapDataCount) {
-            val lapJson = prefs.getString("${trackId}_outing_${outingNumber}_lap_data_${lapIndex}", null) ?: continue
-            val lapData = try {
-                gson.fromJson(lapJson, LapData::class.java)
-            } catch (_: Exception) {
-                null
-            } ?: continue
-
-            lapData.routePoints.forEach { point ->
-                val speed = point.speed
-                if (speed.isFinite() && speed >= 0f) {
-                    minSpeed = kotlin.math.min(minSpeed, speed)
-                }
-            }
-        }
-
-        return if (minSpeed.isFinite()) minSpeed else null
-    }
-
     private fun computeSessionDistanceKm(prefs: android.content.SharedPreferences): Double {
-        val lapDataCount = prefs.getInt("${trackId}_outing_${outingNumber}_lap_data_count", 0)
-        if (lapDataCount <= 0) return 0.0
-
         var totalDistanceKm = 0.0
-        val gson = Gson()
-
-        for (lapIndex in 1..lapDataCount) {
-            val lapJson = prefs.getString("${trackId}_outing_${outingNumber}_lap_data_${lapIndex}", null) ?: continue
-            val lapData = try {
-                gson.fromJson(lapJson, LapData::class.java)
-            } catch (_: Exception) {
-                null
-            } ?: continue
-
+        val foundLapData = forEachSessionLapData(prefs) { lapData ->
             if (lapData.routePoints.size > 1) {
                 totalDistanceKm += calculateDistanceKm(lapData.routePoints)
             }
         }
 
+        if (!foundLapData) return 0.0
         return totalDistanceKm
     }
 
@@ -960,21 +1427,9 @@ class TrackSessionDetailActivity : AppCompatActivity() {
     }
 
     private fun computeSessionLeanExtremes(prefs: android.content.SharedPreferences): Pair<Float, Float>? {
-        val lapDataCount = prefs.getInt("${trackId}_outing_${outingNumber}_lap_data_count", 0)
-        if (lapDataCount <= 0) return null
-
-        val gson = Gson()
         var maxLeanLeft = 0f
         var maxLeanRight = 0f
-
-        for (lapIndex in 1..lapDataCount) {
-            val lapJson = prefs.getString("${trackId}_outing_${outingNumber}_lap_data_${lapIndex}", null) ?: continue
-            val lapData = try {
-                gson.fromJson(lapJson, LapData::class.java)
-            } catch (_: Exception) {
-                null
-            } ?: continue
-
+        val foundLapData = forEachSessionLapData(prefs) { lapData ->
             lapData.routePoints.forEach { point ->
                 val angle = point.angle
                 if (!angle.isFinite()) return@forEach
@@ -987,6 +1442,7 @@ class TrackSessionDetailActivity : AppCompatActivity() {
             }
         }
 
+        if (!foundLapData) return null
         return if (maxLeanLeft > 0f || maxLeanRight > 0f) {
             maxLeanLeft to maxLeanRight
         } else {

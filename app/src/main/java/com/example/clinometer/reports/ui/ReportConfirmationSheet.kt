@@ -23,8 +23,6 @@ class ReportConfirmationSheet : BottomSheetDialogFragment() {
     private var countdownTimer: CountDownTimer? = null
     
     companion object {
-        private const val ARG_REPORT_TYPE = "report_type"
-        private const val ARG_REPORT_ID = "report_id"
         private const val COUNTDOWN_SECONDS = 10
         
         fun newInstance(
@@ -33,10 +31,6 @@ class ReportConfirmationSheet : BottomSheetDialogFragment() {
             onDismiss: () -> Unit
         ): ReportConfirmationSheet {
             return ReportConfirmationSheet().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_REPORT_TYPE, report.type)
-                    putString(ARG_REPORT_ID, report.id)
-                }
                 this.report = report
                 this.onResponse = onResponse
                 this.onDismiss = onDismiss
@@ -68,7 +62,7 @@ class ReportConfirmationSheet : BottomSheetDialogFragment() {
         val btnYes = view.findViewById<Button>(R.id.btnConfirmYes)
         val btnNo = view.findViewById<Button>(R.id.btnConfirmNo)
         
-        tvQuestion.text = "Все още тук ли е\n${reportType.icon} ${reportType.displayName.toLowerCase()}?"
+        tvQuestion.text = "Все още тук ли е\n${reportType.icon} ${reportType.displayName.lowercase()}?"
         
         // Button handlers
         btnYes.setOnClickListener {

@@ -38,7 +38,6 @@ import com.google.android.material.button.MaterialButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.example.clinometer.settings.MapProviderManager
 import com.mapbox.geojson.Point as MapboxPoint
 import com.mapbox.maps.CameraOptions
 import com.mapbox.maps.EdgeInsets
@@ -133,7 +132,6 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import com.example.clinometer.reports.ReportsIntegration
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 @OptIn(ExperimentalPreviewMapboxNavigationAPI::class)
 class MapFragment : Fragment() {
@@ -154,9 +152,14 @@ class MapFragment : Fragment() {
     
     // Reports System
     private var reportsIntegration: ReportsIntegration? = null
-    private lateinit var fabReport: FloatingActionButton
+    private lateinit var fabReport: View
     private var lastReportsQueryLocation: Location? = null // За throttling на Firebase queries
     private val MIN_DISTANCE_FOR_REPORTS_UPDATE = 5000f // 5 км в метри
+    private var currentRawLocation: Location? = null
+    private val reportMergeDistanceUrbanMeters = 60.0
+    private val reportMergeDistanceRuralMeters = 120.0
+    private val reportSettlementRadiusMeters = 2000.0
+    private val reportMergeDistanceFallbackMeters = 100.0
     
     // UI Elements
     private lateinit var btnStartSession: MaterialButton
@@ -335,8 +338,9 @@ class MapFragment : Fragment() {
     private var currentPitch: Double = 60.0
     private var lastZoomChangeTime: Long = 0L
     private var isMapboxLocationComponentEnabled: Boolean = false
-    private var isUsingNavigationLocationProvider: Boolean = false
+    private var isUsingRawPuckLocationProvider: Boolean = false
     private val navigationLocationProvider = NavigationLocationProvider()
+    private val rawPuckLocationProvider = NavigationLocationProvider()
     // (Turn-by-turn UI is handled in MainActivity; MapFragment stays as search + route preview)
     private val mapboxNavigation: MapboxNavigation by requireMapboxNavigation(
         onResumedObserver = object : MapboxNavigationObserver {
@@ -348,7 +352,7 @@ class MapFragment : Fragment() {
                     mapboxNavigation.registerArrivalObserver(sdkArrivalObserver)
                     navigationObserversRegistered = true
                 }
-                mapboxNavigation.startTripSession()
+                mapboxNavigation.startTripSession(withForegroundService = false)
             }
 
             override fun onDetached(mapboxNavigation: MapboxNavigation) {
@@ -365,25 +369,34 @@ class MapFragment : Fragment() {
         onInitialize = this::initNavigation
     )
     private val navigationLocationObserver = object : LocationObserver {
-        override fun onNewRawLocation(rawLocation: com.mapbox.common.location.Location) {}
+        override fun onNewRawLocation(rawLocation: com.mapbox.common.location.Location) {
+            rawPuckLocationProvider.changePosition(rawLocation, emptyList())
+
+            currentRawLocation = Location("mapbox-raw").apply {
+                latitude = rawLocation.latitude
+                longitude = rawLocation.longitude
+                time = System.currentTimeMillis()
+                rawLocation.speed?.let { speed = it.toFloat() }
+                rawLocation.bearing?.let { bearing = it.toFloat() }
+                rawLocation.altitude?.let { altitude = it }
+            }
+
+            if (!isUsingRawPuckLocationProvider) {
+                val mapView = mapboxMapView
+                if (mapView != null) {
+                    val locationPlugin = mapView.getPlugin(Plugin.MAPBOX_LOCATION_COMPONENT_PLUGIN_ID) as? LocationComponentPlugin
+                    locationPlugin?.setLocationProvider(rawPuckLocationProvider)
+                }
+                isUsingRawPuckLocationProvider = true
+                Log.d("MapFragment", "✅ Switched puck to raw GPS provider")
+            }
+        }
 
         override fun onNewLocationMatcherResult(locationMatcherResult: LocationMatcherResult) {
             val enhanced = locationMatcherResult.enhancedLocation
 
-            // This is the "snapped" location (map matched) - feed it to the map puck
+            // Keep matched location available for route/camera logic, but do not drive the visual puck with it.
             navigationLocationProvider.changePosition(enhanced, locationMatcherResult.keyPoints)
-
-            // Switch the map's location provider to the navigation provider on first enhanced update.
-            // Until then, we keep the default provider so the user still sees a raw GPS puck quickly.
-            if (!isUsingNavigationLocationProvider) {
-                val mapView = mapboxMapView
-                if (mapView != null) {
-                    val locationPlugin = mapView.getPlugin(Plugin.MAPBOX_LOCATION_COMPONENT_PLUGIN_ID) as? LocationComponentPlugin
-                    locationPlugin?.setLocationProvider(navigationLocationProvider)
-                }
-                isUsingNavigationLocationProvider = true
-                Log.d("MapFragment", "✅ Switched puck to NavigationLocationProvider (snapped)")
-            }
 
             // Also maintain android.location.Location for the rest of this screen (weather, caching, camera)
             val androidLoc = Location("mapbox").apply {
@@ -648,9 +661,6 @@ class MapFragment : Fragment() {
         }
         
         mapStateViewModel = ViewModelProvider(this)[MapStateViewModel::class.java]
-        
-        val mapProvider = MapProviderManager.getMapProvider(requireContext())
-        // Always use Mapbox
     }
     
     override fun onCreateView(
@@ -904,11 +914,19 @@ class MapFragment : Fragment() {
         }
         
         fabReport.setOnClickListener {
-            val currentLat = currentLocation?.latitude ?: mapStateViewModel.lastKnownLocation?.latitude
-            val currentLon = currentLocation?.longitude ?: mapStateViewModel.lastKnownLocation?.longitude
+            val reportLocation = currentRawLocation ?: currentLocation ?: mapStateViewModel.lastKnownLocation
+            val currentLat = reportLocation?.latitude
+            val currentLon = reportLocation?.longitude
             
             if (currentLat != null && currentLon != null) {
-                reportsIntegration?.showCreateReportDialog(currentLat, currentLon)
+                viewLifecycleOwner.lifecycleScope.launch {
+                    val mergeDistanceMeters = resolveReportMergeDistanceMeters(currentLat, currentLon)
+                    reportsIntegration?.showCreateReportDialog(
+                        latitude = currentLat,
+                        longitude = currentLon,
+                        mergeDistanceMeters = mergeDistanceMeters
+                    )
+                }
             } else {
                 Toast.makeText(requireContext(), "Няма GPS координати", Toast.LENGTH_SHORT).show()
             }
@@ -1458,6 +1476,75 @@ class MapFragment : Fragment() {
             category = QuickDestinationCategory.HOME,
             titleRes = R.string.search_select_home_source_title
         )
+    }
+
+    private suspend fun resolveReportMergeDistanceMeters(
+        reportLatitude: Double,
+        reportLongitude: Double
+    ): Double {
+        if (mapboxAccessToken.isBlank() || !::geocodingService.isInitialized) {
+            Log.d(
+                "MapFragment",
+                "Report merge radius fallback=${reportMergeDistanceFallbackMeters.toInt()}m (geocoding unavailable) at $reportLatitude,$reportLongitude"
+            )
+            return reportMergeDistanceFallbackMeters
+        }
+
+        return runCatching {
+            val response = geocodingService.reverseGeocode(
+                longitude = reportLongitude,
+                latitude = reportLatitude,
+                accessToken = mapboxAccessToken,
+                limit = 1,
+                types = "place,locality,neighborhood"
+            )
+            if (!response.isSuccessful) {
+                Log.d(
+                    "MapFragment",
+                    "Report merge radius fallback=${reportMergeDistanceFallbackMeters.toInt()}m (reverse geocode failed: ${response.code()}) at $reportLatitude,$reportLongitude"
+                )
+                return@runCatching reportMergeDistanceFallbackMeters
+            }
+
+            val feature = response.body()?.features?.firstOrNull()
+            val center = feature?.center
+            if (center == null || center.size < 2) {
+                Log.d(
+                    "MapFragment",
+                    "Report merge radius rural=${reportMergeDistanceRuralMeters.toInt()}m (no settlement center) at $reportLatitude,$reportLongitude"
+                )
+                reportMergeDistanceRuralMeters
+            } else {
+                val settlementLocation = Location("report-settlement").apply {
+                    latitude = center[1]
+                    longitude = center[0]
+                }
+                val reportLocation = Location("report-source").apply {
+                    latitude = reportLatitude
+                    longitude = reportLongitude
+                }
+                val settlementDistanceMeters = reportLocation.distanceTo(settlementLocation)
+                if (settlementDistanceMeters <= reportSettlementRadiusMeters) {
+                    Log.d(
+                        "MapFragment",
+                        "Report merge radius urban=${reportMergeDistanceUrbanMeters.toInt()}m (nearest settlement='${feature.text}', distance=${settlementDistanceMeters.toInt()}m) at $reportLatitude,$reportLongitude"
+                    )
+                    reportMergeDistanceUrbanMeters
+                } else {
+                    Log.d(
+                        "MapFragment",
+                        "Report merge radius rural=${reportMergeDistanceRuralMeters.toInt()}m (nearest settlement='${feature.text}', distance=${settlementDistanceMeters.toInt()}m) at $reportLatitude,$reportLongitude"
+                    )
+                    reportMergeDistanceRuralMeters
+                }
+            }
+        }.getOrElse { error ->
+            Log.d(
+                "MapFragment",
+                "Report merge radius fallback=${reportMergeDistanceFallbackMeters.toInt()}m (exception=${error.javaClass.simpleName}) at $reportLatitude,$reportLongitude"
+            )
+            reportMergeDistanceFallbackMeters
+        }
     }
 
     private fun onWorkShortcutClicked() {
@@ -2995,7 +3082,9 @@ class MapFragment : Fragment() {
 
     private fun repositionFabReport() {
         val fabReportParams = fabReport?.layoutParams as? android.widget.RelativeLayout.LayoutParams ?: return
+        val myLocationParams = fabMyLocationContainer.layoutParams as? android.widget.RelativeLayout.LayoutParams
         val density = resources.displayMetrics.density
+        val sharedFreeDriveBottomMargin = myLocationParams?.bottomMargin ?: (140 * density).toInt()
         
         when {
             isNavigationActive -> {
@@ -3021,7 +3110,7 @@ class MapFragment : Fragment() {
                 fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_END)
                 fabReportParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_START)
                 fabReportParams.marginStart = (16 * density).toInt()
-                fabReportParams.bottomMargin = (140 * density).toInt() // Match fabMyLocation height
+                fabReportParams.bottomMargin = sharedFreeDriveBottomMargin
                 fabReportParams.marginEnd = 0
                 fabReport?.visibility = View.VISIBLE
             }
@@ -3595,7 +3684,7 @@ class MapFragment : Fragment() {
         val serviceIntent = Intent(requireContext(), ForegroundService::class.java).apply {
             putExtra("PRE_WARMING_MODE", true)
         }
-        ContextCompat.startForegroundService(requireContext(), serviceIntent)
+        requireContext().startService(serviceIntent)
 
         val activateIntent = Intent(requireContext(), ForegroundService::class.java).apply {
             putExtra("ACTIVATE_NORMAL_MODE", true)
@@ -4176,8 +4265,8 @@ class MapFragment : Fragment() {
 
         val orangeColor = Color.parseColor("#FF7A18")
 
-        // Keep default provider initially (fast raw GPS puck). We'll switch to snapped provider when enhancedLocation arrives.
-        isUsingNavigationLocationProvider = false
+        // Keep the visual puck on raw GPS updates; enhanced location still drives route and camera logic.
+        isUsingRawPuckLocationProvider = false
 
         val locationPlugin = mapView.getPlugin(Plugin.MAPBOX_LOCATION_COMPONENT_PLUGIN_ID) as? LocationComponentPlugin
         locationPlugin?.updateSettings {
@@ -4208,7 +4297,7 @@ class MapFragment : Fragment() {
         val locationPlugin = mapView.getPlugin(Plugin.MAPBOX_LOCATION_COMPONENT_PLUGIN_ID) as? LocationComponentPlugin
         locationPlugin?.updateSettings { enabled = false }
         isMapboxLocationComponentEnabled = false
-        isUsingNavigationLocationProvider = false
+        isUsingRawPuckLocationProvider = false
     }
 
     private fun initNavigation() {
@@ -4272,17 +4361,7 @@ class MapFragment : Fragment() {
 
         return bitmap
     }
-    
 
-    
-    private fun createLocationDotIcon(): Bitmap {
-        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
-        bitmap.eraseColor(Color.TRANSPARENT)
-        return bitmap
-    }
-    
-
-    
     private fun startNormalSession() {
         if (!checkLocationPermission()) {
             requestLocationPermission()
@@ -4359,16 +4438,6 @@ class MapFragment : Fragment() {
         if (::llActiveProfileHeader.isInitialized) {
             llActiveProfileHeader.visibility = if (active) View.GONE else View.VISIBLE
         }
-    }
-
-    private fun animateToCurrentLocation() {
-        val loc = currentLocation ?: mapStateViewModel.lastKnownLocation ?: return
-        mapboxMapView?.mapboxMap?.setCamera(
-            CameraOptions.Builder()
-                .center(MapboxPoint.fromLngLat(loc.longitude, loc.latitude))
-                .zoom(17.0)
-                .build()
-        )
     }
 
     private fun resetNormalDrivingCameraState() {
@@ -4705,29 +4774,6 @@ class MapFragment : Fragment() {
                 .build()
         )
     }
-
-    private fun updateMapboxMapOrientation() {
-        var diff = targetMapOrientation - currentMapOrientation
-        while (diff > 180f) diff -= 360f
-        while (diff < -180f) diff += 360f
-
-        val speed = foregroundService?.getCurrentSpeed() ?: 0f
-
-        val smoothingFactor = when {
-            kotlin.math.abs(diff) > 90f -> 0.15f
-            kotlin.math.abs(diff) > 45f -> 0.12f
-            kotlin.math.abs(diff) > 20f -> 0.08f
-            speed > 50 -> 0.06f
-            speed > 20 -> 0.05f
-            else -> 0.04f
-        }
-
-        if (kotlin.math.abs(diff) > 0.5f) {
-            currentMapOrientation += diff * smoothingFactor
-            while (currentMapOrientation > 360f) currentMapOrientation -= 360f
-            while (currentMapOrientation < 0f) currentMapOrientation += 360f
-        }
-    }
     
     private fun navigateToSessions() {
         // Навигираме към RACES страницата в MainContainerActivity
@@ -4874,14 +4920,6 @@ class MapFragment : Fragment() {
                 .zoom(17.0)
                 .build()
         )
-    }
-
-
-    /**
-     * Обновява само location marker без да мести камерата (използва се за instant display)
-     */
-    private fun updateLocationMarkerOnly(location: Location) {
-        // Mapbox mode uses SDK puck; no manual marker update.
     }
     
     override fun onPause() {
@@ -5306,14 +5344,6 @@ class MapFragment : Fragment() {
         }
     }
     
-    private fun startLocationUpdates() {
-        // Mapbox uses Location Component, no need for manual updates
-    }
-    
-    private fun stopLocationUpdates() {
-        // Mapbox uses Location Component, no need for manual updates
-    }
-    
     private fun updateEnvironmentDisplay() {
         val tempText = if (currentTemperature != null) {
             UnitsManager.formatTemperature(currentTemperature!!, requireContext(), decimals = 0)
@@ -5680,16 +5710,31 @@ class MapFragment : Fragment() {
 
             // 2. Зареждаме снимката или показваме иконка
             if (!activeProfile.imagePath.isNullOrEmpty()) {
-                val imageFile = java.io.File(requireContext().getExternalFilesDir(null), activeProfile.imagePath)
+                val imagePath = activeProfile.imagePath.orEmpty()
+                val imageFile = java.io.File(requireContext().getExternalFilesDir(null), imagePath)
                 if (imageFile.exists()) {
-                    // Image is already scaled on disk, just load it
-                    val bitmap = android.graphics.BitmapFactory.decodeFile(imageFile.absolutePath)
-                    if (bitmap != null) {
-                        ivHeaderProfileImage.setImageBitmap(bitmap)
-                        ivHeaderProfileImage.scaleType = ImageView.ScaleType.CENTER_CROP
-                        ivHeaderProfileImage.setPadding(0, 0, 0, 0)
-                    } else {
-                        showDefaultIcon(activeProfile.vehicleType)
+                    val expectedProfileId = activeProfile.id
+                    val expectedImagePath = imagePath
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        val bitmap = withContext(Dispatchers.IO) {
+                            android.graphics.BitmapFactory.decodeFile(imageFile.absolutePath)
+                        }
+                        if (!isAdded || view == null) return@launch
+
+                        val selectedProfileId = ProfileStorage.getSelectedProfileId(requireContext())
+                        val selectedProfile = ProfileStorage.loadProfiles(requireContext())
+                            .find { it.id == selectedProfileId }
+                        if (selectedProfile?.id != expectedProfileId || selectedProfile.imagePath != expectedImagePath) {
+                            return@launch
+                        }
+
+                        if (bitmap != null) {
+                            ivHeaderProfileImage.setImageBitmap(bitmap)
+                            ivHeaderProfileImage.scaleType = ImageView.ScaleType.CENTER_CROP
+                            ivHeaderProfileImage.setPadding(0, 0, 0, 0)
+                        } else {
+                            showDefaultIcon(activeProfile.vehicleType)
+                        }
                     }
                 } else {
                     showDefaultIcon(activeProfile.vehicleType)

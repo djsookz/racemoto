@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1774607054377,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1776279430147,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -119,8 +119,14 @@\n   }\r\n }\r\n ```\r\n \r\n+## Firestore индекси\r\n+\r\n+Текущата rate limiting логика не зависи от composite index.\r\n+\r\n+Проверката за \"до 10 доклада на час\" чете докладите само по `reporterUserId` и филтрира последния час локално по `createdAt`/`timestamp`, така че не е нужен допълнителен Firestore index за тази част.\r\n+\r\n ## Firestore правила (Security Rules)\r\n \r\n За production трябва да добавиш security rules във Firebase Console:\r\n \r\n"
                 }
             ],
             "date": 1774607054377,

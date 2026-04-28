@@ -12,6 +12,7 @@ import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.preference.PreferenceManager
+import com.example.clinometer.data.CalibrationReminderStore
 import com.example.clinometer.settings.LanguageManager
 import com.example.clinometer.DialogHelper
 import com.example.clinometer.data.ProfileStorage
@@ -39,6 +40,7 @@ class SettingsFragment : Fragment() {
     private lateinit var cardSpeedUnit: MaterialCardView
     private lateinit var cardDistanceUnit: MaterialCardView
     private lateinit var cardTemperatureUnit: MaterialCardView
+    private lateinit var cardDragCalibration: MaterialCardView
     private lateinit var cardSmartMotionCalibration: MaterialCardView
     private lateinit var cardTrackEditor: MaterialCardView
     private lateinit var cardBatteryOptimization: MaterialCardView
@@ -47,6 +49,8 @@ class SettingsFragment : Fragment() {
     private lateinit var tvSpeedUnitValue: TextView
     private lateinit var tvDistanceUnitValue: TextView
     private lateinit var tvTemperatureUnitValue: TextView
+    private lateinit var tvDragCalibrationStatus: TextView
+    private lateinit var tvDragCalibrationBadge: TextView
     private lateinit var tvSmartMotionCalibrationStatus: TextView
     private lateinit var tvBatteryOptimizationStatus: TextView
     
@@ -82,6 +86,7 @@ class SettingsFragment : Fragment() {
         cardSpeedUnit = view.findViewById(R.id.cardSpeedUnit)
         cardDistanceUnit = view.findViewById(R.id.cardDistanceUnit)
         cardTemperatureUnit = view.findViewById(R.id.cardTemperatureUnit)
+        cardDragCalibration = view.findViewById(R.id.cardDragCalibration)
         cardSmartMotionCalibration = view.findViewById(R.id.cardSmartMotionCalibration)
         cardTrackEditor = view.findViewById(R.id.cardTrackEditor)
         cardBatteryOptimization = view.findViewById(R.id.cardBatteryOptimization)
@@ -90,6 +95,8 @@ class SettingsFragment : Fragment() {
         tvSpeedUnitValue = view.findViewById(R.id.tvSpeedUnitValue)
         tvDistanceUnitValue = view.findViewById(R.id.tvDistanceUnitValue)
         tvTemperatureUnitValue = view.findViewById(R.id.tvTemperatureUnitValue)
+        tvDragCalibrationStatus = view.findViewById(R.id.tvDragCalibrationStatus)
+        tvDragCalibrationBadge = view.findViewById(R.id.tvDragCalibrationBadge)
         tvSmartMotionCalibrationStatus = view.findViewById(R.id.tvSmartMotionCalibrationStatus)
         tvBatteryOptimizationStatus = view.findViewById(R.id.tvBatteryOptimizationStatus)
     }
@@ -129,6 +136,14 @@ class SettingsFragment : Fragment() {
             }
             startActivity(intent)
         }
+
+        cardDragCalibration.setOnClickListener {
+            val profileId = ProfileStorage.getSelectedProfileId(requireContext())
+            val intent = Intent(requireContext(), DragCalibrationActivity::class.java).apply {
+                putExtra("PROFILE_ID", profileId)
+            }
+            startActivity(intent)
+        }
         
         cardSmartMotionCalibration.setOnClickListener {
             val profileId = ProfileStorage.getSelectedProfileId(requireContext())
@@ -161,8 +176,38 @@ class SettingsFragment : Fragment() {
         tvDistanceUnitValue.text = getString(UnitsManager.getDistanceUnit(requireContext()).displayNameResId)
         tvTemperatureUnitValue.text = getString(UnitsManager.getTemperatureUnit(requireContext()).displayNameResId)
         
+        updateDragCalibrationStatus()
         updateSmartMotionCalibrationStatus()
         updateBatteryOptimizationStatus()
+    }
+
+    private fun updateDragCalibrationStatus() {
+        val profileId = ProfileStorage.getSelectedProfileId(requireContext())
+        val needsReminder = CalibrationReminderStore.needsDragCalibrationReminder(requireContext(), profileId)
+        val isCalibrated = DragCalibration.isProfileCalibrated(requireContext(), profileId)
+
+        when {
+            profileId == -1L -> {
+                tvDragCalibrationStatus.text = getString(R.string.settings_drag_calibration_not_calibrated)
+                tvDragCalibrationStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+                tvDragCalibrationBadge.visibility = View.GONE
+            }
+            isCalibrated -> {
+                tvDragCalibrationStatus.text = getString(R.string.settings_drag_calibration_done)
+                tvDragCalibrationStatus.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.holo_green_light))
+                tvDragCalibrationBadge.visibility = View.GONE
+            }
+            needsReminder -> {
+                tvDragCalibrationStatus.text = getString(R.string.settings_drag_calibration_required)
+                tvDragCalibrationStatus.setTextColor(ContextCompat.getColor(requireContext(), android.R.color.holo_orange_light))
+                tvDragCalibrationBadge.visibility = View.VISIBLE
+            }
+            else -> {
+                tvDragCalibrationStatus.text = getString(R.string.settings_drag_calibration_not_calibrated)
+                tvDragCalibrationStatus.setTextColor(ContextCompat.getColor(requireContext(), R.color.text_secondary))
+                tvDragCalibrationBadge.visibility = View.GONE
+            }
+        }
     }
     
     private fun updateBatteryOptimizationStatus() {
@@ -198,6 +243,7 @@ class SettingsFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        updateDragCalibrationStatus()
         updateSmartMotionCalibrationStatus()
         updateBatteryOptimizationStatus()
     }

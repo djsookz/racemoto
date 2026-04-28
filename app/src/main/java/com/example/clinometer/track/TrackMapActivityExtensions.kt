@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.NestedScrollView
 import com.example.clinometer.LapData
 import com.example.clinometer.R
 import com.example.clinometer.Race
@@ -79,16 +80,44 @@ object TrackMapNavigator {
         activity.findViewById<View?>(R.id.gridStatistics)?.visibility = View.GONE
         activity.findViewById<View?>(R.id.cardStatistics)?.visibility = View.GONE
 
-        val targetHeightDp = if (activity.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
-            220
-        } else {
-            250
+        val scrollView = activity.findViewById<NestedScrollView?>(R.id.trackScrollView) ?: return
+        val mapCard = activity.findViewById<View?>(R.id.cardTrackMap) ?: return
+        val chartFrame = activity.findViewById<View?>(R.id.trackChartFrame) ?: return
+        val legendContainer = activity.findViewById<View?>(R.id.trackChartValueLegendContainer)
+        val density = activity.resources.displayMetrics.density
+        val minSectionHeightPx = (280f * density).toInt()
+        val chartPaddingEstimatePx = (40f * density).toInt()
+        val legendFallbackHeightPx = (24f * density).toInt()
+
+        scrollView.post {
+            val viewportHeight = scrollView.height
+            if (viewportHeight <= 0) return@post
+
+            val contentPaddingPx = (24f * density).toInt()
+            val interCardGapPx = (12f * density).toInt()
+            val targetSectionHeightPx = (((viewportHeight - contentPaddingPx - interCardGapPx) * 0.5f).toInt())
+                .coerceAtLeast(minSectionHeightPx)
+
+            mapCard.layoutParams = mapCard.layoutParams.apply {
+                height = targetSectionHeightPx
+            }
+
+            val legendHeightPx = legendContainer?.height?.takeIf { it > 0 } ?: legendFallbackHeightPx
+            val targetChartHeightPx = (targetSectionHeightPx - legendHeightPx - chartPaddingEstimatePx)
+                .coerceAtLeast((220f * density).toInt())
+
+            chartFrame.layoutParams = chartFrame.layoutParams.apply {
+                height = targetChartHeightPx
+            }
+
+            chart.layoutParams = chart.layoutParams.apply {
+                height = ViewGroup.LayoutParams.MATCH_PARENT
+            }
+
+            mapCard.requestLayout()
+            chartFrame.requestLayout()
+            chart.requestLayout()
         }
-        val targetHeightPx = (targetHeightDp * activity.resources.displayMetrics.density).toInt()
-        chart.layoutParams = chart.layoutParams.apply {
-            height = targetHeightPx
-        }
-        chart.requestLayout()
     }
 
     fun setupTrackLapNavigation(

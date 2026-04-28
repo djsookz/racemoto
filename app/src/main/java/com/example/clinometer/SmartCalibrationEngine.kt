@@ -1199,8 +1199,4 @@ class SmartCalibrationEngine(
     private fun maxAbs(current: Float, candidate: Float): Float {
         return maxOf(current, abs(candidate))
     }
-
-    fun computeLeanOffsetDegFromGravityComponent(component: Float): Float {
-        return leanOffsetDegFromGravityComponent(component)
-    }
 }

@@ -50,7 +50,7 @@
         <LinearLayout
             android:id="@+id/topTelemetryRow"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="156dp"
             android:layout_marginBottom="8dp"
 
             android:orientation="horizontal">
@@ -58,9 +58,9 @@
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardTopSpeedTelemetry"
                 android:layout_width="0dp"
-                android:layout_height="176dp"
+                android:layout_height="match_parent"
                 android:layout_marginEnd="8dp"
-                android:layout_weight="1.30"
+                android:layout_weight="1.05"
                 app:cardBackgroundColor="@android:color/transparent"
                 app:cardCornerRadius="12dp"
 
@@ -111,7 +111,7 @@
                                     android:includeFontPadding="false"
                                     android:text="0"
                                     android:textColor="@color/text_primary"
-                                    android:textSize="50sp"
+                                    android:textSize="40sp"
                                     android:textStyle="bold" />
 
                                 <TextView
@@ -157,7 +157,7 @@
                                         android:includeFontPadding="false"
                                         android:text="0"
                                         android:textColor="@color/text_primary"
-                                        android:textSize="14sp"
+                                        android:textSize="13sp"
                                         android:textStyle="bold" />
                                 </LinearLayout>
 
@@ -184,7 +184,7 @@
                                         android:includeFontPadding="false"
                                         android:text="0"
                                         android:textColor="@color/text_primary"
-                                        android:textSize="14sp"
+                                        android:textSize="13sp"
                                         android:textStyle="bold" />
                                 </LinearLayout>
                             </LinearLayout>
@@ -212,7 +212,7 @@
                                     android:includeFontPadding="false"
                                     android:text="0"
                                     android:textColor="@color/text_primary"
-                                    android:textSize="72sp"
+                                    android:textSize="54sp"
                                     android:textStyle="bold" />
 
                                 <TextView
@@ -258,7 +258,7 @@
                                         android:includeFontPadding="false"
                                         android:text="0"
                                         android:textColor="@color/text_primary"
-                                        android:textSize="20sp"
+                                        android:textSize="18sp"
                                         android:textStyle="bold" />
                                 </LinearLayout>
 
@@ -285,7 +285,7 @@
                                         android:includeFontPadding="false"
                                         android:text="0"
                                         android:textColor="@color/text_primary"
-                                        android:textSize="20sp"
+                                        android:textSize="18sp"
                                         android:textStyle="bold" />
                                 </LinearLayout>
                             </LinearLayout>
@@ -294,11 +294,320 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <LinearLayout
+                android:id="@+id/lapSummaryRow"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.95"
+                android:orientation="vertical">
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_marginBottom="4dp"
+                    android:layout_weight="1"
+                    app:cardBackgroundColor="@android:color/transparent"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="3dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_track_metric_speed"
+                        android:orientation="vertical"
+                        android:paddingStart="10dp"
+                        android:paddingTop="10dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="10dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:includeFontPadding="false"
+                            android:text="CURRENT"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvSessionCurrentTimerValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:ellipsize="end"
+                            android:fontFamily="monospace"
+                            android:includeFontPadding="false"
+                            android:maxLines="1"
+                            android:text="0:00.000"
+                            android:textColor="@color/primary_color"
+                            android:textSize="16dp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="4dp"
+                    android:layout_weight="1"
+                    app:cardBackgroundColor="@android:color/transparent"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="3dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_track_metric_speed"
+                        android:orientation="vertical"
+                        android:paddingStart="10dp"
+                        android:paddingTop="5dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="5dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:includeFontPadding="false"
+                                android:text="BEST LAP"
+                                android:textAllCaps="true"
+                                android:textColor="@color/text_tertiary"
+                                android:textSize="8sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvSessionBestLapMarker"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:includeFontPadding="false"
+                                android:text="L -"
+                                android:textAllCaps="true"
+                                android:textColor="@color/text_tertiary"
+                                android:textSize="8sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvSessionBestLapValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:ellipsize="end"
+                            android:fontFamily="monospace"
+                            android:includeFontPadding="false"
+                            android:maxLines="1"
+                            android:text="--:--.---"
+                            android:textColor="#B28CFF"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_marginTop="0dp"
+                    android:layout_weight="1"
+                    app:cardBackgroundColor="@android:color/transparent"
+                    app:cardCornerRadius="10dp"
+                    app:cardElevation="3dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_track_metric_speed"
+                        android:orientation="vertical"
+                        android:paddingStart="10dp"
+                        android:paddingTop="5dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="5dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:includeFontPadding="false"
+                            android:text="LAST LAP"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvSessionLastLapValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:ellipsize="end"
+                            android:fontFamily="monospace"
+                            android:includeFontPadding="false"
+                            android:maxLines="1"
+                            android:text="--:--.---"
+                            android:textColor="#26E8A4"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/secondaryTelemetryRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:orientation="horizontal">
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/cardPredictiveLap"
+                android:layout_width="0dp"
+                android:layout_height="126dp"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1.12"
+                app:cardBackgroundColor="@android:color/transparent"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <RelativeLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_track_metric_speed"
+                    android:paddingStart="14dp"
+                    android:paddingTop="8dp"
+                    android:gravity="center"
+                    android:paddingEnd="14dp"
+                    android:paddingBottom="8dp">
+
+                    <View
+                        android:id="@+id/viewPredictiveAccent"
+                        android:layout_width="3dp"
+                        android:layout_height="76dp"
+                        android:layout_alignParentStart="true"
+                        android:layout_centerVertical="true"
+                        android:background="@color/primary_color" />
+
+                    <LinearLayout
+                        android:id="@+id/llPredictiveLeft"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentStart="true"
+                        android:layout_toStartOf="@id/llPredictiveRight"
+                        android:layout_toEndOf="@id/viewPredictiveAccent"
+                        android:layout_marginStart="10dp"
+                        android:layout_marginEnd="12dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvPredictiveGapHeader"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:includeFontPadding="false"
+                            android:text="@string/track_predictive_gap_title"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="8dp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tvPredictiveReference"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:includeFontPadding="false"
+                            android:text="@string/track_predictive_reference_session_placeholder"
+                            android:textColor="@color/primary_color"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPredictiveGapMode"
+                            android:layout_width="wrap_content"
+                            android:layout_height="28dp"
+                            android:layout_marginTop="4dp"
+                            android:minWidth="0dp"
+                            android:minHeight="0dp"
+                            android:paddingStart="8dp"
+                            android:paddingEnd="8dp"
+                            android:text="@string/track_predictive_mode_session"
+                            android:textAllCaps="true"
+                            android:textColor="@android:color/white"
+                            android:textSize="7sp"
+                            android:textStyle="bold"
+                            app:backgroundTint="@color/primary_color"
+                            app:cornerRadius="8dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/llPredictiveRight"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_alignParentEnd="true"
+                        android:layout_centerVertical="true"
+                        android:gravity="end"
+                        android:orientation="vertical">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="1dp"
+                            android:gravity="bottom"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tvPredictiveGapSignValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="4dp"
+                                android:includeFontPadding="false"
+                                android:text="+"
+                                android:textColor="#00E985"
+                                android:textSize="18sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvPredictiveGapValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:includeFontPadding="false"
+                                android:text="0.0"
+                                android:textColor="#00E985"
+                                android:textSize="26sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
+                        <TextView
+                            android:id="@+id/tvPredictiveGapUnit"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="end"
+                            android:includeFontPadding="false"
+                            android:text="@string/track_predictive_gap_unit"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_tertiary"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </RelativeLayout>
+            </androidx.cardview.widget.CardView>
+
             <androidx.cardview.widget.CardView
                 android:id="@+id/cardTopLeanTelemetry"
                 android:layout_width="0dp"
-                android:layout_height="176dp"
-                android:layout_marginStart="8dp"
+                android:layout_height="126dp"
                 android:layout_weight="0.95"
                 app:cardBackgroundColor="@android:color/transparent"
                 app:cardCornerRadius="12dp"
@@ -309,7 +618,10 @@
                     android:layout_height="match_parent"
                     android:background="@drawable/bg_track_metric_speed"
                     android:orientation="vertical"
-                    android:padding="14dp">
+                    android:paddingStart="10dp"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="4dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -325,21 +637,21 @@
                             android:text="LEAN"
                             android:textAllCaps="true"
                             android:textColor="@color/text_tertiary"
-                            android:textSize="11sp"
+                            android:textSize="10sp"
                             android:textStyle="bold" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/btnTopLeanZero"
                             android:layout_width="wrap_content"
-                            android:layout_height="30dp"
+                            android:layout_height="28dp"
                             android:minWidth="0dp"
                             android:minHeight="0dp"
-                            android:paddingStart="10dp"
-                            android:paddingEnd="10dp"
+                            android:paddingStart="8dp"
+                            android:paddingEnd="8dp"
                             android:text="@string/zero_button"
                             android:textAllCaps="true"
                             android:textColor="@android:color/white"
-                            android:textSize="8sp"
+                            android:textSize="7dp"
                             android:textStyle="bold"
                             app:backgroundTint="@color/primary_color"
                             app:cornerRadius="8dp" />
@@ -348,7 +660,7 @@
                     <com.example.clinometer.LeanVisualizerView
                         android:id="@+id/leanVisualizer"
                         android:layout_width="match_parent"
-                        android:layout_height="58dp"
+                        android:layout_height="48dp"
                         android:layout_marginTop="0dp" />
 
                     <TextView
@@ -356,11 +668,11 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_horizontal"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="4dp"
                         android:includeFontPadding="false"
                         android:text="0°"
                         android:textColor="#FFFFFF"
-                        android:textSize="36sp"
+                        android:textSize="18dp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -368,153 +680,18 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center_horizontal"
+                        android:layout_marginTop="1dp"
                         android:includeFontPadding="false"
-                        android:layout_marginTop="0dp"
                         android:text=""
                         android:textAllCaps="true"
                         android:textColor="@color/accent_color"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
+                        android:textSize="9sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
         </LinearLayout>
-
-        <androidx.cardview.widget.CardView
-            android:id="@+id/cardPredictiveLap"
-            android:layout_width="match_parent"
-            android:layout_height="100dp"
-            android:layout_marginBottom="8dp"
-            app:cardBackgroundColor="@android:color/transparent"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp">
-
-            <RelativeLayout
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="@drawable/bg_track_metric_speed"
-                android:paddingStart="14dp"
-                android:paddingTop="8dp"
-                android:paddingEnd="14dp"
-                android:paddingBottom="8dp">
-
-                <View
-                    android:id="@+id/viewPredictiveAccent"
-                    android:layout_width="3dp"
-                    android:layout_height="76dp"
-                    android:layout_alignParentStart="true"
-                    android:layout_centerVertical="true"
-                    android:background="@color/primary_color" />
-
-                <LinearLayout
-                    android:id="@+id/llPredictiveLeft"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentStart="true"
-                    android:layout_toStartOf="@id/llPredictiveRight"
-                    android:layout_toEndOf="@id/viewPredictiveAccent"
-                    android:layout_marginStart="10dp"
-                    android:layout_marginEnd="12dp"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/tvPredictiveGapHeader"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:includeFontPadding="false"
-                        android:text="@string/track_predictive_gap_title"
-                        android:textAllCaps="true"
-                        android:textColor="@color/text_tertiary"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tvPredictiveReference"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:includeFontPadding="false"
-                        android:text="@string/track_predictive_reference_session_placeholder"
-                        android:textColor="@color/primary_color"
-                        android:textSize="17sp"
-                        android:textStyle="bold" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnPredictiveGapMode"
-                        android:layout_width="wrap_content"
-                        android:layout_height="30dp"
-                        android:layout_marginTop="6dp"
-                        android:minWidth="0dp"
-                        android:minHeight="0dp"
-                        android:paddingStart="8dp"
-                        android:paddingEnd="8dp"
-                        android:text="@string/track_predictive_mode_session"
-                        android:textAllCaps="true"
-                        android:textColor="@android:color/white"
-                        android:textSize="8sp"
-                        android:textStyle="bold"
-                        app:backgroundTint="@color/primary_color"
-                        app:cornerRadius="8dp" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/llPredictiveRight"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentEnd="true"
-                    android:layout_centerVertical="true"
-                    android:gravity="end"
-                    android:orientation="vertical">
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="1dp"
-                        android:gravity="bottom"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:id="@+id/tvPredictiveGapSignValue"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginEnd="4dp"
-                            android:includeFontPadding="false"
-                            android:text="+"
-                            android:textColor="#00E985"
-                            android:textSize="20sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tvPredictiveGapValue"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:includeFontPadding="false"
-                            android:text="0.0"
-                            android:textColor="#00E985"
-                            android:textSize="30sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/tvPredictiveGapUnit"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="end"
-                        android:includeFontPadding="false"
-                        android:text="@string/track_predictive_gap_unit"
-                        android:textAllCaps="true"
-                        android:textColor="@color/text_tertiary"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </RelativeLayout>
-        </androidx.cardview.widget.CardView>
 
         <!-- Central Speed Gauge Card (fixed) -->
         <androidx.cardview.widget.CardView
@@ -536,7 +713,7 @@
                     android:id="@+id/speedGauge"
                     android:layout_width="match_parent"
                     android:layout_height="156dp"
-                    android:visibility="gone" />
+                     />
 
                 <RelativeLayout
                     android:id="@+id/motoGForceContainer"
@@ -581,7 +758,7 @@
                             android:includeFontPadding="false"
                             android:text="0.0"
                             android:textColor="#F9B028"
-                            android:textSize="22sp"
+                            android:textSize="16dp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -653,7 +830,7 @@
                                         android:includeFontPadding="false"
                                         android:text="0.0"
                                         android:textColor="#EB3E23"
-                                        android:textSize="36sp"
+                                        android:textSize="26dp"
                                         android:textStyle="bold" />
 
                                     <TextView
@@ -700,7 +877,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="0.0g"
                                     android:textColor="#EB3E23"
-                                    android:textSize="14sp"
+                                    android:textSize="12dp"
                                     android:textStyle="bold" />
                             </LinearLayout>
                         </LinearLayout>
@@ -828,7 +1005,7 @@
                                         android:includeFontPadding="false"
                                         android:text="0.0"
                                         android:textColor="#00E985"
-                                        android:textSize="36sp"
+                                        android:textSize="26dp"
                                         android:textStyle="bold" />
 
                                     <TextView
@@ -875,7 +1052,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="0.0g"
                                     android:textColor="#00E985"
-                                    android:textSize="14sp"
+                                    android:textSize="12dp"
                                     android:textStyle="bold" />
                             </LinearLayout>
                         </LinearLayout>
@@ -1310,170 +1487,129 @@
             android:id="@+id/telemetryGapSpacer"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1" />
+            android:layout_weight="0" />
 
-        <LinearLayout
-            android:id="@+id/lapSummaryRow"
+        <androidx.cardview.widget.CardView
+            android:id="@+id/cardCameraPreview"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:orientation="horizontal">
+            android:layout_height="0dp"
+            android:layout_marginTop="6dp"
+            android:layout_marginBottom="4dp"
+            android:layout_weight="1"
+            android:minHeight="128dp"
+            app:cardBackgroundColor="@android:color/transparent"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="4dp">
 
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="70dp"
-                android:layout_marginEnd="4dp"
-                android:layout_weight="1"
-                app:cardBackgroundColor="@android:color/transparent"
-                app:cardCornerRadius="10dp"
-                app:cardElevation="3dp">
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_track_metric_speed">
 
-                <LinearLayout
+                <androidx.camera.view.PreviewView
+                    android:id="@+id/cameraPreviewView"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:background="@drawable/bg_track_metric_speed"
-                    android:orientation="vertical"
-                    android:paddingStart="10dp"
-                    android:paddingTop="7dp"
-                    android:paddingEnd="10dp"
-                    android:paddingBottom="7dp">
+                    app:implementationMode="performance"
+                    app:scaleType="fillCenter" />
+
+                <LinearLayout
+                    android:id="@+id/llCameraPreviewHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top"
+                    android:background="#660F1115"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="8dp">
 
                     <TextView
-                        android:layout_width="wrap_content"
+                        android:id="@+id/tvCameraPreviewTitle"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:includeFontPadding="false"
-                        android:text="CURRENT"
+                        android:layout_weight="1"
+                        android:text="@string/track_camera_preview_title"
                         android:textAllCaps="true"
-                        android:textColor="@color/text_tertiary"
-                        android:textSize="9sp"
+                        android:textColor="#FFFFFF"
+                        android:textSize="11sp"
                         android:textStyle="bold" />
 
                     <TextView
-                        android:id="@+id/tvSessionCurrentTimerValue"
+                        android:id="@+id/tvCameraPreviewStatus"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:ellipsize="end"
-                        android:fontFamily="monospace"
-                        android:includeFontPadding="false"
-                        android:maxLines="1"
-                        android:text="0:00.000"
+                        android:layout_marginEnd="8dp"
+                        android:text="@string/track_camera_preview_status_ready"
+                        android:textAllCaps="true"
                         android:textColor="@color/primary_color"
-                        android:textSize="17sp"
+                        android:textSize="10sp"
                         android:textStyle="bold" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
 
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="70dp"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:layout_weight="1"
-                app:cardBackgroundColor="@android:color/transparent"
-                app:cardCornerRadius="10dp"
-                app:cardElevation="3dp">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCameraModeInline"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:contentDescription="@string/track_camera_button"
+                        android:text=""
+                        app:backgroundTint="#331C2128"
+                        app:cornerRadius="18dp"
+                        app:icon="@drawable/ic_camera"
+                        app:iconGravity="textStart"
+                        app:iconPadding="0dp"
+                        app:iconTint="#FFFFFF" />
+                </LinearLayout>
 
                 <LinearLayout
+                    android:id="@+id/llCameraPreviewPlaceholder"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:background="@drawable/bg_track_metric_speed"
+                    android:background="#22000000"
+                    android:gravity="center"
                     android:orientation="vertical"
-                    android:paddingStart="10dp"
-                    android:paddingTop="7dp"
-                    android:paddingEnd="10dp"
-                    android:paddingBottom="7dp">
+                    android:padding="18dp">
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:includeFontPadding="false"
-                            android:text="BEST LAP"
-                            android:textAllCaps="true"
-                            android:textColor="@color/text_tertiary"
-                            android:textSize="9sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tvSessionBestLapMarker"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:includeFontPadding="false"
-                            android:text="L -"
-                            android:textAllCaps="true"
-                            android:textColor="@color/text_tertiary"
-                            android:textSize="9sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/tvSessionBestLapValue"
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCameraMode"
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:ellipsize="end"
-                        android:fontFamily="monospace"
-                        android:includeFontPadding="false"
-                        android:maxLines="1"
-                        android:text="--:--.---"
-                        android:textColor="#B28CFF"
-                        android:textSize="15sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
-
-            <androidx.cardview.widget.CardView
-                android:layout_width="0dp"
-                android:layout_height="70dp"
-                android:layout_marginStart="4dp"
-                android:layout_weight="1"
-                app:cardBackgroundColor="@android:color/transparent"
-                app:cardCornerRadius="10dp"
-                app:cardElevation="3dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:background="@drawable/bg_track_metric_speed"
-                    android:orientation="vertical"
-                    android:paddingStart="10dp"
-                    android:paddingTop="7dp"
-                    android:paddingEnd="10dp"
-                    android:paddingBottom="7dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:includeFontPadding="false"
-                        android:text="LAST LAP"
+                        android:layout_height="46dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:text="@string/track_camera_select_button"
                         android:textAllCaps="true"
-                        android:textColor="@color/text_tertiary"
-                        android:textSize="9sp"
-                        android:textStyle="bold" />
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="#FF6020"
+                        app:cornerRadius="18dp"
+                        app:icon="@drawable/ic_camera"
+                        app:iconGravity="textStart"
+                        app:iconPadding="8dp"
+                        app:iconTint="#FFFFFF" />
 
                     <TextView
-                        android:id="@+id/tvSessionLastLapValue"
+                        android:id="@+id/tvCameraPreviewPlaceholder"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:ellipsize="end"
-                        android:fontFamily="monospace"
-                        android:includeFontPadding="false"
-                        android:maxLines="1"
-                        android:text="--:--.---"
-                        android:textColor="#26E8A4"
-                        android:textSize="15sp"
+                        android:layout_marginTop="10dp"
+                        android:gravity="center"
+                        android:text="@string/track_camera_placeholder_hint"
+                        android:textColor="#DDE6F2"
+                        android:textSize="13sp"
                         android:textStyle="bold" />
                 </LinearLayout>
-            </androidx.cardview.widget.CardView>
-        </LinearLayout>
+
+            </FrameLayout>
+
+        </androidx.cardview.widget.CardView>
 
     </LinearLayout>
 
@@ -1485,9 +1621,9 @@
         android:layout_alignParentBottom="true"
         android:orientation="horizontal"
         android:paddingStart="16dp"
-        android:paddingTop="12dp"
+        android:paddingTop="4dp"
         android:paddingEnd="16dp"
-        android:paddingBottom="12dp"
+        android:paddingBottom="4dp"
         android:background="@color/background_primary"
         android:elevation="8dp">
 

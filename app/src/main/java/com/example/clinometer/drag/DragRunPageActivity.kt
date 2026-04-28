@@ -140,6 +140,7 @@ class DragRunPageActivity : BaseActivity() {
 
     private var currentSession: DragSession? = null
     private var currentAttempt: DragAttempt? = null
+    private val pendingAllModePartialAttempts = mutableListOf<DragAttempt>()
     private var profileId: Long = -1L
     private var temperature: Float? = null
     private var altitude: Float? = null
@@ -177,7 +178,7 @@ class DragRunPageActivity : BaseActivity() {
     private var finishTimeNano: Long = -1L
     private val TARGET_METERS = 402.336f
     private val GPS_READY_ACCURACY_METERS = 30f
-    private val FULL_STOP_REARM_SPEED_KMH = 80f // Re-arm only after near full stop
+    private val FULL_STOP_REARM_SPEED_KMH = 3f // Re-arm only after near full stop
     private val DECELERATION_DELTA_KMH = -5f
     private val DECELERATION_MAX_SPEED_KMH = 80f
     private val ROLLING_START_MIN_KMH = 95f
@@ -187,6 +188,8 @@ class DragRunPageActivity : BaseActivity() {
     private var measurementComplete = false
     private var accumulatedDistance = 0f
     private var lastLocationForDistance: Location? = null
+    private var lastQuarterDistanceElapsedNanos: Long = -1L
+    private var lastQuarterSpeedKmh: Float = -1f
 
     private var sessionBest0to100: Long = -1L
     private var sessionBest0to200: Long = -1L
@@ -260,7 +263,6 @@ class DragRunPageActivity : BaseActivity() {
     private var measurementStarted = false
     private var isStatusPulseActive = false
     private var statusPulseAnimator: AnimatorSet? = null
-    private val RESTART_COOLDOWN_MS = 5000L
     private var restartCooldownActive = false
     private var restartCooldownEndTime = 0L
     private val restartCooldownHandler = Handler(Looper.getMainLooper())
@@ -737,6 +739,8 @@ class DragRunPageActivity : BaseActivity() {
         val allSessions = DragStorage.loadDragSessions(this)
             .filter { it.profileId == profileId }
 
+        pendingAllModePartialAttempts.clear()
+
         val sessionNumber = allSessions.mapNotNull { session ->
             val match = Regex("Drag Session (\\d+)").find(session.name ?: "")
             match?.groupValues?.get(1)?.toIntOrNull()
@@ -831,124 +835,185 @@ class DragRunPageActivity : BaseActivity() {
         gpsAccelTimeStamps: List<Long>
     ) {
 
+        val updatedAttempt = buildCurrentAttemptSnapshotWithTimestamps(
+            gSamples = gSamples,
+            gTimeStamps = gTimeStamps,
+            gpsAccelSamples = gpsAccelSamples,
+            gpsAccelTimeStamps = gpsAccelTimeStamps
+        ) ?: return
+
+        upsertAttemptInCurrentSession(updatedAttempt)
+        updateSessionBestTimes(updatedAttempt)
+        persistCurrentSessionSnapshot()
+    }
+
+    private fun buildCurrentAttemptSnapshotWithTimestamps(
+        gSamples: List<Float>,
+        gTimeStamps: List<Long>,
+        gpsAccelSamples: List<Float>,
+        gpsAccelTimeStamps: List<Long>
+    ): DragAttempt? {
+
         val speedSamplesRaw = foregroundService?.getRecentSpeedSamples() ?: emptyList()
         val speedTimeStampsRaw = foregroundService?.getRecentSpeedTimeStamps() ?: emptyList()
-        currentAttempt?.let { attempt ->
+        val attempt = currentAttempt ?: return null
 
-            // Изчисли времената базирани на режима
-            val attempt0to100Result = when (measurementMode) {
-                MeasurementMode.ZERO_TO_100, MeasurementMode.ZERO_TO_200, MeasurementMode.ALL ->
-                    if (attempt0to100Nanos > 0) attempt0to100Nanos else -1L
-                else -> -1L
-            }
-
-            val attempt0to200Result = when (measurementMode) {
-                MeasurementMode.ZERO_TO_200, MeasurementMode.ALL ->
-                    if (attempt0to200Nanos > 0) attempt0to200Nanos else -1L
-                else -> -1L
-            }
-
-            val attempt100to200Result = when (measurementMode) {
-                MeasurementMode.HUNDRED_TO_200 -> {
-                    val result = if (attempt100to200Nanos > 0) attempt100to200Nanos else -1L
-                    result
-                }
-                MeasurementMode.ZERO_TO_200 ->
-                    if (attempt100to200Nanos > 0) attempt100to200Nanos else -1L
-                MeasurementMode.ALL ->
-                    if (attempt100to200Nanos > 0) attempt100to200Nanos else -1L
-                else -> -1L
-            }
-
-            val attempt0to402Result = when (measurementMode) {
-                MeasurementMode.QUARTER_MILE, MeasurementMode.ALL ->
-                    if (measured0to402 && attempt0to402Nanos > 0) {
-                        attempt0to402Nanos
-                    } else -1L
-                else -> -1L
-            }
-
-            val (windowStartNs, windowEndNs, speedCapKmh) = getMeasurementWindowAndSpeedCap(
-                mode = measurementMode,
-                attempt = attempt,
-                attempt0to100Ns = attempt0to100Result,
-                attempt0to200Ns = attempt0to200Result,
-                attempt100to200Ns = attempt100to200Result
-            )
-
-            // RAW данни - без екстраполация, без синтетични точки
-            val (alignedGSamples, alignedGTimes) = if (gSamples.isNotEmpty() && gTimeStamps.isNotEmpty()) {
-                trimTimeSeriesToWindow(gSamples, gTimeStamps, windowStartNs, windowEndNs)
-            } else {
-                emptyList<Float>() to emptyList<Long>()
-            }
-
-            val (alignedGpsAccelSamples, alignedGpsAccelTimes) = if (gpsAccelSamples.isNotEmpty() && gpsAccelTimeStamps.isNotEmpty()) {
-                trimTimeSeriesToWindow(gpsAccelSamples, gpsAccelTimeStamps, windowStartNs, windowEndNs)
-            } else {
-                emptyList<Float>() to emptyList<Long>()
-            }
-
-            val (trimmedSpeedSamplesRaw, trimmedSpeedTimes) = if (speedSamplesRaw.isNotEmpty() && speedTimeStampsRaw.isNotEmpty()) {
-                trimTimeSeriesToWindow(speedSamplesRaw, speedTimeStampsRaw, windowStartNs, windowEndNs)
-            } else {
-                emptyList<Float>() to emptyList<Long>()
-            }
-
-            val cappedSpeedSamples = if (speedCapKmh != null) {
-                trimmedSpeedSamplesRaw.map { sample -> sample.coerceAtMost(speedCapKmh) }
-            } else {
-                trimmedSpeedSamplesRaw
-            }
-
-            val (adjustedSpeedSamples, adjustedSpeedTimes) = ensureSpeedSeriesCoversMeasurementEnd(
-                speedSamples = cappedSpeedSamples,
-                speedTimes = trimmedSpeedTimes,
-                windowEndNs = windowEndNs,
-                targetSpeedKmh = speedCapKmh
-            )
-
-            val computedMaxSpeed = adjustedSpeedSamples.maxOrNull()
-                ?: foregroundService?.getMaxSpeed()
-                ?: 0f
-
-            // Продължителност = максималното от измерените времена (нано)
-            val measurementDuration = listOf(
-                attempt0to100Result,
-                attempt0to200Result,
-                attempt100to200Result,
-                attempt0to402Result
-            ).filter { it > 0 }.maxOrNull() ?: 0L
-
-            val updatedAttempt = attempt.copy(
-                time0to100 = attempt0to100Result,
-                time0to200 = attempt0to200Result,
-                time100to200 = attempt100to200Result,
-                time0to402 = attempt0to402Result,
-                maxSpeed = computedMaxSpeed,
-                gSamples = alignedGSamples,
-                gpsAccelSamples = alignedGpsAccelSamples,
-                startTime = attempt.startTime, // Запазваме rolling100StartTime за 100-200 режим
-                timeStamps = alignedGTimes,
-                gpsTimeStamps = alignedGpsAccelTimes,
-                duration = measurementDuration,
-                speedSamples = adjustedSpeedSamples,
-                speedTimeStamps = adjustedSpeedTimes
-            )
-
-            val hasValidMeasurement = updatedAttempt.time0to100 > 0 ||
-                    updatedAttempt.time0to200 > 0 ||
-                    updatedAttempt.time100to200 > 0 ||
-                    updatedAttempt.time0to402 > 0
-
-            if (hasValidMeasurement) {
-                upsertAttemptInCurrentSession(updatedAttempt)
-                updateSessionBestTimes(updatedAttempt)
-                persistCurrentSessionSnapshot()
-
-            } else {
-            }
+        // Изчисли времената базирани на режима
+        val attempt0to100Result = when (measurementMode) {
+            MeasurementMode.ZERO_TO_100, MeasurementMode.ZERO_TO_200, MeasurementMode.ALL ->
+                if (attempt0to100Nanos > 0) attempt0to100Nanos else -1L
+            else -> -1L
         }
+
+        val attempt0to200Result = when (measurementMode) {
+            MeasurementMode.ZERO_TO_200, MeasurementMode.ALL ->
+                if (attempt0to200Nanos > 0) attempt0to200Nanos else -1L
+            else -> -1L
+        }
+
+        val attempt100to200Result = when (measurementMode) {
+            MeasurementMode.HUNDRED_TO_200 -> {
+                val result = if (attempt100to200Nanos > 0) attempt100to200Nanos else -1L
+                result
+            }
+            MeasurementMode.ZERO_TO_200 ->
+                if (attempt100to200Nanos > 0) attempt100to200Nanos else -1L
+            MeasurementMode.ALL ->
+                if (attempt100to200Nanos > 0) attempt100to200Nanos else -1L
+            else -> -1L
+        }
+
+        val attempt0to402Result = when (measurementMode) {
+            MeasurementMode.QUARTER_MILE, MeasurementMode.ALL ->
+                if (measured0to402 && attempt0to402Nanos > 0) {
+                    attempt0to402Nanos
+                } else -1L
+            else -> -1L
+        }
+
+        val (windowStartNs, windowEndNs, speedCapKmh) = getMeasurementWindowAndSpeedCap(
+            mode = measurementMode,
+            attempt = attempt,
+            attempt0to100Ns = attempt0to100Result,
+            attempt0to200Ns = attempt0to200Result,
+            attempt100to200Ns = attempt100to200Result
+        )
+
+        // RAW данни - без екстраполация, без синтетични точки
+        val (alignedGSamples, alignedGTimes) = if (gSamples.isNotEmpty() && gTimeStamps.isNotEmpty()) {
+            trimTimeSeriesToWindow(gSamples, gTimeStamps, windowStartNs, windowEndNs)
+        } else {
+            emptyList<Float>() to emptyList<Long>()
+        }
+
+        val (alignedGpsAccelSamples, alignedGpsAccelTimes) = if (gpsAccelSamples.isNotEmpty() && gpsAccelTimeStamps.isNotEmpty()) {
+            trimTimeSeriesToWindow(gpsAccelSamples, gpsAccelTimeStamps, windowStartNs, windowEndNs)
+        } else {
+            emptyList<Float>() to emptyList<Long>()
+        }
+
+        val (trimmedSpeedSamplesRaw, trimmedSpeedTimes) = if (speedSamplesRaw.isNotEmpty() && speedTimeStampsRaw.isNotEmpty()) {
+            trimTimeSeriesToWindow(speedSamplesRaw, speedTimeStampsRaw, windowStartNs, windowEndNs)
+        } else {
+            emptyList<Float>() to emptyList<Long>()
+        }
+
+        val cappedSpeedSamples = if (speedCapKmh != null) {
+            trimmedSpeedSamplesRaw.map { sample -> sample.coerceAtMost(speedCapKmh) }
+        } else {
+            trimmedSpeedSamplesRaw
+        }
+
+        val (adjustedSpeedSamples, adjustedSpeedTimes) = ensureSpeedSeriesCoversMeasurementEnd(
+            speedSamples = cappedSpeedSamples,
+            speedTimes = trimmedSpeedTimes,
+            windowEndNs = windowEndNs,
+            targetSpeedKmh = speedCapKmh
+        )
+
+        val computedMaxSpeed = adjustedSpeedSamples.maxOrNull()
+            ?: foregroundService?.getMaxSpeed()
+            ?: 0f
+
+        // Продължителност = максималното от измерените времена (нано)
+        val measurementDuration = listOf(
+            attempt0to100Result,
+            attempt0to200Result,
+            attempt100to200Result,
+            attempt0to402Result
+        ).filter { it > 0 }.maxOrNull() ?: 0L
+
+        val updatedAttempt = attempt.copy(
+            time0to100 = attempt0to100Result,
+            time0to200 = attempt0to200Result,
+            time100to200 = attempt100to200Result,
+            time0to402 = attempt0to402Result,
+            maxSpeed = computedMaxSpeed,
+            gSamples = alignedGSamples,
+            gpsAccelSamples = alignedGpsAccelSamples,
+            startTime = attempt.startTime,
+            timeStamps = alignedGTimes,
+            gpsTimeStamps = alignedGpsAccelTimes,
+            duration = measurementDuration,
+            speedSamples = adjustedSpeedSamples,
+            speedTimeStamps = adjustedSpeedTimes,
+            distance50mTimeNs = sector50TimeNanos.takeIf { it > 0L } ?: -1L,
+            distance100mTimeNs = sector100TimeNanos.takeIf { it > 0L } ?: -1L,
+            distance200mTimeNs = sector200TimeNanos.takeIf { it > 0L } ?: -1L,
+            distance300mTimeNs = sector300TimeNanos.takeIf { it > 0L } ?: -1L,
+            distance402mTimeNs = when {
+                attempt0to402Result > 0L -> attempt0to402Result
+                sector402TimeNanos > 0L -> sector402TimeNanos
+                else -> -1L
+            },
+            distance50mSpeedKmh = if (sector50SpeedKmh >= 0f) sector50SpeedKmh else -1f,
+            distance100mSpeedKmh = if (sector100SpeedKmh >= 0f) sector100SpeedKmh else -1f,
+            distance200mSpeedKmh = if (sector200SpeedKmh >= 0f) sector200SpeedKmh else -1f,
+            distance300mSpeedKmh = if (sector300SpeedKmh >= 0f) sector300SpeedKmh else -1f,
+            distance402mSpeedKmh = if (sector402SpeedKmh >= 0f) sector402SpeedKmh else -1f
+        )
+
+        val hasValidMeasurement = updatedAttempt.time0to100 > 0 ||
+            updatedAttempt.time0to200 > 0 ||
+            updatedAttempt.time100to200 > 0 ||
+            updatedAttempt.time0to402 > 0
+
+        return updatedAttempt.takeIf { hasValidMeasurement }
+    }
+
+    private fun stashCurrentAllModePartialAttemptIfNeeded() {
+        if (measurementMode != MeasurementMode.ALL || attemptAlreadySaved) return
+
+        val pendingAttempt = buildCurrentAttemptSnapshotWithTimestamps(
+            gSamples = foregroundService?.getRecentGSamples() ?: emptyList(),
+            gTimeStamps = foregroundService?.getRecentGTimeStamps() ?: emptyList(),
+            gpsAccelSamples = foregroundService?.getRecentGpsAccelSamples() ?: emptyList(),
+            gpsAccelTimeStamps = foregroundService?.getRecentGpsAccelTimeStamps() ?: emptyList()
+        ) ?: return
+
+        val hasAllMeasurements = pendingAttempt.time0to100 > 0 &&
+            pendingAttempt.time0to200 > 0 &&
+            pendingAttempt.time100to200 > 0 &&
+            pendingAttempt.time0to402 > 0
+        if (hasAllMeasurements) return
+
+        val existingIndex = pendingAllModePartialAttempts.indexOfFirst { it.id == pendingAttempt.id }
+        if (existingIndex >= 0) {
+            pendingAllModePartialAttempts[existingIndex] = pendingAttempt
+        } else {
+            pendingAllModePartialAttempts.add(pendingAttempt)
+        }
+    }
+
+    private fun mergePendingAllModePartialAttemptsIntoCurrentSession() {
+        if (pendingAllModePartialAttempts.isEmpty()) return
+
+        pendingAllModePartialAttempts.forEach { attempt ->
+            upsertAttemptInCurrentSession(attempt)
+            updateSessionBestTimes(attempt)
+        }
+        currentSession?.attempts?.sortBy { it.timestamp }
+        pendingAllModePartialAttempts.clear()
     }
 
     private fun upsertAttemptInCurrentSession(updatedAttempt: DragAttempt) {
@@ -1137,11 +1202,6 @@ class DragRunPageActivity : BaseActivity() {
         pbQuarterProgress.progress = progress
     }
 
-    private fun togglePrimaryDisplay() {
-        isShowingGForceInsteadOfSpeed = !isShowingGForceInsteadOfSpeed
-        applyPrimaryDisplayState()
-    }
-
     private fun applyPrimaryDisplayState() {
         tvBigSpeed.visibility = View.VISIBLE
         tvSpeedUnit?.visibility = View.VISIBLE
@@ -1221,7 +1281,7 @@ class DragRunPageActivity : BaseActivity() {
         updateAttemptIndicator()
         if (measurementMode == MeasurementMode.ALL) return
 
-        val attemptNum = (currentSession?.attempts?.size ?: 0) + 1
+        val attemptNum = getCurrentAttemptNumber()
         val prefix = getString(R.string.drag_attempt_number, attemptNum)
         tvStatus.text = when (measurementMode) {
             MeasurementMode.HUNDRED_TO_200 -> "$prefix - Accelerate to 95-99 km/h"
@@ -1483,6 +1543,8 @@ class DragRunPageActivity : BaseActivity() {
         sector200SpeedKmh = -1f
         sector300SpeedKmh = -1f
         sector402SpeedKmh = -1f
+        lastQuarterDistanceElapsedNanos = -1L
+        lastQuarterSpeedKmh = -1f
     }
 
     private fun resetQuarterSectorDisplay() {
@@ -1540,29 +1602,58 @@ class DragRunPageActivity : BaseActivity() {
         tvAllModeSector402Speed?.text = formatSpeedForDisplay(sector402SpeedKmh)
     }
 
-    private fun updateQuarterSectorMilestones(measurementStartTimeNano: Long, speedKmh: Float) {
-        if (measurementStartTimeNano <= 0L) return
-        val elapsedNanos = System.nanoTime() - measurementStartTimeNano
+    private fun updateQuarterSectorMilestones(
+        prevDistanceMeters: Float,
+        currentDistanceMeters: Float,
+        segmentStartElapsedNanos: Long,
+        segmentEndElapsedNanos: Long,
+        segmentStartSpeedKmh: Float,
+        segmentEndSpeedKmh: Float
+    ) {
+        if (currentDistanceMeters <= prevDistanceMeters) {
+            updateQuarterSectorDisplay()
+            return
+        }
 
-        if (sector50TimeNanos < 0L && accumulatedDistance >= QUARTER_MILE_SECTOR_50) {
-            sector50TimeNanos = elapsedNanos
-            sector50SpeedKmh = speedKmh
+        fun crossed(targetMeters: Float): Boolean {
+            return prevDistanceMeters < targetMeters && currentDistanceMeters >= targetMeters
         }
-        if (sector100TimeNanos < 0L && accumulatedDistance >= QUARTER_MILE_SECTOR_100) {
-            sector100TimeNanos = elapsedNanos
-            sector100SpeedKmh = speedKmh
+
+        fun crossingRatio(targetMeters: Float): Float {
+            val denom = (currentDistanceMeters - prevDistanceMeters).coerceAtLeast(0.0001f)
+            return ((targetMeters - prevDistanceMeters) / denom).coerceIn(0f, 1f)
         }
-        if (sector200TimeNanos < 0L && accumulatedDistance >= QUARTER_MILE_SECTOR_200) {
-            sector200TimeNanos = elapsedNanos
-            sector200SpeedKmh = speedKmh
+
+        fun crossingElapsedNanos(targetMeters: Float): Long {
+            val ratio = crossingRatio(targetMeters)
+            val span = (segmentEndElapsedNanos - segmentStartElapsedNanos).coerceAtLeast(0L)
+            return segmentStartElapsedNanos + (span * ratio).toLong()
         }
-        if (sector300TimeNanos < 0L && accumulatedDistance >= QUARTER_MILE_SECTOR_300) {
-            sector300TimeNanos = elapsedNanos
-            sector300SpeedKmh = speedKmh
+
+        fun crossingSpeedKmh(targetMeters: Float): Float {
+            val ratio = crossingRatio(targetMeters)
+            return segmentStartSpeedKmh + (segmentEndSpeedKmh - segmentStartSpeedKmh) * ratio
         }
-        if (sector402TimeNanos < 0L && accumulatedDistance >= QUARTER_MILE_SECTOR_402) {
-            sector402TimeNanos = elapsedNanos
-            sector402SpeedKmh = speedKmh
+
+        if (sector50TimeNanos < 0L && crossed(QUARTER_MILE_SECTOR_50)) {
+            sector50TimeNanos = crossingElapsedNanos(QUARTER_MILE_SECTOR_50)
+            sector50SpeedKmh = crossingSpeedKmh(QUARTER_MILE_SECTOR_50)
+        }
+        if (sector100TimeNanos < 0L && crossed(QUARTER_MILE_SECTOR_100)) {
+            sector100TimeNanos = crossingElapsedNanos(QUARTER_MILE_SECTOR_100)
+            sector100SpeedKmh = crossingSpeedKmh(QUARTER_MILE_SECTOR_100)
+        }
+        if (sector200TimeNanos < 0L && crossed(QUARTER_MILE_SECTOR_200)) {
+            sector200TimeNanos = crossingElapsedNanos(QUARTER_MILE_SECTOR_200)
+            sector200SpeedKmh = crossingSpeedKmh(QUARTER_MILE_SECTOR_200)
+        }
+        if (sector300TimeNanos < 0L && crossed(QUARTER_MILE_SECTOR_300)) {
+            sector300TimeNanos = crossingElapsedNanos(QUARTER_MILE_SECTOR_300)
+            sector300SpeedKmh = crossingSpeedKmh(QUARTER_MILE_SECTOR_300)
+        }
+        if (sector402TimeNanos < 0L && crossed(QUARTER_MILE_SECTOR_402)) {
+            sector402TimeNanos = crossingElapsedNanos(QUARTER_MILE_SECTOR_402)
+            sector402SpeedKmh = crossingSpeedKmh(QUARTER_MILE_SECTOR_402)
         }
 
         updateQuarterSectorDisplay()
@@ -1587,7 +1678,7 @@ class DragRunPageActivity : BaseActivity() {
             putExtra("ACTIVATE_NORMAL_MODE", true)
             putExtra("FORCE_GPS_HIGH_FREQUENCY", true)  // Форсираме високочестотен GPS за drag
         }
-        ContextCompat.startForegroundService(this, intent)
+        startService(intent)
 
         if (!serviceBound) {
             bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
@@ -1833,6 +1924,7 @@ class DragRunPageActivity : BaseActivity() {
                             prepareAllModeNextAttemptAfterFullStop()
                         } else {
                             // Прекъснат/неуспешен ALL опит: рестартираме само текущия опит.
+                            stashCurrentAllModePartialAttemptIfNeeded()
                             waitingForFullStop = false
                             decelerationDetected = false
                             isCalibrating = false
@@ -1994,18 +2086,31 @@ class DragRunPageActivity : BaseActivity() {
         if ((measurementMode == MeasurementMode.ALL || measurementMode == MeasurementMode.QUARTER_MILE) && !distanceCompleted) {
             val start = startLocation ?: return
             val measurementStartTime = foregroundService?.getMeasurementStartTimeNano() ?: 0L
+            if (measurementStartTime <= 0L) return
+            val currentElapsedNanos = (System.nanoTime() - measurementStartTime).coerceAtLeast(0L)
             
             // Просто изчисляваме разстоянието от startLocation до текущата позиция - RAW данни
             if (lastLocationForDistance == null) {
                 lastLocationForDistance = start
                 accumulatedDistance = 0f
+                lastQuarterDistanceElapsedNanos = 0L
+                lastQuarterSpeedKmh = speedKmh
             } else {
-                val distanceIncrement = lastLocationForDistance!!.distanceTo(loc)
+                val prevDistance = accumulatedDistance
+                val distanceIncrement = lastLocationForDistance!!.distanceTo(loc).coerceAtLeast(0f)
                 accumulatedDistance += distanceIncrement
+                updateQuarterSectorMilestones(
+                    prevDistanceMeters = prevDistance,
+                    currentDistanceMeters = accumulatedDistance,
+                    segmentStartElapsedNanos = lastQuarterDistanceElapsedNanos.coerceAtLeast(0L),
+                    segmentEndElapsedNanos = currentElapsedNanos,
+                    segmentStartSpeedKmh = lastQuarterSpeedKmh.takeIf { it >= 0f } ?: speedKmh,
+                    segmentEndSpeedKmh = speedKmh
+                )
+                lastQuarterDistanceElapsedNanos = currentElapsedNanos
+                lastQuarterSpeedKmh = speedKmh
                 lastLocationForDistance = loc
             }
-
-            updateQuarterSectorMilestones(measurementStartTime, speedKmh)
             if (measurementMode == MeasurementMode.ALL) {
                 val speedUnit = UnitsManager.getSpeedUnit(this)
                 if (speedUnit == UnitsManager.SpeedUnit.MPH) {
@@ -2021,18 +2126,21 @@ class DragRunPageActivity : BaseActivity() {
             if (accumulatedDistance >= TARGET_METERS) {
                 val currentTime = System.nanoTime()
                 val elapsedNanos = currentTime - measurementStartTime
+                val canonical402Nanos = if (sector402TimeNanos > 0L) sector402TimeNanos else elapsedNanos
                 finishTimeNano = currentTime
 
                 // Запазваме времето за по-късно използване
-                attempt0to402Nanos = elapsedNanos
-                sector402TimeNanos = elapsedNanos
-                sector402SpeedKmh = speedKmh
+                attempt0to402Nanos = canonical402Nanos
+                if (sector402TimeNanos <= 0L) {
+                    sector402TimeNanos = canonical402Nanos
+                    sector402SpeedKmh = speedKmh
+                }
                 updateQuarterSectorDisplay()
 
-                val resultText = formatNanos(elapsedNanos)
+                val resultText = formatNanos(canonical402Nanos)
                 val display = if (measurementMode == MeasurementMode.ALL) {
                     resultText
-                } else if (sessionBest0to402 < 0 || elapsedNanos < sessionBest0to402) {
+                } else if (sessionBest0to402 < 0 || canonical402Nanos < sessionBest0to402) {
                     "🏆 $resultText"
                 } else {
                     resultText
@@ -2067,15 +2175,6 @@ class DragRunPageActivity : BaseActivity() {
                 }
             }
         }
-    }
-
-    private fun startRestartCooldown() {
-        if (restartCooldownActive) return
-        restartCooldownActive = true
-        restartCooldownEndTime = SystemClock.elapsedRealtime() + RESTART_COOLDOWN_MS
-        updateRestartCooldownMessage()
-        restartCooldownHandler.removeCallbacks(restartCooldownRunnable)
-        restartCooldownHandler.postDelayed(restartCooldownRunnable, 200)
     }
 
     private fun updateRestartCooldownMessage() {
@@ -2181,19 +2280,6 @@ class DragRunPageActivity : BaseActivity() {
 
     }
 
-    private fun hasValidMeasurements(): Boolean {
-        return when (measurementMode) {
-            MeasurementMode.ZERO_TO_100 -> attempt0to100Nanos > 0
-            MeasurementMode.ZERO_TO_200 -> attempt0to200Nanos > 0
-            MeasurementMode.HUNDRED_TO_200 -> attempt100to200Nanos > 0
-            MeasurementMode.QUARTER_MILE -> measured0to402
-            MeasurementMode.ALL -> {
-                attempt0to100Nanos > 0 || attempt0to200Nanos > 0 ||
-                        attempt100to200Nanos > 0 || measured0to402
-            }
-        }
-    }
-
     private fun checkAllMeasurementsComplete() {
         
         if (measurementMode == MeasurementMode.ALL &&
@@ -2225,7 +2311,7 @@ class DragRunPageActivity : BaseActivity() {
     }
 
     private fun getCurrentAttemptNumber(): Int {
-        return (currentSession?.attempts?.size ?: 0) + 1
+        return (currentSession?.attempts?.size ?: 0) + pendingAllModePartialAttempts.size + 1
     }
 
     private var lastLoggedSpeed = -1f
@@ -2759,63 +2845,15 @@ class DragRunPageActivity : BaseActivity() {
         val gpsAccelTimeStamps = foregroundService?.getRecentGpsAccelTimeStamps() ?: emptyList()
 
         if (measurementMode == MeasurementMode.ALL) {
-            currentAttempt?.let { attempt ->
-                val speedSamplesRaw = foregroundService?.getRecentSpeedSamples() ?: emptyList()
-                val speedTimeStampsRaw = foregroundService?.getRecentSpeedTimeStamps() ?: emptyList()
-
-                // RAW данни: без синтетични точки, без милисекундни офсети; всичко е в наносекунди
-                val adjustedGSamples = if (gSamples.isNotEmpty() && gTimeStamps.isNotEmpty()) gSamples else emptyList()
-                val adjustedGTimes = if (gSamples.isNotEmpty() && gTimeStamps.isNotEmpty()) gTimeStamps else emptyList()
-
-                val adjustedGpsAccelSamples = if (gpsAccelSamples.isNotEmpty() && gpsAccelTimeStamps.isNotEmpty()) gpsAccelSamples else emptyList()
-                val adjustedGpsAccelTimes = if (gpsAccelSamples.isNotEmpty() && gpsAccelTimeStamps.isNotEmpty()) gpsAccelTimeStamps else emptyList()
-
-                val adjustedSpeedSamples = if (speedSamplesRaw.isNotEmpty() && speedTimeStampsRaw.isNotEmpty()) speedSamplesRaw else emptyList()
-                val adjustedSpeedTimes = if (speedSamplesRaw.isNotEmpty() && speedTimeStampsRaw.isNotEmpty()) speedTimeStampsRaw else emptyList()
-
-                // Продължителност = най-дългото от измерванията (наносекунди)
-                val durationNs = listOf(
-                    if (attempt0to100Nanos > 0) attempt0to100Nanos else -1L,
-                    if (attempt0to200Nanos > 0) attempt0to200Nanos else -1L,
-                    if (attempt100to200Nanos > 0) attempt100to200Nanos else -1L,
-                    if (measured0to402 && finishTimeNano > 0 && startTimeNano > 0) finishTimeNano - startTimeNano else -1L
-                ).filter { it > 0 }.maxOrNull() ?: 0L
-
-                val updatedAttempt = attempt.copy(
-                    time0to100 = if (attempt0to100Nanos > 0) attempt0to100Nanos else -1L,
-                    time0to200 = if (attempt0to200Nanos > 0) attempt0to200Nanos else -1L,
-                    time100to200 = if (attempt100to200Nanos > 0) attempt100to200Nanos else -1L,
-                    time0to402 = if (measured0to402 && attempt0to402Nanos > 0) {
-                        attempt0to402Nanos
-                    } else -1L,
-                    maxSpeed = foregroundService?.getMaxSpeed() ?: 0f,
-                    gSamples = adjustedGSamples,
-                    gpsAccelSamples = adjustedGpsAccelSamples,
-                    startTime = 0L,
-                    timeStamps = adjustedGTimes,
-                    gpsTimeStamps = adjustedGpsAccelTimes,
-                    speedSamples = adjustedSpeedSamples,
-                    speedTimeStamps = adjustedSpeedTimes,
-                    duration = durationNs
-                )
-
-                val hasValidMeasurement = updatedAttempt.time0to100 > 0 ||
-                        updatedAttempt.time0to200 > 0 ||
-                        updatedAttempt.time100to200 > 0 ||
-                        updatedAttempt.time0to402 > 0
-
-                if (hasValidMeasurement) {
-                    val attempts = currentSession?.attempts
-                    if (attempts != null) {
-                        val existingIndex = attempts.indexOfFirst { it.id == updatedAttempt.id }
-                        if (existingIndex >= 0) {
-                            attempts[existingIndex] = updatedAttempt
-                        } else {
-                            attempts.add(updatedAttempt)
-                        }
-                    }
-                    updateSessionBestTimes(updatedAttempt)
-                }
+            mergePendingAllModePartialAttemptsIntoCurrentSession()
+            buildCurrentAttemptSnapshotWithTimestamps(
+                gSamples = gSamples,
+                gTimeStamps = gTimeStamps,
+                gpsAccelSamples = gpsAccelSamples,
+                gpsAccelTimeStamps = gpsAccelTimeStamps
+            )?.let { updatedAttempt ->
+                upsertAttemptInCurrentSession(updatedAttempt)
+                updateSessionBestTimes(updatedAttempt)
             }
         } else {
             if (!attemptAlreadySaved) {

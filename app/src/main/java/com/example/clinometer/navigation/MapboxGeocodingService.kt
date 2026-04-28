@@ -75,7 +75,8 @@ interface MapboxGeocodingService {
         @retrofit2.http.Path("lng") longitude: Double,
         @retrofit2.http.Path("lat") latitude: Double,
         @Query("access_token") accessToken: String,
-        @Query("limit") limit: Int = 1
+        @Query("limit") limit: Int = 1,
+        @Query("types") types: String? = null
     ): Response<GeocodingResponse>
     
     @GET("search/searchbox/v1/category/{category}")

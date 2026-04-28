@@ -814,6 +814,7 @@
         android:layout_marginBottom="140dp"
         android:src="@drawable/ic_report_megaphone"
         android:contentDescription="Докладвай"
+        android:saveEnabled="false"
         app:tint="@color/primary_color"
         android:background="@drawable/fab_stroke"
         android:backgroundTint="#000000"

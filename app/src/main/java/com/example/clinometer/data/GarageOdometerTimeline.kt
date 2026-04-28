@@ -100,30 +100,14 @@ object GarageOdometerTimeline {
         return null
     }
 
-    fun hasReachedTargetAfter(
-        context: Context,
-        profileId: Long,
-        source: GarageOdometerSource,
-        entryId: Long,
-        targetOdometerKm: Long,
-        dateText: String?,
-        fallbackTimestamp: Long
-    ): Boolean {
-        if (profileId == -1L || targetOdometerKm <= 0L) {
-            return false
+    fun latestAddedOdometer(context: Context, profileId: Long): Long? {
+        if (profileId == -1L) {
+            return null
         }
 
-        val currentOrder = EntryOrder(
-            occurredAt = resolveTimelineTimestamp(dateText, fallbackTimestamp),
-            sourcePriority = source.ordinal,
-            entryId = entryId
-        )
-
         return loadTimelineEntries(context, profileId)
-            .asSequence()
-            .filterNot { it.source == source && it.entryId == entryId }
-            .filter { it.order > currentOrder }
-            .any { it.odometerKm >= targetOdometerKm }
+            .maxByOrNull { it.addedOrder }
+            ?.odometerKm
     }
 
     fun firstReachedTargetTimestampAfter(

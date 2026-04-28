@@ -50,7 +50,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:layout_gravity="bottom"
-        android:background="@drawable/bottom_content_background"
+        android:background="@drawable/bg_track_metric_speed"
         android:padding="32dp"
         android:layout_margin="16dp">
 

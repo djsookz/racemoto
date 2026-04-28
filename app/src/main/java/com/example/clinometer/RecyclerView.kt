@@ -27,7 +27,6 @@ class RaceAdapter(
     private val onDeleteClick: (Race) -> Unit,
     private val onRename: (Race, String) -> Unit,
     private val onFavoriteToggle: (Race) -> Unit,
-    private val onMultiDeleteClick: (List<Race>) -> Unit = {},
     private val onLongClick: (Race, Int) -> Unit = { _, _ -> } // position за да знаем коя сесия е
 ) : RecyclerView.Adapter<RaceAdapter.RaceViewHolder>() {
 
@@ -177,11 +176,6 @@ class RaceAdapter(
             races[position].favoriteTimestamp = if (isFavorite) System.currentTimeMillis() else null
             notifyItemChanged(position, "favorite_changed")
         }
-    }
-
-    companion object {
-        private const val MENU_RENAME = 1
-        private const val MENU_DELETE = 2
     }
 
     inner class RaceViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -660,28 +654,6 @@ class RaceAdapter(
         val minutes = (millis / (1000 * 60)) % 60
         val hours = millis / (1000 * 60 * 60)
         return String.format("%02d:%02d:%02d", hours, minutes, seconds)
-    }
-
-    private fun showRenameDialog(holder: RaceViewHolder, race: Race) {
-        val input = EditText(holder.itemView.context).apply {
-            inputType = InputType.TYPE_CLASS_TEXT
-            setText(race.name ?: "")
-            setSelection(text.length)
-        }
-        AlertDialog.Builder(holder.itemView.context)
-            .setTitle(holder.itemView.context.getString(R.string.session_options_rename_popup_header))
-            .setView(input)
-            .setPositiveButton(holder.itemView.context.getString(R.string.session_options_rename_popup_ok)) { _, _ ->
-                val newName = input.text.toString().trim()
-                if (newName.isNotEmpty()) {
-                    race.name = newName
-                    onRename(race, newName)
-                    val pos = holder.bindingAdapterPosition
-                    if (pos != RecyclerView.NO_POSITION) notifyItemChanged(pos)
-                }
-            }
-            .setNegativeButton(holder.itemView.context.getString(R.string.dialog_cancel_button)) { dialog, _ -> dialog.dismiss() }
-            .show()
     }
 }
 

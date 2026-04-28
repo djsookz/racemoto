@@ -5,14 +5,9 @@
     <!-- ============================================ -->
     <!-- These override the portrait values in values/dimens.xml -->
     
-    <!-- Left alignment margin (all top elements align to this) -->
-    <dimen name="hud_left_margin_landscape">16dp</dimen>
-    
     <!-- Maneuver container -->
     <dimen name="hud_maneuver_margin_start_landscape">16dp</dimen>
     <dimen name="hud_maneuver_margin_end_landscape">8dp</dimen>
-    <dimen name="hud_maneuver_margin_top_landscape">16dp</dimen>
-    <dimen name="hud_maneuver_max_width_landscape">200dp</dimen>
     
     <!-- Car stats overlay -->
     <dimen name="hud_car_stats_margin_start_landscape">16dp</dimen>
@@ -45,8 +40,6 @@
     <dimen name="hud_speed_width_landscape">88dp</dimen>
     <dimen name="hud_trip_gap_landscape">24dp</dimen>
     <dimen name="map_controls_margin_top_landscape">90dp</dimen>
-    <!-- When angleLandscapeContainer is GONE (car mode), this margin is used (space from speed to trip progress) -->
-    <dimen name="hud_trip_gap_car_landscape">24dp</dimen>
     <!-- Mapbox camera padding (landscape) -->
     <dimen name="mapbox_overview_padding_top">24dp</dimen>
     <dimen name="mapbox_overview_padding_left">24dp</dimen>

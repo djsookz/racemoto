@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1774871167050,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1776017498724,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -66,5 +66,11 @@\n         <item name=\"android:textAllCaps\">false</item>\r\n         <item name=\"android:textSize\">9sp</item>\r\n         <item name=\"android:fontFamily\">sans-serif-medium</item>\r\n     </style>\r\n+\r\n+    <style name=\"TextAppearance.DragCompareProfileTab\" parent=\"TextAppearance.MaterialComponents.Body2\">\r\n+        <item name=\"android:textAllCaps\">false</item>\r\n+        <item name=\"android:textSize\">12sp</item>\r\n+        <item name=\"android:fontFamily\">sans-serif-medium</item>\r\n+    </style>\r\n </resources>\n\\ No newline at end of file\n"
                 }
             ],
             "date": 1774871167050,

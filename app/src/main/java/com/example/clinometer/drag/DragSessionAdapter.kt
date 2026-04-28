@@ -58,6 +58,9 @@ class DragSessionAdapter(
         val session = sessions[position]
         val mode = resolveSessionMode(session)
 
+        holder.tvAllModeBadge.text = getModeLabel(holder.itemView.context, mode)
+        holder.tvAllModeBadge.visibility = View.VISIBLE
+
         if (mode == SessionMode.ALL) {
             bindAllMode(holder, session, position)
         } else {

@@ -1,21 +1,19 @@
 package com.example.clinometer.reports.ui
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast
 import com.example.clinometer.R
 import com.example.clinometer.reports.data.PoliceReport
 import com.example.clinometer.reports.data.ReportType
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.google.android.material.button.MaterialButton
 
 /**
  * Bottom Sheet диалог за докладване или гласуване за съществуващ доклад
@@ -24,8 +22,6 @@ class ReportBottomSheet : BottomSheetDialogFragment() {
     
     private var mode: Mode = Mode.CREATE
     private var existingReport: PoliceReport? = null
-    private var currentLatitude: Double = 0.0
-    private var currentLongitude: Double = 0.0
     
     private var onReportCreated: ((ReportType) -> Unit)? = null
     private var onVoteSubmitted: ((String, Boolean) -> Unit)? = null
@@ -37,19 +33,14 @@ class ReportBottomSheet : BottomSheetDialogFragment() {
     
     companion object {
         private const val ARG_MODE = "mode"
-        private const val ARG_REPORT_ID = "report_id"
-        private const val ARG_LATITUDE = "latitude"
-        private const val ARG_LONGITUDE = "longitude"
         
         /**
          * Създава Bottom Sheet за нов доклад
          */
-        fun newReportSheet(latitude: Double, longitude: Double): ReportBottomSheet {
+        fun newReportSheet(): ReportBottomSheet {
             return ReportBottomSheet().apply {
                 arguments = Bundle().apply {
                     putString(ARG_MODE, Mode.CREATE.name)
-                    putDouble(ARG_LATITUDE, latitude)
-                    putDouble(ARG_LONGITUDE, longitude)
                 }
             }
         }
@@ -61,7 +52,6 @@ class ReportBottomSheet : BottomSheetDialogFragment() {
             return ReportBottomSheet().apply {
                 arguments = Bundle().apply {
                     putString(ARG_MODE, Mode.VOTE.name)
-                    putString(ARG_REPORT_ID, report.id)
                 }
                 existingReport = report
             }
@@ -73,8 +63,6 @@ class ReportBottomSheet : BottomSheetDialogFragment() {
         
         arguments?.let { args ->
             mode = Mode.valueOf(args.getString(ARG_MODE, Mode.CREATE.name))
-            currentLatitude = args.getDouble(ARG_LATITUDE, 0.0)
-            currentLongitude = args.getDouble(ARG_LONGITUDE, 0.0)
         }
     }
     
@@ -83,104 +71,121 @@ class ReportBottomSheet : BottomSheetDialogFragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        // Създаваме UI програмно (или можеш да създадеш layout XML)
-        val rootView = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(40, 40, 40, 40)
-        }
+        val rootView = inflater.inflate(R.layout.sheet_report_bottom, container, false)
+        val titleView = rootView.findViewById<TextView>(R.id.tvReportSheetTitle)
+        val subtitleView = rootView.findViewById<TextView>(R.id.tvReportSheetSubtitle)
+        val actionsContainer = rootView.findViewById<LinearLayout>(R.id.llReportSheetActions)
+        val cancelButton = rootView.findViewById<MaterialButton>(R.id.btnReportSheetCancel)
         
         when (mode) {
-            Mode.CREATE -> setupCreateUI(rootView)
-            Mode.VOTE -> setupVoteUI(rootView)
+            Mode.CREATE -> setupCreateUI(titleView, subtitleView, actionsContainer)
+            Mode.VOTE -> setupVoteUI(titleView, subtitleView, actionsContainer)
         }
+
+        cancelButton.setOnClickListener { dismiss() }
         
         return rootView
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        val dialog = dialog as? BottomSheetDialog ?: return
+        val bottomSheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet) ?: return
+        val behavior = BottomSheetBehavior.from(bottomSheet)
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val targetHeight = (resources.displayMetrics.heightPixels * if (isLandscape) 0.92f else 0.78f).toInt()
+
+        bottomSheet.layoutParams = bottomSheet.layoutParams.apply {
+            height = targetHeight
+        }
+
+        behavior.skipCollapsed = true
+        behavior.isFitToContents = true
+        behavior.state = BottomSheetBehavior.STATE_EXPANDED
     }
     
     /**
      * UI за създаване на нов доклад
      */
-    private fun setupCreateUI(container: LinearLayout) {
-        val title = TextView(requireContext()).apply {
-            text = "Докладвай на картата"
-            textSize = 20f
-            setPadding(0, 0, 0, 30)
-        }
-        container.addView(title)
+    private fun setupCreateUI(
+        titleView: TextView,
+        subtitleView: TextView,
+        actionsContainer: LinearLayout
+    ) {
+        titleView.text = "Докладвай на картата"
+        subtitleView.text = "Избери какво искаш да докладваш"
+        subtitleView.visibility = View.VISIBLE
+        actionsContainer.removeAllViews()
         
-        // Бутони за всеки тип доклад
         ReportType.entries.forEach { type ->
-            val button = Button(requireContext()).apply {
+            val button = createSheetActionButton("${type.icon} ${type.displayName}").apply {
                 text = "${type.icon} ${type.displayName}"
                 setOnClickListener {
                     onReportTypeSelected(type)
                 }
             }
-            container.addView(button)
+            actionsContainer.addView(button)
         }
-        
-        // Cancel бутон
-        val cancelButton = Button(requireContext()).apply {
-            text = "Отказ"
-            setOnClickListener {
-                dismiss()
-            }
-        }
-        container.addView(cancelButton)
     }
     
     /**
      * UI за гласуване за съществуващ доклад
      */
-    private fun setupVoteUI(container: LinearLayout) {
+    private fun setupVoteUI(
+        titleView: TextView,
+        subtitleView: TextView,
+        actionsContainer: LinearLayout
+    ) {
         val report = existingReport ?: run {
             dismiss()
             return
         }
         
         val reportType = ReportType.fromString(report.type) ?: ReportType.POLICE
-        
-        val title = TextView(requireContext()).apply {
-            text = "${reportType.icon} ${reportType.displayName}"
-            textSize = 20f
-            setPadding(0, 0, 0, 20)
-        }
-        container.addView(title)
-        
-        val scoreText = TextView(requireContext()).apply {
-            text = "Потвърждения: ${report.upvotes} | Оспорвания: ${report.downvotes}"
-            setPadding(0, 0, 0, 30)
-        }
-        container.addView(scoreText)
-        
-        // Upvote бутон
-        val upvoteButton = Button(requireContext()).apply {
+
+        titleView.text = "${reportType.icon} ${reportType.displayName}"
+        subtitleView.text = "Потвърждения: ${report.upvotes} | Оспорвания: ${report.downvotes}"
+        subtitleView.visibility = View.VISIBLE
+        actionsContainer.removeAllViews()
+
+        val upvoteButton = createSheetActionButton("👍 Все още е там").apply {
             text = "👍 Все още е там"
             setOnClickListener {
                 onVoteSubmitted?.invoke(report.id, true)
                 dismiss()
             }
         }
-        container.addView(upvoteButton)
+        actionsContainer.addView(upvoteButton)
         
-        // Downvote бутон
-        val downvoteButton = Button(requireContext()).apply {
+        val downvoteButton = createSheetActionButton("👎 Няма го").apply {
             text = "👎 Няма го"
             setOnClickListener {
                 onVoteSubmitted?.invoke(report.id, false)
                 dismiss()
             }
         }
-        container.addView(downvoteButton)
-        
-        // Cancel бутон
-        val cancelButton = Button(requireContext()).apply {
-            text = "Отказ"
-            setOnClickListener {
-                dismiss()
+        actionsContainer.addView(downvoteButton)
+    }
+
+    private fun createSheetActionButton(label: String): MaterialButton {
+        val marginTop = (12 * resources.displayMetrics.density).toInt()
+        return MaterialButton(requireContext()).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).also { params ->
+                params.topMargin = marginTop
             }
+            text = label
+            minHeight = (52 * resources.displayMetrics.density).toInt()
+            insetTop = 0
+            insetBottom = 0
+            cornerRadius = (14 * resources.displayMetrics.density).toInt()
+            setTextColor(resources.getColor(android.R.color.black, null))
+            textSize = 16f
+            setBackgroundColor(0xFFD9D9D9.toInt())
         }
-        container.addView(cancelButton)
     }
     
     /**

@@ -30,12 +30,14 @@ class OptimizationSetupActivity : AppCompatActivity() {
     private var isFirstLaunch: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_optimization_setup)
-
-        // Проверяваме дали е от настройки или първо влизане
         isFromSettings = intent.getBooleanExtra("FROM_SETTINGS", false)
         isFirstLaunch = intent.getBooleanExtra("IS_FIRST_LAUNCH", false)
+        if (!isFromSettings) {
+            setTheme(R.style.Theme_DragMe_OptimizationSetup)
+        }
+
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_optimization_setup)
 
         // Ако е от настройки - показваме ActionBar с back бутон
         if (isFromSettings) {
@@ -60,7 +62,6 @@ class OptimizationSetupActivity : AppCompatActivity() {
             }
 
             btnSkip.setOnClickListener {
-                saveSkipPreference()
                 continueToNextScreen()
             }
         }
@@ -150,15 +151,7 @@ class OptimizationSetupActivity : AppCompatActivity() {
         }
     }
 
-    private fun isPowerSavingModeOff(): Boolean {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-            val isPowerSaveMode = pm.isPowerSaveMode
-            !isPowerSaveMode
-        } else {
-            true
-        }
-    }
+    private fun isPowerSavingModeOff(): Boolean = BatteryOptimizationHelper.isPowerSavingModeOff(this)
 
 
     private fun openAppBatterySettings() {
@@ -199,11 +192,6 @@ class OptimizationSetupActivity : AppCompatActivity() {
                 android.widget.Toast.LENGTH_LONG
             ).show()
         }
-    }
-
-    private fun saveSkipPreference() {
-        val prefs = getSharedPreferences("battery_optimization", Context.MODE_PRIVATE)
-        prefs.edit().putBoolean("dont_ask_again", true).apply()
     }
 
     private fun continueToNextScreen() {

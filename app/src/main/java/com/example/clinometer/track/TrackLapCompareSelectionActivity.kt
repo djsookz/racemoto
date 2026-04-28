@@ -23,8 +23,7 @@ class TrackLapCompareSelectionActivity : AppCompatActivity() {
         val sessionId: String,
         val outingNumber: Int,
         val lapNumber: Int,
-        val lapTimeText: String,
-        val lapTimeMs: Long
+        val lapTimeText: String
     )
 
     private data class SessionGroup(
@@ -129,8 +128,7 @@ class TrackLapCompareSelectionActivity : AppCompatActivity() {
                             sessionId = sessionId,
                             outingNumber = outing,
                             lapNumber = lap,
-                            lapTimeText = lapTime,
-                            lapTimeMs = parseLapTimeMs(lapTime)
+                            lapTimeText = lapTime
                         )
                     )
                 }
@@ -194,25 +192,6 @@ class TrackLapCompareSelectionActivity : AppCompatActivity() {
     private fun extractProfileIdFromSessionId(sessionId: String): Long? {
         val match = Regex("^(\\d+)_").find(sessionId) ?: return null
         return match.groupValues.getOrNull(1)?.toLongOrNull()
-    }
-
-    private fun parseLapTimeMs(lapTimeText: String): Long {
-        val mainParts = lapTimeText.trim().split(":")
-        if (mainParts.size != 2) return Long.MAX_VALUE
-
-        val minutes = mainParts[0].toLongOrNull() ?: return Long.MAX_VALUE
-        val secParts = mainParts[1].split(".")
-        val seconds = secParts.getOrNull(0)?.toLongOrNull() ?: return Long.MAX_VALUE
-        val fractionRaw = secParts.getOrNull(1).orEmpty()
-
-        val millis = when (fractionRaw.length) {
-            0 -> 0L
-            1 -> (fractionRaw.toLongOrNull() ?: return Long.MAX_VALUE) * 100L
-            2 -> (fractionRaw.toLongOrNull() ?: return Long.MAX_VALUE) * 10L
-            else -> fractionRaw.take(3).toLongOrNull() ?: return Long.MAX_VALUE
-        }
-
-        return minutes * 60_000L + seconds * 1_000L + millis
     }
 
     private fun parseDateTimeToEpoch(date: String, time: String): Long {

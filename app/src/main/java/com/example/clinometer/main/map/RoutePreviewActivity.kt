@@ -180,9 +180,6 @@ class RoutePreviewActivity : AppCompatActivity() {
             true
         }
         
-        // Setup start navigation button (will be set up in setupMotorwayOptions to close options)
-        val btnStartNavigation = findViewById<Button>(R.id.btnStartNavigation)
-        
         // Display destination name
         val tvDestinationName = findViewById<TextView>(R.id.tvDestinationName)
         tvDestinationName.text = destinationName
@@ -456,28 +453,6 @@ class RoutePreviewActivity : AppCompatActivity() {
         }
     }
     
-    private fun hasMotorway(route: DirectionsRoute): Boolean {
-        // Simple check: look for A1, A2, A3, A4, A5, A6, A7 anywhere in step names
-        // Use simple contains check for flexibility
-        for (leg in route.legs) {
-            for (step in leg.steps) {
-                val stepName = step.name ?: ""
-                
-                // Check for A1, A2, A3, A4, A5, A6, A7 (case insensitive)
-                val upperName = stepName.uppercase()
-                if (upperName.contains("A1") || upperName.contains("A2") || upperName.contains("A3") ||
-                    upperName.contains("A4") || upperName.contains("A5") || upperName.contains("A6") ||
-                    upperName.contains("A7")) {
-                    Log.d("RoutePreview", "✓ FOUND MOTORWAY: $stepName")
-                    return true
-                }
-            }
-        }
-        
-        Log.d("RoutePreview", "✗ NO MOTORWAY found")
-        return false
-    }
-    
     private fun selectRoute(index: Int) {
         if (index >= allRoutes.size) return
         
@@ -505,7 +480,6 @@ class RoutePreviewActivity : AppCompatActivity() {
             // All routes use the same orange color - like Google Maps
             val routeColor = "#FF6020"       // App primary color
             val casingColor = "#CC4D1A"      // Darker casing
-            val altDashColor = "#994015"     // Slightly darker for dashed alternative segments
             
             // First pass: Draw ALL routes with same orange color (this makes overlapping parts solid orange)
             for (i in allRoutes.indices) {

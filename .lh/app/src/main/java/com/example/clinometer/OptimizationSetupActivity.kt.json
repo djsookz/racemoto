@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1774786703967,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1776336730870,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -29,15 +29,17 @@\n     private var isFromSettings: Boolean = false\r\n     private var isFirstLaunch: Boolean = false\r\n \r\n     override fun onCreate(savedInstanceState: Bundle?) {\r\n+        isFromSettings = intent.getBooleanExtra(\"FROM_SETTINGS\", false)\r\n+        isFirstLaunch = intent.getBooleanExtra(\"IS_FIRST_LAUNCH\", false)\r\n+        if (!isFromSettings) {\r\n+            setTheme(R.style.Theme_DragMe_OptimizationSetup)\r\n+        }\r\n+\r\n         super.onCreate(savedInstanceState)\r\n         setContentView(R.layout.activity_optimization_setup)\r\n \r\n-        // Проверяваме дали е от настройки или първо влизане\r\n-        isFromSettings = intent.getBooleanExtra(\"FROM_SETTINGS\", false)\r\n-        isFirstLaunch = intent.getBooleanExtra(\"IS_FIRST_LAUNCH\", false)\r\n-\r\n         // Ако е от настройки - показваме ActionBar с back бутон\r\n         if (isFromSettings) {\r\n             supportActionBar?.setDisplayHomeAsUpEnabled(true)\r\n             supportActionBar?.setDisplayShowHomeEnabled(true)\r\n@@ -59,9 +61,8 @@\n                 checkAndContinue()\r\n             }\r\n \r\n             btnSkip.setOnClickListener {\r\n-                saveSkipPreference()\r\n                 continueToNextScreen()\r\n             }\r\n         }\r\n \r\n@@ -149,17 +150,9 @@\n             true\r\n         }\r\n     }\r\n \r\n-    private fun isPowerSavingModeOff(): Boolean {\r\n-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {\r\n-            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager\r\n-            val isPowerSaveMode = pm.isPowerSaveMode\r\n-            !isPowerSaveMode\r\n-        } else {\r\n-            true\r\n-        }\r\n-    }\r\n+    private fun isPowerSavingModeOff(): Boolean = BatteryOptimizationHelper.isPowerSavingModeOff(this)\r\n \r\n \r\n     private fun openAppBatterySettings() {\r\n         try {\r\n@@ -200,13 +193,8 @@\n             ).show()\r\n         }\r\n     }\r\n \r\n-    private fun saveSkipPreference() {\r\n-        val prefs = getSharedPreferences(\"battery_optimization\", Context.MODE_PRIVATE)\r\n-        prefs.edit().putBoolean(\"dont_ask_again\", true).apply()\r\n-    }\r\n-\r\n     private fun continueToNextScreen() {\r\n         // Ако е от настройки - просто затваряме activity-то, не продължаваме към Vehicle Selection\r\n         if (isFromSettings) {\r\n             finish()\r\n"
                 }
             ],
             "date": 1774786703967,

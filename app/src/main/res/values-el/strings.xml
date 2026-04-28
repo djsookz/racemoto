@@ -1,80 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">DragMe</string>
-    <string name="welcome">Καλώς ήρθατε!</string>
-    <string name="create_profile">Δημιουργήστε το πρώτο σας προφίλ οχήματος για να συνεχίσετε.</string>
-    <string name="vehicle_brand">Μάρκα οχήματος</string>
-    <string name="vehicle_type">Τύπος οχήματος</string>
     <string name="create_profile_button">Δημιουργία προφίλ</string>
-    <string name="vehicle_type_car">Αυτοκίνητο</string>
-    <string name="vehicle_type_motorcycle">Μοτοσικλέτα</string>
-    <string name="error_empty_name">Παρακαλώ εισάγετε μάρκα οχήματος.</string>
     <string name="reset_button">ΕΠΑΝΕΚΚΙΝΗΣΗ</string>
     <string name="stop_button">ΤΕΛΟΣ</string>
-    <string name="start_session">Ξεκινήστε την έξοδό σας τώρα.</string>
     <string name="start_button">ΕΚΚΙΝΗΣΗ</string>
     <string name="zero_button">ΜΗΔΕΝΙΣΜΟΣ</string>
-    <string name="profile_button">ΠΡΟΦΙΛ</string>
-    <string name="session_button">ΕΞΟΔΟΙ</string>
     <string name="dialog_name_profile">Όνομα προφίλ</string>
     <string name="dialog_input_name_profile">Όνομα</string>
     <string name="dialog_vehicle_type">Τύπος</string>
-    <string name="dialog_create_profile">Δημιουργία νέου προφίλ</string>
-    <string name="dialog_save_button">Αποθήκευση</string>
     <string name="dialog_cancel_button">Ακύρωση</string>
     <string name="profile_edit_text">Επεξεργασία προφίλ</string>
     <string name="profile_edit_button">Επεξεργασία</string>
     <string name="profile_save_button">Αποθήκευση</string>
     <string name="profile_delete_button">Διαγραφή</string>
-    <string name="profile_header">Προφίλ</string>
-    <string name="profile_add_button">Προσθήκη νέου προφίλ</string>
     <string name="session_header">ΔΙΑΔΡΟΜΕΣ</string>
     <string name="session_today">Σήμερα</string>
     <string name="session_yesterday">Χθες</string>
-    <string name="session_year">Έτος</string>
-    <string name="session_years">Έτη</string>
-    <string name="session_month">Μήνας</string>
-    <string name="session_months">Μήνες</string>
-    <string name="session_days">Ημέρες</string>
-    <string name="session_name">Έξοδος %1$d</string>
     <string name="session_title">Έξοδος %1$d</string>
-    <string name="session_options_rename">Μετονομασία</string>
     <string name="session_options_rename_popup_header">Μετονομασία εξόδου</string>
     <string name="session_options_rename_popup_ok">OK</string>
     <string name="session_new_button">ΚΑΙΝΟΥΡΓΙΑ ΔΙΑΔΡΟΜΗ</string>
     <string name="new_session_button">ΚΑΙΝΟΥΡΓΙΑ ΔΙΑΔΡΟΜΗ</string>
     <string name="map_information">Πληροφορίες</string>
-    <string name="map_max_left">Μέγ. αριστερή γωνία: 0°</string>
-    <string name="map_max_right">Μέγ. δεξιά γωνία: 0°</string>
-    <string name="map_max_speed">Μέγ. ταχύτητα: 0 km/h</string>
     <string name="max_speed">Μέγ. ταχύτητα:</string>
     <string name="map_duration">Χρόνος: 00:00:00</string>
     
     <!-- Drag mode -->
     <string name="drag_waiting_for_acceleration">Αναμονή για επιτάχυνση...</string>
     <string name="drag_measuring">Μέτρηση...</string>
-    <string name="drag_complete">Ολοκληρώθηκε!</string>
     <string name="drag_attempt_number">Προσπάθεια #%1$d</string>
     <string name="stop_session">ΔΙΑΚΟΠΗ</string>
     
     <!-- Track mode -->
-    <string name="track_session">Έξοδος Πίστας</string>
-    <string name="lap_time">Χρόνος Γύρου</string>
-    <string name="best_lap">Καλύτερος Γύρος</string>
-    
     <!-- Common -->
     <string name="error_permissions_required">Απαιτούνται άδειες για τη βασική λειτουργικότητα!</string>
     <string name="error_missing_session_id">Λείπει το ID της εξόδου</string>
     <string name="current_angle">%1$d°</string>
     <string name="current_speed">%1$d</string>
-    <string name="calibrate">Επαναφορά</string>
-    <string name="race_item_desc">Στοιχείο αγώνα</string>
-    <string name="date_desc">Ημερομηνία Εξόδου</string>
-    <string name="duration_desc">Διάρκεια Εξόδου</string>
-    <string name="points_desc">Σημεία</string>
-    <string name="empty_races_message">Δεν υπάρχουν εγγραφές...</string>
     <string name="dragme">DragMe Pro</string>
-    <string name="options">Επιλογές</string>
     <string name="drag_best_times_header">Καλύτεροι Χρόνοι</string>
     <string name="drag_all_attempts">Όλες οι Προσπάθειες</string>
     <string name="no_attempts_recorded">Δεν υπάρχουν καταγεγραμμένες προσπάθειες</string>
@@ -156,6 +120,7 @@
     <string name="calibration_btn_recalibrate">Επαναφορά</string>
     <string name="calibration_btn_clear">Διαγραφή</string>
     <string name="calibration_btn_clear_all">Διαγραφή όλων των βαθμονομήσεων</string>
+    <string name="calibration_btn_later">Βαθμονόμηση αργότερα</string>
     <string name="calibration_btn_continue">ΣΥΝΕΧΙΣΗ</string>
     <string name="calibration_btn_cancel">ΑΚΥΡΩΣΗ</string>
     <string name="calibration_instructions_title">📋 Οδηγίες</string>
@@ -235,11 +200,9 @@
     <string name="track_session_saved">Έξοδος δημιουργήθηκε: %d γύροι, καλύτερος: %s</string>
     <string name="track_save_error">Σφάλμα αποθήκευσης: %s</string>
     <string name="track_session_deleted">Η έξοδος διαγράφηκε επιτυχώς</string>
-    <string name="track_custom_soon">Η λειτουργία προσαρμοσμένης πίστας θα προστεθεί σύντομα...</string>
     
     <!-- Track Session Detail Labels -->
     <string name="track_session_title">Έξοδος #%d</string>
-    <string name="track_session_info">Πληροφορίες Εξόδου</string>
     <string name="track_label_date">Ημερομηνία:</string>
     <string name="track_label_time">Ώρα:</string>
     <string name="track_label_duration">Διάρκεια:</string>
@@ -267,12 +230,7 @@
     <string name="track_laps_section">Γύροι</string>
     <string name="track_no_sessions">Δεν υπάρχουν συνεδρίες πίστας</string>
     <string name="track_no_sessions_today">Δεν υπάρχουν έξοδοι για σήμερα</string>
-    <string name="track_selection_title">Επιλογή Πίστας</string>
-    <string name="track_selection_serres_desc">Επαγγελματική πίστα για μοτοσικλέτες και αυτοκίνητα με 4 σημεία χρονομέτρησης για ακριβείς μετρήσεις.</string>
     <string name="track_create_custom">Δημιουργία Προσαρμοσμένης Πίστας</string>
-    <string name="track_create_custom_desc">Δημιουργήστε τη δική σας πίστα σημειώνοντας σημεία στον χάρτη για χρονομετρήσεις.</string>
-    <string name="track_name_serres">Πίστα Σερρών</string>
-    <string name="track_name_sofia">Πίστα Σόφιας</string>
     <string name="track_name_custom">Προσαρμοσμένη Πίστα</string>
     <string name="track_name_unknown">Άγνωστη Πίστα</string>
     
@@ -305,6 +263,9 @@
     <string name="settings_general_header">═══ ΓΕΝΙΚΑ ═══</string>
     <string name="settings_drag_header">═══ DRAG ═══</string>
     <string name="settings_drag_calibration">🏁 Βαθμονόμηση</string>
+    <string name="settings_drag_calibration_required">⚠ Αυτό το προφίλ χρειάζεται ακόμη βαθμονόμηση</string>
+    <string name="settings_drag_calibration_not_calibrated">Δεν έχει βαθμονομηθεί</string>
+    <string name="settings_drag_calibration_done">✅ Υπάρχει τουλάχιστον μία βαθμονόμηση</string>
     
     <!-- Garage -->
     <string name="garage_title">Γκαράζ</string>
@@ -330,15 +291,9 @@
     <string name="garage_back_press">Πατήστε ξανά για έξοδο</string>
     
     <!-- Profile Details -->
-    <string name="profile_detail_session_text">Διαδρομές</string>
-    <string name="profile_detail_distance_format">0,0 km</string>
     <string name="profile_detail_distance_text">Συνολική Απόσταση</string>
     <string name="profile_detail_duration_format">%1$dω %2$dλ</string>
     <string name="profile_detail_duration_text">Συνολικός Χρόνος</string>
-    <string name="profile_details_stats">Στατιστικά</string>
-    <string name="seconds">δευτερόλεπτα</string>
-    <string name="quarter_mile">Τέταρτο Μίλι</string>
-    <string name="kmh_unit">km/h</string>
     <string name="drag_0to100_title">0-100 km/h</string>
     <string name="drag_0to200_title">0-200 km/h</string>
     <string name="drag_100to200_title">100-200 km/h</string>
@@ -357,8 +312,6 @@
     <string name="settings_distance_km">χιλιόμετρα</string>
     <string name="settings_temperature_unit">Θερμοκρασία</string>
     <string name="settings_temperature_celsius">Κελσίου</string>
-    <string name="settings_pressure_unit">Πίεση</string>
-    <string name="settings_pressure_hpa">εκτοπασκάλ</string>
     <string name="settings_sound_100">Ήχος στα 100 km/h</string>
     <string name="settings_sound_200">Ήχος στα 200 km/h</string>
     <string name="settings_sound_402">Ήχος στα 402m</string>
@@ -375,8 +328,5 @@
     <string name="unit_meters">μέτρα</string>
     <string name="unit_celsius">Κελσίου</string>
     <string name="unit_fahrenheit">Φαρενάιτ</string>
-    <string name="unit_hpa">εκτοπασκάλ</string>
-    <string name="unit_inhg">ίντσες Hg</string>
-    <string name="unit_mmhg">mm Hg</string>
 </resources>
 

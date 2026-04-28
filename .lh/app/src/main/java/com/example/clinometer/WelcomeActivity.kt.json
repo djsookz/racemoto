@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1774786703925,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1776336730873,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -30,9 +30,9 @@\n         \r\n         // START button → check permissions and navigate\r\n         findViewById<MaterialButton>(R.id.btnStart).setOnClickListener {\r\n             if (checkPermissions()) {\r\n-                navigateToVehicleSelection()\r\n+                checkBatteryOptimization()\r\n             } else {\r\n                 requestPermissions()\r\n             }\r\n         }\r\n@@ -92,9 +92,9 @@\n         }\r\n     }\r\n     \r\n     private fun checkBatteryOptimization() {\r\n-        if (BatteryOptimizationHelper.shouldShowBatteryOptimizationDialog(this)) {\r\n+        if (BatteryOptimizationHelper.shouldShowOptimizationSetup(this)) {\r\n             // Отваряме цяла страница за всички оптимизации\r\n             val intent = Intent(this, OptimizationSetupActivity::class.java).apply {\r\n                 putExtra(\"IS_FIRST_LAUNCH\", true)\r\n             }\r\n"
                 }
             ],
             "date": 1774786703925,

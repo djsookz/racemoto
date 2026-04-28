@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/Profile.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1776466844710,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1776466844710,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer\r\nimport java.io.Serializable\r\n\r\ndata class Profile(\r\n    var id: Long = System.currentTimeMillis(),\r\n    var name: String,\r\n    var vehicleType: VehicleType,\r\n    var best0to100: Long = Long.MAX_VALUE, // Инициализираме с много голяма стойност\r\n    var best0to200: Long = Long.MAX_VALUE,\r\n    var best100to200: Long = Long.MAX_VALUE,\r\n    var maxSpeed: Float = 0f,\r\n    var imagePath: String? = null // Път към снимката на профила\r\n) : Serializable {\r\n    enum class VehicleType { CAR, MOTORCYCLE }\r\n}"
+        }
+    ]
+}

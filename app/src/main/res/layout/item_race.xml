@@ -10,7 +10,6 @@
     android:layout_marginBottom="8dp"
     app:cardCornerRadius="12dp"
     app:cardElevation="4dp"
-    app:cardBackgroundColor="#1C2128"
     android:forceDarkAllowed="false"
     app:cardPreventCornerOverlap="true"
     android:clickable="true"
@@ -20,6 +19,7 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="@drawable/bg_track_metric_speed"
         android:forceDarkAllowed="false">
 
     <!-- Checkbox за режим на избор (скрит по подразбиране) -->

@@ -64,6 +64,8 @@ class CompareAttemptsActivity : AppCompatActivity() {
     private var compareAttempt: DragAttempt? = null
     private var currentSession: DragSession? = null
     private var compareSession: DragSession? = null
+    private var allDragSessions: List<DragSession> = emptyList()
+    private val profileBestAttemptCache = mutableMapOf<Pair<Long, ComparisonMetric>, PersonalBestAttempt?>()
     
     enum class ChartMode {
         SPEED, ACCELERATION, G_FORCE
@@ -72,10 +74,27 @@ class CompareAttemptsActivity : AppCompatActivity() {
     enum class PointType {
         SPEED_100, SPEED_200, DISTANCE_402
     }
-    
+
+    enum class ComparisonMetric {
+        ZERO_TO_100, HUNDRED_TO_200, ZERO_TO_200, QUARTER_MILE
+    }
+
+    private data class PbFlags(
+        val current: Boolean,
+        val compare: Boolean
+    )
+
+    private data class PersonalBestAttempt(
+        val sessionId: Long,
+        val attemptId: Long,
+        val metricTimeNs: Long,
+        val attemptTimestamp: Long,
+        val sessionTimestamp: Long
+    )
+
     private var currentMode = ChartMode.SPEED
     private lateinit var smartMarker: SmartMarker
-    
+
     // Data class за специални точки (използван в snapping логиката)
     private data class SpecialPoint(
         val x: Float,
@@ -88,16 +107,15 @@ class CompareAttemptsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_compare_attempts)
-        
+
         currentSessionId = intent.getLongExtra("current_session_id", -1)
         currentAttemptId = intent.getLongExtra("current_attempt_id", -1)
         compareSessionId = intent.getLongExtra("compare_session_id", -1)
         compareAttemptId = intent.getLongExtra("compare_attempt_id", -1)
-        
+
         setupViews()
-        // loadData() се извиква в setupViews() след настройката на графиката
     }
-    
+
     private fun setupViews() {
         chart = findViewById(R.id.chart)
         tvChartTitle = findViewById(R.id.tvChartTitle)
@@ -107,19 +125,16 @@ class CompareAttemptsActivity : AppCompatActivity() {
         btnGForce.visibility = View.GONE
         btnGForce.isEnabled = false
         llChartMode = findViewById(R.id.llChartMode)
-        
+
         setupChart()
         setupChartModeButtons()
-        // КРИТИЧНО: Първо зареждаме данните, после настройваме listener-ите
         loadData()
-        // СЛЕД това настройваме listener-ите (сега маркерът и данните са готови)
-        setupChartZoom(chart)
-        
+
         findViewById<View>(R.id.btnBack)?.setOnClickListener {
             finish()
         }
     }
-    
+
     private fun setupChart() {
         chart.setTouchEnabled(true)
         chart.isDragEnabled = true
@@ -271,13 +286,16 @@ class CompareAttemptsActivity : AppCompatActivity() {
     }
     
     private fun loadData() {
+        allDragSessions = DragStorage.getAllDragSessions(this)
+        profileBestAttemptCache.clear()
+
         // Зареждаме текущата сесия и избрания current опит
-        currentSession = DragStorage.getDragSession(this, currentSessionId)
+        currentSession = allDragSessions.find { it.id == currentSessionId }
         currentAttempt = currentSession?.attempts?.find { it.id == currentAttemptId }
             ?: currentSession?.attempts?.firstOrNull()
         
         // Зареждаме опита за сравняване
-        compareSession = DragStorage.getDragSession(this, compareSessionId)
+        compareSession = allDragSessions.find { it.id == compareSessionId }
         compareAttempt = compareSession?.attempts?.find { it.id == compareAttemptId }
         
         // Debug логове
@@ -419,8 +437,10 @@ class CompareAttemptsActivity : AppCompatActivity() {
         val cmp0to100   = nanoToSec(cmpAttempt.time0to100)
         val cur0to200   = nanoToSec(curAttempt.time0to200)
         val cmp0to200   = nanoToSec(cmpAttempt.time0to200)
-        val cur100to200 = if (cur0to200 > 0 && cur0to100 > 0) cur0to200 - cur0to100 else -1.0
-        val cmp100to200 = if (cmp0to200 > 0 && cmp0to100 > 0) cmp0to200 - cmp0to100 else -1.0
+        val cur100to200Ns = resolve100To200SplitTimeNs(curAttempt)
+        val cmp100to200Ns = resolve100To200SplitTimeNs(cmpAttempt)
+        val cur100to200 = nanoToSec(cur100to200Ns ?: -1L)
+        val cmp100to200 = nanoToSec(cmp100to200Ns ?: -1L)
         val cur0to402   = nanoToSec(curAttempt.time0to402)
         val cmp0to402   = nanoToSec(cmpAttempt.time0to402)
         val curTrap     = curAttempt.maxSpeed
@@ -429,67 +449,200 @@ class CompareAttemptsActivity : AppCompatActivity() {
         val orangeDot = ContextCompat.getColor(this, R.color.primary_color)
         val blueDot   = ContextCompat.getColor(this, R.color.accent_light)
 
-        val isPB0to100   = curAttempt.time0to100 > 0 && curAttempt.time0to100 == (currentSession?.best0to100 ?: -1L)
-        val isPB0to200   = curAttempt.time0to200 > 0 && curAttempt.time0to200 == (currentSession?.best0to200 ?: -1L)
-        val rawT100to200 = if (curAttempt.time0to200 > 0 && curAttempt.time0to100 > 0) curAttempt.time0to200 - curAttempt.time0to100 else -1L
-        val isPB100to200 = rawT100to200 > 0 && rawT100to200 == (currentSession?.best100to200 ?: -1L)
-        val isPB0to402   = curAttempt.time0to402 > 0 && curAttempt.time0to402 == (currentSession?.best0to402 ?: -1L)
+        val pb0to100 = resolvePbFlags(ComparisonMetric.ZERO_TO_100, currentSession, curAttempt, compareSession, cmpAttempt)
+        val pb100to200 = resolvePbFlags(ComparisonMetric.HUNDRED_TO_200, currentSession, curAttempt, compareSession, cmpAttempt)
+        val pb0to200 = resolvePbFlags(ComparisonMetric.ZERO_TO_200, currentSession, curAttempt, compareSession, cmpAttempt)
+        val pb0to402 = resolvePbFlags(ComparisonMetric.QUARTER_MILE, currentSession, curAttempt, compareSession, cmpAttempt)
 
-        bindCmpRow(R.id.tvCmpLeftVal0to100, R.id.tvCmpLeftStatus0to100, R.id.tvCmpLeftPB0to100,
-            R.id.vCmpDot0to100, R.id.tvCmpMidDelta0to100,
-            R.id.tvCmpRightVal0to100, R.id.tvCmpRightStatus0to100,
-            cur0to100, cmp0to100,
-            if (cur0to100 > 0) fmtTime(cur0to100) + "s" else "--",
-            if (cmp0to100 > 0) fmtTime(cmp0to100) else "--",
-            if (cur0to100 > 0 && cmp0to100 > 0) fmtDeltaSec(cur0to100 - cmp0to100) else "--",
-            isPB0to100, lowerIsBetter = true, orangeDot)
+        bindCmpRow(
+            leftValId = R.id.tvCmpLeftVal0to100,
+            leftStatusId = R.id.tvCmpLeftStatus0to100,
+            leftPBId = R.id.tvCmpLeftPB0to100,
+            dotId = R.id.vCmpDot0to100,
+            midDeltaId = R.id.tvCmpMidDelta0to100,
+            rightValId = R.id.tvCmpRightVal0to100,
+            rightStatusId = R.id.tvCmpRightStatus0to100,
+            rightPBId = R.id.tvCmpRightPB0to100,
+            curRaw = cur0to100,
+            cmpRaw = cmp0to100,
+            curDisplay = if (cur0to100 > 0) fmtTime(cur0to100) + "s" else "--",
+            cmpDisplay = if (cmp0to100 > 0) fmtTime(cmp0to100) else "--",
+            delta = if (cur0to100 > 0 && cmp0to100 > 0) fmtDeltaSec(cur0to100 - cmp0to100) else "--",
+            isLeftPb = pb0to100.current,
+            isRightPb = pb0to100.compare,
+            lowerIsBetter = true,
+            dotColor = orangeDot
+        )
 
-        bindCmpRow(R.id.tvCmpLeftVal100to200, R.id.tvCmpLeftStatus100to200, R.id.tvCmpLeftPB100to200,
-            R.id.vCmpDot100to200, R.id.tvCmpMidDelta100to200,
-            R.id.tvCmpRightVal100to200, R.id.tvCmpRightStatus100to200,
-            cur100to200, cmp100to200,
-            if (cur100to200 > 0) fmtTime(cur100to200) + "s" else "--",
-            if (cmp100to200 > 0) fmtTime(cmp100to200) else "--",
-            if (cur100to200 > 0 && cmp100to200 > 0) fmtDeltaSec(cur100to200 - cmp100to200) else "--",
-            isPB100to200, lowerIsBetter = true, orangeDot)
+        bindCmpRow(
+            leftValId = R.id.tvCmpLeftVal100to200,
+            leftStatusId = R.id.tvCmpLeftStatus100to200,
+            leftPBId = R.id.tvCmpLeftPB100to200,
+            dotId = R.id.vCmpDot100to200,
+            midDeltaId = R.id.tvCmpMidDelta100to200,
+            rightValId = R.id.tvCmpRightVal100to200,
+            rightStatusId = R.id.tvCmpRightStatus100to200,
+            rightPBId = R.id.tvCmpRightPB100to200,
+            curRaw = cur100to200,
+            cmpRaw = cmp100to200,
+            curDisplay = if (cur100to200 > 0) fmtTime(cur100to200) + "s" else "--",
+            cmpDisplay = if (cmp100to200 > 0) fmtTime(cmp100to200) else "--",
+            delta = if (cur100to200 > 0 && cmp100to200 > 0) fmtDeltaSec(cur100to200 - cmp100to200) else "--",
+            isLeftPb = pb100to200.current,
+            isRightPb = pb100to200.compare,
+            lowerIsBetter = true,
+            dotColor = orangeDot
+        )
 
-        bindCmpRow(R.id.tvCmpLeftVal0to200, R.id.tvCmpLeftStatus0to200, R.id.tvCmpLeftPB0to200,
-            R.id.vCmpDot0to200, R.id.tvCmpMidDelta0to200,
-            R.id.tvCmpRightVal0to200, R.id.tvCmpRightStatus0to200,
-            cur0to200, cmp0to200,
-            if (cur0to200 > 0) fmtTime(cur0to200) + "s" else "--",
-            if (cmp0to200 > 0) fmtTime(cmp0to200) else "--",
-            if (cur0to200 > 0 && cmp0to200 > 0) fmtDeltaSec(cur0to200 - cmp0to200) else "--",
-            isPB0to200, lowerIsBetter = true, orangeDot)
+        bindCmpRow(
+            leftValId = R.id.tvCmpLeftVal0to200,
+            leftStatusId = R.id.tvCmpLeftStatus0to200,
+            leftPBId = R.id.tvCmpLeftPB0to200,
+            dotId = R.id.vCmpDot0to200,
+            midDeltaId = R.id.tvCmpMidDelta0to200,
+            rightValId = R.id.tvCmpRightVal0to200,
+            rightStatusId = R.id.tvCmpRightStatus0to200,
+            rightPBId = R.id.tvCmpRightPB0to200,
+            curRaw = cur0to200,
+            cmpRaw = cmp0to200,
+            curDisplay = if (cur0to200 > 0) fmtTime(cur0to200) + "s" else "--",
+            cmpDisplay = if (cmp0to200 > 0) fmtTime(cmp0to200) else "--",
+            delta = if (cur0to200 > 0 && cmp0to200 > 0) fmtDeltaSec(cur0to200 - cmp0to200) else "--",
+            isLeftPb = pb0to200.current,
+            isRightPb = pb0to200.compare,
+            lowerIsBetter = true,
+            dotColor = orangeDot
+        )
 
-        bindCmpRow(R.id.tvCmpLeftVal0to402, R.id.tvCmpLeftStatus0to402, R.id.tvCmpLeftPB0to402,
-            R.id.vCmpDot0to402, R.id.tvCmpMidDelta0to402,
-            R.id.tvCmpRightVal0to402, R.id.tvCmpRightStatus0to402,
-            cur0to402, cmp0to402,
-            if (cur0to402 > 0) fmtTime(cur0to402) + "s" else "--",
-            if (cmp0to402 > 0) fmtTime(cmp0to402) else "--",
-            if (cur0to402 > 0 && cmp0to402 > 0) fmtDeltaSec(cur0to402 - cmp0to402) else "--",
-            isPB0to402, lowerIsBetter = true, orangeDot)
+        bindCmpRow(
+            leftValId = R.id.tvCmpLeftVal0to402,
+            leftStatusId = R.id.tvCmpLeftStatus0to402,
+            leftPBId = R.id.tvCmpLeftPB0to402,
+            dotId = R.id.vCmpDot0to402,
+            midDeltaId = R.id.tvCmpMidDelta0to402,
+            rightValId = R.id.tvCmpRightVal0to402,
+            rightStatusId = R.id.tvCmpRightStatus0to402,
+            rightPBId = R.id.tvCmpRightPB0to402,
+            curRaw = cur0to402,
+            cmpRaw = cmp0to402,
+            curDisplay = if (cur0to402 > 0) fmtTime(cur0to402) + "s" else "--",
+            cmpDisplay = if (cmp0to402 > 0) fmtTime(cmp0to402) else "--",
+            delta = if (cur0to402 > 0 && cmp0to402 > 0) fmtDeltaSec(cur0to402 - cmp0to402) else "--",
+            isLeftPb = pb0to402.current,
+            isRightPb = pb0to402.compare,
+            lowerIsBetter = true,
+            dotColor = orangeDot
+        )
 
         val curTrapConv = UnitsManager.convertSpeed(curTrap, speedUnit)
         val cmpTrapConv = UnitsManager.convertSpeed(cmpTrap, speedUnit)
-        bindCmpRow(R.id.tvCmpLeftValTrap, R.id.tvCmpLeftStatusTrap, null,
-            R.id.vCmpDotTrap, R.id.tvCmpMidDeltaTrap,
-            R.id.tvCmpRightValTrap, R.id.tvCmpRightStatusTrap,
-            curTrap.toDouble(), cmpTrap.toDouble(),
-            if (curTrap > 0) "${curTrapConv.toInt()} ${speedUnit.symbol}" else "--",
-            if (cmpTrap > 0) "${cmpTrapConv.toInt()} ${speedUnit.symbol}" else "--",
-            if (curTrap > 0 && cmpTrap > 0) fmtDeltaSpeed(curTrap - cmpTrap) else "--",
-            false, lowerIsBetter = false, blueDot)
+        bindCmpRow(
+            leftValId = R.id.tvCmpLeftValTrap,
+            leftStatusId = R.id.tvCmpLeftStatusTrap,
+            leftPBId = null,
+            dotId = R.id.vCmpDotTrap,
+            midDeltaId = R.id.tvCmpMidDeltaTrap,
+            rightValId = R.id.tvCmpRightValTrap,
+            rightStatusId = R.id.tvCmpRightStatusTrap,
+            rightPBId = null,
+            curRaw = curTrap.toDouble(),
+            cmpRaw = cmpTrap.toDouble(),
+            curDisplay = if (curTrap > 0) "${curTrapConv.toInt()} ${speedUnit.symbol}" else "--",
+            cmpDisplay = if (cmpTrap > 0) "${cmpTrapConv.toInt()} ${speedUnit.symbol}" else "--",
+            delta = if (curTrap > 0 && cmpTrap > 0) fmtDeltaSpeed(curTrap - cmpTrap) else "--",
+            isLeftPb = false,
+            isRightPb = false,
+            lowerIsBetter = false,
+            dotColor = blueDot
+        )
 
         updateSplitsComparison()
+    }
+
+    private fun resolvePbFlags(
+        metric: ComparisonMetric,
+        currentSession: DragSession?,
+        currentAttempt: DragAttempt,
+        compareSession: DragSession?,
+        compareAttempt: DragAttempt
+    ): PbFlags {
+        val currentProfileId = currentSession?.profileId ?: -1L
+        val compareProfileId = compareSession?.profileId ?: -1L
+        val currentWinner = currentProfileId.takeIf { it > 0L }?.let { resolveProfileBestAttempt(it, metric) }
+        val compareWinner = if (compareProfileId == currentProfileId) {
+            currentWinner
+        } else {
+            compareProfileId.takeIf { it > 0L }?.let { resolveProfileBestAttempt(it, metric) }
+        }
+
+        return PbFlags(
+            current = currentWinner?.matches(currentSession?.id ?: -1L, currentAttempt.id) == true,
+            compare = compareWinner?.matches(compareSession?.id ?: -1L, compareAttempt.id) == true
+        )
+    }
+
+    private fun resolveProfileBestAttempt(profileId: Long, metric: ComparisonMetric): PersonalBestAttempt? {
+        val cacheKey = profileId to metric
+        if (profileBestAttemptCache.containsKey(cacheKey)) {
+            return profileBestAttemptCache[cacheKey]
+        }
+
+        val winner = allDragSessions.asSequence()
+            .filter { it.profileId == profileId }
+            .flatMap { session ->
+                session.attempts.asSequence().mapNotNull { attempt ->
+                    val metricTimeNs = getMetricTimeNs(attempt, metric) ?: return@mapNotNull null
+                    PersonalBestAttempt(
+                        sessionId = session.id,
+                        attemptId = attempt.id,
+                        metricTimeNs = metricTimeNs,
+                        attemptTimestamp = attempt.timestamp,
+                        sessionTimestamp = session.timestamp
+                    )
+                }
+            }
+            .minWithOrNull(
+                compareBy<PersonalBestAttempt> { it.metricTimeNs }
+                    .thenByDescending { it.attemptTimestamp }
+                    .thenByDescending { it.attemptId }
+                    .thenByDescending { it.sessionTimestamp }
+                    .thenByDescending { it.sessionId }
+            )
+
+        profileBestAttemptCache[cacheKey] = winner
+        return winner
+    }
+
+    private fun PersonalBestAttempt.matches(sessionId: Long, attemptId: Long): Boolean {
+        return this.sessionId == sessionId && this.attemptId == attemptId
+    }
+
+    private fun getMetricTimeNs(attempt: DragAttempt, metric: ComparisonMetric): Long? {
+        val timeNs = when (metric) {
+            ComparisonMetric.ZERO_TO_100 -> attempt.time0to100
+            ComparisonMetric.HUNDRED_TO_200 -> resolve100To200SplitTimeNs(attempt) ?: -1L
+            ComparisonMetric.ZERO_TO_200 -> attempt.time0to200
+            ComparisonMetric.QUARTER_MILE -> attempt.time0to402
+        }
+
+        return timeNs.takeIf { it > 0L }
+    }
+
+    private fun resolve100To200SplitTimeNs(attempt: DragAttempt): Long? {
+        val directSplit = attempt.time100to200.takeIf { it > 0L }
+        if (directSplit != null) return directSplit
+
+        val time0to100 = attempt.time0to100.takeIf { it > 0L } ?: return null
+        val time0to200 = attempt.time0to200.takeIf { it > 0L } ?: return null
+        val derivedSplit = time0to200 - time0to100
+        return derivedSplit.takeIf { it > 0L }
     }
 
     // ─── Distance-based splits (50m, 100m, 200m, 300m, 402m) ──────────────────
 
     /** Integrates speedSamples (km/h) + speedTimeStamps (nanos) using the trapezoidal
-     *  rule and returns the elapsed time in nanos at each distance checkpoint,
-     *  along with the interpolated speed (km/h) at that checkpoint. */
+     *  rule and returns elapsed time in nanos (relative to measurement start)
+     *  at each distance checkpoint, along with interpolated speed (km/h). */
     private fun computeDistanceSplitsNs(
         attempt: DragAttempt
     ): Map<Int, Pair<Long, Float>> {
@@ -500,7 +653,6 @@ class CompareAttemptsActivity : AppCompatActivity() {
         val markers = listOf(50, 100, 200, 300, 402)
         val result  = mutableMapOf<Int, Pair<Long, Float>>()
 
-        val startNs = times.first()
         var cumDistM = 0.0
 
         for (i in 1 until speeds.size) {
@@ -516,12 +668,56 @@ class CompareAttemptsActivity : AppCompatActivity() {
                     val fraction     = if (cumDistM - prevDist > 0) (marker - prevDist) / (cumDistM - prevDist) else 0.0
                     val interpNs     = times[i - 1] + ((times[i] - times[i - 1]) * fraction).toLong()
                     val interpSpeedKmh = (speeds[i - 1] + (speeds[i] - speeds[i - 1]) * fraction).toFloat()
-                    result[marker]   = Pair(interpNs - startNs, interpSpeedKmh)
+                    result[marker]   = Pair(interpNs, interpSpeedKmh)
                 }
             }
             if (result.size == markers.size) break
         }
         return result
+    }
+
+    private fun resolveStoredDistanceSplitData(
+        attempt: DragAttempt,
+        distanceMeters: Int
+    ): Pair<Long, Float>? {
+        val timeNs = when (distanceMeters) {
+            50 -> attempt.distance50mTimeNs
+            100 -> attempt.distance100mTimeNs
+            200 -> attempt.distance200mTimeNs
+            300 -> attempt.distance300mTimeNs
+            402 -> attempt.time0to402.takeIf { it > 0L } ?: attempt.distance402mTimeNs
+            else -> -1L
+        }
+        if (timeNs <= 0L) return null
+
+        val storedSpeedKmh = when (distanceMeters) {
+            50 -> attempt.distance50mSpeedKmh
+            100 -> attempt.distance100mSpeedKmh
+            200 -> attempt.distance200mSpeedKmh
+            300 -> attempt.distance300mSpeedKmh
+            402 -> attempt.distance402mSpeedKmh
+            else -> -1f
+        }
+
+        val resolvedSpeedKmh = if (storedSpeedKmh >= 0f) {
+            storedSpeedKmh
+        } else {
+            findValueAtTimeInterpolated(
+                attempt,
+                timeNs / 1_000_000_000.0f,
+                ChartMode.SPEED
+            )
+        }
+
+        return timeNs to resolvedSpeedKmh
+    }
+
+    private fun resolveDistanceSplitData(
+        attempt: DragAttempt,
+        distanceMeters: Int,
+        derivedSplit: Pair<Long, Float>?
+    ): Pair<Long, Float>? {
+        return resolveStoredDistanceSplitData(attempt, distanceMeters) ?: derivedSplit
     }
 
     /** Populates the splits comparison card. Card is shown only when both
@@ -573,8 +769,8 @@ class CompareAttemptsActivity : AppCompatActivity() {
 
             tvLabel.text = row.label
 
-            val curData = curSplits[row.distance]
-            val cmpData = cmpSplits[row.distance]
+            val curData = resolveDistanceSplitData(curAttempt, row.distance, curSplits[row.distance])
+            val cmpData = resolveDistanceSplitData(cmpAttempt, row.distance, cmpSplits[row.distance])
 
             fun fmtTime(nanos: Long) = String.format("%.3f", nanos / 1_000_000_000.0) + "s"
             fun fmtSpd(kmh: Float): String {
@@ -606,10 +802,11 @@ class CompareAttemptsActivity : AppCompatActivity() {
     private fun bindCmpRow(
         leftValId: Int, leftStatusId: Int, leftPBId: Int?,
         dotId: Int, midDeltaId: Int,
-        rightValId: Int, rightStatusId: Int,
+        rightValId: Int, rightStatusId: Int, rightPBId: Int?,
         curRaw: Double, cmpRaw: Double,
         curDisplay: String, cmpDisplay: String,
-        delta: String, isPB: Boolean, lowerIsBetter: Boolean, dotColor: Int
+        delta: String, isLeftPb: Boolean, isRightPb: Boolean,
+        lowerIsBetter: Boolean, dotColor: Int
     ) {
         val fasterColor  = ContextCompat.getColor(this, R.color.drag_run_green)
         val cmpWinColor  = ContextCompat.getColor(this, R.color.drag_run_purple)
@@ -636,7 +833,7 @@ class CompareAttemptsActivity : AppCompatActivity() {
         }
 
         leftPBId?.let { id ->
-            findViewById<TextView>(id).visibility = if (isPB) View.VISIBLE else View.GONE
+            findViewById<TextView>(id).visibility = if (isLeftPb) View.VISIBLE else View.GONE
         }
 
         dot.background = android.graphics.drawable.GradientDrawable().apply {
@@ -647,6 +844,9 @@ class CompareAttemptsActivity : AppCompatActivity() {
 
         rightVal.text = cmpDisplay
         rightVal.setTextColor(cmpWinColor)
+        rightPBId?.let { id ->
+            findViewById<TextView>(id).visibility = if (isRightPb) View.VISIBLE else View.GONE
+        }
         if (hasData) {
             rightStatus.text = if (currentIsBetter) "\u25BC SLOWER" else "\u25B2 FASTER"
             rightStatus.setTextColor(if (currentIsBetter) redColor else fasterColor)
@@ -833,34 +1033,6 @@ class CompareAttemptsActivity : AppCompatActivity() {
         }
     }
     
-    private fun addSpeedLine(attempt: DragAttempt, label: String, colorRes: Int, isCurrent: Boolean) {
-        val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
-        if (speedSamples.isNotEmpty() && timestamps.isNotEmpty()) {
-            val speedUnit = UnitsManager.getSpeedUnit(this)
-            val entries = mutableListOf<Entry>()
-            
-            // Показваме реалните времена без нормализация
-            for (i in speedSamples.indices) {
-                val timeInSeconds = timestamps[i] / 1_000_000_000.0
-                val convertedSpeed = UnitsManager.convertSpeed(speedSamples[i], speedUnit)
-                entries.add(Entry(timeInSeconds.toFloat(), convertedSpeed))
-            }
-            
-            val dataSet = LineDataSet(entries, label).apply {
-                color = ContextCompat.getColor(this@CompareAttemptsActivity, colorRes)
-                lineWidth = if (isCurrent) 3f else 2f
-                setDrawValues(false)
-                setDrawCircles(false)
-            }
-            
-            if (chart.data == null) {
-                chart.data = LineData(dataSet)
-            } else {
-                chart.data?.addDataSet(dataSet)
-            }
-        }
-    }
-    
     private fun addAccelerationLineToData(lineData: LineData, attempt: DragAttempt, label: String, colorInt: Int, isCurrent: Boolean) {
         val (accelSamples, timestamps) = getAlignedAccelData(attempt)
         if (accelSamples.isNotEmpty() && timestamps.isNotEmpty()) {
@@ -885,32 +1057,6 @@ class CompareAttemptsActivity : AppCompatActivity() {
         }
     }
     
-    private fun addAccelerationLine(attempt: DragAttempt, label: String, colorRes: Int, isCurrent: Boolean) {
-        val (accelSamples, timestamps) = getAlignedAccelData(attempt)
-        if (accelSamples.isNotEmpty() && timestamps.isNotEmpty()) {
-            val entries = mutableListOf<Entry>()
-            
-            // Показваме реалните времена без нормализация
-            for (i in accelSamples.indices) {
-                val timeInSeconds = timestamps[i] / 1_000_000_000.0
-                entries.add(Entry(timeInSeconds.toFloat(), accelSamples[i]))
-            }
-            
-            val dataSet = LineDataSet(entries, label).apply {
-                color = ContextCompat.getColor(this@CompareAttemptsActivity, colorRes)
-                lineWidth = if (isCurrent) 3f else 2f
-                setDrawValues(false)
-                setDrawCircles(false)
-            }
-            
-            if (chart.data == null) {
-                chart.data = LineData(dataSet)
-            } else {
-                chart.data?.addDataSet(dataSet)
-            }
-        }
-    }
-    
     private fun addGForceLineToData(lineData: LineData, attempt: DragAttempt, label: String, colorInt: Int, isCurrent: Boolean) {
         val (gSamples, timestamps) = getAlignedGData(attempt)
         if (gSamples.isNotEmpty() && timestamps.isNotEmpty()) {
@@ -931,31 +1077,6 @@ class CompareAttemptsActivity : AppCompatActivity() {
             }
             
             lineData.addDataSet(dataSet)
-        }
-    }
-    
-    private fun addGForceLine(attempt: DragAttempt, label: String, colorRes: Int, isCurrent: Boolean) {
-        val (gSamples, timestamps) = getAlignedGData(attempt)
-        if (gSamples.isNotEmpty() && timestamps.isNotEmpty()) {
-            val entries = mutableListOf<Entry>()
-            
-            for (i in gSamples.indices) {
-                val timeInSeconds = timestamps[i] / 1_000_000_000.0
-                entries.add(Entry(timeInSeconds.toFloat(), gSamples[i]))
-            }
-            
-            val dataSet = LineDataSet(entries, label).apply {
-                color = ContextCompat.getColor(this@CompareAttemptsActivity, colorRes)
-                lineWidth = if (isCurrent) 3f else 2f
-                setDrawValues(false)
-                setDrawCircles(false)
-            }
-            
-            if (chart.data == null) {
-                chart.data = LineData(dataSet)
-            } else {
-                chart.data?.addDataSet(dataSet)
-            }
         }
     }
     
@@ -998,23 +1119,6 @@ class CompareAttemptsActivity : AppCompatActivity() {
         return sanitizedValues to sanitizedTimestamps
     }
     
-    // -------- Start offset helpers (begin charts at 60 km/h for tests) --------
-    private fun getSpeedStartOffsetMs(attempt: DragAttempt, thresholdKmH: Float = 60f): Long {
-        val speeds = attempt.speedSamples ?: emptyList()
-        val times = attempt.speedTimeStamps ?: emptyList()
-        val limit = minOf(speeds.size, times.size)
-        
-        for (i in 0 until limit) {
-            if (speeds[i] >= thresholdKmH) return times[i]
-        }
-        return 0L
-    }
-    
-    private fun getStartOffsetMsForMode(attempt: DragAttempt, mode: ChartMode): Long {
-        // Align all modes to the speed start (first >= 4 km/h)
-        return getSpeedStartOffsetMs(attempt)
-    }
-    
     private fun getMaxTimeFromAllMeasurements(currentAttempt: DragAttempt, compareAttempt: DragAttempt): Double {
         // Намираме максималното време САМО от успешните измервания за двата опита
         val allTimes = mutableListOf<Double>()
@@ -1046,18 +1150,6 @@ class CompareAttemptsActivity : AppCompatActivity() {
             smartMarker.setAttempts(currentAttempt, compareAttempt)
             smartMarker.setMode(currentMode)
         }
-    }
-    
-    private fun getMaxAcceleration(attempt: DragAttempt): Float {
-        return attempt.gpsAccelSamples?.maxOrNull() ?: 0f
-    }
-    
-    private fun getMinAcceleration(attempt: DragAttempt): Float {
-        return attempt.gpsAccelSamples?.minOrNull() ?: 0f
-    }
-    
-    private fun getMaxGForce(attempt: DragAttempt): Float {
-        return attempt.gSamples?.maxOrNull() ?: 0f
     }
     
     private fun setupChartZoom(chart: LineChart) {
@@ -1346,77 +1438,6 @@ class CompareAttemptsActivity : AppCompatActivity() {
         return null
     }
     
-    // Помощна функция за показване на маркера на специална точка
-    private fun showMarkerAtPoint(chart: LineChart, entry: Entry, pointType: PointType, exactTime: Float, isCurrentAttempt: Boolean = true) {
-        val dataSetIndex = when (currentMode) {
-            ChartMode.SPEED -> {
-                chart.data?.dataSets?.indexOfFirst {
-                    it.label.contains("Speed", ignoreCase = true) || it.label.contains("Current", ignoreCase = true) || it.label.isEmpty()
-                } ?: 0
-            }
-            ChartMode.ACCELERATION -> {
-                chart.data?.dataSets?.indexOfFirst {
-                    it.label.contains("Acceleration", ignoreCase = true) || it.label.contains("Accel", ignoreCase = true) || it.label.contains("Current", ignoreCase = true)
-                } ?: 0
-            }
-            ChartMode.G_FORCE -> {
-                chart.data?.dataSets?.indexOfFirst {
-                    it.label.contains("G-Force", ignoreCase = true) || it.label.contains("G Force", ignoreCase = true) || it.label.contains("GForce", ignoreCase = true) || it.label.contains("Current", ignoreCase = true)
-                } ?: 0
-            }
-        }
-        val specialDataSetIndex = findSpecialPointDataSetIndex(chart, entry.x, entry.y)
-        val validDataSetIndex = (specialDataSetIndex ?: dataSetIndex)
-            .coerceIn(0, (chart.data?.dataSets?.size ?: 1) - 1)
-        val highlight = Highlight(entry.x, entry.y, validDataSetIndex)
-        
-        try {
-            val pointTypeField = smartMarker.javaClass.getDeclaredField("pointType")
-            pointTypeField.isAccessible = true
-            pointTypeField.set(smartMarker, pointType)
-
-            val isOnSpecialPointField = smartMarker.javaClass.getDeclaredField("isOnSpecialPoint")
-            isOnSpecialPointField.isAccessible = true
-            isOnSpecialPointField.set(smartMarker, true)
-
-            val actualValueField = smartMarker.javaClass.getDeclaredField("actualValue")
-            actualValueField.isAccessible = true
-            actualValueField.set(smartMarker, entry.y)
-
-            val exactTimeField = smartMarker.javaClass.getDeclaredField("exactTime")
-            exactTimeField.isAccessible = true
-            exactTimeField.set(smartMarker, exactTime)
-
-            val isOnCurrentLineField = smartMarker.javaClass.getDeclaredField("isOnCurrentLine")
-            isOnCurrentLineField.isAccessible = true
-            isOnCurrentLineField.set(smartMarker, isCurrentAttempt)
-
-            val modeField = smartMarker.javaClass.getDeclaredField("mode")
-            modeField.isAccessible = true
-            modeField.set(smartMarker, currentMode)
-
-            val attemptField = smartMarker.javaClass.getDeclaredField("currentAttempt")
-            attemptField.isAccessible = true
-            attemptField.set(smartMarker, currentAttempt)
-
-            val compareAttemptField = smartMarker.javaClass.getDeclaredField("compareAttempt")
-            compareAttemptField.isAccessible = true
-            compareAttemptField.set(smartMarker, compareAttempt)
-
-            // КРИТИЧНО: Активираме маркера за показване
-            val shouldShowField = smartMarker.javaClass.getDeclaredField("shouldShow")
-            shouldShowField.isAccessible = true
-            shouldShowField.set(smartMarker, true)
-        } catch (ex: Exception) {
-            // Reflection failed
-        }
-
-        smartMarker.refreshContent(entry, highlight)
-
-        chart.highlightValue(highlight, false)
-        chart.invalidate()
-    }
-    
     private fun addKeyPointMarkersToData(lineData: LineData) {
         if (currentAttempt == null || compareAttempt == null) return
         
@@ -1424,15 +1445,6 @@ class CompareAttemptsActivity : AppCompatActivity() {
         addKeyPointMarkersForAttemptToData(lineData, currentAttempt!!, "")
         // Добавяме точки за сравняващия опит БЕЗ етикети
         addKeyPointMarkersForAttemptToData(lineData, compareAttempt!!, "")
-    }
-    
-    private fun addKeyPointMarkers() {
-        if (currentAttempt == null || compareAttempt == null) return
-        
-        // Добавяме точки за текущия опит БЕЗ етикети
-        addKeyPointMarkersForAttempt(currentAttempt!!, "")
-        // Добавяме точки за сравняващия опит БЕЗ етикети
-        addKeyPointMarkersForAttempt(compareAttempt!!, "")
     }
     
     private fun addKeyPointMarkersForAttemptToData(lineData: LineData, attempt: DragAttempt, label: String) {
@@ -1688,30 +1700,6 @@ class CompareAttemptsActivity : AppCompatActivity() {
 
         // Ако не намерим съседни точки, връщаме последната стойност
         return values.lastOrNull() ?: 0f
-    }
-    
-    private fun findMaxValueInRange(attempt: DragAttempt, startTimeSeconds: Float, endTimeSeconds: Float, mode: ChartMode): Float {
-        val (values, timestamps) = when (mode) {
-            ChartMode.SPEED -> getAlignedSpeedData(attempt)
-            ChartMode.ACCELERATION -> getAlignedAccelData(attempt)
-            ChartMode.G_FORCE -> getAlignedGData(attempt)
-        }
-        
-        if (values.isEmpty() || timestamps.isEmpty()) return 0f
-        
-        val startTimeNanos = (startTimeSeconds * 1_000_000_000).toLong()
-        val endTimeNanos = (endTimeSeconds * 1_000_000_000).toLong()
-        
-        var maxValue = Float.MIN_VALUE
-        
-        for (i in values.indices) {
-            val timestamp = timestamps[i]
-            if (timestamp >= startTimeNanos && timestamp <= endTimeNanos) {
-                maxValue = maxOf(maxValue, values[i])
-            }
-        }
-        
-        return if (maxValue == Float.MIN_VALUE) 0f else maxValue
     }
 }
 
@@ -2026,14 +2014,6 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
         return minDistance
     }
     
-    private fun getSpeedAtTime(timeSeconds: Float): Float {
-        val attempt = if (isOnCurrentLine) currentAttempt else compareAttempt
-        if (attempt == null) return 0f
-        
-        val (speedSamples, timestamps) = getAlignedSpeedData(attempt)
-        return interpolateValueAtTime(speedSamples, timestamps, timeSeconds)
-    }
-    
     private fun getAlignedSpeedData(attempt: DragAttempt): Pair<List<Float>, List<Long>> {
         val speeds = attempt.speedSamples ?: emptyList()
         val times = attempt.speedTimeStamps ?: emptyList()
@@ -2041,17 +2021,6 @@ class SmartMarker(context: Context, layoutResource: Int) : com.github.mikephil.c
         
         // Показваме всички данни от 0 секунди
         return speeds.take(limit) to times.take(limit)
-    }
-    
-    private fun getSpeedStartOffsetMs(attempt: DragAttempt, thresholdKmH: Float = 60f): Long {
-        val speeds = attempt.speedSamples ?: emptyList()
-        val times = attempt.speedTimeStamps ?: emptyList()
-        val limit = minOf(speeds.size, times.size)
-        
-        for (i in 0 until limit) {
-            if (speeds[i] >= thresholdKmH) return times[i]
-        }
-        return 0L
     }
     
     private fun interpolateValueAtTime(values: List<Float>, timestamps: List<Long>, targetTimeSeconds: Float): Float {

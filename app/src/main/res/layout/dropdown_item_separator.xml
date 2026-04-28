@@ -4,7 +4,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="8dp"
-    android:background="@color/dark_surface">
+    android:background="@color/background_primary">
 
     <!-- Разделителна линия -->
     <View

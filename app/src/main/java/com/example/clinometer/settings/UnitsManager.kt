@@ -13,7 +13,6 @@ object UnitsManager {
     private const val PREF_SPEED_UNIT = "speed_unit"
     private const val PREF_DISTANCE_UNIT = "distance_unit"
     private const val PREF_TEMPERATURE_UNIT = "temperature_unit"
-    private const val PREF_PRESSURE_UNIT = "pressure_unit"
     
     // Единици за скорост
     enum class SpeedUnit(val displayNameResId: Int, val symbol: String) {
@@ -33,13 +32,6 @@ object UnitsManager {
     enum class TemperatureUnit(val displayNameResId: Int, val symbol: String) {
         CELSIUS(R.string.unit_celsius, "°C"),
         FAHRENHEIT(R.string.unit_fahrenheit, "°F")
-    }
-    
-    // Единици за налягане
-    enum class PressureUnit(val displayNameResId: Int, val symbol: String) {
-        HPA(R.string.unit_hpa, "hPa"),
-        INHG(R.string.unit_inhg, "inHg"),
-        MMHG(R.string.unit_mmhg, "mmHg")
     }
     
     // Getter методи
@@ -73,16 +65,6 @@ object UnitsManager {
         }
     }
     
-    fun getPressureUnit(context: Context): PressureUnit {
-        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
-        val value = prefs.getString(PREF_PRESSURE_UNIT, PressureUnit.HPA.name)
-        return try {
-            PressureUnit.valueOf(value ?: PressureUnit.HPA.name)
-        } catch (e: IllegalArgumentException) {
-            PressureUnit.HPA
-        }
-    }
-    
     // Setter методи
     fun setSpeedUnit(context: Context, unit: SpeedUnit) {
         PreferenceManager.getDefaultSharedPreferences(context)
@@ -102,13 +84,6 @@ object UnitsManager {
         PreferenceManager.getDefaultSharedPreferences(context)
             .edit()
             .putString(PREF_TEMPERATURE_UNIT, unit.name)
-            .apply()
-    }
-    
-    fun setPressureUnit(context: Context, unit: PressureUnit) {
-        PreferenceManager.getDefaultSharedPreferences(context)
-            .edit()
-            .putString(PREF_PRESSURE_UNIT, unit.name)
             .apply()
     }
     
@@ -160,21 +135,6 @@ object UnitsManager {
         val unit = getTemperatureUnit(context)
         val converted = convertTemperature(celsius, unit)
         return "%.${decimals}f${unit.symbol}".format(converted)
-    }
-    
-    // Налягане (базова единица: hPa)
-    fun convertPressure(hpa: Float, toUnit: PressureUnit): Float {
-        return when (toUnit) {
-            PressureUnit.HPA -> hpa
-            PressureUnit.INHG -> hpa * 0.02953f
-            PressureUnit.MMHG -> hpa * 0.75006f
-        }
-    }
-    
-    fun formatPressure(hpa: Float, context: Context, decimals: Int = 1): String {
-        val unit = getPressureUnit(context)
-        val converted = convertPressure(hpa, unit)
-        return "%.${decimals}f ${unit.symbol}".format(converted)
     }
     
     // Обратни конверсии (за input fields)

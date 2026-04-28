@@ -1,7 +1,6 @@
 package com.example.clinometer.reports
 
 import android.animation.ValueAnimator
-import android.content.Context
 import android.view.View
 import android.util.Log
 import androidx.fragment.app.FragmentActivity
@@ -41,7 +40,7 @@ class ReportsIntegration(
     private val mapView: MapView
 ) {
     private val repository = FirebaseReportsRepository()
-    private val mapManager = ReportsMapManager(mapView, activity)
+    private val mapManager = ReportsMapManager(mapView)
     
     // Navigation alerts manager
     private val alertsManager = ReportAlertsManager(
@@ -144,16 +143,6 @@ class ReportsIntegration(
     }
     
     /**
-     * Спира наблюдението на доклади
-     */
-    fun stopObservingReports() {
-        observeJob?.cancel()
-        observeJob = null
-        mapManager.clearAllReports()
-        Log.d(TAG, "Stopped observing reports")
-    }
-    
-    /**
      * Set navigation state за alerts
      * @param isActive Дали имаме активна навигация
      * @param routeGeometry Route линията (за on-route check)
@@ -180,15 +169,19 @@ class ReportsIntegration(
     /**
      * Показва диалог за създаване на нов доклад
      */
-    fun showCreateReportDialog(latitude: Double, longitude: Double) {
+    fun showCreateReportDialog(
+        latitude: Double,
+        longitude: Double,
+        mergeDistanceMeters: Double? = null
+    ) {
         if (!isInitialized) {
             Log.w(TAG, "Not initialized. Call initialize() first")
             return
         }
         
-        val bottomSheet = ReportBottomSheet.newReportSheet(latitude, longitude)
+        val bottomSheet = ReportBottomSheet.newReportSheet()
         bottomSheet.setOnReportCreatedListener { reportType ->
-            createReport(reportType, latitude, longitude)
+            createReport(reportType, latitude, longitude, mergeDistanceMeters)
         }
         bottomSheet.show(activity.supportFragmentManager, "CreateReportSheet")
     }
@@ -234,10 +227,20 @@ class ReportsIntegration(
     /**
      * Създава нов доклад
      */
-    private fun createReport(type: ReportType, latitude: Double, longitude: Double) {
+    private fun createReport(
+        type: ReportType,
+        latitude: Double,
+        longitude: Double,
+        mergeDistanceMeters: Double? = null
+    ) {
         scope.launch {
             try {
-                val outcome = repository.createReport(type, latitude, longitude)
+                val outcome = repository.createReport(
+                    type = type,
+                    latitude = latitude,
+                    longitude = longitude,
+                    mergeDistanceMeters = mergeDistanceMeters
+                )
                 
                 withContext(Dispatchers.Main) {
                     when (outcome.status) {
@@ -303,32 +306,6 @@ class ReportsIntegration(
                 Log.e(TAG, "Exception while voting", e)
                 withContext(Dispatchers.Main) {
                     showToast("Грешка при гласуване")
-                }
-            }
-        }
-    }
-    
-    /**
-     * Изтрива доклад (ако потребителят го е създал)
-     */
-    fun deleteReport(reportId: String) {
-        scope.launch {
-            try {
-                val success = repository.deleteReport(reportId)
-                
-                withContext(Dispatchers.Main) {
-                    if (success) {
-                        showToast("Докладът е изтрит")
-                        Log.d(TAG, "Deleted report: $reportId")
-                    } else {
-                        showToast("Не можете да изтриете този доклад")
-                        Log.w(TAG, "Not authorized to delete report: $reportId")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Exception while deleting report", e)
-                withContext(Dispatchers.Main) {
-                    showToast("Грешка при изтриване")
                 }
             }
         }
@@ -517,9 +494,4 @@ class ReportsIntegration(
     private fun showToast(message: String) {
         android.widget.Toast.makeText(activity, message, android.widget.Toast.LENGTH_SHORT).show()
     }
-    
-    /**
-     * Проверява дали системата е инициализирана
-     */
-    fun isReady(): Boolean = isInitialized
 }

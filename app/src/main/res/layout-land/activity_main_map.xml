@@ -143,23 +143,32 @@
         android:visibility="gone"
        />
 
-    <!-- Report Button (Police, Camera, etc.) - NEW -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
+    <!-- Report Button (Police, Camera, etc.) -->
+    <FrameLayout
         android:id="@+id/fabReport"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
+        android:layout_width="46dp"
+        android:layout_height="46dp"
+        android:layout_alignParentStart="true"
         android:layout_alignParentBottom="true"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="80dp"
-        android:src="@android:drawable/ic_menu_report_image"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="90dp"
         android:contentDescription="Докладвай"
-        app:tint="#FFFFFF"
-        app:backgroundTint="@color/primary_color"
-        app:elevation="16dp"
-        app:borderWidth="0dp"
-        app:fabSize="mini"
-        android:visibility="visible" />
+        android:background="@drawable/fab_stroke"
+        android:clickable="true"
+        android:elevation="18dp"
+        android:focusable="true"
+        android:foreground="?android:attr/selectableItemBackgroundBorderless"
+        android:saveEnabled="false"
+        android:visibility="visible">
+
+        <ImageView
+            android:id="@+id/ivFabReport"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_report_megaphone"
+            app:tint="@color/primary_color" />
+    </FrameLayout>
 
     <!-- Motorway options container -->
     <!-- Route preview controls Overview + Recenter (right side) -->

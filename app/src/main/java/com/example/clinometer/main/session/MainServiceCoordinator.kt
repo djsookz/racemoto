@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.SystemClock
 import android.widget.Chronometer
-import androidx.core.content.ContextCompat
 import com.example.clinometer.ForegroundService
 import com.example.clinometer.R
 import com.example.clinometer.main.MainContainerActivity
@@ -19,7 +18,7 @@ object MainServiceCoordinator {
 
     fun startForegroundAndBind(context: Context, serviceConnection: ServiceConnection) {
         val serviceIntent = createNormalModeServiceIntent(context)
-        ContextCompat.startForegroundService(context, serviceIntent)
+        context.startService(serviceIntent)
         context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
 

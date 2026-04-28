@@ -26,9 +26,6 @@ object RouteSnapshotGenerator {
     private val executor = Executors.newFixedThreadPool(4) // Бързо паралелно генериране
     private val runningTasks = Collections.synchronizedSet(mutableSetOf<Long>())
 
-    // Смятаме мащаба на картата - стандарт за Web Mercator
-    private const val TILE_SIZE = 256.0
-
     private fun bindImageViewToRace(imageView: ImageView, raceId: Long) {
         imageView.setTag(R.id.tag_route_snapshot_race_id, raceId)
     }
@@ -45,11 +42,6 @@ object RouteSnapshotGenerator {
             parentFile?.takeIf { !it.exists() }?.mkdirs()
         }
     }
-
-    /**
-     * Проверява дали snapshot вече съществува на диск
-     */
-    fun snapshotExists(context: Context, raceId: Long): Boolean = getSnapshotFile(context, raceId).exists()
 
     /**
      * Зарежда snapshot от диск
@@ -263,68 +255,6 @@ object RouteSnapshotGenerator {
         } catch (e: Exception) {
             android.util.Log.e("RouteSnapshotGenerator", "Error saving snapshot to file", e)
         }
-    }
-
-    /**
-     * Рисува маршрута върху base bitmap
-     * Използва чиста Web Mercator математика за прецизно изчисление
-     */
-    private fun drawRoute(
-        context: Context,
-        base: Bitmap, 
-        points: List<Point>, 
-        camera: CameraOptions, 
-        w: Int, 
-        h: Int, 
-        density: Float
-    ): Bitmap {
-        val result = base.copy(Bitmap.Config.ARGB_8888, true)
-        val canvas = Canvas(result)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(255, 122, 24) // #FF7A18
-            strokeWidth = 5f * density
-            style = Paint.Style.STROKE
-            strokeJoin = Paint.Join.ROUND
-            strokeCap = Paint.Cap.ROUND
-        }
-
-        val zoom = camera.zoom ?: 0.0
-        val center = camera.center ?: Point.fromLngLat(0.0, 0.0)
-        val scale = TILE_SIZE * density * 2.0.pow(zoom)
-
-        val path = Path()
-        points.forEachIndexed { i, pt ->
-            val x = (w / 2) + ((pt.longitude() + 180.0) / 360.0 * scale - (center.longitude() + 180.0) / 360.0 * scale).toFloat()
-            val latRad = pt.latitude() * PI / 180.0
-            val centerLatRad = center.latitude() * PI / 180.0
-            val y = (h / 2) + ((0.5 - ln(tan(latRad) + 1.0/cos(latRad)) / (4.0 * PI)) * scale - (0.5 - ln(tan(centerLatRad) + 1.0/cos(centerLatRad)) / (4.0 * PI)) * scale).toFloat()
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        canvas.drawPath(path, paint)
-        
-        // Рисуваме старт и финиш маркери
-        if (points.isNotEmpty()) {
-            try {
-                val startX = (w / 2) + ((points.first().longitude() + 180.0) / 360.0 * scale - (center.longitude() + 180.0) / 360.0 * scale).toFloat()
-                val startLatRad = points.first().latitude() * PI / 180.0
-                val startY = (h / 2) + ((0.5 - ln(tan(startLatRad) + 1.0/cos(startLatRad)) / (4.0 * PI)) * scale - (0.5 - ln(tan(center.latitude() * PI / 180.0) + 1.0/cos(center.latitude() * PI / 180.0)) / (4.0 * PI)) * scale).toFloat()
-                drawMarker(context, canvas, startX, startY, density, true)
-            } catch (e: Exception) {
-                android.util.Log.w("RouteSnapshotGenerator", "Error drawing start marker", e)
-            }
-            if (points.size > 1) {
-                try {
-                    val endX = (w / 2) + ((points.last().longitude() + 180.0) / 360.0 * scale - (center.longitude() + 180.0) / 360.0 * scale).toFloat()
-                    val endLatRad = points.last().latitude() * PI / 180.0
-                    val endY = (h / 2) + ((0.5 - ln(tan(endLatRad) + 1.0/cos(endLatRad)) / (4.0 * PI)) * scale - (0.5 - ln(tan(center.latitude() * PI / 180.0) + 1.0/cos(center.latitude() * PI / 180.0)) / (4.0 * PI)) * scale).toFloat()
-                    drawMarker(context, canvas, endX, endY, density, false)
-                } catch (e: Exception) {
-                    android.util.Log.w("RouteSnapshotGenerator", "Error drawing finish marker", e)
-                }
-            }
-        }
-        
-        return result
     }
 
     /**
@@ -606,25 +536,4 @@ object RouteSnapshotGenerator {
         }
     }
 
-    /**
-     * Изтрива snapshot файл за конкретен race
-     */
-    fun deleteSnapshot(context: Context, raceId: Long) {
-        val file = getSnapshotFile(context, raceId)
-        if (file.exists()) {
-            file.delete()
-            memoryCache.remove(raceId.toString())
-        }
-    }
-    
-    /**
-     * Изчиства всички snapshot файлове
-     */
-    fun clearAllSnapshots(context: Context) {
-        val snapshotsDir = File(context.filesDir, "snapshots")
-        if (snapshotsDir.exists()) {
-            snapshotsDir.listFiles()?.forEach { it.delete() }
-        }
-        memoryCache.evictAll()
-    }
 }

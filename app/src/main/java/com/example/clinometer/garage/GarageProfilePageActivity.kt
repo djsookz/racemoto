@@ -3,6 +3,7 @@ package com.example.clinometer.garage
 import android.content.res.ColorStateList
 import android.content.Context
 import android.content.Intent
+import android.location.Location
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -26,7 +27,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.widget.addTextChangedListener
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
+import androidx.lifecycle.lifecycleScope
 import com.example.clinometer.DragStorage
+import com.example.clinometer.LapData
 import com.example.clinometer.Profile
 import com.example.clinometer.Race
 import com.example.clinometer.R
@@ -43,13 +46,20 @@ import com.example.clinometer.data.GarageMaintenanceEntryStorage
 import com.example.clinometer.data.GarageMaintenanceReceiptStorage
 import com.example.clinometer.data.GarageOdometerSource
 import com.example.clinometer.data.GarageOdometerTimeline
+import com.example.clinometer.data.ProfileSessionSummary
+import com.example.clinometer.data.ProfileSessionSummaryStore
 import com.example.clinometer.data.ProfileStorage
 import com.example.clinometer.data.VehicleData
 import com.example.clinometer.settings.LanguageManager
+import com.google.gson.Gson
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -133,6 +143,8 @@ class GarageProfilePageActivity : AppCompatActivity() {
     private var contentBaseBottomPadding: Int = 0
     private var addFuelButtonBaseBottomMargin: Int = 0
     private var addFuelButtonBaseEndMargin: Int = 0
+    private var profileRefreshJob: Job? = null
+    private var profileRefreshRequestId: Long = 0L
 
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(LanguageManager.applyLanguage(newBase))
@@ -153,8 +165,6 @@ class GarageProfilePageActivity : AppCompatActivity() {
             finish()
             return
         }
-
-        refreshProfileUi()
     }
 
     override fun onResume() {
@@ -495,10 +505,29 @@ class GarageProfilePageActivity : AppCompatActivity() {
         GarageMaintenanceReminderManager.evaluateDueRemindersForProfile(this, profile.id)
         GarageDocumentReminderManager.evaluateDueRemindersForProfile(this, profile.id)
         currentProfile = profile
-        bindProfile(profile)
+        bindProfileHeader(profile)
+        bindProfileSummary(
+            profile,
+            ProfileSessionSummaryStore.loadSummary(this, profile.id),
+            GarageOdometerTimeline.latestAddedOdometer(this, profile.id)
+        )
+
+        val requestId = ++profileRefreshRequestId
+        profileRefreshJob?.cancel()
+        profileRefreshJob = lifecycleScope.launch {
+            val profilePageData = withContext(Dispatchers.IO) {
+                buildProfilePageData(profile)
+            }
+
+            if (requestId != profileRefreshRequestId || isFinishing || isDestroyed) {
+                return@launch
+            }
+
+            bindProfile(profile, profilePageData)
+        }
     }
 
-    private fun bindProfile(profile: Profile) {
+    private fun bindProfileHeader(profile: Profile) {
         tvVehicleName.text = getGarageDisplayName(profile)
 
         val isActive = profile.id == ProfileStorage.getSelectedProfileId(this)
@@ -509,49 +538,69 @@ class GarageProfilePageActivity : AppCompatActivity() {
             tvProfileStatus.text = getString(R.string.garage_profile_status_inactive)
             tvProfileStatus.setBackgroundResource(R.drawable.bg_profile_status_inactive)
         }
+    }
 
+    private fun bindProfileSummary(
+        profile: Profile,
+        summary: ProfileSessionSummary,
+        latestAddedOdometerKm: Long?
+    ) {
+        val typeText = when (profile.vehicleType) {
+            Profile.VehicleType.CAR -> getString(R.string.garage_vehicle_car).uppercase(Locale.getDefault())
+            Profile.VehicleType.MOTORCYCLE -> getString(R.string.garage_vehicle_motorcycle).uppercase(Locale.getDefault())
+        }
+        val odometerText = formatGarageMetaOdometer(latestAddedOdometerKm)
+        tvVehicleMeta.text = getString(R.string.garage_profile_meta_format, typeText, odometerText)
+        bindOverviewMetrics(summary.totalDistanceKm, summary.totalTimeMs)
+        tvSessionsTotal.text = summary.totalSessions.toString()
+        tvSessionsSplit.text = getString(
+            R.string.garage_profile_sessions_split,
+            summary.routeSessionCount,
+            summary.trackSessionCount,
+            summary.dragSessionCount
+        )
+    }
+
+    private fun bindProfile(profile: Profile, profilePageData: ProfilePageData) {
+        bindProfileHeader(profile)
+        bindProfileSummary(profile, profilePageData.summary, profilePageData.latestAddedOdometerKm)
+
+        currentFuelEntries = profilePageData.fuelEntries
+        currentMaintenanceEntries = profilePageData.maintenanceEntries
+        currentDocumentEntries = profilePageData.documentEntries
+        pruneHistorySelections()
+        bindOverviewPerformance(profile, profilePageData.overviewBestTimes)
+        bindFuelData(profilePageData.fuelEntries)
+        bindMaintenanceData(profilePageData.maintenanceEntries)
+        bindDocumentData(profilePageData.documentEntries)
+        tvFuelLogsCount.text = profilePageData.fuelEntries.size.toString()
+        tvMaintenanceCount.text = profilePageData.maintenanceEntries.size.toString()
+        tvDocumentsCount.text = profilePageData.documentEntries.size.toString()
+        refreshHistoryActionChrome()
+    }
+
+    private fun buildProfilePageData(profile: Profile): ProfilePageData {
+        ProfileSessionSummaryStore.ensureInitialized(this)
+        val summary = ProfileSessionSummaryStore.loadSummary(this, profile.id)
         val profileRaces = RouteStorage.loadRaces(this).filter { it.profileId == profile.id }
         val profileDragSessions = DragStorage.loadDragSessions(this).filter { it.profileId == profile.id }
-        val trackSessions = profileRaces.size
-        val dragSessions = profileDragSessions.size
-        val totalSessions = trackSessions + dragSessions
-
-        val totalDistanceKm = profileRaces.sumOf { it.distance }
         val fuelEntries = GarageFuelEntryStorage.loadEntries(this, profile.id)
             .sortedByDescending { it.createdAt.takeIf { createdAt -> createdAt > 0L } ?: it.id }
         val maintenanceEntries = GarageMaintenanceEntryStorage.loadEntries(this, profile.id)
             .sortedByDescending { resolveGarageEntryTimestamp(it.date, it.createdAt) }
         val documentEntries = GarageDocumentEntryStorage.loadEntries(this, profile.id)
             .sortedByDescending { resolveGarageEntryTimestamp(it.date, it.createdAt) }
-        currentFuelEntries = fuelEntries
-        currentMaintenanceEntries = maintenanceEntries
-        currentDocumentEntries = documentEntries
-        pruneHistorySelections()
-        val typeText = when (profile.vehicleType) {
-            Profile.VehicleType.CAR -> getString(R.string.garage_vehicle_car).uppercase(Locale.getDefault())
-            Profile.VehicleType.MOTORCYCLE -> getString(R.string.garage_vehicle_motorcycle).uppercase(Locale.getDefault())
-        }
-        val distanceText = NumberFormat.getIntegerInstance(Locale.US)
-            .format(totalDistanceKm.coerceAtLeast(0.0).toLong())
-        tvVehicleMeta.text = getString(R.string.garage_profile_meta_format, typeText, distanceText)
+        val latestAddedOdometerKm = GarageOdometerTimeline.latestAddedOdometer(this, profile.id)
+        val overviewBestTimes = computeOverviewBestTimes(profile.id, profileRaces, profileDragSessions)
 
-        val totalTimeMs = calculateTotalProfileTimeMs(profileRaces, profileDragSessions)
-        bindOverviewMetrics(totalDistanceKm, totalTimeMs)
-        bindOverviewPerformance(profile, profileRaces, profileDragSessions)
-        bindFuelData(fuelEntries)
-        bindMaintenanceData(maintenanceEntries)
-        bindDocumentData(documentEntries)
-
-        tvSessionsTotal.text = totalSessions.toString()
-        tvSessionsSplit.text = getString(
-            R.string.garage_profile_sessions_split,
-            dragSessions,
-            trackSessions
+        return ProfilePageData(
+            summary = summary,
+            latestAddedOdometerKm = latestAddedOdometerKm,
+            fuelEntries = fuelEntries,
+            maintenanceEntries = maintenanceEntries,
+            documentEntries = documentEntries,
+            overviewBestTimes = overviewBestTimes
         )
-        tvFuelLogsCount.text = fuelEntries.size.toString()
-        tvMaintenanceCount.text = maintenanceEntries.size.toString()
-        tvDocumentsCount.text = documentEntries.size.toString()
-        refreshHistoryActionChrome()
     }
 
     private fun bindFuelData(entries: List<GarageFuelEntry>) {
@@ -577,7 +626,8 @@ class GarageProfilePageActivity : AppCompatActivity() {
             String.format(Locale.getDefault(), "%.1f", it)
         } ?: getString(R.string.garage_profile_fuel_avg_consumption_placeholder)
         tvProfileFuelAvgConsumptionMeta.text = resolveFuelConsumptionMeta(consumptionSummary)
-        tvProfileFuelLastPriceValue.text = lastPrice?.let(::formatPricePerLitre) ?: getString(R.string.garage_profile_fuel_last_price_placeholder)
+        tvProfileFuelLastPriceValue.text = lastPrice?.let(::formatPricePerLitre)
+            ?: getString(R.string.garage_profile_fuel_last_price_placeholder)
         tvProfileFuelTotalLitresValue.text = formatTotalLitres(totalLitres)
         bindFuelHistory(entries)
     }
@@ -586,7 +636,9 @@ class GarageProfilePageActivity : AppCompatActivity() {
         llProfileFuelEntriesPreview.removeAllViews()
 
         if (entries.isEmpty()) {
-            llProfileFuelEntriesPreview.addView(createHistoryEmptyStateView(R.string.garage_profile_fuel_empty_state))
+            llProfileFuelEntriesPreview.addView(
+                createHistoryEmptyStateView(R.string.garage_profile_fuel_empty_state)
+            )
             return
         }
 
@@ -2001,13 +2053,7 @@ class GarageProfilePageActivity : AppCompatActivity() {
         )
     }
 
-    private fun bindOverviewPerformance(
-        profile: Profile,
-        profileRaces: List<Race>,
-        profileDragSessions: List<DragSession>
-    ) {
-        val bestTimes = computeOverviewBestTimes(profile.id, profileRaces, profileDragSessions)
-
+    private fun bindOverviewPerformance(profile: Profile, bestTimes: OverviewBestTimes) {
         tvProfileOverviewBest0to100Value.text = formatNanosToSeconds(bestTimes.best0to100Ns)
         tvProfileOverviewBest0to200Value.text = formatNanosToSeconds(bestTimes.best0to200Ns)
         tvProfileOverviewBest100to200Value.text = formatNanosToSeconds(bestTimes.best100to200Ns)
@@ -2119,15 +2165,17 @@ class GarageProfilePageActivity : AppCompatActivity() {
         )
     }
 
-    private fun calculateTotalProfileTimeMs(
-        profileRaces: List<Race>,
-        profileDragSessions: List<DragSession>
-    ): Long {
-        val racesTimeMs = profileRaces.sumOf { race -> calculateRaceDurationMs(race) }
-        val dragTimeMs = profileDragSessions.sumOf { session ->
-            session.attempts.sumOf { attempt -> attempt.duration / 1_000_000 }
+    private fun calculateRaceDistanceKm(race: Race): Double {
+        if (race.distance > 0.0) {
+            return race.distance
         }
-        return racesTimeMs + dragTimeMs
+
+        val points = if (race.routePoints.isNotEmpty()) {
+            race.routePoints
+        } else {
+            RouteStorage.loadRoutePoints(this, race.id)
+        }
+        return calculateRoutePointsDistanceKm(points)
     }
 
     private fun calculateRaceDurationMs(race: Race): Long {
@@ -2168,6 +2216,155 @@ class GarageProfilePageActivity : AppCompatActivity() {
         }
     }
 
+    private fun calculateTrackOutingDistanceKm(
+        prefs: android.content.SharedPreferences,
+        sessionId: String,
+        outingNumber: Int
+    ): Double {
+        var totalDistanceKm = 0.0
+        forEachTrackLapData(prefs, sessionId, outingNumber) { lapData ->
+            if (lapData.routePoints.size > 1) {
+                totalDistanceKm += calculateRoutePointsDistanceKm(lapData.routePoints)
+            }
+        }
+        return totalDistanceKm
+    }
+
+    private fun calculateTrackOutingDurationMs(
+        prefs: android.content.SharedPreferences,
+        sessionId: String,
+        outingNumber: Int
+    ): Long {
+        var totalDurationMs = 0L
+        forEachTrackLapData(prefs, sessionId, outingNumber) { lapData ->
+            totalDurationMs += calculateLapDataDurationMs(lapData)
+        }
+        return totalDurationMs
+    }
+
+    private fun calculateDragAttemptDistanceKm(attempt: com.example.clinometer.DragAttempt): Double {
+        val sampleLimit = minOf(attempt.speedSamples.size, attempt.speedTimeStamps.size)
+        if (sampleLimit < 2) {
+            return if (attempt.time0to402 > 0L) 0.402 else 0.0
+        }
+
+        var totalMeters = 0.0
+        for (index in 1 until sampleLimit) {
+            val t0 = attempt.speedTimeStamps[index - 1]
+            val t1 = attempt.speedTimeStamps[index]
+            val deltaNs = t1 - t0
+            if (deltaNs <= 0L) continue
+
+            val deltaSec = deltaNs / 1_000_000_000.0
+            val v0 = attempt.speedSamples[index - 1].coerceAtLeast(0f) / 3.6
+            val v1 = attempt.speedSamples[index].coerceAtLeast(0f) / 3.6
+            totalMeters += ((v0 + v1) * 0.5) * deltaSec
+        }
+
+        if (totalMeters > 0.0) {
+            return totalMeters / 1000.0
+        }
+        return if (attempt.time0to402 > 0L) 0.402 else 0.0
+    }
+
+    private fun calculateDragAttemptDurationMs(attempt: com.example.clinometer.DragAttempt): Long {
+        if (attempt.duration > 0L) {
+            return attempt.duration / 1_000_000L
+        }
+
+        val sampleLimit = minOf(attempt.speedSamples.size, attempt.speedTimeStamps.size)
+        if (sampleLimit >= 2) {
+            val firstTime = attempt.speedTimeStamps.first()
+            val lastTime = attempt.speedTimeStamps[sampleLimit - 1]
+            if (lastTime > firstTime) {
+                return (lastTime - firstTime) / 1_000_000L
+            }
+        }
+
+        return 0L
+    }
+
+    private fun calculateRoutePointsDistanceKm(points: List<com.example.clinometer.RoutePoint>): Double {
+        if (points.size < 2) return 0.0
+
+        var meters = 0.0
+        for (index in 1 until points.size) {
+            val previous = points[index - 1].geoPoint
+            val current = points[index].geoPoint
+            val results = FloatArray(1)
+            Location.distanceBetween(
+                previous.latitude,
+                previous.longitude,
+                current.latitude,
+                current.longitude,
+                results
+            )
+            meters += results[0].toDouble()
+        }
+        return meters / 1000.0
+    }
+
+    private fun calculateLapDataDurationMs(lapData: LapData): Long {
+        val dataDuration = lapData.endTime - lapData.startTime
+        if (dataDuration > 0L) {
+            return dataDuration
+        }
+
+        val points = lapData.routePoints
+        if (points.size < 2) {
+            return 0L
+        }
+
+        val firstPoint = points.first()
+        val lastPoint = points.last()
+        if (lastPoint.absoluteTime > firstPoint.absoluteTime && firstPoint.absoluteTime > 0L) {
+            return lastPoint.absoluteTime - firstPoint.absoluteTime
+        }
+
+        return if (lastPoint.timestamp > firstPoint.timestamp) {
+            lastPoint.timestamp - firstPoint.timestamp
+        } else {
+            0L
+        }
+    }
+
+    private inline fun forEachTrackLapData(
+        prefs: android.content.SharedPreferences,
+        sessionId: String,
+        outingNumber: Int,
+        action: (LapData) -> Unit
+    ) {
+        val gson = Gson()
+        val lapDataCount = prefs.getInt("${sessionId}_outing_${outingNumber}_lap_data_count", 0)
+        for (lapIndex in 1..lapDataCount) {
+            val lapJson = prefs.getString("${sessionId}_outing_${outingNumber}_lap_data_${lapIndex}", null)
+                ?: continue
+            val lapData = try {
+                gson.fromJson(lapJson, LapData::class.java)
+            } catch (_: Exception) {
+                null
+            } ?: continue
+            action(lapData)
+        }
+    }
+
+    private fun parseTrackDurationMs(value: String): Long? {
+        val trimmed = value.trim()
+        if (trimmed.isEmpty() || trimmed.contains("--")) return null
+
+        val match = Regex("^(\\d+):(\\d{1,2})\\.(\\d{1,3})$").find(trimmed) ?: return null
+        val minutes = match.groupValues[1].toLongOrNull() ?: return null
+        val seconds = match.groupValues[2].toLongOrNull() ?: return null
+        val fraction = match.groupValues[3]
+        val millis = when (fraction.length) {
+            1 -> "${fraction}00"
+            2 -> "${fraction}0"
+            else -> fraction.take(3)
+        }.toLongOrNull() ?: return null
+
+        return (minutes * 60_000L) + (seconds * 1_000L) + millis
+    }
+
     private fun findBestTrackOutingMaxSpeedKmh(profileId: Long): Float? {
         var maxSpeed = 0f
         forEachTrackOuting(profileId) { prefs, sessionId, outingNumber ->
@@ -2206,6 +2403,11 @@ class GarageProfilePageActivity : AppCompatActivity() {
         }
     }
 
+    private fun formatGarageMetaOdometer(valueKm: Long?): String {
+        return NumberFormat.getIntegerInstance(Locale.getDefault())
+            .format((valueKm ?: 0L).coerceAtLeast(0L))
+    }
+
     private fun parseDisplayedNumeric(value: String): Float? {
         val match = Regex("[-+]?\\d+(?:[\\.,]\\d+)?").find(value.trim()) ?: return null
         return match.value.replace(',', '.').toFloatOrNull()
@@ -2239,10 +2441,14 @@ class GarageProfilePageActivity : AppCompatActivity() {
         val maxAccelG: Float?
     )
 
-    private fun getExtraStatCount(profileId: Long, suffix: String): Int {
-        val prefs = getSharedPreferences("garage_profile_extra_stats", Context.MODE_PRIVATE)
-        return prefs.getInt("profile_${profileId}_$suffix", 0)
-    }
+    private data class ProfilePageData(
+        val summary: ProfileSessionSummary,
+        val latestAddedOdometerKm: Long?,
+        val fuelEntries: List<GarageFuelEntry>,
+        val maintenanceEntries: List<GarageMaintenanceEntry>,
+        val documentEntries: List<GarageDocumentEntry>,
+        val overviewBestTimes: OverviewBestTimes
+    )
 
     private fun syncFuelLogCount() {
         val count = GarageFuelEntryStorage.getCount(this, profileId)
@@ -2472,7 +2678,7 @@ class GarageProfilePageActivity : AppCompatActivity() {
             ProfileStorage.saveProfiles(this, profiles)
 
             currentProfile = updatedProfile
-            bindProfile(updatedProfile)
+            refreshProfileUi()
             dialog.dismiss()
         }
 

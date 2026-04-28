@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1772833705188,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1776466844863,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -57,21 +57,5 @@\n         if (profileId == -1L) return\r\n         clearOrientation(context, profileId, isLandscape = false)\r\n         clearOrientation(context, profileId, isLandscape = true)\r\n     }\r\n-\r\n-    fun resolveOffset(snapshot: LeanCalibrationSnapshot, isLandscape: Boolean): Pair<Boolean, Float> {\r\n-        return if (isLandscape) {\r\n-            when {\r\n-                snapshot.landscapeCalibrated -> true to snapshot.landscapeOffsetDeg\r\n-                snapshot.portraitCalibrated -> true to snapshot.portraitOffsetDeg\r\n-                else -> false to 0f\r\n-            }\r\n-        } else {\r\n-            when {\r\n-                snapshot.portraitCalibrated -> true to snapshot.portraitOffsetDeg\r\n-                snapshot.landscapeCalibrated -> true to snapshot.landscapeOffsetDeg\r\n-                else -> false to 0f\r\n-            }\r\n-        }\r\n-    }\r\n }\r\n"
                 }
             ],
             "date": 1772833705188,

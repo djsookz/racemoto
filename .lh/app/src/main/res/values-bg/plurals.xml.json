@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/values-bg/plurals.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1776466844657,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1776466844657,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<resources>\r\n    <plurals name=\"session_days\">\r\n        <item quantity=\"one\">%d ден</item>\r\n        <item quantity=\"few\">%d дни</item>\r\n        <item quantity=\"other\">%d дни</item>\r\n    </plurals>\r\n</resources>"
+        }
+    ]
+}

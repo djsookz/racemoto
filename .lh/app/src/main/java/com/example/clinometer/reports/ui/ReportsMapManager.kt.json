@@ -3,11 +3,19 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 2,
             "patches": [
                 {
                     "date": 1774607054375,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1776338873744,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -7,17 +7,10 @@\n import android.graphics.Paint\r\n import android.util.Log\r\n import com.example.clinometer.reports.data.PoliceReport\r\n import com.example.clinometer.reports.data.ReportType\r\n-import com.mapbox.geojson.Feature\r\n-import com.mapbox.geojson.FeatureCollection\r\n import com.mapbox.geojson.Point\r\n import com.mapbox.maps.MapView\r\n-import com.mapbox.maps.Style\r\n-import com.mapbox.maps.extension.style.layers.addLayer\r\n-import com.mapbox.maps.extension.style.layers.generated.symbolLayer\r\n-import com.mapbox.maps.extension.style.sources.addSource\r\n-import com.mapbox.maps.extension.style.sources.generated.geoJsonSource\r\n import com.mapbox.maps.plugin.annotation.AnnotationPlugin\r\n import com.mapbox.maps.plugin.annotation.annotations\r\n import com.mapbox.maps.plugin.annotation.generated.PointAnnotation\r\n import com.mapbox.maps.plugin.annotation.generated.PointAnnotationManager\r\n@@ -40,10 +33,8 @@\n     private var onReportClickListener: ((String) -> Unit)? = null\r\n     \r\n     companion object {\r\n         private const val TAG = \"ReportsMapManager\"\r\n-        private const val SOURCE_ID = \"reports-source\"\r\n-        private const val LAYER_ID = \"reports-layer\"\r\n     }\r\n     \r\n     /**\r\n      * Set listener за click на report marker\r\n@@ -243,14 +234,5 @@\n         annotationManager = null\r\n         onReportClickListener = null\r\n         Log.d(TAG, \"ReportsMapManager cleaned up\")\r\n     }\r\n-    \r\n-    /**\r\n-     * Връща report на дадена позиция (ако има marker там)\r\n-     */\r\n-    fun getReportAtPosition(longitude: Double, latitude: Double, toleranceMeters: Double = 50.0): String? {\r\n-        // TODO: Имплементация на spatial query за click detection\r\n-        // Засега връщаме null\r\n-        return null\r\n-    }\r\n }\r\n"
+                },
+                {
+                    "date": 1776466844759,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,7 +1,6 @@\n package com.example.clinometer.reports.ui\r\n \r\n-import android.content.Context\r\n import android.graphics.Bitmap\r\n import android.graphics.Canvas\r\n import android.graphics.Color\r\n import android.graphics.Paint\r\n@@ -21,10 +20,9 @@\n  * Управлява показването на доклади на Mapbox картата\r\n  * Добавя/маха markers, управлява стилове и click events\r\n  */\r\n class ReportsMapManager(\r\n-    private val mapView: MapView,\r\n-    private val context: Context\r\n+    private val mapView: MapView\r\n ) {\r\n     private var annotationManager: PointAnnotationManager? = null\r\n     private val reportAnnotations = mutableMapOf<String, PointAnnotation>()\r\n     private val annotationToReportId = mutableMapOf<String, String>() // Mapping annotation ID -> report ID\r\n"
                 }
             ],
             "date": 1774607054375,

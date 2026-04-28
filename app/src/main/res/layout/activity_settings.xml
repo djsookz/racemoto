@@ -25,13 +25,13 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+
             android:orientation="vertical">
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="18dp"
-                app:cardBackgroundColor="@color/card_background"
                 app:cardCornerRadius="22dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/stroke_dark"
@@ -41,6 +41,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
+                    android:background="@drawable/bg_track_metric_speed"
                     android:padding="20dp">
 
                     <TextView
@@ -68,7 +69,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                app:cardBackgroundColor="@color/card_background"
                 app:cardCornerRadius="18dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/stroke_dark"
@@ -78,6 +78,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
+                    android:background="@drawable/bg_track_metric_speed"
                     android:padding="6dp">
 
                     <LinearLayout
@@ -93,7 +94,7 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:src="@android:drawable/ic_lock_idle_lock"
-                            android:tint="@color/accent_color" />
+                            app:tint="@color/accent_color" />
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -155,7 +156,7 @@
                                 android:layout_width="22dp"
                                 android:layout_height="22dp"
                                 android:src="@android:drawable/ic_lock_idle_low_battery"
-                                android:tint="@color/accent_color" />
+                                app:tint="@color/accent_color" />
 
                             <LinearLayout
                                 android:layout_width="0dp"
@@ -185,7 +186,84 @@
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:src="@drawable/ic_chevron_right"
-                                android:tint="@color/text_tertiary" />
+                                app:tint="@color/text_tertiary" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="44dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="@color/stroke_dark" />
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardDragCalibration"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginHorizontal="2dp"
+                        app:cardBackgroundColor="@android:color/transparent"
+                        app:cardElevation="0dp"
+                        app:rippleColor="@color/accent_color"
+                        app:strokeWidth="0dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:minHeight="74dp"
+                            android:orientation="horizontal"
+                            android:paddingStart="8dp"
+                            android:paddingEnd="8dp">
+
+                            <ImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:src="@android:drawable/ic_menu_compass"
+                                app:tint="@color/accent_color" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="12dp"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/settings_drag_calibration"
+                                    android:textColor="@color/text_primary"
+                                    android:textSize="15sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tvDragCalibrationStatus"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="2dp"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/tvDragCalibrationBadge"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_marginEnd="10dp"
+                                android:background="@drawable/bg_settings_alert_badge"
+                                android:gravity="center"
+                                android:text="!"
+                                android:textColor="@android:color/white"
+                                android:textSize="11sp"
+                                android:textStyle="bold"
+                                android:visibility="gone" />
+
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:src="@drawable/ic_chevron_right"
+                                app:tint="@color/text_tertiary" />
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
@@ -219,7 +297,7 @@
                                 android:layout_width="22dp"
                                 android:layout_height="22dp"
                                 android:src="@android:drawable/ic_menu_manage"
-                                android:tint="@color/accent_color" />
+                                app:tint="@color/accent_color" />
 
                             <LinearLayout
                                 android:layout_width="0dp"
@@ -249,7 +327,7 @@
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:src="@drawable/ic_chevron_right"
-                                android:tint="@color/text_tertiary" />
+                                app:tint="@color/text_tertiary" />
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
@@ -283,7 +361,7 @@
                                 android:layout_width="22dp"
                                 android:layout_height="22dp"
                                 android:src="@android:drawable/ic_menu_sort_alphabetically"
-                                android:tint="@color/accent_color" />
+                                app:tint="@color/accent_color" />
 
                             <LinearLayout
                                 android:layout_width="0dp"
@@ -313,7 +391,7 @@
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:src="@drawable/ic_chevron_right"
-                                android:tint="@color/text_tertiary" />
+                                app:tint="@color/text_tertiary" />
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
                 </LinearLayout>
@@ -333,7 +411,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                app:cardBackgroundColor="@color/card_background"
                 app:cardCornerRadius="18dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/stroke_dark"
@@ -343,6 +420,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
+                    android:background="@drawable/bg_track_metric_speed"
                     android:padding="6dp">
 
                     <com.google.android.material.card.MaterialCardView
@@ -368,7 +446,7 @@
                                 android:layout_width="22dp"
                                 android:layout_height="22dp"
                                 android:src="@android:drawable/ic_menu_compass"
-                                android:tint="@color/accent_color" />
+                                app:tint="@color/accent_color" />
 
                             <LinearLayout
                                 android:layout_width="0dp"
@@ -398,7 +476,7 @@
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:src="@drawable/ic_chevron_right"
-                                android:tint="@color/text_tertiary" />
+                                app:tint="@color/text_tertiary" />
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
@@ -433,7 +511,7 @@
                                 android:layout_width="22dp"
                                 android:layout_height="22dp"
                                 android:src="@android:drawable/ic_menu_directions"
-                                android:tint="@color/accent_color" />
+                                app:tint="@color/accent_color" />
 
                             <LinearLayout
                                 android:layout_width="0dp"
@@ -463,7 +541,7 @@
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:src="@drawable/ic_chevron_right"
-                                android:tint="@color/text_tertiary" />
+                                app:tint="@color/text_tertiary" />
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
 
@@ -497,7 +575,7 @@
                                 android:layout_width="22dp"
                                 android:layout_height="22dp"
                                 android:src="@android:drawable/ic_menu_week"
-                                android:tint="@color/accent_color" />
+                                app:tint="@color/accent_color" />
 
                             <LinearLayout
                                 android:layout_width="0dp"
@@ -527,7 +605,7 @@
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:src="@drawable/ic_chevron_right"
-                                android:tint="@color/text_tertiary" />
+                                app:tint="@color/text_tertiary" />
                         </LinearLayout>
                     </com.google.android.material.card.MaterialCardView>
                 </LinearLayout>
@@ -547,7 +625,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="14dp"
-                app:cardBackgroundColor="@color/card_background"
                 app:cardCornerRadius="18dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/stroke_dark"
@@ -557,6 +634,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
+                    android:background="@drawable/bg_track_metric_speed"
                     android:padding="6dp">
 
                     <LinearLayout
@@ -572,7 +650,7 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:src="@android:drawable/ic_media_play"
-                            android:tint="@color/accent_color" />
+                            app:tint="@color/accent_color" />
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -616,7 +694,7 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:src="@android:drawable/ic_media_play"
-                            android:tint="@color/accent_color" />
+                            app:tint="@color/accent_color" />
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -660,7 +738,7 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:src="@android:drawable/ic_media_play"
-                            android:tint="@color/accent_color" />
+                            app:tint="@color/accent_color" />
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -704,7 +782,7 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:src="@android:drawable/ic_btn_speak_now"
-                            android:tint="@color/accent_color" />
+                            app:tint="@color/accent_color" />
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -745,7 +823,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="10dp"
-                app:cardBackgroundColor="@color/card_background"
                 app:cardCornerRadius="18dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/stroke_dark"
@@ -757,6 +834,7 @@
                     android:gravity="center_vertical"
                     android:minHeight="66dp"
                     android:orientation="horizontal"
+                    android:background="@drawable/bg_track_metric_speed"
                     android:paddingStart="14dp"
                     android:paddingEnd="12dp">
 
@@ -764,7 +842,7 @@
                         android:layout_width="22dp"
                         android:layout_height="22dp"
                         android:src="@android:drawable/ic_menu_mapmode"
-                        android:tint="@color/accent_color" />
+                        app:tint="@color/accent_color" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -794,14 +872,13 @@
                         android:layout_width="18dp"
                         android:layout_height="18dp"
                         android:src="@drawable/ic_chevron_right"
-                        android:tint="@color/text_tertiary" />
+                        app:tint="@color/text_tertiary" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardBackgroundColor="@color/card_background"
                 app:cardCornerRadius="18dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/stroke_dark"
@@ -811,6 +888,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
+                    android:background="@drawable/bg_track_metric_speed"
                     android:padding="6dp">
 
                     <LinearLayout
@@ -826,7 +904,7 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:src="@android:drawable/ic_lock_silent_mode_off"
-                            android:tint="@color/accent_color" />
+                            app:tint="@color/accent_color" />
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -870,7 +948,7 @@
                             android:layout_width="22dp"
                             android:layout_height="22dp"
                             android:src="@android:drawable/star_big_on"
-                            android:tint="@color/accent_color" />
+                            app:tint="@color/accent_color" />
 
                         <LinearLayout
                             android:layout_width="0dp"

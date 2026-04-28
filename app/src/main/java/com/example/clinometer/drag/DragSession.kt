@@ -24,7 +24,17 @@ data class DragAttempt(
     val gpsTimeStamps: List<Long> = emptyList(),
     val duration: Long = 0L,
     val speedSamples: List<Float> = emptyList(),
-    val speedTimeStamps: List<Long> = emptyList()
+    val speedTimeStamps: List<Long> = emptyList(),
+    val distance50mTimeNs: Long = -1L,
+    val distance100mTimeNs: Long = -1L,
+    val distance200mTimeNs: Long = -1L,
+    val distance300mTimeNs: Long = -1L,
+    val distance402mTimeNs: Long = -1L,
+    val distance50mSpeedKmh: Float = -1f,
+    val distance100mSpeedKmh: Float = -1f,
+    val distance200mSpeedKmh: Float = -1f,
+    val distance300mSpeedKmh: Float = -1f,
+    val distance402mSpeedKmh: Float = -1f
 ) : Parcelable {
     constructor(parcel: Parcel) : this(
         parcel.readLong(),
@@ -46,7 +56,17 @@ data class DragAttempt(
         mutableListOf<Long>().apply { parcel.readList(this, Long::class.java.classLoader) },
         parcel.readLong(),
         parcel.createFloatArray()?.toList() ?: emptyList(),
-        mutableListOf<Long>().apply { parcel.readList(this, Long::class.java.classLoader) }
+        mutableListOf<Long>().apply { parcel.readList(this, Long::class.java.classLoader) },
+        if (parcel.dataAvail() > 0) parcel.readLong() else -1L,
+        if (parcel.dataAvail() > 0) parcel.readLong() else -1L,
+        if (parcel.dataAvail() > 0) parcel.readLong() else -1L,
+        if (parcel.dataAvail() > 0) parcel.readLong() else -1L,
+        if (parcel.dataAvail() > 0) parcel.readLong() else -1L,
+        if (parcel.dataAvail() > 0) parcel.readFloat() else -1f,
+        if (parcel.dataAvail() > 0) parcel.readFloat() else -1f,
+        if (parcel.dataAvail() > 0) parcel.readFloat() else -1f,
+        if (parcel.dataAvail() > 0) parcel.readFloat() else -1f,
+        if (parcel.dataAvail() > 0) parcel.readFloat() else -1f
 
     )
 
@@ -71,6 +91,16 @@ data class DragAttempt(
         parcel.writeLong(duration)
         parcel.writeFloatArray(speedSamples.toFloatArray())
         parcel.writeList(speedTimeStamps)
+        parcel.writeLong(distance50mTimeNs)
+        parcel.writeLong(distance100mTimeNs)
+        parcel.writeLong(distance200mTimeNs)
+        parcel.writeLong(distance300mTimeNs)
+        parcel.writeLong(distance402mTimeNs)
+        parcel.writeFloat(distance50mSpeedKmh)
+        parcel.writeFloat(distance100mSpeedKmh)
+        parcel.writeFloat(distance200mSpeedKmh)
+        parcel.writeFloat(distance300mSpeedKmh)
+        parcel.writeFloat(distance402mSpeedKmh)
     }
 
     override fun describeContents(): Int = 0

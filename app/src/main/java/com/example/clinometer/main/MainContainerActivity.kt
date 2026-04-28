@@ -1,9 +1,15 @@
 package com.example.clinometer.main
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import com.example.clinometer.R
 import com.example.clinometer.RacesFragment
+import com.example.clinometer.BatteryOptimizationHelper
+import com.example.clinometer.OptimizationSetupActivity
 import com.example.clinometer.WelcomeActivity
-import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
@@ -15,11 +21,12 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.viewpager2.widget.ViewPager2
 import com.example.clinometer.settings.LanguageManager
-import android.content.Context
 import android.graphics.Typeface
 import androidx.preference.PreferenceManager
 import android.view.WindowManager
+import com.example.clinometer.data.CalibrationReminderStore
 import com.example.clinometer.data.ProfileStorage
+import com.example.clinometer.garage.VehicleSelectionActivity
 import com.example.clinometer.main.map.MapFragment
 import com.example.clinometer.main.navigation.NavigationController
 import com.example.clinometer.main.state.MainUiStateViewModel
@@ -66,9 +73,7 @@ class MainContainerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        if (ProfileStorage.loadProfiles(this).isEmpty()) {
-            startActivity(Intent(this, WelcomeActivity::class.java))
-            finish()
+        if (routeToOnboardingIfNeeded()) {
             return
         }
         
@@ -95,6 +100,7 @@ class MainContainerActivity : AppCompatActivity() {
         navMap = findViewById(R.id.navMap)
         navTrack = findViewById(R.id.navTrack)
         navOptions = findViewById(R.id.navOptions)
+        updateSettingsReminderBadge()
         
         android.util.Log.d("MainContainerActivity", "✅ Navigation items loaded successfully")
         
@@ -231,8 +237,9 @@ class MainContainerActivity : AppCompatActivity() {
         
         // Highlight активния
         setNavItemActive(activeItemId)
+        updateSettingsReminderBadge()
     }
-    
+
     private fun resetNavItemState(itemId: Int) {
         val container = findViewById<LinearLayout>(itemId)
         val iconViewId = when (itemId) {
@@ -348,6 +355,9 @@ class MainContainerActivity : AppCompatActivity() {
         refreshNavigationTexts()
         // Обновяване на активния item
         highlightActiveNavItem(getItemIdForPage(currentPage))
+        if (::navOptions.isInitialized) {
+            updateSettingsReminderBadge()
+        }
     }
     
     private fun refreshNavigationTexts() {
@@ -369,6 +379,54 @@ class MainContainerActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun routeToOnboardingIfNeeded(): Boolean {
+        if (ProfileStorage.loadProfiles(this).isNotEmpty()) {
+            return false
+        }
+
+        val intent = when {
+            !hasRequiredLocationPermissions() -> Intent(this, WelcomeActivity::class.java)
+            BatteryOptimizationHelper.shouldShowOptimizationSetup(this) -> {
+                Intent(this, OptimizationSetupActivity::class.java).apply {
+                    putExtra("IS_FIRST_LAUNCH", true)
+                }
+            }
+            else -> {
+                Intent(this, VehicleSelectionActivity::class.java).apply {
+                    putExtra("IS_FIRST_LAUNCH", true)
+                }
+            }
+        }
+
+        startActivity(intent)
+        finish()
+        return true
+    }
+
+    private fun hasRequiredLocationPermissions(): Boolean {
+        val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.FOREGROUND_SERVICE_LOCATION
+            )
+        } else {
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+
+        return permissions.all { permission ->
+            ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun updateSettingsReminderBadge() {
+        findViewById<TextView>(R.id.tvNavOptionsBadge)?.visibility =
+            if (CalibrationReminderStore.needsSelectedProfileDragCalibrationReminder(this)) {
+                View.VISIBLE
+            } else {
+                View.GONE
+            }
     }
 }
 

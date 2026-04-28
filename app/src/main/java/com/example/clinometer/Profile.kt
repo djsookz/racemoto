@@ -12,21 +12,4 @@ data class Profile(
     var imagePath: String? = null // Път към снимката на профила
 ) : Serializable {
     enum class VehicleType { CAR, MOTORCYCLE }
-
-    // Методи за актуализиране на рекордите
-    fun updateBest0to100(time: Long) {
-        if (time < best0to100 && time > 0) best0to100 = time
-    }
-
-    fun updateBest0to200(time: Long) {
-        if (time < best0to200 && time > 0) best0to200 = time
-    }
-
-    fun updateBest100to200(time: Long) {
-        if (time < best100to200 && time > 0) best100to200 = time
-    }
-
-    fun updateMaxSpeed(speed: Float) {
-        if (speed > maxSpeed) maxSpeed = speed
-    }
 }

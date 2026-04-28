@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0F1115">
+    android:background="@color/background_primary">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -12,7 +12,7 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingHorizontal="12dp"
-        android:background="#161A21">
+        android:background="#161B22">
 
         <TextView
             android:id="@+id/btnBack"
@@ -89,6 +89,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:background="@drawable/bg_track_metric_speed"
             android:padding="12dp">
 
             <EditText
@@ -249,7 +250,7 @@
         android:layout_weight="1"
         android:layout_marginHorizontal="10dp"
         android:layout_marginBottom="8dp"
-        android:background="#10151D" />
+        android:background="@drawable/bg_track_metric_speed" />
 
     <TextView
         android:id="@+id/tvInstructions"

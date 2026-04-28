@@ -146,16 +146,8 @@ object GarageMaintenanceReminderManager {
         return GarageMaintenanceReminderRules.resolveKmReminder(entry)
     }
 
-    private fun resolveTargetOdometer(entry: GarageMaintenanceEntry): Long? {
-        return GarageMaintenanceReminderRules.resolveKmTarget(entry)
-    }
-
     private fun resolveReminderDateMillis(entry: GarageMaintenanceEntry, serviceTimestamp: Long): Long? {
         return GarageMaintenanceReminderRules.resolveDateReminder(entry, serviceTimestamp)
-    }
-
-    private fun resolveTargetDateMillis(entry: GarageMaintenanceEntry, serviceTimestamp: Long): Long? {
-        return GarageMaintenanceReminderRules.resolveDateTarget(entry, serviceTimestamp)
     }
 
     private fun resolveServiceTimestamp(entry: GarageMaintenanceEntry): Long {
