@@ -78,9 +78,11 @@ import com.mapbox.navigation.core.lifecycle.requireMapboxNavigation
 import com.mapbox.navigation.core.trip.session.LocationMatcherResult
 import com.mapbox.navigation.core.trip.session.LocationObserver
 import com.mapbox.navigation.core.trip.session.RouteProgressObserver
+import com.mapbox.navigation.core.trip.session.VoiceInstructionsObserver
 import com.mapbox.navigation.core.formatter.MapboxDistanceFormatter
 import com.mapbox.navigation.base.formatter.DistanceFormatterOptions
 import com.mapbox.navigation.base.formatter.UnitType
+import com.mapbox.navigation.ui.base.util.MapboxNavigationConsumer
 import com.mapbox.navigation.tripdata.maneuver.api.MapboxManeuverApi
 import com.mapbox.navigation.ui.components.maneuver.view.MapboxManeuverView
 import com.mapbox.navigation.ui.maps.camera.NavigationCamera
@@ -96,6 +98,11 @@ import com.mapbox.navigation.ui.maps.route.arrow.api.MapboxRouteArrowApi
 import com.mapbox.navigation.ui.maps.route.arrow.api.MapboxRouteArrowView
 import com.mapbox.navigation.ui.maps.route.arrow.model.RouteArrowOptions
 import com.mapbox.navigation.base.trip.model.RouteProgress
+import com.mapbox.navigation.voice.api.MapboxSpeechApi
+import com.mapbox.navigation.voice.api.MapboxVoiceInstructionsPlayer
+import com.mapbox.navigation.voice.model.SpeechAnnouncement
+import com.mapbox.navigation.voice.model.SpeechError
+import com.mapbox.navigation.voice.model.SpeechValue
 import com.example.clinometer.navigation.MapboxGeocodingService
 import com.example.clinometer.navigation.GeocodingFeature
 import com.example.clinometer.navigation.CategoryFeature
@@ -107,6 +114,7 @@ import com.google.android.material.textfield.TextInputEditText
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import com.example.clinometer.settings.UnitsManager
+import com.example.clinometer.settings.LanguageManager
 import com.example.clinometer.network.OpenMeteoService
 import com.example.clinometer.network.WeatherApiService
 import com.example.clinometer.network.WeatherApiHour
@@ -120,6 +128,7 @@ import com.mapbox.maps.plugin.animation.MapAnimationOptions
 import com.mapbox.common.location.Location as MapboxLocation
 import com.example.clinometer.main.MainContainerActivity
 import com.example.clinometer.main.location.KalmanLocationFilter
+import com.mapbox.bindgen.Expected
 import kotlin.math.abs
 import com.example.clinometer.RouteStorage
 import com.example.clinometer.RouteSnapshotGenerator
@@ -160,6 +169,20 @@ class MapFragment : Fragment() {
     private val reportMergeDistanceRuralMeters = 120.0
     private val reportSettlementRadiusMeters = 2000.0
     private val reportMergeDistanceFallbackMeters = 100.0
+    private var reportAlertsIsInSettlement: Boolean = false
+    private var reportAlertsSettlementResolved: Boolean = false
+    private var reportAlertsSettlementLookupInFlight: Boolean = false
+    private var reportAlertsSettlementLastLookupAtMs: Long = 0L
+    private var reportAlertsSettlementLastLookupLocation: Location? = null
+    private val reportAlertsSettlementRefreshDistanceMeters = 1500f
+    private val reportAlertsSettlementRefreshIntervalMs = 120_000L
+    private var mapRootLayoutChangeListener: View.OnLayoutChangeListener? = null
+    private var mapRootObservedView: View? = null
+    private var lastKnownLayoutOrientation: Int = android.content.res.Configuration.ORIENTATION_UNDEFINED
+    private val fabRepositionRunnable = Runnable {
+        if (!isAdded || view == null) return@Runnable
+        repositionFabReport()
+    }
     
     // UI Elements
     private lateinit var btnStartSession: MaterialButton
@@ -314,6 +337,22 @@ class MapFragment : Fragment() {
     private var navSessionStartTime: Long = 0L
     private var navSessionDistanceMeters: Double = 0.0
     private var navSessionLastLocation: Location? = null
+    private var mapboxSpeechApi: MapboxSpeechApi? = null
+    private var mapboxVoiceInstructionsPlayer: MapboxVoiceInstructionsPlayer? = null
+    private var voiceLanguageTag: String? = null
+    private val voiceInstructionsPlayerCallback = MapboxNavigationConsumer<SpeechAnnouncement> { announcement ->
+        mapboxSpeechApi?.clean(announcement)
+    }
+    private val speechCallback =
+        MapboxNavigationConsumer<Expected<SpeechError, SpeechValue>> { expected ->
+            val announcement = expected.value?.announcement ?: expected.error?.fallback
+            if (announcement != null) {
+                mapboxVoiceInstructionsPlayer?.play(announcement, voiceInstructionsPlayerCallback)
+            }
+        }
+    private val voiceInstructionsObserver = VoiceInstructionsObserver { voiceInstructions ->
+        mapboxSpeechApi?.generate(voiceInstructions, speechCallback)
+    }
     private val kalmanFilter = KalmanLocationFilter()
     private var mapboxTargetPosition: GeoPoint? = null
     private var mapboxSmoothedTargetPosition: GeoPoint? = null
@@ -346,23 +385,15 @@ class MapFragment : Fragment() {
         onResumedObserver = object : MapboxNavigationObserver {
             override fun onAttached(mapboxNavigation: MapboxNavigation) {
                 mapboxNavigation.registerLocationObserver(navigationLocationObserver)
-                if (isNavigationActive && !navigationObserversRegistered) {
-                    mapboxNavigation.registerRoutesObserver(sdkRoutesObserver)
-                    mapboxNavigation.registerRouteProgressObserver(sdkRouteProgressObserver)
-                    mapboxNavigation.registerArrivalObserver(sdkArrivalObserver)
-                    navigationObserversRegistered = true
+                if (isNavigationActive) {
+                    registerNavigationObserversIfNeeded()
                 }
                 mapboxNavigation.startTripSession(withForegroundService = false)
             }
 
             override fun onDetached(mapboxNavigation: MapboxNavigation) {
                 mapboxNavigation.unregisterLocationObserver(navigationLocationObserver)
-                if (navigationObserversRegistered) {
-                    mapboxNavigation.unregisterRoutesObserver(sdkRoutesObserver)
-                    mapboxNavigation.unregisterRouteProgressObserver(sdkRouteProgressObserver)
-                    mapboxNavigation.unregisterArrivalObserver(sdkArrivalObserver)
-                    navigationObserversRegistered = false
-                }
+                unregisterNavigationObserversIfNeeded()
                 mapboxNavigation.stopTripSession()
             }
         },
@@ -425,10 +456,15 @@ class MapFragment : Fragment() {
             }
             // Realtime listener continues to push updates automatically
             
-            // Check for navigation alerts (500m warnings + confirmation prompts)
+            // Check for navigation alerts with dynamic urban/rural thresholds
             if (isNavigationActive) {
+                maybeRefreshReportAlertsSettlementState(androidLoc)
                 val bearing = androidLoc.bearing
-                reportsIntegration?.checkForNavigationAlerts(androidLoc, bearing)
+                reportsIntegration?.checkForNavigationAlerts(
+                    location = androidLoc,
+                    bearing = bearing,
+                    isInSettlement = reportAlertsIsInSettlement
+                )
             }
 
             if (pendingFirstWeatherFetch && !isWeatherFirstOpenDone()) {
@@ -509,6 +545,8 @@ class MapFragment : Fragment() {
         if (!isNavigationActive) return@RoutesObserver
         if (!this::routeLineApi.isInitialized || !this::routeLineView.isInitialized) return@RoutesObserver
 
+        clearVoiceInstructionsPlaybackState()
+
         val routes = result.navigationRoutes
         val style = mapboxMapView?.mapboxMap?.style ?: return@RoutesObserver
         val rla = routeLineApi
@@ -562,7 +600,7 @@ class MapFragment : Fragment() {
                     setManeuverViewColors(mv, orangeColor, Color.TRANSPARENT)
                     reduceManeuverTextSize(mv, isLandscape)
                     reduceManeuverIconSize(mv, isLandscape)
-                    centerManeuverText(mv)
+                    centerManeuverText(mv, isLandscape)
                     reduceManeuverSpacing(mv, isLandscape)
                 }
             } catch (_: Throwable) {
@@ -882,6 +920,7 @@ class MapFragment : Fragment() {
         updateMotorwayButtonIcon()
 
         setupInlineSearchUI()
+        initializeVoiceInstructionsIfNeeded()
         setupRoutePreviewUi()
         setupDismissSearchOnOutsideTap(view)
         
@@ -934,6 +973,27 @@ class MapFragment : Fragment() {
         
         // Position FAB Report correctly on initial load
         repositionFabReport()
+        lastKnownLayoutOrientation = resources.configuration.orientation
+        mapRootObservedView = view
+        mapRootLayoutChangeListener = View.OnLayoutChangeListener { _, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom ->
+            if (!isAdded) return@OnLayoutChangeListener
+
+            val widthChanged = (right - left) != (oldRight - oldLeft)
+            val heightChanged = (bottom - top) != (oldBottom - oldTop)
+            if (!widthChanged && !heightChanged) return@OnLayoutChangeListener
+
+            val currentOrientation = resources.configuration.orientation
+            val orientationChanged = currentOrientation != lastKnownLayoutOrientation
+            if (orientationChanged) {
+                lastKnownLayoutOrientation = currentOrientation
+            }
+
+            if (orientationChanged || widthChanged || heightChanged) {
+                requestFabReportReposition()
+            }
+        }
+        mapRootLayoutChangeListener?.let { view.addOnLayoutChangeListener(it) }
+        requestFabReportReposition()
         
         val bottomContainer = view.findViewById<LinearLayout>(R.id.bottomContainer)
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(bottomContainer) { v, insets ->
@@ -1102,6 +1162,20 @@ class MapFragment : Fragment() {
             }
         })
 
+        etSearch.setOnEditorActionListener { _, actionId, event ->
+            val isSearchAction =
+                actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH ||
+                    actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
+                    (event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event.action == android.view.KeyEvent.ACTION_DOWN)
+
+            if (!isSearchAction) {
+                return@setOnEditorActionListener false
+            }
+
+            submitInlineSearchFromIme()
+            true
+        }
+
         etSearch.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
                 val q = etSearch.text?.toString()?.trim().orEmpty()
@@ -1137,6 +1211,7 @@ class MapFragment : Fragment() {
         etSearch.requestFocus()
         val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.showSoftInput(etSearch, InputMethodManager.SHOW_IMPLICIT)
+        updateBottomNavigationVisibilityForInlineSearch()
 
         quickListMode = QuickListMode.RECENT
 
@@ -1164,6 +1239,42 @@ class MapFragment : Fragment() {
         
         // Restore default POI icons when closing search
         setPOIVisibility(true)
+        updateBottomNavigationVisibilityForInlineSearch()
+    }
+
+    private fun submitInlineSearchFromIme() {
+        val q = etSearch.text?.toString()?.trim().orEmpty()
+        if (q.length >= 2) {
+            if (isCategorySearchOverlayActive) {
+                clearPOISearchMarkers()
+                setPOIVisibility(true)
+            }
+            cancelInlineSearchDebounce()
+            showSearchResultsMode()
+            scheduleInlineSearch(q)
+        } else {
+            showQuickDestinationSuggestions()
+        }
+
+        val imm = requireContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(etSearch.windowToken, 0)
+
+        // Do not collapse inline search when IME removes focus after Search action.
+        suppressInlineSearchFocusRestore = true
+        etSearch.clearFocus()
+    }
+
+    private fun updateBottomNavigationVisibilityForInlineSearch() {
+        if (resources.configuration.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE) return
+        val bottomNav = activity?.findViewById<View>(R.id.bottomNavigationContainer) ?: return
+
+        if (isNavigationActive || navSessionActive) {
+            bottomNav.visibility = View.GONE
+            return
+        }
+
+        val shouldHideForSearch = searchContainer.visibility == View.VISIBLE || isPoiCategoryModeActive
+        bottomNav.visibility = if (shouldHideForSearch) View.GONE else View.VISIBLE
     }
 
     private fun scheduleInlineSearch(query: String) {
@@ -1547,6 +1658,129 @@ class MapFragment : Fragment() {
         }
     }
 
+    private fun maybeRefreshReportAlertsSettlementState(location: Location) {
+        if (!isNavigationActive) return
+
+        if (mapboxAccessToken.isBlank() || !::geocodingService.isInitialized) {
+            reportAlertsIsInSettlement = false
+            reportAlertsSettlementResolved = false
+            return
+        }
+
+        if (reportAlertsSettlementLookupInFlight) return
+
+        val now = System.currentTimeMillis()
+        val lastLookupLocation = reportAlertsSettlementLastLookupLocation
+        val shouldRefreshByTime =
+            now - reportAlertsSettlementLastLookupAtMs >= reportAlertsSettlementRefreshIntervalMs
+        val shouldRefreshByDistance =
+            lastLookupLocation == null ||
+                location.distanceTo(lastLookupLocation) >= reportAlertsSettlementRefreshDistanceMeters
+
+        val shouldRefresh = !reportAlertsSettlementResolved || shouldRefreshByTime || shouldRefreshByDistance
+        if (!shouldRefresh) return
+
+        val probeLocation = Location(location)
+        reportAlertsSettlementLookupInFlight = true
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val isInSettlement = resolveIsLocationInSettlementForAlerts(
+                    latitude = probeLocation.latitude,
+                    longitude = probeLocation.longitude
+                )
+
+                if (!isNavigationActive) {
+                    return@launch
+                }
+
+                reportAlertsIsInSettlement = isInSettlement
+                reportAlertsSettlementResolved = true
+                reportAlertsSettlementLastLookupAtMs = System.currentTimeMillis()
+                reportAlertsSettlementLastLookupLocation = probeLocation
+
+                Log.d(
+                    "MapFragment",
+                    "Report alerts environment=${if (isInSettlement) "urban" else "rural"} at ${probeLocation.latitude},${probeLocation.longitude}"
+                )
+            } finally {
+                reportAlertsSettlementLookupInFlight = false
+            }
+        }
+    }
+
+    private suspend fun resolveIsLocationInSettlementForAlerts(
+        latitude: Double,
+        longitude: Double
+    ): Boolean {
+        if (mapboxAccessToken.isBlank() || !::geocodingService.isInitialized) {
+            Log.d(
+                "MapFragment",
+                "Report alerts environment fallback=rural (geocoding unavailable) at $latitude,$longitude"
+            )
+            return false
+        }
+
+        return runCatching {
+            val response = geocodingService.reverseGeocode(
+                longitude = longitude,
+                latitude = latitude,
+                accessToken = mapboxAccessToken,
+                limit = 1,
+                types = "place,locality,neighborhood"
+            )
+
+            if (!response.isSuccessful) {
+                Log.d(
+                    "MapFragment",
+                    "Report alerts environment fallback=rural (reverse geocode failed: ${response.code()}) at $latitude,$longitude"
+                )
+                return@runCatching false
+            }
+
+            val feature = response.body()?.features?.firstOrNull()
+            val center = feature?.center
+            if (center == null || center.size < 2) {
+                Log.d(
+                    "MapFragment",
+                    "Report alerts environment=rural (no settlement center) at $latitude,$longitude"
+                )
+                false
+            } else {
+                val settlementLocation = Location("alerts-settlement").apply {
+                    this.latitude = center[1]
+                    this.longitude = center[0]
+                }
+                val sourceLocation = Location("alerts-source").apply {
+                    this.latitude = latitude
+                    this.longitude = longitude
+                }
+                val settlementDistanceMeters = sourceLocation.distanceTo(settlementLocation)
+                val isInSettlement = settlementDistanceMeters <= reportSettlementRadiusMeters
+
+                Log.d(
+                    "MapFragment",
+                    "Report alerts environment=${if (isInSettlement) "urban" else "rural"} (nearest settlement='${feature.text}', distance=${settlementDistanceMeters.toInt()}m) at $latitude,$longitude"
+                )
+                isInSettlement
+            }
+        }.getOrElse { error ->
+            Log.d(
+                "MapFragment",
+                "Report alerts environment fallback=rural (exception=${error.javaClass.simpleName}) at $latitude,$longitude"
+            )
+            false
+        }
+    }
+
+    private fun resetReportAlertsSettlementState() {
+        reportAlertsIsInSettlement = false
+        reportAlertsSettlementResolved = false
+        reportAlertsSettlementLookupInFlight = false
+        reportAlertsSettlementLastLookupAtMs = 0L
+        reportAlertsSettlementLastLookupLocation = null
+    }
+
     private fun onWorkShortcutClicked() {
         handleHomeWorkShortcutClick(
             key = PREF_WORK_DESTINATION,
@@ -1733,6 +1967,7 @@ class MapFragment : Fragment() {
 
         searchContainer.visibility = View.GONE
         destinationSearchContainer.visibility = View.GONE
+        updateBottomNavigationVisibilityForInlineSearch()
     }
 
     private fun exitPOICategoryModeToSearch() {
@@ -1751,6 +1986,7 @@ class MapFragment : Fragment() {
 
         destinationSearchContainer.visibility = View.GONE
         searchContainer.visibility = View.VISIBLE
+        updateBottomNavigationVisibilityForInlineSearch()
 
         val query = etSearch.text?.toString()?.trim().orEmpty()
         if (query.length < 2) {
@@ -2925,19 +3161,23 @@ class MapFragment : Fragment() {
 
     private fun reduceManeuverTextSize(view: View, isLandscape: Boolean = false) {
         if (view is TextView) {
-            val alreadyScaled = (view.getTag(R.id.tag_maneuver_scaled_text) as? Boolean) == true
-            if (alreadyScaled) return
             val currentSize = view.textSize / view.resources.displayMetrics.scaledDensity
-            val scaleFactor = if (isLandscape) 0.7f else 0.8f
-            val newSize = currentSize * scaleFactor
+            val targetScaleFactor = if (isLandscape) 0.58f else 0.8f
+            val appliedScaleFactor = (view.getTag(R.id.tag_maneuver_scaled_text) as? Number)?.toFloat() ?: 1f
+            val normalizedAppliedFactor = if (appliedScaleFactor > 0f) appliedScaleFactor else 1f
+            val newSize = currentSize * (targetScaleFactor / normalizedAppliedFactor)
             view.textSize = newSize
             if (isLandscape) {
-                view.maxLines = 2
+                view.setSingleLine(false)
+                view.setHorizontallyScrolling(false)
+                view.maxLines = 3
                 view.ellipsize = android.text.TextUtils.TruncateAt.END
                 val density = view.resources.displayMetrics.density
-                view.maxWidth = (360 * density).toInt()
+                val containerWidth = resources.getDimensionPixelSize(R.dimen.hud_maneuver_width_landscape)
+                val reservedWidth = (44 * density).toInt()
+                view.maxWidth = (containerWidth - reservedWidth).coerceAtLeast((170 * density).toInt())
             }
-            view.setTag(R.id.tag_maneuver_scaled_text, true)
+            view.setTag(R.id.tag_maneuver_scaled_text, targetScaleFactor)
         }
         if (view is ViewGroup) {
             for (i in 0 until view.childCount) {
@@ -2948,17 +3188,18 @@ class MapFragment : Fragment() {
 
     private fun reduceManeuverIconSize(view: View, isLandscape: Boolean = false) {
         if (view is ImageView) {
-            val alreadyScaled = (view.getTag(R.id.tag_maneuver_scaled_icon) as? Boolean) == true
-            if (alreadyScaled) return
+            val targetScaleFactor = if (isLandscape) 0.8f else 0.7f
+            val appliedScaleFactor = (view.getTag(R.id.tag_maneuver_scaled_icon) as? Number)?.toFloat() ?: 1f
+            val normalizedAppliedFactor = if (appliedScaleFactor > 0f) appliedScaleFactor else 1f
+            val scaleRatio = targetScaleFactor / normalizedAppliedFactor
             val layoutParams = view.layoutParams
             if (layoutParams != null) {
-                val reductionFactor = if (isLandscape) 0.8f else 0.7f
                 val currentWidth = layoutParams.width
                 val currentHeight = layoutParams.height
 
                 if (currentWidth > 0 && currentHeight > 0) {
-                    layoutParams.width = (currentWidth * reductionFactor).toInt()
-                    layoutParams.height = (currentHeight * reductionFactor).toInt()
+                    layoutParams.width = (currentWidth * scaleRatio).toInt().coerceAtLeast(1)
+                    layoutParams.height = (currentHeight * scaleRatio).toInt().coerceAtLeast(1)
                     view.layoutParams = layoutParams
                 } else {
                     val sizeInDp = if (isLandscape) 36 else 32
@@ -2968,7 +3209,7 @@ class MapFragment : Fragment() {
                     view.layoutParams = layoutParams
                 }
             }
-            view.setTag(R.id.tag_maneuver_scaled_icon, true)
+            view.setTag(R.id.tag_maneuver_scaled_icon, targetScaleFactor)
         }
         if (view is ViewGroup) {
             for (i in 0 until view.childCount) {
@@ -2977,21 +3218,36 @@ class MapFragment : Fragment() {
         }
     }
 
-    private fun centerManeuverText(view: View) {
+    private fun centerManeuverText(view: View, isLandscape: Boolean = false) {
         if (view is TextView) {
-            view.textAlignment = View.TEXT_ALIGNMENT_CENTER
-            view.gravity = android.view.Gravity.CENTER_HORIZONTAL
+            if (isLandscape) {
+                if (isManeuverDistanceLabel(view.text)) {
+                    // Keep the distance label directly under the maneuver icon.
+                    view.textAlignment = View.TEXT_ALIGNMENT_CENTER
+                    view.gravity = android.view.Gravity.CENTER_HORIZONTAL
+                    view.setPaddingRelative(0, view.paddingTop, 0, view.paddingBottom)
+                } else {
+                    view.textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+                    view.gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL
+                    val compactEndPadding = (2 * view.resources.displayMetrics.density).toInt()
+                    view.setPaddingRelative(0, view.paddingTop, compactEndPadding, view.paddingBottom)
+                }
+            } else {
+                view.textAlignment = View.TEXT_ALIGNMENT_CENTER
+                view.gravity = android.view.Gravity.CENTER_HORIZONTAL
+            }
         }
         if (view is ViewGroup) {
             for (i in 0 until view.childCount) {
-                centerManeuverText(view.getChildAt(i))
+                centerManeuverText(view.getChildAt(i), isLandscape)
             }
         }
     }
 
     private fun reduceManeuverSpacing(view: View, isLandscape: Boolean = false) {
         if (view is ViewGroup) {
-            val alreadyAdjusted = (view.getTag(R.id.tag_maneuver_spacing_adjusted) as? Boolean) == true
+            val spacingMode = if (isLandscape) 1 else 0
+            val alreadyAdjusted = (view.getTag(R.id.tag_maneuver_spacing_adjusted) as? Int) == spacingMode
             if (!alreadyAdjusted) {
                 if (view is LinearLayout && view.orientation == LinearLayout.HORIZONTAL) {
                     val currentPaddingStart = view.paddingStart
@@ -3007,25 +3263,32 @@ class MapFragment : Fragment() {
                         )
                     }
                 }
-                view.setTag(R.id.tag_maneuver_spacing_adjusted, true)
+                view.setTag(R.id.tag_maneuver_spacing_adjusted, spacingMode)
             }
 
             for (i in 0 until view.childCount) {
                 val child = view.getChildAt(i)
-                val childAlreadyAdjusted = (child.getTag(R.id.tag_maneuver_spacing_adjusted) as? Boolean) == true
-                if (!childAlreadyAdjusted && (child is ImageView || child is TextView)) {
+                val childAlreadyAdjusted = (child.getTag(R.id.tag_maneuver_spacing_adjusted) as? Int) == spacingMode
+                val isDistanceLabelTextView = child is TextView && isManeuverDistanceLabel(child.text)
+                val shouldAdjustChild = !childAlreadyAdjusted || (isLandscape && isDistanceLabelTextView)
+                if (shouldAdjustChild && (child is ImageView || child is TextView)) {
                     val childParams = child.layoutParams as? ViewGroup.MarginLayoutParams
                     if (childParams != null) {
                         val density = child.resources.displayMetrics.density
-                        val marginDp = if (isLandscape) 0 else 4
-                        if (childParams.marginStart > (6 * density).toInt()) {
-                            childParams.marginStart = (marginDp * density).toInt()
-                        }
-                        if (childParams.marginEnd > (6 * density).toInt()) {
-                            childParams.marginEnd = (marginDp * density).toInt()
+                        if (isLandscape) {
+                            childParams.marginStart = if (isDistanceLabelTextView) (6 * density).toInt() else 0
+                            childParams.marginEnd = 0
+                        } else {
+                            val marginPx = (4 * density).toInt()
+                            if (childParams.marginStart > (6 * density).toInt()) {
+                                childParams.marginStart = marginPx
+                            }
+                            if (childParams.marginEnd > (6 * density).toInt()) {
+                                childParams.marginEnd = marginPx
+                            }
                         }
                         child.layoutParams = childParams
-                        child.setTag(R.id.tag_maneuver_spacing_adjusted, true)
+                        child.setTag(R.id.tag_maneuver_spacing_adjusted, spacingMode)
                     }
                 }
             }
@@ -3034,6 +3297,11 @@ class MapFragment : Fragment() {
                 reduceManeuverSpacing(view.getChildAt(i), isLandscape)
             }
         }
+    }
+
+    private fun isManeuverDistanceLabel(text: CharSequence?): Boolean {
+        val value = text?.toString()?.trim()?.lowercase(java.util.Locale.getDefault()) ?: return false
+        return value.matches(Regex("^\\d+[\\d\\s.,]*\\s*(m|km|ft|mi)$"))
     }
 
     private fun startNavigationInline() {
@@ -3080,49 +3348,204 @@ class MapFragment : Fragment() {
         view?.findViewById<LinearLayout>(R.id.bottomContainer)?.visibility = View.GONE
     }
 
+    private fun requestFabReportReposition() {
+        val rootView = view ?: return
+        rootView.removeCallbacks(fabRepositionRunnable)
+        rootView.post(fabRepositionRunnable)
+    }
+
+    private fun resolveMapControlsMarginEndPx(defaultDp: Int = 12): Int {
+        val density = resources.displayMetrics.density
+        val defaultPx = (defaultDp * density).toInt()
+        val controlsParams = mapControlsContainer?.layoutParams as? android.widget.RelativeLayout.LayoutParams
+        return controlsParams?.marginEnd?.takeIf { it > 0 } ?: defaultPx
+    }
+
     private fun repositionFabReport() {
         val fabReportParams = fabReport?.layoutParams as? android.widget.RelativeLayout.LayoutParams ?: return
-        val myLocationParams = fabMyLocationContainer.layoutParams as? android.widget.RelativeLayout.LayoutParams
         val density = resources.displayMetrics.density
-        val sharedFreeDriveBottomMargin = myLocationParams?.bottomMargin ?: (140 * density).toInt()
+        val isBottomHudShown = bottomHudRow?.isShown == true
+        val isNavSessionShown = navSessionContainer?.isShown == true
+        val isTripProgressShown = tripProgressContainer?.isShown == true
+        val isStopShown = btnStop?.isShown == true
         
-        when {
-            isNavigationActive -> {
-                // Navigation mode: right side, 5dp above ETA pills
-                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_START)
-                fabReportParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_END)
-                fabReportParams.marginEnd = (12 * density).toInt()
-                fabReportParams.bottomMargin = (200 * density).toInt()
+        if (resources.configuration.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+            // Portrait mode: keep report FAB visible and anchor it above ride HUD when navigating.
+            val shouldUseRideAnchorPortrait =
+                isBottomHudShown || isNavSessionShown || isTripProgressShown || isNavigationActive || navSessionActive
+
+            fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_START)
+            fabReportParams.removeRule(android.widget.RelativeLayout.ABOVE)
+            fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_TOP)
+            fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_BOTTOM)
+            fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_BOTTOM)
+            fabReportParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_END)
+
+            if (shouldUseRideAnchorPortrait) {
+                when {
+                    isNavigationActive && isTripProgressShown && isBottomHudShown -> {
+                        fabReportParams.addRule(android.widget.RelativeLayout.ABOVE, R.id.bottomHudRow)
+                        fabReportParams.bottomMargin = (8 * density).toInt()
+                    }
+                    isNavSessionShown -> {
+                        fabReportParams.addRule(android.widget.RelativeLayout.ABOVE, R.id.navSessionContainer)
+                        fabReportParams.bottomMargin = (8 * density).toInt()
+                    }
+                    isBottomHudShown -> {
+                        fabReportParams.addRule(android.widget.RelativeLayout.ABOVE, R.id.bottomHudRow)
+                        fabReportParams.bottomMargin = (8 * density).toInt()
+                    }
+                    else -> {
+                        fabReportParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_BOTTOM)
+                        fabReportParams.bottomMargin = (140 * density).toInt()
+                    }
+                }
+                fabReportParams.marginEnd = if (isNavigationActive && isTripProgressShown && isBottomHudShown) {
+                    resolveMapControlsMarginEndPx()
+                } else {
+                    (10 * density).toInt()
+                }
                 fabReportParams.marginStart = 0
                 fabReport?.visibility = View.VISIBLE
-            }
-            navSessionActive -> {
-                // Session mode: right side, lower position
-                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_START)
-                fabReportParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_END)
-                fabReportParams.marginEnd = (10 * density).toInt()
+            } else {
+                fabReportParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_BOTTOM)
+                fabReportParams.marginEnd = (16 * density).toInt()
                 fabReportParams.bottomMargin = (140 * density).toInt()
                 fabReportParams.marginStart = 0
                 fabReport?.visibility = View.VISIBLE
             }
+
+            fabReport?.layoutParams = fabReportParams
+            fabReport?.bringToFront()
+            return
+        }
+
+        val shouldUseRideAnchor =
+            isBottomHudShown || isNavSessionShown || isStopShown || isNavigationActive || navSessionActive
+        val navBottomMargin = resources.getDimensionPixelSize(R.dimen.hud_report_nav_bottom_margin_landscape)
+        val fallbackBottomMargin = resources.getDimensionPixelSize(R.dimen.hud_report_fallback_bottom_margin_landscape)
+        
+        when {
+            shouldUseRideAnchor -> {
+                // Navigation/session mode: anchor above ride HUD and center on STOP when available.
+                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_START)
+                fabReportParams.removeRule(android.widget.RelativeLayout.ABOVE)
+                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_BOTTOM)
+                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_TOP)
+                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_BOTTOM)
+                fabReportParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_END)
+                if (isBottomHudShown) {
+                    fabReportParams.addRule(android.widget.RelativeLayout.ABOVE, R.id.bottomHudRow)
+                    fabReportParams.bottomMargin = navBottomMargin
+                } else if (isNavSessionShown) {
+                    fabReportParams.addRule(android.widget.RelativeLayout.ABOVE, R.id.navSessionContainer)
+                    fabReportParams.bottomMargin = navBottomMargin
+                } else {
+                    fabReportParams.addRule(android.widget.RelativeLayout.ABOVE, R.id.llTemperature)
+                    fabReportParams.bottomMargin = fallbackBottomMargin
+                }
+                fabReportParams.marginEnd = (10 * density).toInt()
+                fabReportParams.marginStart = 0
+                fabReport?.visibility = View.VISIBLE
+                if (isStopShown) {
+                    centerFabReportHorizontallyOnStopButton()
+                }
+            }
             else -> {
-                // Free driving mode: left side, same height as fabMyLocation
-                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_END)
-                fabReportParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_START)
-                fabReportParams.marginStart = (16 * density).toInt()
-                fabReportParams.bottomMargin = sharedFreeDriveBottomMargin
-                fabReportParams.marginEnd = 0
+                // Main page / preview mode: right side, above the temperature pill
+                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_START)
+                fabReportParams.removeRule(android.widget.RelativeLayout.ABOVE)
+                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_BOTTOM)
+                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_TOP)
+                fabReportParams.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_BOTTOM)
+                fabReportParams.addRule(android.widget.RelativeLayout.ALIGN_PARENT_END)
+                fabReportParams.addRule(android.widget.RelativeLayout.ABOVE, R.id.llTemperature)
+                fabReportParams.marginEnd = (16 * density).toInt()
+                fabReportParams.bottomMargin = (8 * density).toInt()
+                fabReportParams.marginStart = 0
                 fabReport?.visibility = View.VISIBLE
             }
         }
         
         fabReport?.layoutParams = fabReportParams
+        fabReport?.bringToFront()
     }
 
-    private fun setNavigationActive(active: Boolean) {
+    private fun centerFabReportHorizontallyOnTripDistanceValue() {
+        if (resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) return
+
+        val fabView = fabReport ?: return
+        val distanceView = tvTripRemainingDistance ?: return
+        if (!distanceView.isShown) return
+
+        fabView.post {
+            if (resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) return@post
+            if (!isAdded || view == null) return@post
+
+            val currentFab = fabReport ?: return@post
+            val currentDistanceView = tvTripRemainingDistance ?: return@post
+            if (!currentDistanceView.isShown) return@post
+
+            val parentView = currentFab.parent as? ViewGroup ?: return@post
+            if (currentFab.width <= 0 || currentDistanceView.width <= 0 || parentView.width <= 0) return@post
+
+            val distanceLocation = IntArray(2)
+            val parentLocation = IntArray(2)
+            currentDistanceView.getLocationOnScreen(distanceLocation)
+            parentView.getLocationOnScreen(parentLocation)
+
+            val distanceCenterX = (distanceLocation[0] - parentLocation[0]).toFloat() + (currentDistanceView.width / 2f)
+            val maxLeft = (parentView.width - currentFab.width).coerceAtLeast(0)
+            val desiredLeft = (distanceCenterX - (currentFab.width / 2f)).roundToInt().coerceIn(0, maxLeft)
+            val desiredMarginEnd = (parentView.width - desiredLeft - currentFab.width).coerceAtLeast(0)
+
+            val currentParams = currentFab.layoutParams as? android.widget.RelativeLayout.LayoutParams ?: return@post
+            currentParams.marginEnd = desiredMarginEnd
+            currentParams.marginStart = 0
+            currentFab.layoutParams = currentParams
+            currentFab.bringToFront()
+        }
+    }
+
+    private fun centerFabReportHorizontallyOnStopButton() {
+        if (resources.configuration.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE) return
+
+        val fabView = fabReport ?: return
+        val stopView = btnStop ?: return
+        if (!stopView.isShown) return
+
+        fabView.post {
+            if (resources.configuration.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE) return@post
+            if (!isAdded || view == null) return@post
+
+            val currentFab = fabReport ?: return@post
+            if (!stopView.isShown) return@post
+
+            val parentView = currentFab.parent as? ViewGroup ?: return@post
+            if (currentFab.width <= 0 || stopView.width <= 0 || parentView.width <= 0) return@post
+
+            val stopLocation = IntArray(2)
+            val parentLocation = IntArray(2)
+            stopView.getLocationOnScreen(stopLocation)
+            parentView.getLocationOnScreen(parentLocation)
+
+            val stopCenterX = (stopLocation[0] - parentLocation[0]).toFloat() + (stopView.width / 2f)
+            val maxLeft = (parentView.width - currentFab.width).coerceAtLeast(0)
+            val desiredLeft = (stopCenterX - (currentFab.width / 2f)).roundToInt().coerceIn(0, maxLeft)
+            val desiredMarginEnd = (parentView.width - desiredLeft - currentFab.width).coerceAtLeast(0)
+
+            val currentParams = currentFab.layoutParams as? android.widget.RelativeLayout.LayoutParams ?: return@post
+            currentParams.marginEnd = desiredMarginEnd
+            currentParams.marginStart = 0
+            currentFab.layoutParams = currentParams
+        }
+    }
+
+    private fun setNavigationActive(active: Boolean, preserveSessionState: Boolean = false) {
         if (active == isNavigationActive) return
         isNavigationActive = active
         hasReachedDestination = false
+        resetReportAlertsSettlementState()
         
         // Notify reports integration about navigation state change
         if (active) {
@@ -3146,12 +3569,7 @@ class MapFragment : Fragment() {
 
         if (active) {
             routeWeatherPreviewOverlay?.clear()
-            if (!navigationObserversRegistered) {
-                mapboxNavigation.registerRoutesObserver(sdkRoutesObserver)
-                mapboxNavigation.registerRouteProgressObserver(sdkRouteProgressObserver)
-                mapboxNavigation.registerArrivalObserver(sdkArrivalObserver)
-                navigationObserversRegistered = true
-            }
+            registerNavigationObserversIfNeeded()
             destinationSearchContainer.visibility = View.GONE
             searchContainer.visibility = View.GONE
             if (::llActiveProfileHeader.isInitialized) {
@@ -3176,13 +3594,33 @@ class MapFragment : Fragment() {
             btnPreviewOverview?.visibility = View.GONE
             btnPreviewRecenter?.visibility = View.GONE
             bottomHudRow?.bringToFront()
-            shouldResetOnConnect = true
-            if (serviceBound && foregroundService != null) {
+            if (preserveSessionState) {
+                // Orientation restore path: keep existing session timing instead of restarting it.
                 shouldResetOnConnect = false
-                resetSessionData()
+                navSessionActive = true
+                startAndBindServiceIfNeeded()
+
+                val restoredStartTime = foregroundService?.getStartTime()
+                    ?: navSessionStartTime.takeIf { it > 0L }
+                    ?: SystemClock.elapsedRealtime()
+                navSessionStartTime = restoredStartTime
+                chronometerCar?.base = restoredStartTime
+                chronometerCar?.start()
+
+                updateLeanAngleVisibility()
+                updateZeroButtonVisibility()
+                startLeanAngleUpdates()
+                startMapboxRenderLoop()
+                repositionFabReport()
+            } else {
+                shouldResetOnConnect = true
+                if (serviceBound && foregroundService != null) {
+                    shouldResetOnConnect = false
+                    resetSessionData()
+                }
+                startNavSessionTracking()
+                startAndBindServiceIfNeeded()
             }
-            startNavSessionTracking()
-            startAndBindServiceIfNeeded()
             llTemperature.visibility = View.GONE
             llAltitude.visibility = View.GONE
             fabMyLocationContainer.visibility = View.GONE
@@ -3205,12 +3643,7 @@ class MapFragment : Fragment() {
                 }
             }
         } else {
-            if (navigationObserversRegistered) {
-                mapboxNavigation.unregisterRoutesObserver(sdkRoutesObserver)
-                mapboxNavigation.unregisterRouteProgressObserver(sdkRouteProgressObserver)
-                mapboxNavigation.unregisterArrivalObserver(sdkArrivalObserver)
-                navigationObserversRegistered = false
-            }
+            unregisterNavigationObserversIfNeeded()
             maneuverContainer?.visibility = View.GONE
             tripProgressContainer?.visibility = View.GONE
             bottomHudRow?.visibility = View.GONE
@@ -3349,12 +3782,7 @@ class MapFragment : Fragment() {
         hideArrivalActionPanel(animated = true)
 
         mapboxNavigation.setNavigationRoutes(emptyList())
-        if (navigationObserversRegistered) {
-            mapboxNavigation.unregisterRoutesObserver(sdkRoutesObserver)
-            mapboxNavigation.unregisterRouteProgressObserver(sdkRouteProgressObserver)
-            mapboxNavigation.unregisterArrivalObserver(sdkArrivalObserver)
-            navigationObserversRegistered = false
-        }
+        unregisterNavigationObserversIfNeeded()
 
         val mapView = mapboxMapView
         if (mapView != null) {
@@ -4306,6 +4734,63 @@ class MapFragment : Fragment() {
             MapboxNavigationApp.setup(NavigationOptions.Builder(requireContext()).build())
         }
     }
+
+    private fun resolveVoiceLanguageTag(): String {
+        val language = LanguageManager.getLanguage(requireContext())
+        return LanguageManager.getLocaleForLanguage(language).toLanguageTag()
+    }
+
+    private fun initializeVoiceInstructionsIfNeeded() {
+        val appContext = requireContext().applicationContext
+        val languageTag = resolveVoiceLanguageTag()
+
+        if (mapboxSpeechApi == null || voiceLanguageTag != languageTag) {
+            mapboxSpeechApi?.cancel()
+            mapboxSpeechApi = MapboxSpeechApi(appContext, languageTag)
+            voiceLanguageTag = languageTag
+        }
+
+        if (mapboxVoiceInstructionsPlayer == null) {
+            mapboxVoiceInstructionsPlayer = MapboxVoiceInstructionsPlayer(appContext, languageTag)
+        } else {
+            mapboxVoiceInstructionsPlayer?.updateLanguage(languageTag)
+        }
+    }
+
+    private fun clearVoiceInstructionsPlaybackState() {
+        mapboxSpeechApi?.cancel()
+        mapboxVoiceInstructionsPlayer?.clear()
+    }
+
+    private fun shutdownVoiceInstructions() {
+        clearVoiceInstructionsPlaybackState()
+        mapboxVoiceInstructionsPlayer?.shutdown()
+        mapboxVoiceInstructionsPlayer = null
+        mapboxSpeechApi = null
+        voiceLanguageTag = null
+    }
+
+    private fun registerNavigationObserversIfNeeded() {
+        if (navigationObserversRegistered) return
+
+        initializeVoiceInstructionsIfNeeded()
+        mapboxNavigation.registerRoutesObserver(sdkRoutesObserver)
+        mapboxNavigation.registerRouteProgressObserver(sdkRouteProgressObserver)
+        mapboxNavigation.registerArrivalObserver(sdkArrivalObserver)
+        mapboxNavigation.registerVoiceInstructionsObserver(voiceInstructionsObserver)
+        navigationObserversRegistered = true
+    }
+
+    private fun unregisterNavigationObserversIfNeeded() {
+        if (!navigationObserversRegistered) return
+
+        mapboxNavigation.unregisterRoutesObserver(sdkRoutesObserver)
+        mapboxNavigation.unregisterRouteProgressObserver(sdkRouteProgressObserver)
+        mapboxNavigation.unregisterArrivalObserver(sdkArrivalObserver)
+        mapboxNavigation.unregisterVoiceInstructionsObserver(voiceInstructionsObserver)
+        navigationObserversRegistered = false
+        clearVoiceInstructionsPlaybackState()
+    }
     
     private fun createMapboxPuckTopImage(): Bitmap {
         val density = resources.displayMetrics.density
@@ -4805,6 +5290,8 @@ class MapFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+
+        initializeVoiceInstructionsIfNeeded()
         
         loadCachedWeatherData()
         updateEnvironmentDisplay()
@@ -4841,7 +5328,7 @@ class MapFragment : Fragment() {
         } else if (shouldRestoreNavigationAfterRecreate) {
             shouldRestoreNavigationAfterRecreate = false
             if (mapboxNavigation.getNavigationRoutes().isNotEmpty()) {
-                setNavigationActive(true)
+                setNavigationActive(true, preserveSessionState = true)
                 if (this::navigationCamera.isInitialized) {
                     mapboxMapView?.post {
                         navigationCamera.requestNavigationCameraToFollowing()
@@ -4878,6 +5365,7 @@ class MapFragment : Fragment() {
         
         mapboxMapView?.onResume()
         tryEnableMapboxLocationComponent()
+        requestFabReportReposition()
 
         // If the screen was locked while a normal session was active, onStop() has already stopped
         // the render loop. Force a one-shot camera resync and restart follow rendering.
@@ -4904,6 +5392,12 @@ class MapFragment : Fragment() {
         if (pendingRoutePreviewRestore) {
             restoreRoutePreviewIfNeeded()
         }
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        lastKnownLayoutOrientation = newConfig.orientation
+        requestFabReportReposition()
     }
     
     /**
@@ -4955,6 +5449,14 @@ class MapFragment : Fragment() {
     }
     
     override fun onDestroyView() {
+        mapRootObservedView?.let { observedView ->
+            mapRootLayoutChangeListener?.let { listener ->
+                observedView.removeOnLayoutChangeListener(listener)
+            }
+            observedView.removeCallbacks(fabRepositionRunnable)
+        }
+        mapRootLayoutChangeListener = null
+        mapRootObservedView = null
         super.onDestroyView()
         // КРИТИЧНО: НЕ унищожаваме MapView тук - той се запазва в паметта за instant navigation
         // MapView ще се унищожи само когато Fragment се унищожи напълно
@@ -4969,6 +5471,7 @@ class MapFragment : Fragment() {
     }
     
     override fun onDestroy() {
+        shutdownVoiceInstructions()
         super.onDestroy()
         disableMapboxLocationComponent()
         mapboxMapView?.onDestroy()
