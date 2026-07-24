@@ -9,6 +9,7 @@
 /.idea/assetWizardSettings.xml
 .DS_Store
 /build
+/out/
 /captures
 .externalNativeBuild
 .cxx
@@ -17,3 +18,8 @@ local.properties
 *.aab
 .history/
 *.logcat
+
+# Release signing — never commit
+*.jks
+*.keystore
+/keystore/

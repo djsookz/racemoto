@@ -5,27 +5,80 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+val localProps: Map<String, String> = buildMap {
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        localFile.readLines().forEach { line ->
+            val trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed.startsWith("#") || !trimmed.contains("=")) return@forEach
+            val key = trimmed.substringBefore("=").trim()
+            val value = trimmed.substringAfter("=").trim()
+            put(key, value)
+        }
+    }
+}
+
+fun localProp(name: String): String? = localProps[name]?.takeIf { it.isNotBlank() }
+
+fun escapeBuildConfigString(value: String): String =
+    value.replace("\\", "\\\\").replace("\"", "\\\"")
+
 android {
-    namespace = "com.example.clinometer"
+    namespace = "com.revix.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.clinometer"
+        applicationId = "app.revix.android"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 6
+        versionName = "1.0.0"
+
+        resValue("string", "app_name", "REVIX")
+        manifestPlaceholders["usesCleartextTraffic"] = "false"
+
+        // Free RINEX→UBX aiding blob (published by .github/workflows/racebox-aiding.yml).
+        val aidingUrl = localProp("racebox.aiding.url")
+            ?: "https://raw.githubusercontent.com/djsookz/racemoto/racebox-aiding/aiding.ubx"
+        buildConfigField("String", "RACEBOX_AIDING_URL", "\"${escapeBuildConfigString(aidingUrl)}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            val storePath = localProp("RELEASE_STORE_FILE")
+            val storePasswordValue = localProp("RELEASE_STORE_PASSWORD")
+            val keyAliasValue = localProp("RELEASE_KEY_ALIAS")
+            val keyPasswordValue = localProp("RELEASE_KEY_PASSWORD")
+            if (
+                storePath != null &&
+                storePasswordValue != null &&
+                keyAliasValue != null &&
+                keyPasswordValue != null
+            ) {
+                storeFile = rootProject.file(storePath)
+                storePassword = storePasswordValue
+                keyAlias = keyAliasValue
+                keyPassword = keyPasswordValue
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null) {
+                signingConfig = releaseSigning
+            }
         }
     }
 
@@ -41,7 +94,12 @@ android {
     buildFeatures {
         compose = true
         viewBinding = true
+        buildConfig = true
     }
+}
+
+configurations.configureEach {
+    exclude(group = "net.sf.kxml", module = "kxml2")
 }
 
 dependencies {
