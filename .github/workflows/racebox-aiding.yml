@@ -1,0 +1,49 @@
+# Build free RaceBox GNSS aiding (RINEX BRDC → UBX-MGA) and publish for the app.
+#
+# Publishes to branch `racebox-aiding`:
+#   https://raw.githubusercontent.com/djsookz/racemoto/racebox-aiding/aiding.ubx
+#
+# Schedule: hourly. Also runnable manually from Actions tab.
+
+name: RaceBox aiding (RINEX)
+
+on:
+  schedule:
+    - cron: "20 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: racebox-aiding
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build aiding.ubx
+        shell: bash
+        run: |
+          chmod +x tools/racebox_aiding/build_aiding.sh
+          tools/racebox_aiding/build_aiding.sh out/racebox-aiding
+
+      - name: Publish to racebox-aiding branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./out/racebox-aiding
+          publish_branch: racebox-aiding
+          force_orphan: true
+          commit_message: "chore: refresh RaceBox RINEX aiding"
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
