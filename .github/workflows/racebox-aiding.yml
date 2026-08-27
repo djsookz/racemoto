@@ -3,13 +3,14 @@
 # Publishes to branch `racebox-aiding`:
 #   https://raw.githubusercontent.com/djsookz/racemoto/racebox-aiding/aiding.ubx
 #
-# Schedule: hourly. Also runnable manually from Actions tab.
+# Schedule: every 2 hours. Also runnable manually from Actions tab.
+# A failed run does not publish, so the last successful aiding.ubx stays.
 
 name: RaceBox aiding (RINEX)
 
 on:
   schedule:
-    - cron: "20 * * * *"
+    - cron: "20 */2 * * *"
   workflow_dispatch:
 
 permissions:
@@ -22,6 +23,7 @@ concurrency:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,6 +34,7 @@ jobs:
           python-version: "3.12"
 
       - name: Build aiding.ubx
+        timeout-minutes: 3
         shell: bash
         run: |
           chmod +x tools/racebox_aiding/build_aiding.sh
