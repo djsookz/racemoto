@@ -1,0 +1,11 @@
+{
+  "generated_at": "2026-09-07T02:38:27Z",
+  "source": "ftp://igs-ftp.bkg.bund.de/IGS/BRDC/2026/250/BRDC00WRD_S_20262500000_01D_MN.rnx.gz",
+  "bytes": 6372,
+  "systems": [
+    "GPS",
+    "GLO",
+    "GAL"
+  ],
+  "format": "ubx-mga"
+}
