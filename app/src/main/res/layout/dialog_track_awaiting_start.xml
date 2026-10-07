@@ -3,7 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
-    android:background="@drawable/bg_modal_card"
+    android:background="@drawable/bg_track_metric_speed"
     android:orientation="vertical"
     android:padding="20dp">
 
@@ -11,7 +11,7 @@
         android:id="@+id/tvAwaitingStartTitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Премини старта"
+        android:text="@string/track_awaiting_start_title"
         android:textColor="@color/white"
         android:textSize="18sp"
         android:textStyle="bold" />
@@ -36,7 +36,7 @@
         android:focusable="true"
         android:paddingHorizontal="8dp"
         android:paddingVertical="4dp"
-        android:text="ОТМЕНИ"
+        android:text="@string/track_awaiting_cancel"
         android:textAllCaps="true"
         android:textColor="@color/primary_color"
         android:textSize="16sp"

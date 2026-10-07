@@ -1,68 +1,97 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/dark_background"
-    >
+    android:background="@color/dark_background">
 
-    <!-- Full Screen Background Image -->
     <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:id="@+id/ivWelcomeBackground"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:scaleType="centerCrop"
         android:src="@drawable/start_background"
-        android:scaleType="centerCrop" />
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Dark Overlay -->
     <View
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#80000000" />
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#80000000"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Logo at top -->
-    <ImageView
-        android:layout_width="151dp"
-        android:layout_height="69dp"
-        android:layout_gravity="center_horizontal|top"
-        android:layout_marginTop="30dp"
-        android:contentDescription="@string/app_name"
-        android:scaleType="fitCenter"
-        android:src="@drawable/dragmelogo" />
-
-    <!-- Tagline text below car/motorcycle -->
-    <TextView
+    <!-- Matches reference: logo sits ~28% down the screen -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineLogo"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal|bottom"
-        android:layout_marginBottom="260dp"
-        android:text="THE JOURNEY'S JUST BEGUN!"
-        android:textColor="@color/white"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.15"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.28" />
+
+    <!-- Matches reference: tagline sits ~64% down the screen -->
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/guidelineTagline"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        app:layout_constraintGuide_percent="0.64" />
+
+    <ImageView
+        android:id="@+id/ivWelcomeLogo"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:adjustViewBounds="true"
+        android:contentDescription="@string/app_name"
+        android:scaleType="fitCenter"
+        android:src="@drawable/revix_logo"
+        app:layout_constraintBottom_toBottomOf="@id/guidelineLogo"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/guidelineLogo"
+        app:layout_constraintWidth_percent="0.70" />
+
+    <TextView
+        android:id="@+id/tvWelcomeTagline"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
         android:fontFamily="sans-serif-condensed"
+        android:gravity="center_horizontal"
+        android:letterSpacing="0.15"
         android:shadowColor="#CC000000"
         android:shadowDx="0"
         android:shadowDy="3"
-        android:shadowRadius="8" />
+        android:shadowRadius="8"
+        android:text="@string/welcome_tagline"
+        android:textAlignment="center"
+        android:textColor="@color/white"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/guidelineTagline"
+        app:layout_constraintWidth_percent="0.86" />
 
-    <!-- START Button at bottom -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnStart"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="64dp"
-        android:layout_gravity="bottom"
         android:layout_marginStart="40dp"
         android:layout_marginEnd="40dp"
-        android:layout_marginTop="40dp"
-        android:layout_marginBottom="80dp"
-        android:text="START"
+        android:layout_marginBottom="24dp"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:text="@string/start_button"
         android:textColor="@color/white"
         android:textSize="20sp"
         android:textStyle="bold"
         app:backgroundTint="@color/primary_color"
         app:cornerRadius="32dp"
-        android:paddingStart="32dp"
-        android:paddingEnd="32dp" />
-</FrameLayout>
-
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+</androidx.constraintlayout.widget.ConstraintLayout>

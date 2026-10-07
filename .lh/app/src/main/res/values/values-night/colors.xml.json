@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/values/values-night/colors.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1776365549814,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1776365549814,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<resources>\r\n    <color name=\"red\">#FF0000</color>\r\n    <color name=\"white\">#FFFFFF</color>\r\n    <!-- Основни цветове за фона -->\r\n    <color name=\"background_primary\">#FFFFFF</color>\r\n\r\n    <!-- Текстови цветове -->\r\n    <color name=\"text_primary\">#E0E0E0</color>\r\n    <color name=\"text_secondary\">#FFFFFF</color>\r\n    <color name=\"text_tertiary\">#9CA3AF</color>\r\n\r\n    <color name=\"card_background\">#FFFFFF</color>\r\n\r\n    <!-- Акцентен цвят за скоростта -->\r\n    <color name=\"accent_color\">#3B82F6</color>\r\n    <color name=\"accent_light\">#60A5FA</color>\r\n\r\n    <!-- Бутони -->\r\n    <color name=\"stop_button_color\">#EF4444</color>\r\n\r\n    <!-- Допълнителни цветове за статус -->\r\n    <color name=\"success_color\">#10B981</color>\r\n    <color name=\"warning_color\">#F59E0B</color>\r\n    <color name=\"error_color\">#EF4444</color>\r\n</resources>"
+        }
+    ]
+}

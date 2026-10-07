@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0F1115">
+    android:background="@color/background_primary">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -12,25 +12,15 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:paddingHorizontal="12dp"
-        android:background="#161A21">
+        android:background="#161B22">
 
-        <TextView
-            android:id="@+id/btnBack"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:gravity="center"
-            android:text="←"
-            android:textSize="22sp"
-            android:textColor="#FFFFFF"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:clickable="true"
-            android:focusable="true" />
+        <include layout="@layout/widget_back_button" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Custom Писта"
+            android:text="@string/custom_track_builder_title"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:textSize="19sp"
@@ -53,7 +43,7 @@
                 android:gravity="center"
                 android:minWidth="56dp"
                 android:paddingHorizontal="6dp"
-                android:text="IMPORT"
+                android:text="@string/custom_track_button_import"
                 android:textColor="@color/primary_color"
                 android:textSize="11sp"
                 android:textStyle="bold" />
@@ -68,7 +58,7 @@
                 android:gravity="center"
                 android:minWidth="56dp"
                 android:paddingHorizontal="6dp"
-                android:text="EXPORT"
+                android:text="@string/custom_track_button_export"
                 android:textColor="@color/primary_color"
                 android:textSize="11sp"
                 android:textStyle="bold" />
@@ -89,13 +79,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:background="@drawable/bg_track_metric_speed"
             android:padding="12dp">
 
             <EditText
                 android:id="@+id/etTrackName"
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
-                android:hint="Име на пистата"
+                android:hint="@string/custom_track_name_hint"
                 android:textColor="#FFFFFF"
                 android:textColorHint="#8D97AA"
                 android:background="@drawable/bg_rounded_button"
@@ -107,7 +98,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Текущ режим: Обиколки"
                 android:textColor="@color/primary_color"
                 android:textSize="12sp"
                 android:textStyle="bold" />
@@ -124,7 +114,7 @@
                     android:layout_height="40dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="6dp"
-                    android:text="СТАРТ/ФИНИШ"
+                    android:text="@string/custom_track_button_start_finish"
                     android:textStyle="bold"
                     android:textSize="11sp"
                     android:textColor="#FFFFFF"
@@ -137,7 +127,7 @@
                     android:layout_weight="1"
                     android:layout_marginStart="3dp"
                     android:layout_marginEnd="3dp"
-                    android:text="СТАРТ"
+                    android:text="@string/custom_track_button_start"
                     android:textStyle="bold"
                     android:textSize="11sp"
                     android:textColor="#FFFFFF"
@@ -149,7 +139,7 @@
                     android:layout_height="40dp"
                     android:layout_weight="1"
                     android:layout_marginStart="6dp"
-                    android:text="ФИНИШ"
+                    android:text="@string/custom_track_button_finish"
                     android:textStyle="bold"
                     android:textSize="11sp"
                     android:textColor="#FFFFFF"
@@ -168,7 +158,7 @@
                     android:layout_height="40dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="6dp"
-                    android:text="CHECKPOINT"
+                    android:text="@string/custom_track_button_checkpoint"
                     android:textStyle="bold"
                     android:textSize="11sp"
                     android:textColor="#FFFFFF"
@@ -181,7 +171,7 @@
                     android:layout_weight="1"
                     android:layout_marginStart="3dp"
                     android:layout_marginEnd="3dp"
-                    android:text="CHECKPOINT"
+                    android:text="@string/custom_track_button_checkpoint"
                     android:textStyle="bold"
                     android:textSize="11sp"
                     android:textColor="#FFFFFF"
@@ -193,7 +183,7 @@
                     android:layout_height="40dp"
                     android:layout_weight="1"
                     android:layout_marginStart="6dp"
-                    android:text="UNDO"
+                    android:text="@string/custom_track_button_undo"
                     android:textStyle="bold"
                     android:textSize="11sp"
                     android:textColor="#FFFFFF"
@@ -212,7 +202,7 @@
                     android:layout_height="42dp"
                     android:layout_weight="1"
                     android:layout_marginEnd="6dp"
-                    android:text="Изчисти"
+                    android:text="@string/custom_track_button_clear"
                     android:textStyle="bold"
                     android:textColor="#FFFFFF"
                     android:backgroundTint="#B91C1C" />
@@ -223,7 +213,7 @@
                     android:layout_height="42dp"
                     android:layout_weight="1"
                     android:layout_marginStart="6dp"
-                    android:text="Запази"
+                    android:text="@string/custom_track_button_save"
                     android:textStyle="bold"
                     android:textColor="#FFFFFF"
                     android:backgroundTint="#16A34A" />
@@ -238,7 +228,7 @@
                 android:background="#202938"
                 android:textColor="#8AB4F8"
                 android:textSize="13sp"
-                android:text="Готов за създаване на custom писта" />
+                android:text="@string/custom_track_status_ready" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -249,7 +239,7 @@
         android:layout_weight="1"
         android:layout_marginHorizontal="10dp"
         android:layout_marginBottom="8dp"
-        android:background="#10151D" />
+        android:background="@drawable/bg_track_metric_speed" />
 
     <TextView
         android:id="@+id/tvInstructions"
@@ -262,6 +252,6 @@
         android:textColor="#B6C0D2"
         android:textSize="12sp"
         android:lineSpacingExtra="2dp"
-        android:text="Инструкции" />
+        android:text="@string/custom_track_instructions_title" />
 
 </LinearLayout>

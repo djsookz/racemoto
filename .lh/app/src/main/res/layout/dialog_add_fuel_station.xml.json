@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/layout/dialog_add_fuel_station.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1774950287970,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1774950287970,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    xmlns:app=\"http://schemas.android.com/apk/res-auto\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"wrap_content\"\r\n    android:orientation=\"vertical\"\r\n    android:paddingStart=\"20dp\"\r\n    android:paddingTop=\"8dp\"\r\n    android:paddingEnd=\"20dp\"\r\n    android:paddingBottom=\"4dp\">\r\n\r\n    <com.google.android.material.textfield.TextInputLayout\r\n        android:id=\"@+id/inputDialogCustomStation\"\r\n        style=\"@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:hint=\"@string/garage_fuel_entry_station_other_dialog_hint\"\r\n        android:textColorHint=\"@color/text_tertiary\"\r\n        app:boxBackgroundColor=\"@color/dark_surface\"\r\n        app:boxStrokeColor=\"@color/primary_color\"\r\n        app:boxStrokeWidth=\"1dp\"\r\n        app:boxStrokeWidthFocused=\"2dp\">\r\n\r\n        <com.google.android.material.textfield.TextInputEditText\r\n            android:id=\"@+id/etDialogCustomStation\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:background=\"@null\"\r\n            android:inputType=\"textCapWords\"\r\n            android:textColor=\"@color/text_primary\"\r\n            android:textColorHint=\"@color/text_tertiary\"\r\n            android:textSize=\"15sp\" />\r\n    </com.google.android.material.textfield.TextInputLayout>\r\n\r\n</LinearLayout>"
+        }
+    ]
+}

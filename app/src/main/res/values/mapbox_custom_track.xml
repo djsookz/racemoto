@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="mapbox_custom_track_style_uri" translatable="false" tools:ignore="UnusedResources">mapbox://styles/djsookz/cml6cdquk001z01sd7jw0cpb4</string>
+    <string name="mapbox_custom_track_access_token" translatable="false" tools:ignore="UnusedResources">YOUR_PUBLIC_MAPBOX_TOKEN</string>
+</resources>

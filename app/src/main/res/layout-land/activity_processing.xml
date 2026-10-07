@@ -15,7 +15,7 @@
         android:id="@+id/statusText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Processing GPS data..."
+        android:text="@string/processing_status_processing"
         android:textSize="20sp"
         android:textStyle="bold"
         android:textColor="@color/primary_color"
@@ -41,7 +41,7 @@
         android:id="@+id/progressText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Initializing..."
+        android:text="@string/processing_progress_initializing"
         android:textSize="16sp"
         android:textColor="@color/text_secondary"
         android:gravity="center" />
@@ -79,7 +79,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        android:text="This may take a while."
+        android:text="@string/processing_info_may_take_while"
         android:textSize="14sp"
         android:textColor="@color/text_secondary"
         android:gravity="center" />

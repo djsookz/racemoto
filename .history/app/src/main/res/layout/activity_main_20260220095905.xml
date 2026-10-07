@@ -1,0 +1,650 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/rootContainer"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0D1117"
+    tools:context=".main.MainActivity">
+
+    <!-- Top: Map Section -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1.2">
+
+    <!-- MapView will be added programmatically based on selected provider -->
+    <FrameLayout
+        android:id="@+id/mapContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        
+        <!-- OSMDroid MapView (default, will be removed if Mapbox is selected) -->
+        <org.osmdroid.views.MapView
+            android:id="@+id/mapView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </FrameLayout>
+    
+        <!-- Official ManeuverView (portrait: full width, top-left) -->
+        <FrameLayout
+            android:id="@+id/maneuverContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_marginStart="@dimen/hud_maneuver_margin_start_portrait"
+            android:layout_marginEnd="@dimen/hud_maneuver_margin_end_portrait"
+            android:layout_marginTop="@dimen/hud_maneuver_margin_top_portrait"
+            android:maxWidth="@dimen/hud_maneuver_max_width_portrait"
+            android:background="@drawable/bg_map_controls_pill"
+            android:clipToOutline="true"
+            android:outlineProvider="background"
+            android:visibility="gone">
+
+            <com.mapbox.navigation.ui.components.maneuver.view.MapboxManeuverView
+                android:id="@+id/maneuverView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingEnd="0dp" />
+        </FrameLayout>
+
+        <!-- Legacy custom maneuver layout (OSMDroid/manual flow) -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/maneuverViewContainer"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone"
+        app:cardBackgroundColor="#E6202123"
+        app:cardCornerRadius="12dp"
+            app:cardElevation="0dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:id="@+id/ivManeuverIcon"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@drawable/ic_turn_straight"
+                app:tint="#FFFFFF" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvManeuverDistance"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="500 m"
+                    android:textColor="#FF6020"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium" />
+
+                <TextView
+                    android:id="@+id/tvManeuverPrimary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Continue"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/tvManeuverSecondary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=""
+                    android:textColor="#A0A0A0"
+                    android:textSize="13sp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:visibility="gone" />
+                </LinearLayout>
+            </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+        <!-- Map controls (top-right) -->
+        <LinearLayout
+            android:id="@+id/mapControlsContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_marginEnd="12dp"
+            android:layout_marginTop="200dp"
+            android:background="@drawable/bg_map_controls_pill"
+            android:orientation="vertical"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="8dp"
+            android:gravity="center_horizontal">
+
+            <ImageButton
+                android:id="@+id/btnOrientationToggle"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/map_control_orientation"
+                android:src="@drawable/ic_unlock"
+                android:padding="6dp"
+                app:tint="#FFFFFF" />
+
+            <ImageButton
+                android:id="@+id/btnCameraNorthMode"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginTop="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/map_control_heading_mode"
+                android:src="@drawable/ic_map_heading"
+                android:padding="6dp"
+                app:tint="#FFFFFF" />
+
+            <!-- Navigation-only controls -->
+            <ImageButton
+                android:id="@+id/btnOverview"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginTop="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Overview"
+                android:src="@drawable/ic_route"
+                android:padding="6dp"
+                android:visibility="gone"
+                app:tint="#FFFFFF" />
+
+            <ImageButton
+                android:id="@+id/btnRecenter"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginTop="6dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Recenter"
+                android:src="@drawable/ic_navigation"
+                android:padding="6dp"
+                android:visibility="gone"
+                app:tint="#FFFFFF" />
+        </LinearLayout>
+
+        <!-- Bottom HUD (portrait: speed left, pills right, angle above pills for motorcycle) -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/bottomHudRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:paddingStart="0dp"
+            android:paddingEnd="@dimen/hud_bottom_row_padding_end_portrait"
+            android:paddingBottom="0dp"
+            android:layout_marginStart="@dimen/hud_bottom_row_margin_start_portrait"
+            android:layout_marginBottom="@dimen/hud_bottom_row_margin_bottom_portrait"
+            android:clipToPadding="false">
+
+            <!-- Speed overlay (left) -->
+            <LinearLayout
+                android:id="@+id/speedOverlayContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent">
+
+                <TextView
+                    android:id="@+id/speedTextCar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minWidth="@dimen/hud_speed_min_width_portrait"
+                    android:gravity="center"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="12dp"
+                    android:background="@drawable/bg_speed_circle"
+                    android:text="0"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="28sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"/>
+            </LinearLayout>
+
+            <!-- Trip progress pills (portrait: right-aligned) -->
+            <LinearLayout
+                android:id="@+id/tripProgressContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_map_controls_pill"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingHorizontal="@dimen/hud_trip_padding_h_portrait"
+                android:paddingVertical="@dimen/hud_trip_padding_v_portrait"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:minWidth="@dimen/hud_trip_value_min_width_portrait">
+
+                    <TextView
+                        android:id="@+id/tvTripEta"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minWidth="@dimen/hud_trip_value_min_width_portrait"
+                        android:gravity="center"
+                        android:singleLine="true"
+                        android:ellipsize="none"
+                        android:text="--:--"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="@dimen/hud_trip_value_text_size_portrait"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvTripEtaLabel"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="ETA"
+                        android:textColor="#E0E0E0"
+                        android:textSize="@dimen/hud_trip_label_text_size_portrait" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="32dp"
+                    android:layout_marginHorizontal="@dimen/hud_trip_separator_margin_h_portrait"
+                    android:background="#33FFFFFF" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:minWidth="@dimen/hud_trip_value_min_width_portrait">
+
+                    <TextView
+                        android:id="@+id/tvTripRemainingTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minWidth="@dimen/hud_trip_value_min_width_portrait"
+                        android:gravity="center"
+                        android:singleLine="true"
+                        android:ellipsize="none"
+                        android:text="--:--"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="@dimen/hud_trip_value_text_size_portrait"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvTripRemainingTimeLabel"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="time"
+                        android:textColor="#E0E0E0"
+                        android:textSize="@dimen/hud_trip_label_text_size_portrait" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="32dp"
+                    android:layout_marginHorizontal="@dimen/hud_trip_separator_margin_h_portrait"
+                    android:background="#33FFFFFF" />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:minWidth="@dimen/hud_trip_value_min_width_portrait">
+
+                    <TextView
+                        android:id="@+id/tvTripRemainingDistance"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:minWidth="@dimen/hud_trip_value_min_width_portrait"
+                        android:gravity="center"
+                        android:singleLine="true"
+                        android:ellipsize="none"
+                        android:text="--"
+                        android:textColor="#FFFFFFFF"
+                        android:textSize="@dimen/hud_trip_value_text_size_portrait"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvTripRemainingDistanceLabel"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:text="km"
+                        android:textColor="#E0E0E0"
+                        android:textSize="@dimen/hud_trip_label_text_size_portrait" />
+                </LinearLayout>
+            </LinearLayout>
+            
+            <!-- Motorcycle portrait: gauge + lean angle stacked ABOVE the pills -->
+            <LinearLayout
+                android:id="@+id/angleContainerMoto"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:visibility="gone"
+                android:layout_marginBottom="5dp"
+                app:layout_constraintEnd_toEndOf="@+id/tripProgressContainer"
+                app:layout_constraintBottom_toTopOf="@+id/tripProgressContainer">
+
+                <TextView
+                    android:id="@+id/angleTextMoto"
+                    android:layout_width="75dp"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="10dp"
+                    android:textAlignment="center"
+                    android:background="@drawable/bg_angle_pill"
+                    android:text="0°"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-medium"/>
+
+                <com.example.clinometer.LinearGaugeView
+                    android:id="@+id/linearGaugeView"
+                    android:layout_width="@dimen/hud_angle_gauge_width_portrait"
+                    android:layout_height="16dp"
+                    android:layout_marginTop="5dp" />
+        </LinearLayout>
+
+            <!-- Landscape-specific elements (always GONE in portrait) -->
+            <LinearLayout
+                android:id="@+id/angleLandscapeContainer"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/carActionButtonsOverlay"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:visibility="gone" />
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Landscape-specific elements (always GONE in portrait) -->
+        <LinearLayout
+            android:id="@+id/carStatsOverlay"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- Bottom: Dashboard (portrait only) -->
+<androidx.constraintlayout.widget.ConstraintLayout
+    android:id="@+id/dashboardContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/transparent"
+    android:paddingHorizontal="12dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="12dp">
+
+<!-- Main Content Area -->
+<androidx.constraintlayout.widget.ConstraintLayout
+    android:id="@+id/contentArea"
+    android:layout_width="360dp"
+    android:layout_height="250dp"
+    app:layout_constraintBottom_toTopOf="@id/distanceContainer"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toTopOf="parent">
+
+    <!-- Speedometer Background -->
+    <ImageView
+        android:id="@+id/speedometerBackground"
+        android:layout_width="236dp"
+        android:layout_height="217dp"
+        android:src="@drawable/speedometer_circle"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintDimensionRatio="1:1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHeight_max="270dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintWidth_max="270dp"
+                app:tint="#2E3950" />
+
+    <!-- Gauge View -->
+    <com.example.clinometer.GaugeView
+        android:id="@+id/gaugeView"
+        android:layout_width="236dp"
+        android:layout_height="250dp"
+        android:padding="0dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintDimensionRatio="1:1"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHeight_max="270dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.0"
+        app:layout_constraintWidth_max="270dp" />
+
+    <!-- Speed Display -->
+    <TextView
+        android:id="@+id/speedText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-thin"
+        android:shadowColor="@color/primary_color"
+        android:shadowRadius="10"
+        android:text="0"
+        android:textAlignment="center"
+        android:textColor="@color/primary_color"
+        android:textSize="48sp"
+        android:textStyle="bold"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="0dp"
+        android:paddingBottom="6dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.29" />
+
+    <!-- Angle Display -->
+    <TextView
+        android:id="@+id/currentAngleText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="4dp"
+        android:text="0°"
+        android:textAlignment="center"
+        android:textColor="@color/primary_color"
+        android:textSize="20sp"
+        app:layout_constraintBottom_toBottomOf="@+id/speedometerBackground"
+        app:layout_constraintEnd_toEndOf="@+id/speedometerBackground"
+        app:layout_constraintStart_toStartOf="@+id/speedometerBackground"
+        app:layout_constraintTop_toBottomOf="@+id/speedText"
+        app:layout_constraintVertical_bias="0.09"
+        app:layout_constraintHorizontal_bias="0.500"/>
+
+    <!-- Timer -->
+    <Chronometer
+        android:id="@+id/chronometer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="-35dp"
+        android:textAlignment="center"
+        android:textColor="@color/primary_color"
+        android:textSize="18sp"
+        app:layout_constraintEnd_toEndOf="@+id/speedometerBackground"
+        app:layout_constraintStart_toStartOf="@+id/speedometerBackground"
+        app:layout_constraintTop_toBottomOf="@+id/speedometerBackground" />
+</androidx.constraintlayout.widget.ConstraintLayout>
+
+<!-- Car Mode Stats (visible for car profiles) -->
+<LinearLayout
+    android:id="@+id/carModeContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/bg_car_mode_stats"
+    android:paddingHorizontal="20dp"
+    android:paddingVertical="10dp"
+    android:visibility="gone"
+    android:layout_marginBottom="4dp"
+    app:layout_constraintBottom_toTopOf="@id/buttonContainer"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <TextView
+            android:id="@+id/distanceTextCar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0.00"
+            android:textColor="#FFFFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="km"
+            android:textColor="@color/primary_color"
+            android:textSize="14sp"/>
+    </LinearLayout>
+
+    <View
+        android:layout_width="1dp"
+        android:layout_height="28dp"
+        android:layout_marginHorizontal="16dp"
+        android:background="#33FFFFFF"/>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center">
+
+        <Chronometer
+            android:id="@+id/chronometerCar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFFFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="time"
+            android:textColor="@color/primary_color"
+            android:textSize="14sp"/>
+    </LinearLayout>
+</LinearLayout>
+
+<!-- Distance Display (Motorcycle only) -->
+<LinearLayout
+    android:id="@+id/distanceContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:paddingVertical="8dp"
+    app:layout_constraintBottom_toTopOf="@id/buttonContainer"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent">
+
+    <TextView
+        android:id="@+id/distanceText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Distance: 0.00 km"
+        android:textSize="16sp"
+        android:textColor="@color/primary_color"/>
+</LinearLayout>
+
+<!-- Button Container -->
+<LinearLayout
+    android:id="@+id/buttonContainer"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="8dp">
+
+    <Button
+        android:id="@+id/btnReset"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="1"
+        android:layout_marginEnd="4dp"
+        android:text="@string/reset_button"
+        android:textColor="#000"
+        android:textSize="12sp"
+        app:backgroundTint="#FFF"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.1"
+        android:stateListAnimator="@null"
+        android:background="@drawable/rounded_button"/>
+
+    <Button
+        android:id="@+id/btnZero"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="1"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
+        android:text="@string/zero_button"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        app:backgroundTint="#4CAF50"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.1"
+        android:stateListAnimator="@null"
+        android:background="@drawable/rounded_button"/>
+
+    <Button
+        android:id="@+id/btnStop"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_weight="1"
+        android:layout_marginStart="4dp"
+        android:text="@string/stop_button"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:fontFamily="sans-serif-medium"
+        android:letterSpacing="0.1"
+        android:stateListAnimator="@null"
+        android:background="@drawable/rounded_button"
+        app:backgroundTint="#E53E3E"/>
+</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
+    </LinearLayout>

@@ -44,6 +44,23 @@
                     android:textSize="14sp"
                     android:textColor="@color/text_secondary"
                     android:text="Session #2 • 20.02.2026 11:42" />
+
+                <TextView
+                    android:id="@+id/tvSessionRaceBoxBadge"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:background="@drawable/bg_racebox_mini_chip"
+                    android:fontFamily="monospace"
+                    android:maxLines="1"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="3dp"
+                    android:singleLine="true"
+                    android:text="@string/racebox_mini_label"
+                    android:textColor="#C8D0D8"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <TextView

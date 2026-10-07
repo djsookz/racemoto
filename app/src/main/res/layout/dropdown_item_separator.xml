@@ -4,7 +4,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="8dp"
-    android:background="@color/dark_surface">
+    android:background="@color/background_primary">
 
     <!-- Разделителна линия -->
     <View
@@ -17,7 +17,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Други марки"
+        android:text="@string/dropdown_other_brands"
         android:textColor="@color/white"
         android:textSize="12sp"
         android:textStyle="italic"

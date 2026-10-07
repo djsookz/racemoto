@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Roomier landscape overrides for tall screens/tablets -->
+    <dimen name="hud_maneuver_margin_top_landscape">25dp</dimen>
+    <dimen name="hud_maneuver_width_landscape">320dp</dimen>
+
+    <dimen name="hud_trip_container_width_landscape">280dp</dimen>
+    <dimen name="hud_trip_value_text_size_landscape">15sp</dimen>
+    <dimen name="hud_trip_label_text_size_landscape">10sp</dimen>
+
+    <dimen name="hud_speed_width_landscape">88dp</dimen>
+    <dimen name="hud_speed_text_size_landscape">28sp</dimen>
+
+    <dimen name="hud_action_btn_size_landscape">56dp</dimen>
+    <dimen name="hud_action_btn_padding_landscape">12dp</dimen>
+    <dimen name="hud_bottom_row_margin_bottom_landscape">25dp</dimen>
+
+    <dimen name="map_controls_margin_top_landscape">90dp</dimen>
+
+    <dimen name="hud_report_nav_bottom_margin_landscape">8dp</dimen>
+    <dimen name="hud_report_fallback_bottom_margin_landscape">20dp</dimen>
+</resources>

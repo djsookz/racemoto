@@ -10,7 +10,6 @@
     android:layout_marginBottom="8dp"
     app:cardCornerRadius="12dp"
     app:cardElevation="4dp"
-    app:cardBackgroundColor="#1C2128"
     android:forceDarkAllowed="false"
     app:cardPreventCornerOverlap="true"
     android:clickable="true"
@@ -20,6 +19,7 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="@drawable/bg_track_metric_speed"
         android:forceDarkAllowed="false">
 
     <!-- Checkbox за режим на избор (скрит по подразбиране) -->
@@ -95,7 +95,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Няма данни за маршрут"
+                    android:text="@string/race_no_route_data"
                     android:textColor="#AAAAAA"
                     android:textSize="12sp"/>
             </LinearLayout>
@@ -137,8 +137,23 @@
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:textColor="#FFFFFF"
-                        android:layout_marginBottom="6dp"
+                        android:layout_marginBottom="4dp"
                         android:fontFamily="sans-serif-medium"/>
+
+                    <TextView
+                        android:id="@+id/tvRaceBoxBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="6dp"
+                        android:background="@drawable/bg_racebox_mini_chip"
+                        android:fontFamily="monospace"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="3dp"
+                        android:text="@string/racebox_mini_label"
+                        android:textColor="#C8D0D8"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
 
                     <!-- Профил снимка и име на превозното средство -->
                     <LinearLayout
@@ -256,7 +271,7 @@
                     android:layout_height="48dp"
                     android:layout_weight="1"
                     android:src="@drawable/ic_delete"
-                    app:tint="#FFFFFF"
+                    app:tint="@color/red"
                     android:background="?android:attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/profile_delete_button"
                     android:padding="12dp"

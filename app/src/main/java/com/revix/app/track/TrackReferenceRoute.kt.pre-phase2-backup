@@ -1,0 +1,208 @@
+package com.example.clinometer.track
+
+import android.location.Location
+import com.example.clinometer.GeoPoint
+import kotlin.math.cos
+import kotlin.math.sqrt
+
+/**
+ * Track centerline / reference path with arc-length coordinates for distance-based lap compare.
+ */
+class TrackReferenceRoute private constructor(
+    val points: List<GeoPoint>,
+    private val cumulativeMeters: FloatArray,
+    val totalLengthMeters: Float,
+    val isCircuit: Boolean,
+    private val startFinishOffsetMeters: Float
+) {
+    fun distanceFromStartFinish(latitude: Double, longitude: Double): Float {
+        val raw = projectOntoRoute(latitude, longitude)
+        return normalizeFromStartFinish(raw - startFinishOffsetMeters)
+    }
+
+    fun pointAtDistanceFromStartFinish(distanceMeters: Float): GeoPoint {
+        val target = normalizeFromStartFinish(startFinishOffsetMeters + distanceMeters)
+        return pointAtRawDistance(target)
+    }
+
+    private fun normalizeFromStartFinish(distanceMeters: Float): Float {
+        if (!isCircuit || totalLengthMeters <= 1f) {
+            return distanceMeters.coerceAtLeast(0f)
+        }
+        var normalized = distanceMeters % totalLengthMeters
+        if (normalized < 0f) normalized += totalLengthMeters
+        return normalized
+    }
+
+    private fun pointAtRawDistance(distanceMeters: Float): GeoPoint {
+        if (points.isEmpty()) return GeoPoint(0.0, 0.0)
+        if (points.size == 1) return points.first()
+
+        val clamped = if (isCircuit && totalLengthMeters > 1f) {
+            var value = distanceMeters % totalLengthMeters
+            if (value < 0f) value += totalLengthMeters
+            value
+        } else {
+            distanceMeters.coerceIn(0f, totalLengthMeters)
+        }
+
+        var segmentIndex = 0
+        while (segmentIndex < cumulativeMeters.lastIndex &&
+            cumulativeMeters[segmentIndex + 1] < clamped
+        ) {
+            segmentIndex++
+        }
+
+        val segmentStart = cumulativeMeters[segmentIndex]
+        val segmentEnd = cumulativeMeters.getOrElse(segmentIndex + 1) { totalLengthMeters }
+        val segmentLength = (segmentEnd - segmentStart).coerceAtLeast(1e-3f)
+        val factor = ((clamped - segmentStart) / segmentLength).coerceIn(0f, 1f)
+
+        val start = points[segmentIndex]
+        val end = points.getOrElse(segmentIndex + 1) { points.first() }
+        return GeoPoint(
+            latitude = start.latitude + (end.latitude - start.latitude) * factor,
+            longitude = start.longitude + (end.longitude - start.longitude) * factor
+        )
+    }
+
+    private fun projectOntoRoute(latitude: Double, longitude: Double): Float {
+        if (points.size < 2) return 0f
+
+        val origin = points.first()
+        val refLatRad = Math.toRadians(origin.latitude)
+        val metersPerDegLat = 111_132.0
+        val metersPerDegLon = 111_320.0 * cos(refLatRad)
+
+        fun toLocalX(lon: Double): Double = (lon - origin.longitude) * metersPerDegLon
+        fun toLocalY(lat: Double): Double = (lat - origin.latitude) * metersPerDegLat
+
+        val px = toLocalX(longitude)
+        val py = toLocalY(latitude)
+        val segmentCount = points.lastIndex
+
+        var bestDistanceSq = Double.POSITIVE_INFINITY
+        var bestAlong = 0f
+
+        for (index in 0 until segmentCount) {
+            val a = points[index]
+            val b = points[index + 1]
+            val ax = toLocalX(a.longitude)
+            val ay = toLocalY(a.latitude)
+            val bx = toLocalX(b.longitude)
+            val by = toLocalY(b.latitude)
+
+            val dx = bx - ax
+            val dy = by - ay
+            val segLenSq = dx * dx + dy * dy
+            if (segLenSq <= 1e-6) continue
+
+            val t = (((px - ax) * dx + (py - ay) * dy) / segLenSq).coerceIn(0.0, 1.0)
+            val projX = ax + t * dx
+            val projY = ay + t * dy
+            val distSq = (px - projX) * (px - projX) + (py - projY) * (py - projY)
+            if (distSq >= bestDistanceSq) continue
+
+            bestDistanceSq = distSq
+            val segLen = sqrt(segLenSq).toFloat()
+            bestAlong = cumulativeMeters[index] + (t.toFloat() * segLen)
+        }
+
+        return bestAlong
+    }
+
+    companion object {
+        fun fromPoints(
+            points: List<GeoPoint>,
+            closeLoop: Boolean,
+            startFinishAnchor: GeoPoint? = null
+        ): TrackReferenceRoute? {
+            if (points.size < 2) return null
+
+            val routePoints = points.toMutableList()
+            if (closeLoop) {
+                val first = routePoints.first()
+                val last = routePoints.last()
+                if (first.distanceToAsDouble(last) > 2.0) {
+                    routePoints.add(first)
+                }
+            }
+
+            if (routePoints.size < 2) return null
+
+            val cumulative = FloatArray(routePoints.size)
+            var total = 0f
+            cumulative[0] = 0f
+            for (index in 0 until routePoints.lastIndex) {
+                total += routePoints[index].distanceToAsDouble(routePoints[index + 1]).toFloat()
+                cumulative[index + 1] = total
+            }
+
+            val anchor = startFinishAnchor ?: routePoints.first()
+            val tempRoute = TrackReferenceRoute(
+                points = routePoints,
+                cumulativeMeters = cumulative,
+                totalLengthMeters = total.coerceAtLeast(1f),
+                isCircuit = closeLoop,
+                startFinishOffsetMeters = 0f
+            )
+            val startFinishOffset = tempRoute.projectOntoRoute(anchor.latitude, anchor.longitude)
+
+            return TrackReferenceRoute(
+                points = routePoints,
+                cumulativeMeters = cumulative,
+                totalLengthMeters = total.coerceAtLeast(1f),
+                isCircuit = closeLoop,
+                startFinishOffsetMeters = startFinishOffset
+            )
+        }
+    }
+}
+
+internal fun interpolateLocationAtGateCrossing(
+    previous: Location,
+    current: Location,
+    lineStartLat: Double,
+    lineStartLon: Double,
+    lineEndLat: Double,
+    lineEndLon: Double
+): Location? {
+    val ratio = TrackGateLineCrossing.interpolateSegmentRatio(
+        previousLat = previous.latitude,
+        previousLon = previous.longitude,
+        currentLat = current.latitude,
+        currentLon = current.longitude,
+        lineStartLat = lineStartLat,
+        lineStartLon = lineStartLon,
+        lineEndLat = lineEndLat,
+        lineEndLon = lineEndLon
+    ) ?: return null
+
+    return Location(current).apply {
+        latitude = previous.latitude + (current.latitude - previous.latitude) * ratio
+        longitude = previous.longitude + (current.longitude - previous.longitude) * ratio
+        val prevTime = previous.time
+        val currentTime = current.time
+        time = prevTime + ((currentTime - prevTime) * ratio).toLong()
+        if (previous.hasSpeed() && current.hasSpeed()) {
+            speed = previous.speed + (current.speed - previous.speed) * ratio
+        }
+        if (previous.hasBearing() && current.hasBearing()) {
+            val delta = shortestBearingDelta(previous.bearing, current.bearing)
+            bearing = normalizeBearing(previous.bearing + delta * ratio)
+        }
+    }
+}
+
+private fun shortestBearingDelta(fromDeg: Float, toDeg: Float): Float {
+    var delta = (toDeg - fromDeg) % 360f
+    if (delta > 180f) delta -= 360f
+    if (delta < -180f) delta += 360f
+    return delta
+}
+
+private fun normalizeBearing(bearingDeg: Float): Float {
+    var value = bearingDeg % 360f
+    if (value < 0f) value += 360f
+    return value
+}

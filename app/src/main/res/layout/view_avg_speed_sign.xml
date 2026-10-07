@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <FrameLayout
+        android:id="@+id/avgSpeedLimitBadge"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:contentDescription="@string/avg_speed_sign_title">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_speed_limit_sign" />
+
+        <TextView
+            android:id="@+id/avgSpeedLimitValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textColor="#FF111111"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            tools:text="140" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_marginStart="10dp"
+        android:gravity="center_vertical"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/avgSpeedSignTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:letterSpacing="0.04"
+            android:text="@string/avg_speed_sign_title"
+            android:textAllCaps="true"
+            android:textColor="#FFFFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            tools:text="СР. СКОРОСТ" />
+
+        <TextView
+            android:id="@+id/avgSpeedSignDetail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textColor="#FFB6E6DE"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            tools:text="108 km/h" />
+    </LinearLayout>
+</merge>

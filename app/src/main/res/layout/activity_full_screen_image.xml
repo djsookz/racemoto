@@ -9,15 +9,12 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <ImageButton
+    <include
         android:id="@+id/btnBackFullScreen"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
+        layout="@layout/widget_back_button"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
         android:layout_margin="16dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@drawable/ic_arrow_back"
-        android:contentDescription="Back"
-        android:tint="#FFFFFF"
         android:elevation="4dp" />
 
 </FrameLayout>

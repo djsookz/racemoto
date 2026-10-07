@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/drawable/progress_drag_accel_force.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1773862093527,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1773862093527,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<layer-list xmlns:android=\"http://schemas.android.com/apk/res/android\">\r\n    <item android:id=\"@android:id/background\">\r\n        <shape android:shape=\"rectangle\">\r\n            <corners android:radius=\"10dp\" />\r\n            <solid android:color=\"#1A2634\" />\r\n        </shape>\r\n    </item>\r\n\r\n    <item android:id=\"@android:id/progress\">\r\n        <clip>\r\n            <shape android:shape=\"rectangle\">\r\n                <corners android:radius=\"10dp\" />\r\n                <gradient\r\n                    android:angle=\"0\"\r\n                    android:startColor=\"#0AB7B5\"\r\n                    android:centerColor=\"#FF8F1F\"\r\n                    android:endColor=\"#F84D53\" />\r\n            </shape>\r\n        </clip>\r\n    </item>\r\n</layer-list>\r\n"
+        }
+    ]
+}

@@ -4,7 +4,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="24dp"
-    android:background="@color/card_background">
+    android:background="@drawable/bg_track_metric_speed">
 
     <TextView
         android:layout_width="match_parent"
@@ -24,7 +24,7 @@
         android:textSize="16sp"
         android:padding="14dp"
         android:layout_marginBottom="8dp"
-        android:backgroundTint="@color/accent_blue"/>
+        android:backgroundTint="@color/primary_color"/>
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -40,6 +40,7 @@
             android:text="@string/drag_mode_0to100"
             android:textSize="14sp"
             android:padding="12dp"
+            android:backgroundTint="@color/accent_green"
             android:layout_marginEnd="4dp"/>
 
         <Button
@@ -50,6 +51,7 @@
             android:text="@string/drag_mode_0to200"
             android:textSize="14sp"
             android:padding="12dp"
+            android:backgroundTint="@color/accent_blue"
             android:layout_marginStart="4dp"/>
 
     </LinearLayout>
@@ -58,7 +60,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="12dp">
+        android:layout_marginBottom="16dp">
 
         <Button
             android:id="@+id/btn100to200"
@@ -68,6 +70,7 @@
             android:text="@string/drag_mode_100to200"
             android:textSize="14sp"
             android:padding="12dp"
+            android:backgroundTint="@color/accent_orange"
             android:layout_marginEnd="4dp"/>
 
         <Button
@@ -78,18 +81,10 @@
             android:text="@string/drag_mode_quarter"
             android:textSize="14sp"
             android:padding="12dp"
+            android:backgroundTint="@color/accent_red"
             android:layout_marginStart="4dp"/>
 
     </LinearLayout>
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="@string/drag_mode_note"
-        android:textSize="12sp"
-        android:textColor="@color/white"
-        android:gravity="center"
-        android:layout_marginBottom="12dp"/>
 
     <Button
         android:id="@+id/btnCancelMode"
@@ -98,7 +93,7 @@
         android:text="@string/drag_mode_cancel"
         android:textSize="14sp"
         android:padding="12dp"
-        android:backgroundTint="@android:color/transparent"
+        android:backgroundTint="@android:color/holo_red_dark"
         android:textColor="@color/text_secondary"/>
 
 </LinearLayout>

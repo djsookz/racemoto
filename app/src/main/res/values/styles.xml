@@ -5,9 +5,34 @@
 
     <!-- Mapbox Maneuver View Style -->
     <style name="MapboxCustomManeuverStyle" parent="MapboxStyleManeuverView">
-        <item name="maneuverViewBackgroundColor">@color/nav_dark_background</item>
-        <item name="subManeuverViewBackgroundColor">@color/nav_dark_background</item>
-        <item name="upcomingManeuverViewBackgroundColor">@color/nav_dark_background</item>
+        <item name="maneuverViewBackgroundColor">@android:color/transparent</item>
+        <item name="subManeuverViewBackgroundColor">@android:color/transparent</item>
+        <item name="upcomingManeuverViewBackgroundColor">@android:color/transparent</item>
+    </style>
+
+    <style name="RevixManeuverPrimaryText" parent="MapboxStylePrimaryManeuver">
+        <item name="android:textColor">#FF6020</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">2</item>
+        <item name="android:singleLine">false</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
+    <style name="RevixManeuverPrimaryTextLand" parent="RevixManeuverPrimaryText">
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <style name="RevixManeuverStepDistance" parent="MapboxStyleStepDistance">
+        <item name="android:textColor">#FF6020</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="RevixManeuverStepDistanceLand" parent="RevixManeuverStepDistance">
+        <item name="android:textSize">18sp</item>
     </style>
 
     <!-- Стил за бели текстове в навигацията -->
@@ -51,14 +76,45 @@
         <item name="android:windowBackground">@drawable/bg_modal_card</item>
         <item name="colorPrimary">@color/primary_color</item>
         <item name="colorAccent">@color/primary_color</item>
+        <item name="colorSurface">@color/card_background</item>
         <item name="android:textColorPrimary">@color/white</item>
-        <item name="android:textColorSecondary">@color/white</item>
+        <item name="android:textColorSecondary">@color/text_secondary_light</item>
         <item name="android:textColor">@color/white</item>
+        <item name="android:textColorAlertDialogListItem">@color/white</item>
+        <item name="textColorAlertDialogListItem">@color/white</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.App.DialogButton.Positive</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.App.DialogButton.Negative</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.App.DialogButton.Positive</item>
     </style>
+
+    <style name="Widget.App.DialogButton.Positive" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/primary_color</item>
+    </style>
+
+    <style name="Widget.App.DialogButton.Negative" parent="Widget.MaterialComponents.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/red</item>
+    </style>
+
     <style name="Theme.DragMe.Splash" parent="Theme.DragMe">
+        <!-- Android 12+ system splash: custom icon so launch icon is not shown tiny in a white mask -->
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon_revix</item>
+        <item name="android:windowSplashScreenBackground">@color/dark_background</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
         <item name="android:windowBackground">@drawable/splash_background</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>
         <item name="android:windowFullscreen">true</item>
+    </style>
+
+    <style name="TextAppearance.GarageProfileTab" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">9sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+
+    <style name="TextAppearance.DragCompareProfileTab" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
 </resources>

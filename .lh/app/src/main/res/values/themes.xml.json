@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/values/themes.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1776336730858,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1776336730858,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<resources>\r\n    <style name=\"Theme.DragMe\" parent=\"Theme.MaterialComponents.DayNight.NoActionBar\">\r\n        <!-- Primary brand color -->\r\n        <item name=\"colorPrimary\">#4CAF50</item>\r\n        <item name=\"colorPrimaryVariant\">#388E3C</item>\r\n        <item name=\"colorOnPrimary\">@android:color/white</item>\r\n\r\n        <!-- Secondary brand color -->\r\n        <item name=\"colorSecondary\">#03DAC5</item>\r\n        <item name=\"colorSecondaryVariant\">#018786</item>\r\n        <item name=\"colorOnSecondary\">@android:color/black</item>\r\n\r\n        <!-- Status bar color -->\r\n        <item name=\"android:statusBarColor\">?attr/colorPrimaryVariant</item>\r\n\r\n        <!-- Добавете това за да синхронизирате текста в статус бара -->\r\n        <item name=\"android:windowLightStatusBar\">false</item>\r\n    </style>\r\n\r\n    <style name=\"Theme.DragMe.Calibration\" parent=\"Theme.MaterialComponents.DayNight.DarkActionBar\">\r\n        <item name=\"colorPrimary\">@color/dark_background</item>\r\n        <item name=\"colorPrimaryVariant\">@color/dark_background</item>\r\n        <item name=\"android:statusBarColor\">@color/dark_background</item>\r\n        <item name=\"android:windowBackground\">@color/dark_background</item>\r\n        <item name=\"android:windowLightStatusBar\">false</item>\r\n    </style>\r\n\r\n    <style name=\"Theme.DragMe.OptimizationSetup\" parent=\"Theme.MaterialComponents.DayNight.NoActionBar\">\r\n        <item name=\"colorPrimary\">@color/background_primary</item>\r\n        <item name=\"colorPrimaryVariant\">@color/background_primary</item>\r\n        <item name=\"colorOnPrimary\">@android:color/white</item>\r\n        <item name=\"android:statusBarColor\">@color/background_primary</item>\r\n        <item name=\"android:navigationBarColor\">@color/background_primary</item>\r\n        <item name=\"android:windowBackground\">@color/background_primary</item>\r\n        <item name=\"android:windowLightStatusBar\">false</item>\r\n    </style>\r\n</resources>\r\n"
+        }
+    ]
+}

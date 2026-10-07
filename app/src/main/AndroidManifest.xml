@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -12,8 +14,28 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_VIDEO"
+        tools:node="remove" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="com.android.vending.BILLING" />
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="false" />
 
     <application
         android:name=".MyApplication"
@@ -21,12 +43,13 @@
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@drawable/drag_me_logo"
-        android:label="@string/dragme"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:icon="@drawable/revix_app_icon"
+        android:label="@string/app_name"
+        android:roundIcon="@drawable/revix_app_icon"
         android:supportsRtl="true"
         android:largeHeap="true"
-        android:usesCleartextTraffic="true">
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:usesCleartextTraffic="${usesCleartextTraffic}">
 
         <activity
             android:name=".SplashActivity"
@@ -41,11 +64,12 @@
 
         <activity
             android:name=".main.MainContainerActivity"
-            android:exported="true" />
+            android:exported="true"
+            android:launchMode="singleTop" />
         
         <activity
             android:name=".main.map.DestinationSearchActivity"
-            android:label="Търсене на дестинация"
+            android:label="@string/destination_search_title"
             android:exported="false" />
         
         <activity
@@ -59,14 +83,18 @@
             android:exported="true"
             android:screenOrientation="portrait" />
 
+        <activity
+            android:name=".OnboardingTutorialActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
 
         <activity
-            android:name=".FirstProfileActivity"
+            android:name=".garage.FirstProfileActivity"
             android:exported="true"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".VehicleSelectionActivity"
+            android:name=".garage.VehicleSelectionActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
@@ -79,7 +107,7 @@
             android:name=".OptimizationSetupActivity"
             android:exported="false"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.MaterialComponents.DayNight.DarkActionBar" />
+            android:theme="@style/Theme.DragMe.OptimizationSetup" />
 
 
         <activity
@@ -90,7 +118,8 @@
         <activity
             android:name=".main.map.SaveSessionActivity"
             android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden" />
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:screenOrientation="portrait" />
 
         <activity
             android:name=".main.map.ProcessingActivity"
@@ -109,19 +138,23 @@
             android:configChanges="orientation|screenSize|keyboardHidden" />
 
         <activity
-            android:name=".CountdownActivity"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden"/>
-
-        <activity
             android:name=".DragCalibrationActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:theme="@style/Theme.DragMe.Calibration"/>
         <activity
             android:name=".LeanCalibrationActivity"
             android:theme="@style/Theme.DragMe.Calibration" />
         <activity
+            android:name=".track.TrackSessionsActivity"
+            android:exported="false" />
+        <activity
             android:name=".TrackSessionDetailActivity"
             android:exported="false" />
+        <activity
+            android:name=".TrackSessionVideoActivity"
+            android:exported="false"
+            android:screenOrientation="fullSensor"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden" />
         <activity
             android:name=".TrackLapCompareActivity"
             android:exported="false" />
@@ -135,23 +168,78 @@
             android:name=".TrackTypeSelectionActivity"
             android:exported="false" />
         <activity
+            android:name=".CustomTrackCreationModeActivity"
+            android:exported="false" />
+        <activity
             android:name=".track.CustomTrackBuilderActivity"
             android:exported="false" />
         <activity
             android:name=".TrackSessionActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
             android:exported="false" />
         <activity
-            android:name=".ProfileDetailActivity"
+            android:name=".garage.GarageProfilePageActivity"
             android:screenOrientation="portrait" />
+        <activity
+            android:name=".garage.GarageFuelEntryActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".garage.GarageMaintenanceEntryActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".garage.GarageDocumentEntryActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <receiver
+            android:name=".garage.GarageMaintenanceReminderReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".garage.GarageDocumentReminderReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".garage.GarageMaintenanceReminderBootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <activity
             android:name=".drag.DragRunPageActivity"
             android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity
+            android:name=".drag.DragRunVideoActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden" />
+        <activity
+            android:name=".drag.DragAttemptVideoActivity"
+            android:exported="false"
+            android:screenOrientation="fullSensor"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden" />
 
         <activity
             android:name=".DragSessionDetailsActivity"
             android:screenOrientation="portrait"
            />
+        <activity
+            android:name=".billing.ProPaywallActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".billing.FreeProfilePickerActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait" />
+
         <activity
             android:name=".drag.SessionSelectionActivity"
             android:screenOrientation="portrait"
@@ -166,6 +254,22 @@
             android:exported="true"
             android:foregroundServiceType="location"
             android:permission="android.permission.FOREGROUND_SERVICE"/>
+
+        <service
+            android:name=".reports.service.ReportAlertsBackgroundService"
+            android:exported="false"
+            android:foregroundServiceType="location"
+            android:stopWithTask="true" />
+
+        <service
+            android:name=".track.TrackSessionVideoOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|mediaProcessing" />
+
+        <service
+            android:name=".drag.DragVideoOverlayService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|mediaProcessing" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

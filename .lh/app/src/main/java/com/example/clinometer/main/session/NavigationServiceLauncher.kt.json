@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1771610876249,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1775746817865,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -2,9 +2,8 @@\n \r\n import android.content.Context\r\n import android.content.Intent\r\n import android.content.ServiceConnection\r\n-import androidx.core.content.ContextCompat\r\n import com.example.clinometer.ForegroundService\r\n \r\n object NavigationServiceLauncher {\r\n \r\n@@ -37,9 +36,9 @@\n     ) {\r\n         val serviceIntent = Intent(context, ForegroundService::class.java).apply {\r\n             putExtra(\"PRE_WARMING_MODE\", true)\r\n         }\r\n-        ContextCompat.startForegroundService(context, serviceIntent)\r\n+        context.startService(serviceIntent)\r\n \r\n         val activateIntent = Intent(context, ForegroundService::class.java).apply {\r\n             putExtra(\"ACTIVATE_NORMAL_MODE\", true)\r\n         }\r\n"
                 }
             ],
             "date": 1771610876249,

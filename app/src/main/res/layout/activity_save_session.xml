@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/dark_background">
+    android:background="@color/background_primary">
 
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appBarLayout"
@@ -17,7 +17,6 @@
             android:id="@+id/collapsingToolbar"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            app:layout_scrollFlags="scroll|exitUntilCollapsed"
             app:contentScrim="@color/dark_background"
             app:titleEnabled="false">
 
@@ -57,15 +56,17 @@
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@drawable/bg_bottom_sheet_curve"
+        android:background="@drawable/bg_track_metric_speed"
         android:clipToPadding="false"
         android:layout_marginTop="-24dp"
+        android:overScrollMode="never"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:background="@drawable/bg_track_metric_speed"
             android:padding="24dp">
 
             <!-- Date and Time Header -->
@@ -74,13 +75,29 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="24dp"
+                android:layout_marginBottom="8dp"
                 android:alpha="0.5"
                 android:fontFamily="sans-serif-medium"
                 android:letterSpacing="0.1"
                 android:text="JANUARY 1, 2024 • 15:05"
                 android:textColor="@color/white"
                 android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tvSaveRaceBoxBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="24dp"
+                android:background="@drawable/bg_racebox_mini_chip"
+                android:fontFamily="monospace"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="3dp"
+                android:text="@string/racebox_mini_label"
+                android:textColor="#C8D0D8"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <!-- Stats Bar -->
             <LinearLayout
@@ -103,7 +120,7 @@
                         android:layout_marginTop="4dp"
                         android:layout_marginBottom="10dp"
                         android:fontFamily="sans-serif-medium"
-                        android:text="DISTANCE"
+                        android:text="@string/save_session_distance_label"
                         android:textColor="@color/primary_color"
                         android:textSize="10sp"
                         android:letterSpacing="0.1" />
@@ -134,7 +151,7 @@
                         android:layout_marginTop="4dp"
                         android:layout_marginBottom="10dp"
                         android:fontFamily="sans-serif-medium"
-                        android:text="TIME"
+                        android:text="@string/save_session_time_label"
                         android:textColor="@color/primary_color"
                         android:textSize="10sp"
                         android:letterSpacing="0.1" />
@@ -165,7 +182,7 @@
                         android:layout_marginTop="4dp"
                         android:layout_marginBottom="10dp"
                         android:fontFamily="sans-serif-medium"
-                        android:text="MAX SPEED"
+                        android:text="@string/save_session_max_speed_label"
                         android:textColor="@color/primary_color"
                         android:textSize="10sp"
                         android:letterSpacing="0.1" />
@@ -198,7 +215,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="8dp"
                 android:fontFamily="sans-serif-medium"
-                android:text="SESSION NAME"
+                android:text="@string/save_session_name_label"
                 android:textColor="@color/primary_color"
                 android:textSize="11sp"
                 android:letterSpacing="0.05" />
@@ -223,7 +240,7 @@
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="8dp"
                 android:fontFamily="sans-serif-medium"
-                android:text="DESCRIPTION"
+                android:text="@string/save_session_description_label"
                 android:textColor="@color/primary_color"
                 android:textSize="11sp"
                 android:letterSpacing="0.05" />
@@ -243,6 +260,42 @@
                 android:textColorHint="#40FFFFFF"
                 android:textSize="15sp" />
 
+            <!-- Fuel Stops Section -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/fuelStopsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/card_background"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:fontFamily="sans-serif-medium"
+                        android:letterSpacing="0.05"
+                        android:text="@string/session_fuel_stops_section"
+                        android:textColor="@color/primary_color"
+                        android:textSize="11sp" />
+
+                    <LinearLayout
+                        android:id="@+id/llSessionFuelStops"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
             <!-- Photos Section -->
             <TextView
                 android:layout_width="wrap_content"
@@ -250,7 +303,7 @@
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="12dp"
                 android:fontFamily="sans-serif-medium"
-                android:text="PHOTOS"
+                android:text="@string/save_session_photos_label"
                 android:textColor="@color/primary_color"
                 android:textSize="11sp"
                 android:letterSpacing="0.05" />
@@ -287,7 +340,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:fontFamily="sans-serif-medium"
-                            android:text="ADD"
+                            android:text="@string/save_session_add_photo"
                             android:textColor="@color/primary_color"
                             android:textSize="9sp" />
                     </LinearLayout>
@@ -310,7 +363,7 @@
                 android:layout_marginBottom="40dp"
                 android:backgroundTint="@color/primary_color"
                 android:fontFamily="sans-serif-black"
-                android:text="SAVE SESSION"
+                android:text="@string/save_session_save_button"
                 android:textColor="@color/white"
                 android:textSize="15sp"
                 android:letterSpacing="0.05"
@@ -332,7 +385,7 @@
         android:scaleType="centerInside"
         android:background="@drawable/bg_circle_trash"
         android:src="@drawable/ic_delete"
-        app:tint="@color/error_color"
+        app:tint="@color/red"
         android:elevation="10dp" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

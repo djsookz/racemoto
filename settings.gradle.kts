@@ -21,12 +21,20 @@ dependencyResolutionManagement {
             }
             credentials {
                 username = "mapbox"
-                // Get token from gradle.properties - use simple approach
-                password = providers.gradleProperty("MAPBOX_DOWNLOADS_TOKEN").orElse("").get()
+                // Prefer local.properties (gitignored); fallback to gradle.properties / env.
+                password = run {
+                    val localProps = java.util.Properties()
+                    val localFile = rootDir.resolve("local.properties")
+                    if (localFile.exists()) {
+                        localFile.inputStream().use { localProps.load(it) }
+                    }
+                    localProps.getProperty("MAPBOX_DOWNLOADS_TOKEN")
+                        ?: providers.gradleProperty("MAPBOX_DOWNLOADS_TOKEN").orElse("").get()
+                }
             }
         }
     }
 }
 
-rootProject.name = "Clinometer"
+rootProject.name = "REVIX"
 include(":app")

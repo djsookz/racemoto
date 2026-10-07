@@ -1,0 +1,22 @@
+{
+    "sourceFile": "app/src/main/res/layout/view_report_alert.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 1,
+            "patches": [
+                {
+                    "date": 1774618826940,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1774776132700,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -12,16 +12,44 @@\n     android:elevation=\"8dp\"\r\n     android:clickable=\"true\"\r\n     android:focusable=\"true\">\r\n     \r\n-    <!-- Report Icon -->\r\n-    <TextView\r\n-        android:id=\"@+id/tvReportIcon\"\r\n+    <!-- Report Icon + Police beacons -->\r\n+    <FrameLayout\r\n         android:layout_width=\"wrap_content\"\r\n         android:layout_height=\"wrap_content\"\r\n-        android:gravity=\"center\"\r\n-        android:textSize=\"32sp\"\r\n-        tools:text=\"🚔\" />\r\n+        android:layout_gravity=\"center_horizontal\">\r\n+\r\n+        <TextView\r\n+            android:id=\"@+id/tvReportIcon\"\r\n+            android:layout_width=\"wrap_content\"\r\n+            android:layout_height=\"wrap_content\"\r\n+            android:gravity=\"center\"\r\n+            android:textSize=\"32sp\"\r\n+            tools:text=\"🚔\" />\r\n+\r\n+        <View\r\n+            android:id=\"@+id/viewPoliceBeaconLeft\"\r\n+            android:layout_width=\"10dp\"\r\n+            android:layout_height=\"6dp\"\r\n+            android:layout_gravity=\"top|start\"\r\n+            android:layout_marginStart=\"23dp\"\r\n+            android:layout_marginTop=\"6dp\"\r\n+            android:background=\"@drawable/bg_police_beacon_red\"\r\n+            android:visibility=\"gone\"\r\n+            tools:visibility=\"visible\" />\r\n+\r\n+        <View\r\n+            android:id=\"@+id/viewPoliceBeaconRight\"\r\n+            android:layout_width=\"10dp\"\r\n+            android:layout_height=\"6dp\"\r\n+            android:layout_gravity=\"top|end\"\r\n+            android:layout_marginEnd=\"22dp\"\r\n+            android:layout_marginTop=\"6dp\"\r\n+            android:background=\"@drawable/bg_police_beacon_blue\"\r\n+            android:visibility=\"gone\"\r\n+            tools:visibility=\"visible\" />\r\n+    </FrameLayout>\r\n     \r\n     <!-- Distance Text -->\r\n     <TextView\r\n         android:id=\"@+id/tvReportDistance\"\r\n"
+                }
+            ],
+            "date": 1774618826940,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    xmlns:tools=\"http://schemas.android.com/tools\"\r\n    android:id=\"@+id/reportAlertPanel\"\r\n    android:layout_width=\"70dp\"\r\n    android:layout_height=\"90dp\"\r\n    android:background=\"@drawable/bg_report_alert\"\r\n    android:orientation=\"vertical\"\r\n    android:gravity=\"center\"\r\n    android:paddingTop=\"12dp\"\r\n    android:paddingBottom=\"12dp\"\r\n    android:elevation=\"8dp\"\r\n    android:clickable=\"true\"\r\n    android:focusable=\"true\">\r\n    \r\n    <!-- Report Icon -->\r\n    <TextView\r\n        android:id=\"@+id/tvReportIcon\"\r\n        android:layout_width=\"wrap_content\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:gravity=\"center\"\r\n        android:textSize=\"32sp\"\r\n        tools:text=\"🚔\" />\r\n    \r\n    <!-- Distance Text -->\r\n    <TextView\r\n        android:id=\"@+id/tvReportDistance\"\r\n        android:layout_width=\"wrap_content\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:layout_marginTop=\"4dp\"\r\n        android:textSize=\"14sp\"\r\n        android:textStyle=\"bold\"\r\n        android:textColor=\"@android:color/white\"\r\n        tools:text=\"500м\" />\r\n    \r\n    <!-- Warning Icon (shown when very close <100m) -->\r\n    <TextView\r\n        android:id=\"@+id/tvWarningIcon\"\r\n        android:layout_width=\"wrap_content\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"⚠️\"\r\n        android:textSize=\"16sp\"\r\n        android:layout_marginTop=\"2dp\"\r\n        android:visibility=\"gone\"\r\n        tools:visibility=\"visible\" />\r\n</LinearLayout>\r\n"
+        }
+    ]
+}

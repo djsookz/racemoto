@@ -6,6 +6,7 @@
 
     <!-- Container for search input and profile info side by side -->
     <LinearLayout
+        android:id="@+id/idleMapSearchRow"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
@@ -76,6 +77,7 @@
                 android:id="@+id/cardProfileImage"
                 android:layout_width="35dp"
                 android:layout_height="35dp"
+                app:cardBackgroundColor="@android:color/white"
                 app:cardCornerRadius="19dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="1.5dp"
@@ -89,7 +91,7 @@
                     android:scaleType="centerCrop"
                     android:src="@drawable/ic_car"
                     android:visibility="visible"
-                    android:contentDescription="Profile image" />
+                    android:contentDescription="@string/profile_image_desc" />
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </LinearLayout>
@@ -116,7 +118,7 @@
             android:id="@+id/tvDestinationName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Дестинация"
+            android:text="@string/destination_label"
             android:textColor="#FFFFFF"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -147,6 +149,32 @@
         </LinearLayout>
     </LinearLayout>
 
+    <com.revix.app.averagespeed.AverageSpeedProgressView
+        android:id="@+id/averageSpeedProgressView"
+        android:layout_width="18dp"
+        android:layout_height="168dp"
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true"
+        android:layout_marginStart="10dp"
+        android:contentDescription="@string/avg_speed_progress_cd"
+        android:elevation="18dp"
+        android:visibility="gone" />
+
+    <!-- Report Alert Panel (Waze-style) - above speed HUD -->
+    <FrameLayout
+        android:id="@+id/reportAlertContainer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_above="@id/bottomHudRow"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="12dp"
+        android:elevation="16dp"
+        android:visibility="gone">
+
+        <include layout="@layout/view_report_alert" />
+    </FrameLayout>
+
     <!-- Search button (visible only after destination selection, above motorway options) -->
     <ImageButton
         android:id="@+id/btnSearchRoute"
@@ -160,7 +188,7 @@
         android:src="@drawable/ic_search"
         android:padding="16dp"
         android:scaleType="centerInside"
-        android:contentDescription="Търси нова дестинация"
+        android:contentDescription="@string/map_search_new_destination"
         app:tint="#FFFFFF"
         android:foreground="?attr/selectableItemBackgroundBorderless"
         android:stateListAnimator="@null"
@@ -181,7 +209,7 @@
         android:src="@drawable/ic_road"
         android:padding="16dp"
         android:scaleType="centerInside"
-        android:contentDescription="Route options"
+        android:contentDescription="@string/map_route_options"
         app:tint="#FFFFFF"
         android:foreground="?attr/selectableItemBackgroundBorderless"
         android:stateListAnimator="@null"
@@ -202,7 +230,7 @@
         android:src="@drawable/ic_navigation"
         android:padding="16dp"
         android:scaleType="centerInside"
-        android:contentDescription="Recenter"
+        android:contentDescription="@string/map_recenter"
         app:tint="#FFFFFF"
         android:foreground="?attr/selectableItemBackgroundBorderless"
         android:stateListAnimator="@null"
@@ -222,7 +250,7 @@
         android:src="@drawable/ic_route"
         android:padding="16dp"
         android:scaleType="centerInside"
-        android:contentDescription="Overview"
+        android:contentDescription="@string/map_overview"
         app:tint="#FFFFFF"
         android:foreground="?attr/selectableItemBackgroundBorderless"
         android:stateListAnimator="@null"
@@ -256,7 +284,7 @@
             android:src="@drawable/ic_motorway"
             android:padding="12dp"
             android:scaleType="fitCenter"
-            android:contentDescription="С магистрали"
+            android:contentDescription="@string/map_with_motorways"
             app:tint="#FFFFFF"
             android:stateListAnimator="@null" />
 
@@ -270,7 +298,7 @@
             android:src="@drawable/ic_road"
             android:padding="12dp"
             android:scaleType="fitCenter"
-            android:contentDescription="Без магистрали"
+            android:contentDescription="@string/map_without_motorways"
             app:tint="#FFFFFF"
             android:stateListAnimator="@null" />
     </LinearLayout>
@@ -304,7 +332,7 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_marginEnd="8dp"
-                android:text="Cancel"
+                android:text="@string/cancel"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"
@@ -325,7 +353,7 @@
                 android:layout_height="60dp"
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
-                android:text="Navigate"
+                android:text="@string/map_navigate"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF"
@@ -376,6 +404,7 @@
 
         <com.mapbox.navigation.ui.components.maneuver.view.MapboxManeuverView
             android:id="@+id/maneuverView"
+            style="@style/MapboxCustomManeuverStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:paddingEnd="0dp" />
@@ -386,10 +415,10 @@
         android:id="@+id/bottomHudRow"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_above="@id/navSessionContainer"
-        android:layout_marginStart="@dimen/hud_bottom_row_margin_start_portrait"
+        android:layout_above="@id/tripProgressContainer"
         android:layout_marginBottom="8dp"
-        android:paddingEnd="@dimen/hud_bottom_row_padding_end_portrait"
+        android:clipToPadding="false"
+        android:clipChildren="false"
         android:visibility="gone">
 
         <!-- Speed overlay (left) -->
@@ -400,7 +429,8 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent">
+            app:layout_constraintBottom_toBottomOf="parent"
+            android:layout_marginStart="@dimen/hud_bottom_row_margin_start_portrait">
 
             <TextView
                 android:id="@+id/speedTextCar"
@@ -418,123 +448,7 @@
                 android:fontFamily="sans-serif-medium" />
         </LinearLayout>
 
-        <!-- Trip progress pills (right) -->
-        <LinearLayout
-            android:id="@+id/tripProgressContainer"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_map_controls_pill"
-            android:gravity="center"
-            android:orientation="horizontal"
-            android:paddingHorizontal="@dimen/hud_trip_padding_h_portrait"
-            android:paddingVertical="@dimen/hud_trip_padding_v_portrait"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent">
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:minWidth="@dimen/hud_trip_value_min_width_portrait">
-
-                <TextView
-                    android:id="@+id/tvTripEta"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minWidth="@dimen/hud_trip_value_min_width_portrait"
-                    android:gravity="center"
-                    android:singleLine="true"
-                    android:ellipsize="none"
-                    android:text="--:--"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="@dimen/hud_trip_value_text_size_portrait"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvTripEtaLabel"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="ETA"
-                    android:textColor="#E0E0E0"
-                    android:textSize="@dimen/hud_trip_label_text_size_portrait" />
-            </LinearLayout>
-
-            <View
-                android:layout_width="1dp"
-                android:layout_height="32dp"
-                android:layout_marginHorizontal="@dimen/hud_trip_separator_margin_h_portrait"
-                android:background="#33FFFFFF" />
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:minWidth="@dimen/hud_trip_value_min_width_portrait">
-
-                <TextView
-                    android:id="@+id/tvTripRemainingTime"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minWidth="@dimen/hud_trip_value_min_width_portrait"
-                    android:gravity="center"
-                    android:singleLine="true"
-                    android:ellipsize="none"
-                    android:text="--:--"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="@dimen/hud_trip_value_text_size_portrait"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvTripRemainingTimeLabel"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="time"
-                    android:textColor="#E0E0E0"
-                    android:textSize="@dimen/hud_trip_label_text_size_portrait" />
-            </LinearLayout>
-
-            <View
-                android:layout_width="1dp"
-                android:layout_height="32dp"
-                android:layout_marginHorizontal="@dimen/hud_trip_separator_margin_h_portrait"
-                android:background="#33FFFFFF" />
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:minWidth="@dimen/hud_trip_value_min_width_portrait">
-
-                <TextView
-                    android:id="@+id/tvTripRemainingDistance"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minWidth="@dimen/hud_trip_value_min_width_portrait"
-                    android:gravity="center"
-                    android:singleLine="true"
-                    android:ellipsize="none"
-                    android:text="--"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="@dimen/hud_trip_value_text_size_portrait"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvTripRemainingDistanceLabel"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center"
-                    android:text="km"
-                    android:textColor="#E0E0E0"
-                    android:textSize="@dimen/hud_trip_label_text_size_portrait" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Motorcycle portrait: lean angle + gauge above pills -->
+        <!-- Motorcycle portrait: lean angle + gauge next to speed overlay -->
         <LinearLayout
             android:id="@+id/angleContainerMoto"
             android:layout_width="wrap_content"
@@ -542,31 +456,62 @@
             android:orientation="vertical"
             android:gravity="center"
             android:visibility="gone"
-            android:layout_marginBottom="5dp"
-            app:layout_constraintEnd_toEndOf="@+id/tripProgressContainer"
-            app:layout_constraintBottom_toTopOf="@+id/tripProgressContainer">
+            android:layout_marginStart="8dp"
+            app:layout_constraintStart_toEndOf="@+id/speedOverlayContainer"
+            app:layout_constraintBottom_toBottomOf="@+id/speedOverlayContainer">
 
             <TextView
                 android:id="@+id/angleTextMoto"
-                android:layout_width="75dp"
+                android:layout_width="60dp"
                 android:layout_height="wrap_content"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="10dp"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="8dp"
                 android:textAlignment="center"
                 android:background="@drawable/bg_angle_pill"
                 android:text="0°"
                 android:textColor="#FFFFFFFF"
-                android:textSize="20sp"
+                android:textSize="16sp"
                 android:textStyle="bold"
                 android:fontFamily="sans-serif-medium" />
 
-            <com.example.clinometer.LinearGaugeView
+            <com.revix.app.LinearGaugeView
                 android:id="@+id/linearGaugeView"
-                android:layout_width="@dimen/hud_angle_gauge_width_portrait"
-                android:layout_height="16dp"
-                android:layout_marginTop="5dp" />
+                android:layout_width="60dp"
+                android:layout_height="12dp"
+                android:layout_marginTop="4dp" />
         </LinearLayout>
+
+        <androidx.constraintlayout.widget.Barrier
+            android:id="@+id/speedAngleBarrier"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:barrierDirection="end"
+            app:constraint_referenced_ids="speedOverlayContainer,angleContainerMoto" />
+
+        <com.revix.app.averagespeed.AverageSpeedSignView
+            android:id="@+id/averageSpeedSignView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="80dp"
+            android:elevation="20dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="@id/speedOverlayContainer"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toEndOf="@id/speedAngleBarrier"
+            app:layout_constraintTop_toTopOf="@id/speedOverlayContainer" />
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Google Maps-style trip bar -->
+    <include
+        android:id="@+id/tripProgressContainer"
+        layout="@layout/view_nav_trip_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentEnd="true"
+        android:layout_above="@id/navSessionContainer"
+        android:visibility="gone" />
 
 
     <!-- Temperature Pill (expandable HORIZONTAL, дясно, под FAB бутона) -->
@@ -623,7 +568,7 @@
             android:id="@+id/llWeatherExpanded"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="💨12km/h 💧65% 🌧️0%"
+            android:text="@string/weather_details_placeholder"
             android:textColor="#fff"
             android:textSize="11sp"
             android:singleLine="true"
@@ -753,7 +698,7 @@
             android:id="@+id/llAltitudeExpanded"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="📊 1013 hPa"
+            android:text="@string/altitude_pressure_placeholder"
             android:textColor="#fff"
             android:textSize="11sp"
             android:singleLine="true"
@@ -765,27 +710,122 @@
 
 
     <!-- Бутон за центриране на локацията (заменям FAB с ImageView за да има stroke) -->
+    <LinearLayout
+        android:id="@+id/idleMapLeftChrome"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="140dp"
+        android:elevation="16dp"
+        android:gravity="start"
+        android:orientation="vertical">
+
+        <FrameLayout
+            android:layout_width="56dp"
+            android:layout_height="56dp">
+
+            <FrameLayout
+                android:id="@+id/fabMyLocationContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/fab_stroke"
+                android:clickable="true"
+                android:elevation="16dp"
+                android:focusable="true"
+                android:foreground="?android:attr/selectableItemBackgroundBorderless">
+
+                <ImageView
+                    android:id="@+id/fabMyLocation"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_my_location"
+                    app:tint="#FFFFFF"/>
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/idleMapSpeedContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/fab_stroke"
+                android:elevation="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvIdleMapSpeed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:text="0"
+                    android:textColor="#FFFFFF"
+                    android:textSize="26sp"
+                    android:textStyle="bold" />
+            </FrameLayout>
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- Session Fuel Button - above report during active ride -->
     <FrameLayout
-        android:id="@+id/fabMyLocationContainer"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
+        android:id="@+id/fabFuel"
+        android:layout_width="@dimen/session_fab_size_portrait"
+        android:layout_height="@dimen/session_fab_size_portrait"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
-        android:layout_marginEnd="24dp"
-        android:layout_marginBottom="140dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="204dp"
         android:background="@drawable/fab_stroke"
-        android:elevation="16dp"
         android:clickable="true"
+        android:contentDescription="@string/session_fuel_add_button"
+        android:elevation="18dp"
         android:focusable="true"
-        android:foreground="?android:attr/selectableItemBackgroundBorderless">
+        android:foreground="?android:attr/selectableItemBackgroundBorderless"
+        android:saveEnabled="false"
+        android:visibility="gone">
 
-        <ImageView
-            android:id="@+id/fabMyLocation"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+        <include layout="@layout/widget_session_fuel_fab" />
+    </FrameLayout>
+
+    <!-- Report Button (Police, Camera, etc.) - Positioned after fabMyLocation for proper z-order -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fabReport"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="140dp"
+        android:src="@drawable/ic_report_megaphone"
+        android:contentDescription="@string/report_action"
+        android:saveEnabled="false"
+        app:tint="@color/primary_color"
+        android:background="@drawable/fab_stroke"
+        android:backgroundTint="#000000"
+        app:elevation="18dp"
+        app:borderWidth="1dp"
+        app:backgroundTint="#ffffff"
+        android:visibility="visible" />
+
+    <FrameLayout
+        android:id="@+id/idleAverageSpeedSignSlot"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBottom="@id/llAltitude"
+        android:layout_centerHorizontal="true"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:elevation="28dp"
+        android:translationZ="28dp">
+
+        <com.revix.app.averagespeed.AverageSpeedSignView
+            android:id="@+id/idleAverageSpeedSignView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:src="@drawable/ic_my_location"
-            app:tint="#FFFFFF"/>
+            android:elevation="28dp"
+            android:translationZ="28dp"
+            android:visibility="gone" />
     </FrameLayout>
 
     <!-- Map controls (top-right) -->
@@ -795,7 +835,7 @@
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
         android:layout_marginEnd="12dp"
-        android:layout_marginTop="300dp"
+        android:layout_marginTop="@dimen/map_controls_margin_top_portrait"
         android:background="@drawable/bg_map_controls_pill"
         android:orientation="vertical"
         android:paddingHorizontal="8dp"
@@ -825,25 +865,13 @@
             app:tint="#FFFFFF" />
 
         <ImageButton
-            android:id="@+id/btnOverview"
+            android:id="@+id/btnVoiceGuidance"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_marginTop="6dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Overview"
-            android:src="@drawable/ic_route"
-            android:padding="6dp"
-            android:visibility="gone"
-            app:tint="#FFFFFF" />
-
-        <ImageButton
-            android:id="@+id/btnRecenter"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginTop="6dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Recenter"
-            android:src="@drawable/ic_navigation"
+            android:contentDescription="@string/map_toggle_voice_guidance"
+            android:src="@android:drawable/ic_lock_silent_mode_off"
             android:padding="6dp"
             android:visibility="gone"
             app:tint="#FFFFFF" />
@@ -889,9 +917,10 @@
                     android:fontFamily="sans-serif-medium" />
 
                 <TextView
+                    android:id="@+id/distanceUnitCar"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="km"
+                    android:text="@string/map_km"
                     android:textColor="@color/primary_color"
                     android:textSize="14sp" />
             </LinearLayout>
@@ -922,71 +951,144 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="time"
+                    android:text="@string/map_time"
                     android:textColor="@color/primary_color"
                     android:textSize="14sp" />
             </LinearLayout>
         </LinearLayout>
 
         <!-- Button Container -->
-        <LinearLayout
+        <FrameLayout
             android:id="@+id/buttonContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center"
             android:paddingHorizontal="16dp"
             android:paddingVertical="8dp">
 
-            <Button
-                android:id="@+id/btnReset"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
-                android:saveEnabled="false"
-                android:text="@string/reset_button"
-                android:textColor="#000"
-                android:textSize="12sp"
-                app:backgroundTint="#FFF"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.1"
-                android:stateListAnimator="@null"
-                android:background="@drawable/rounded_button" />
+            <LinearLayout
+                android:id="@+id/buttonActionsRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center">
 
-            <Button
-                android:id="@+id/btnZero"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:saveEnabled="false"
-                android:text="@string/zero_button"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                app:backgroundTint="#4CAF50"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.1"
-                android:stateListAnimator="@null"
-                android:background="@drawable/rounded_button" />
+                <Button
+                    android:id="@+id/btnReset"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:saveEnabled="false"
+                    android:text="@string/reset_button"
+                    android:textColor="#000"
+                    android:textSize="12sp"
+                    app:backgroundTint="#FFF"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.1"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/rounded_button" />
 
-            <Button
-                android:id="@+id/btnStop"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:saveEnabled="false"
-                android:text="@string/stop_button"
-                android:textColor="#FFFFFF"
-                android:textSize="12sp"
-                app:backgroundTint="#E53935"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.1"
-                android:stateListAnimator="@null"
-                android:background="@drawable/rounded_button" />
-        </LinearLayout>
+                <Button
+                    android:id="@+id/btnZero"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:saveEnabled="false"
+                    android:text="@string/zero_button"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    app:backgroundTint="#4CAF50"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.1"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/rounded_button" />
+
+                <Button
+                    android:id="@+id/btnStop"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:saveEnabled="false"
+                    android:text="@string/stop_button"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    app:backgroundTint="#E53935"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.1"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/rounded_button" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/arrivalActionContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="8dp"
+                android:visibility="gone"
+                android:alpha="0"
+                android:translationY="120dp">
+
+                <Button
+                    android:id="@+id/btnArrivalSaveFinish"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:saveEnabled="false"
+                    android:text="@string/map_save_and_finish"
+                    android:textColor="#FFFFFF"
+                    android:textSize="11sp"
+                    android:backgroundTint="@null"
+                    app:backgroundTint="@null"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.05"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/rounded_button_arrival_save" />
+
+                <Button
+                    android:id="@+id/btnArrivalContinue"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:saveEnabled="false"
+                    android:text="@string/map_continue"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:backgroundTint="@null"
+                    app:backgroundTint="@null"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.05"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/rounded_button_arrival_continue" />
+
+                <Button
+                    android:id="@+id/btnArrivalDelete"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:saveEnabled="false"
+                    android:text="@string/delete"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp"
+                    android:backgroundTint="@null"
+                    app:backgroundTint="@null"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.05"
+                    android:stateListAnimator="@null"
+                    android:background="@drawable/rounded_button_arrival_delete" />
+            </LinearLayout>
+        </FrameLayout>
     </LinearLayout>
 
 
@@ -1064,6 +1166,89 @@
 
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/garageReminderBanner"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/idleMapSearchRow"
+        android:layout_alignParentEnd="true"
+        android:layout_marginTop="6dp"
+        android:layout_marginEnd="16dp"
+        android:clickable="true"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:elevation="20dp"
+        android:focusable="true"
+        android:gravity="end"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="9dp"
+            android:layout_marginEnd="12dp"
+            android:layout_marginBottom="-1dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_garage_reminder_bubble_tail_up" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_garage_reminder_bubble"
+            android:gravity="center_vertical"
+            android:maxWidth="260dp"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="4dp"
+            android:paddingBottom="8dp">
+
+            <ImageView
+                android:id="@+id/ivGarageReminderBannerIcon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_wrench" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvGarageReminderBannerTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvGarageReminderBannerMore"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="#FFD0C2"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/btnGarageReminderBannerClose"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/close"
+                android:padding="8dp"
+                android:src="@drawable/ic_close"
+                app:tint="#CCFFFFFF" />
+        </LinearLayout>
+    </LinearLayout>
+
     <!-- Inline Search Container (expanded state, like TestNavigationActivity) -->
     <!-- Moved to end of file to ensure it's on top of all other elements in RelativeLayout -->
     <LinearLayout
@@ -1104,7 +1289,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:layout_marginStart="12dp"
-                android:hint="Търси дестинация..."
+                android:hint="@string/destination_placeholder"
                 android:textColor="#FFFFFF"
                 android:textColorHint="#999999"
                 android:textSize="16sp"
@@ -1114,15 +1299,360 @@
                 android:padding="0dp" />
         </LinearLayout>
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvSearchResults"
+        <LinearLayout
+            android:id="@+id/quickPanelContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:clipToPadding="false"
-            android:visibility="gone"
+            android:layout_marginTop="8dp"
             android:background="@color/background_primary"
-            android:elevation="20dp" />
+            android:orientation="vertical"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp">
+
+            <!-- Category Shortcuts -->
+            <HorizontalScrollView
+                android:id="@+id/quickCategoriesContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:paddingVertical="4dp"
+                android:paddingHorizontal="8dp">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <!-- Любими -->
+                    <LinearLayout
+                        android:id="@+id/btnCategoryFavorites"
+                        android:layout_width="72dp"
+                        android:layout_height="72dp"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:background="?attr/selectableItemBackground"
+                        android:layout_marginEnd="6dp"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@android:drawable/btn_star_big_on"
+                            android:tint="@color/primary_color" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/quick_suggestion_favorites"
+                            android:textColor="#FFFFFF"
+                                android:textSize="11sp"
+                                android:layout_marginTop="4dp"
+                            android:gravity="center" />
+                    </LinearLayout>
+
+                    <!-- Бензиностанции -->
+                    <LinearLayout
+                        android:id="@+id/btnCategoryGas"
+                        android:layout_width="72dp"
+                        android:layout_height="72dp"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:background="?attr/selectableItemBackground"
+                        android:layout_marginEnd="6dp"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <TextView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:text="⛽"
+                            android:textSize="18sp"
+                            android:gravity="center" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/search_category_gas_stations"
+                            android:textColor="#FFFFFF"
+                                android:textSize="10sp"
+                                android:layout_marginTop="1dp"
+                            android:gravity="center" />
+                    </LinearLayout>
+
+                    <!-- Паркинги -->
+                    <LinearLayout
+                        android:id="@+id/btnCategoryParking"
+                        android:layout_width="72dp"
+                        android:layout_height="72dp"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:background="?attr/selectableItemBackground"
+                        android:layout_marginEnd="6dp"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <TextView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:text="🅿️"
+                            android:textSize="18sp"
+                            android:gravity="center" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/search_category_parking"
+                            android:textColor="#FFFFFF"
+                                android:textSize="11sp"
+                                android:layout_marginTop="4dp"
+                            android:gravity="center" />
+                    </LinearLayout>
+
+                    <!-- Храна -->
+                    <LinearLayout
+                        android:id="@+id/btnCategoryFood"
+                        android:layout_width="72dp"
+                        android:layout_height="72dp"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:background="?attr/selectableItemBackground"
+                        android:layout_marginEnd="6dp"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <TextView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:text="🍽️"
+                            android:textSize="18sp"
+                            android:gravity="center" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/search_category_food"
+                            android:textColor="#FFFFFF"
+                                android:textSize="11sp"
+                                android:layout_marginTop="4dp"
+                            android:gravity="center" />
+                    </LinearLayout>
+
+                    <!-- Кафе -->
+                    <LinearLayout
+                        android:id="@+id/btnCategoryCoffee"
+                        android:layout_width="72dp"
+                        android:layout_height="72dp"
+                        android:orientation="vertical"
+                        android:gravity="center"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <TextView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:text="☕"
+                            android:textSize="18sp"
+                            android:gravity="center" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/search_category_coffee"
+                            android:textColor="#FFFFFF"
+                                android:textSize="11sp"
+                                android:layout_marginTop="4dp"
+                            android:gravity="center" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <!-- Divider -->
+            <View
+                android:id="@+id/quickDividerTop"
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#333333"
+                android:layout_marginVertical="4dp" />
+
+            <!-- Home -->
+            <LinearLayout
+                android:id="@+id/btnQuickHome"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="?attr/selectableItemBackground"
+                android:padding="12dp"
+                android:gravity="center_vertical"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:text="🏠"
+                    android:textSize="24sp"
+                    android:gravity="center" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/quick_suggestion_home"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvQuickHomeSubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/search_set_location"
+                        android:textColor="#888888"
+                        android:textSize="13sp"
+                        android:layout_marginTop="2dp"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Work -->
+            <LinearLayout
+                android:id="@+id/btnQuickWork"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="?attr/selectableItemBackground"
+                android:padding="12dp"
+                android:gravity="center_vertical"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:text="💼"
+                    android:textSize="24sp"
+                    android:gravity="center" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/quick_suggestion_work"
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvQuickWorkSubtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/search_set_location"
+                        android:textColor="#888888"
+                        android:textSize="13sp"
+                        android:layout_marginTop="2dp"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Divider -->
+            <View
+                android:id="@+id/quickDividerBottom"
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#333333"
+                android:layout_marginVertical="4dp" />
+
+            <TextView
+                android:id="@+id/tvQuickListHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="12dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="6dp"
+                android:text="@string/nav_history"
+                android:textColor="#DDE1E8"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvSearchResults"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:visibility="gone"
+                android:background="@android:color/transparent"
+                android:elevation="20dp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Category POI bottom sheet (shown after selecting POI category) -->
+    <LinearLayout
+        android:id="@+id/poiBottomSheetContainer"
+        android:layout_width="match_parent"
+        android:layout_height="320dp"
+        android:layout_alignParentBottom="true"
+        android:layout_above="@id/bottomContainer"
+        android:orientation="vertical"
+        android:background="@drawable/bg_poi_bottom_sheet"
+        android:elevation="26dp"
+        android:visibility="gone"
+        android:paddingTop="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:id="@+id/tvPoiBottomSheetTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/map_poi"
+                android:textColor="#FFFFFF"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btnPoiBottomSheetClose"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_close"
+                android:contentDescription="@string/close"
+                app:tint="#FFFFFF" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvPoiBottomSheetResults"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:paddingBottom="8dp"
+            android:background="@android:color/transparent" />
     </LinearLayout>
 
 </RelativeLayout>

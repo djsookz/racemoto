@@ -1,0 +1,878 @@
+package com.revix.app
+
+import android.content.Context
+import android.content.SharedPreferences
+import android.util.Log
+
+/**
+ * Singleton за запазване на калибрацията на forward/lateral оси.
+ * Калибрацията се запазва ПО ПРОФИЛ в SharedPreferences.
+ * Всеки профил (Kawasaki, Audi, и т.н.) има собствена калибрация.
+ */
+object DragCalibration {
+    
+    private const val PREFS_NAME = "DragCalibration"
+    
+    private var prefs: SharedPreferences? = null
+    private var currentProfileId: Long = -1L
+    
+    // UNIVERSAL GRAVITY-BASED CALIBRATION (работи с всяка ориентация!)
+    @Volatile var gravityVector = floatArrayOf(0f, 9.8f, 0f) // DOWN вектор (от gravity sensor)
+    @Volatile var forwardVector = floatArrayOf(1f, 0f, 0f) // FORWARD посока (от реално бутане)
+    @Volatile var rightVector = floatArrayOf(0f, 0f, 1f) // RIGHT посока (изчислена)
+    @Volatile var maxVibrationBaseline = 0.8f // MAX linear accel magnitude по време на IDLE (5 sec)
+    @Volatile var maxVibrXUniversal = 0f // Максимална вибрация по X ос (за weighted threshold)
+    @Volatile var maxVibrYUniversal = 0f // Максимална вибрация по Y ос (за weighted threshold)
+    @Volatile var maxVibrZUniversal = 0f // Максимална вибрация по Z ос (за weighted threshold)
+    @Volatile var isUniversalCalibrated = false
+    @Volatile var universalCalibrationTime = 0L
+    
+    // Portrait calibration - DEPRECATED (backward compatibility)
+    @Volatile var forwardAxisPortrait = floatArrayOf(1f, 0f, 0f)
+    @Volatile var lateralAxisPortrait = floatArrayOf(0f, 1f, 0f)
+    @Volatile var baselinePortrait = floatArrayOf(0f, 0f, 0f) // Baseline шум от 5 секунди неподвижност
+    @Volatile var maxVibrXPortrait = 0f // Максимална вибрация по X ос
+    @Volatile var maxVibrYPortrait = 0f // Максимална вибрация по Y ос
+    @Volatile var maxVibrZPortrait = 0f // Максимална вибрация по Z ос
+    @Volatile var calibrationConfidencePortrait = 0f // 0..100 quality score
+    @Volatile var isPortraitCalibrated = false
+    @Volatile var portraitCalibrationTime = 0L
+    
+    // Landscape calibration - ПЪЛЕН 3D вектор на ускорението
+    @Volatile var forwardAxisLandscape = floatArrayOf(1f, 0f, 0f)
+    @Volatile var lateralAxisLandscape = floatArrayOf(0f, 1f, 0f)
+    @Volatile var baselineLandscape = floatArrayOf(0f, 0f, 0f) // Baseline шум от 5 секунди неподвижност
+    @Volatile var maxVibrXLandscape = 0f // Максимална вибрация по X ос
+    @Volatile var maxVibrYLandscape = 0f // Максимална вибрация по Y ос
+    @Volatile var maxVibrZLandscape = 0f // Максимална вибрация по Z ос
+    @Volatile var calibrationConfidenceLandscape = 0f // 0..100 quality score
+    @Volatile var isLandscapeCalibrated = false
+    @Volatile var landscapeCalibrationTime = 0L
+    
+    // Deprecated - за backward compatibility
+    @Volatile var forwardAxis = floatArrayOf(1f, 0f, 0f)
+    @Volatile var lateralAxis = floatArrayOf(0f, 1f, 0f)
+    @Volatile var isCalibrated = false
+    @Volatile var calibrationTime = 0L
+    
+    /**
+     * Инициализира от SharedPreferences
+     */
+    fun init(context: Context) {
+        prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    /**
+     * Бърза проверка дали профилът има калибрация (universal, portrait или landscape).
+     */
+    fun isProfileCalibrated(context: Context, profileId: Long): Boolean {
+        if (profileId == -1L) return false
+        if (prefs == null) {
+            init(context)
+        }
+        val p = prefs
+        if (p != null) {
+            val keyPrefix = "profile_${profileId}_"
+            if (p.getBoolean(keyPrefix + "universal_isCalibrated", false) ||
+                p.getBoolean(keyPrefix + "portrait_isCalibrated", false) ||
+                p.getBoolean(keyPrefix + "landscape_isCalibrated", false)
+            ) {
+                return true
+            }
+        }
+        // Motion snapshot is written only after a successful calibration of that profile.
+        return MotionCalibrationStore.loadSnapshot(context, profileId, false).calibrated ||
+            MotionCalibrationStore.loadSnapshot(context, profileId, true).calibrated ||
+            MotionCalibrationStore.loadSnapshot(context, profileId, null).calibrated
+    }
+    
+    /**
+     * Сменя профила и зарежда неговата калибрация
+     */
+    fun setProfile(profileId: Long) {
+        currentProfileId = profileId
+        loadFromPrefs()
+    }
+    
+    /**
+     * Зарежда калибрацията за текущия профил от SharedPreferences
+     */
+    private fun loadFromPrefs() {
+        if (currentProfileId == -1L) {
+            Log.d("DragCalibration", "⚠️ No profile selected")
+            return
+        }
+        
+        prefs?.let { p ->
+            val keyPrefix = "profile_${currentProfileId}_"
+            
+            // Load UNIVERSAL calibration (NEW!)
+            isUniversalCalibrated = p.getBoolean(keyPrefix + "universal_isCalibrated", false)
+            if (isUniversalCalibrated) {
+                gravityVector = floatArrayOf(
+                    p.getFloat(keyPrefix + "universal_gravityX", 0f),
+                    p.getFloat(keyPrefix + "universal_gravityY", 9.8f),
+                    p.getFloat(keyPrefix + "universal_gravityZ", 0f)
+                )
+                forwardVector = floatArrayOf(
+                    p.getFloat(keyPrefix + "universal_forwardX", 1f),
+                    p.getFloat(keyPrefix + "universal_forwardY", 0f),
+                    p.getFloat(keyPrefix + "universal_forwardZ", 0f)
+                )
+                rightVector = floatArrayOf(
+                    p.getFloat(keyPrefix + "universal_rightX", 0f),
+                    p.getFloat(keyPrefix + "universal_rightY", 0f),
+                    p.getFloat(keyPrefix + "universal_rightZ", 1f)
+                )
+                maxVibrationBaseline = p.getFloat(keyPrefix + "universal_maxVibration", 0.8f)
+                maxVibrXUniversal = p.getFloat(keyPrefix + "universal_maxVibrX", 0f)
+                maxVibrYUniversal = p.getFloat(keyPrefix + "universal_maxVibrY", 0f)
+                maxVibrZUniversal = p.getFloat(keyPrefix + "universal_maxVibrZ", 0f)
+                universalCalibrationTime = p.getLong(keyPrefix + "universal_calibrationTime", 0L)
+                
+                Log.d("DragCalibration", "✅ UNIVERSAL calibration loaded at ${java.text.SimpleDateFormat("dd.MM.yyyy HH:mm").format(universalCalibrationTime)}")
+                Log.d("DragCalibration", "   Max vibrations per axis: X=${String.format("%.3f", maxVibrXUniversal)}, Y=${String.format("%.3f", maxVibrYUniversal)}, Z=${String.format("%.3f", maxVibrZUniversal)} m/s²")
+                Log.d("DragCalibration", "   Gravity (DOWN): [${String.format("%.3f", gravityVector[0])}, ${String.format("%.3f", gravityVector[1])}, ${String.format("%.3f", gravityVector[2])}]")
+                Log.d("DragCalibration", "   Forward: [${String.format("%.3f", forwardVector[0])}, ${String.format("%.3f", forwardVector[1])}, ${String.format("%.3f", forwardVector[2])}]")
+                Log.d("DragCalibration", "   Right: [${String.format("%.3f", rightVector[0])}, ${String.format("%.3f", rightVector[1])}, ${String.format("%.3f", rightVector[2])}]")
+                Log.d("DragCalibration", "   🔥 MAX вибрация (idle): ${String.format("%.2f", maxVibrationBaseline)} m/s²")
+                Log.d("DragCalibration", "   🎯 ДИНАМИЧЕН праг: ${String.format("%.2f", maxVibrationBaseline * 1.5f)} m/s² (1.5× MAX вибрация)")
+            }
+            
+            // Load Portrait calibration (DEPRECATED)
+            isPortraitCalibrated = p.getBoolean(keyPrefix + "portrait_isCalibrated", false)
+            if (isPortraitCalibrated) {
+                forwardAxisPortrait = floatArrayOf(
+                    p.getFloat(keyPrefix + "portrait_forwardX", 1f),
+                    p.getFloat(keyPrefix + "portrait_forwardY", 0f),
+                    p.getFloat(keyPrefix + "portrait_forwardZ", 0f)
+                )
+                lateralAxisPortrait = floatArrayOf(
+                    p.getFloat(keyPrefix + "portrait_lateralX", 0f),
+                    p.getFloat(keyPrefix + "portrait_lateralY", 1f),
+                    p.getFloat(keyPrefix + "portrait_lateralZ", 0f)
+                )
+                baselinePortrait = floatArrayOf(
+                    p.getFloat(keyPrefix + "portrait_baselineX", 0f),
+                    p.getFloat(keyPrefix + "portrait_baselineY", 0f),
+                    p.getFloat(keyPrefix + "portrait_baselineZ", 0f)
+                )
+                maxVibrXPortrait = p.getFloat(keyPrefix + "portrait_maxVibrX", 0f)
+                maxVibrYPortrait = p.getFloat(keyPrefix + "portrait_maxVibrY", 0f)
+                maxVibrZPortrait = p.getFloat(keyPrefix + "portrait_maxVibrZ", 0f)
+                calibrationConfidencePortrait = p.getFloat(keyPrefix + "portrait_confidence", 0f)
+                portraitCalibrationTime = p.getLong(keyPrefix + "portrait_calibrationTime", 0L)
+                Log.d("DragCalibration", "✅ Portrait calibrated at ${java.text.SimpleDateFormat("dd.MM.yyyy HH:mm").format(portraitCalibrationTime)}")
+                Log.d("DragCalibration", "   Baseline: [${baselinePortrait[0]}, ${baselinePortrait[1]}, ${baselinePortrait[2]}]")
+                Log.d("DragCalibration", "   Max vibrations per axis: X=$maxVibrXPortrait, Y=$maxVibrYPortrait, Z=$maxVibrZPortrait m/s²")
+                Log.d("DragCalibration", "   Confidence: ${String.format("%.1f", calibrationConfidencePortrait)}%")
+            }
+            
+            // Load Landscape calibration
+            isLandscapeCalibrated = p.getBoolean(keyPrefix + "landscape_isCalibrated", false)
+            if (isLandscapeCalibrated) {
+                forwardAxisLandscape = floatArrayOf(
+                    p.getFloat(keyPrefix + "landscape_forwardX", 1f),
+                    p.getFloat(keyPrefix + "landscape_forwardY", 0f),
+                    p.getFloat(keyPrefix + "landscape_forwardZ", 0f)
+                )
+                lateralAxisLandscape = floatArrayOf(
+                    p.getFloat(keyPrefix + "landscape_lateralX", 0f),
+                    p.getFloat(keyPrefix + "landscape_lateralY", 1f),
+                    p.getFloat(keyPrefix + "landscape_lateralZ", 0f)
+                )
+                baselineLandscape = floatArrayOf(
+                    p.getFloat(keyPrefix + "landscape_baselineX", 0f),
+                    p.getFloat(keyPrefix + "landscape_baselineY", 0f),
+                    p.getFloat(keyPrefix + "landscape_baselineZ", 0f)
+                )
+                maxVibrXLandscape = p.getFloat(keyPrefix + "landscape_maxVibrX", 0f)
+                maxVibrYLandscape = p.getFloat(keyPrefix + "landscape_maxVibrY", 0f)
+                maxVibrZLandscape = p.getFloat(keyPrefix + "landscape_maxVibrZ", 0f)
+                calibrationConfidenceLandscape = p.getFloat(keyPrefix + "landscape_confidence", 0f)
+                landscapeCalibrationTime = p.getLong(keyPrefix + "landscape_calibrationTime", 0L)
+                Log.d("DragCalibration", "✅ Landscape calibrated at ${java.text.SimpleDateFormat("dd.MM.yyyy HH:mm").format(landscapeCalibrationTime)}")
+                Log.d("DragCalibration", "   Baseline: [${baselineLandscape[0]}, ${baselineLandscape[1]}, ${baselineLandscape[2]}]")
+                Log.d("DragCalibration", "   Max vibrations per axis: X=$maxVibrXLandscape, Y=$maxVibrYLandscape, Z=$maxVibrZLandscape m/s²")
+                Log.d("DragCalibration", "   Confidence: ${String.format("%.1f", calibrationConfidenceLandscape)}%")
+            }
+            
+            syncLegacyCompatibilityFromOrientationData()
+            if (!isCalibrated) {
+                Log.d("DragCalibration", "⚠️ Profile $currentProfileId not calibrated")
+            }
+        }
+    }
+
+    private fun syncLegacyCompatibilityFromOrientationData() {
+        when {
+            isPortraitCalibrated -> {
+                forwardAxis = forwardAxisPortrait.clone()
+                lateralAxis = lateralAxisPortrait.clone()
+                isCalibrated = true
+                calibrationTime = portraitCalibrationTime
+            }
+            isLandscapeCalibrated -> {
+                forwardAxis = forwardAxisLandscape.clone()
+                lateralAxis = lateralAxisLandscape.clone()
+                isCalibrated = true
+                calibrationTime = landscapeCalibrationTime
+            }
+            else -> {
+                forwardAxis = floatArrayOf(1f, 0f, 0f)
+                lateralAxis = floatArrayOf(0f, 1f, 0f)
+                isCalibrated = false
+                calibrationTime = 0L
+            }
+        }
+    }
+    
+    /**
+     * Запазва калибрацията за текущия профил в SharedPreferences
+     */
+    private fun saveToPrefs(profileId: Long = currentProfileId) {
+        if (profileId == -1L) {
+            Log.d("DragCalibration", "⚠️ Cannot save - no profile selected")
+            return
+        }
+        
+        prefs?.edit()?.apply {
+            val keyPrefix = "profile_${profileId}_"
+            
+            // Save UNIVERSAL calibration (NEW!)
+            putBoolean(keyPrefix + "universal_isCalibrated", isUniversalCalibrated)
+            putFloat(keyPrefix + "universal_gravityX", gravityVector[0])
+            putFloat(keyPrefix + "universal_gravityY", gravityVector[1])
+            putFloat(keyPrefix + "universal_gravityZ", gravityVector[2])
+            putFloat(keyPrefix + "universal_forwardX", forwardVector[0])
+            putFloat(keyPrefix + "universal_forwardY", forwardVector[1])
+            putFloat(keyPrefix + "universal_forwardZ", forwardVector[2])
+            putFloat(keyPrefix + "universal_rightX", rightVector[0])
+            putFloat(keyPrefix + "universal_rightY", rightVector[1])
+            putFloat(keyPrefix + "universal_rightZ", rightVector[2])
+            putFloat(keyPrefix + "universal_maxVibration", maxVibrationBaseline)
+            putFloat(keyPrefix + "universal_maxVibrX", maxVibrXUniversal)
+            putFloat(keyPrefix + "universal_maxVibrY", maxVibrYUniversal)
+            putFloat(keyPrefix + "universal_maxVibrZ", maxVibrZUniversal)
+            putLong(keyPrefix + "universal_calibrationTime", universalCalibrationTime)
+            
+            // Save Portrait calibration (DEPRECATED)
+            putBoolean(keyPrefix + "portrait_isCalibrated", isPortraitCalibrated)
+            putFloat(keyPrefix + "portrait_forwardX", forwardAxisPortrait[0])
+            putFloat(keyPrefix + "portrait_forwardY", forwardAxisPortrait[1])
+            putFloat(keyPrefix + "portrait_forwardZ", forwardAxisPortrait[2])
+            putFloat(keyPrefix + "portrait_lateralX", lateralAxisPortrait[0])
+            putFloat(keyPrefix + "portrait_lateralY", lateralAxisPortrait[1])
+            putFloat(keyPrefix + "portrait_lateralZ", lateralAxisPortrait[2])
+            putFloat(keyPrefix + "portrait_baselineX", baselinePortrait[0])
+            putFloat(keyPrefix + "portrait_baselineY", baselinePortrait[1])
+            putFloat(keyPrefix + "portrait_baselineZ", baselinePortrait[2])
+            putFloat(keyPrefix + "portrait_maxVibrX", maxVibrXPortrait)
+            putFloat(keyPrefix + "portrait_maxVibrY", maxVibrYPortrait)
+            putFloat(keyPrefix + "portrait_maxVibrZ", maxVibrZPortrait)
+            putFloat(keyPrefix + "portrait_confidence", calibrationConfidencePortrait)
+            putLong(keyPrefix + "portrait_calibrationTime", portraitCalibrationTime)
+            
+            // Save Landscape calibration
+            putBoolean(keyPrefix + "landscape_isCalibrated", isLandscapeCalibrated)
+            putFloat(keyPrefix + "landscape_forwardX", forwardAxisLandscape[0])
+            putFloat(keyPrefix + "landscape_forwardY", forwardAxisLandscape[1])
+            putFloat(keyPrefix + "landscape_forwardZ", forwardAxisLandscape[2])
+            putFloat(keyPrefix + "landscape_lateralX", lateralAxisLandscape[0])
+            putFloat(keyPrefix + "landscape_lateralY", lateralAxisLandscape[1])
+            putFloat(keyPrefix + "landscape_lateralZ", lateralAxisLandscape[2])
+            putFloat(keyPrefix + "landscape_baselineX", baselineLandscape[0])
+            putFloat(keyPrefix + "landscape_baselineY", baselineLandscape[1])
+            putFloat(keyPrefix + "landscape_baselineZ", baselineLandscape[2])
+            putFloat(keyPrefix + "landscape_maxVibrX", maxVibrXLandscape)
+            putFloat(keyPrefix + "landscape_maxVibrY", maxVibrYLandscape)
+            putFloat(keyPrefix + "landscape_maxVibrZ", maxVibrZLandscape)
+            putFloat(keyPrefix + "landscape_confidence", calibrationConfidenceLandscape)
+            putLong(keyPrefix + "landscape_calibrationTime", landscapeCalibrationTime)
+            
+            commit()
+        }
+        Log.d("DragCalibration", "💾 Saved calibration for profile $profileId (Portrait: $isPortraitCalibrated, Landscape: $isLandscapeCalibrated)")
+    }
+
+    private fun bindSaveProfile(profileId: Long): Long {
+        val saveProfileId = if (profileId != -1L) profileId else currentProfileId
+        if (saveProfileId != -1L && saveProfileId != currentProfileId) {
+            currentProfileId = saveProfileId
+            loadFromPrefs()
+        } else if (saveProfileId != -1L) {
+            currentProfileId = saveProfileId
+        }
+        return saveProfileId
+    }
+    
+    /**
+     * Изчиства ВСИЧКИ калибрации (и Portrait, и Landscape)
+     */
+    fun clearCalibration() {
+        // Clear UNIVERSAL calibration
+        isUniversalCalibrated = false
+        universalCalibrationTime = 0L
+        gravityVector = floatArrayOf(0f, 9.8f, 0f)
+        forwardVector = floatArrayOf(1f, 0f, 0f)
+        rightVector = floatArrayOf(0f, 0f, 1f)
+        maxVibrationBaseline = 0.8f
+        maxVibrXUniversal = 0f
+        maxVibrYUniversal = 0f
+        maxVibrZUniversal = 0f
+        
+        // Clear Portrait calibration (DEPRECATED)
+        isPortraitCalibrated = false
+        portraitCalibrationTime = 0L
+        forwardAxisPortrait = floatArrayOf(1f, 0f, 0f)
+        lateralAxisPortrait = floatArrayOf(0f, 1f, 0f)
+        baselinePortrait = floatArrayOf(0f, 0f, 0f)
+        maxVibrXPortrait = 0f
+        maxVibrYPortrait = 0f
+        maxVibrZPortrait = 0f
+        calibrationConfidencePortrait = 0f
+        
+        isLandscapeCalibrated = false
+        landscapeCalibrationTime = 0L
+        forwardAxisLandscape = floatArrayOf(1f, 0f, 0f)
+        lateralAxisLandscape = floatArrayOf(0f, 1f, 0f)
+        baselineLandscape = floatArrayOf(0f, 0f, 0f)
+        maxVibrXLandscape = 0f
+        maxVibrYLandscape = 0f
+        maxVibrZLandscape = 0f
+        calibrationConfidenceLandscape = 0f
+        
+        // Backward compatibility
+        isCalibrated = false
+        calibrationTime = 0L
+        forwardAxis = floatArrayOf(1f, 0f, 0f)
+        lateralAxis = floatArrayOf(0f, 1f, 0f)
+        
+        saveToPrefs()
+        Log.d("DragCalibration", "🗑️ ALL calibrations cleared (Universal + Portrait + Landscape)")
+    }
+    
+    /**
+     * Заключва forward/lateral оси за PORTRAIT (от DragCalibrationActivity)
+     */
+    fun lockPortraitAxes(forward: FloatArray, lateral: FloatArray, baseline: FloatArray,
+                        maxVibrX: Float = 0f, maxVibrY: Float = 0f, maxVibrZ: Float = 0f,
+                        confidence: Float = 0f, profileId: Long = currentProfileId) {
+        val saveProfileId = bindSaveProfile(profileId)
+        forwardAxisPortrait = forward.clone()
+        lateralAxisPortrait = lateral.clone()
+        baselinePortrait = baseline.clone()
+        maxVibrXPortrait = maxVibrX
+        maxVibrYPortrait = maxVibrY
+        maxVibrZPortrait = maxVibrZ
+        calibrationConfidencePortrait = confidence.coerceIn(0f, 100f)
+        isPortraitCalibrated = true
+        portraitCalibrationTime = System.currentTimeMillis()
+        
+        // UNIVERSAL калибрация (за ForegroundService)
+        gravityVector = baseline.clone()
+        forwardVector = forward.clone()
+        // RIGHT = normalize(cross(GRAVITY, FORWARD))
+        // ВАЖНО: baseline вече е gravity вектор (посока ДОЛУ), НЕ го обръщаме!
+        rightVector = floatArrayOf(
+            baseline[1] * forward[2] - baseline[2] * forward[1],
+            baseline[2] * forward[0] - baseline[0] * forward[2],
+            baseline[0] * forward[1] - baseline[1] * forward[0]
+        )
+        val rightMag = kotlin.math.sqrt(rightVector[0]*rightVector[0] + rightVector[1]*rightVector[1] + rightVector[2]*rightVector[2])
+        if (rightMag > 0.01f) {
+            rightVector[0] /= rightMag
+            rightVector[1] /= rightMag
+            rightVector[2] /= rightMag
+        }
+        
+        // MAX вибрация е MAX от 3-те оси
+        maxVibrationBaseline = maxOf(maxVibrX, maxVibrY, maxVibrZ).coerceAtLeast(0.8f)
+        // Записваме по-осовите вибрации за WEIGHTED threshold
+        maxVibrXUniversal = maxVibrX
+        maxVibrYUniversal = maxVibrY
+        maxVibrZUniversal = maxVibrZ
+        isUniversalCalibrated = true
+        universalCalibrationTime = portraitCalibrationTime
+        
+        // Backward compatibility
+        forwardAxis = forward.clone()
+        lateralAxis = lateral.clone()
+        isCalibrated = true
+        calibrationTime = portraitCalibrationTime
+        
+        saveToPrefs(saveProfileId)
+        
+        Log.d("DragCalibration", "✅ PORTRAIT оси заключени и запазени!")
+        Log.d("DragCalibration", "Forward: (${String.format("%.3f", forward[0])}, ${String.format("%.3f", forward[1])}, ${String.format("%.3f", forward[2])})")
+        Log.d("DragCalibration", "Baseline: (${String.format("%.3f", baseline[0])}, ${String.format("%.3f", baseline[1])}, ${String.format("%.3f", baseline[2])})")
+        Log.d("DragCalibration", "Max vibrations per axis: X=${String.format("%.3f", maxVibrX)}, Y=${String.format("%.3f", maxVibrY)}, Z=${String.format("%.3f", maxVibrZ)} m/s²")
+        Log.d("DragCalibration", "Calibration confidence: ${String.format("%.1f", calibrationConfidencePortrait)}%")
+        Log.d("DragCalibration", "Lateral: (${String.format("%.3f", lateral[0])}, ${String.format("%.3f", lateral[1])}, ${String.format("%.3f", lateral[2])})")
+        Log.d("DragCalibration", "🌐 UNIVERSAL калибрация: isUniversalCalibrated=true, maxVibrationBaseline=${String.format("%.2f", maxVibrationBaseline)} m/s²")
+    }
+    
+    /**
+     * Заключва forward/lateral оси за LANDSCAPE (от DragCalibrationActivity)
+     */
+    fun lockLandscapeAxes(forward: FloatArray, lateral: FloatArray, baseline: FloatArray,
+                         maxVibrX: Float = 0f, maxVibrY: Float = 0f, maxVibrZ: Float = 0f,
+                         confidence: Float = 0f, profileId: Long = currentProfileId) {
+        val saveProfileId = bindSaveProfile(profileId)
+        forwardAxisLandscape = forward.clone()
+        lateralAxisLandscape = lateral.clone()
+        baselineLandscape = baseline.clone()
+        maxVibrXLandscape = maxVibrX
+        maxVibrYLandscape = maxVibrY
+        maxVibrZLandscape = maxVibrZ
+        calibrationConfidenceLandscape = confidence.coerceIn(0f, 100f)
+        isLandscapeCalibrated = true
+        landscapeCalibrationTime = System.currentTimeMillis()
+        
+        // UNIVERSAL калибрация (за ForegroundService)
+        gravityVector = baseline.clone()
+        forwardVector = forward.clone()
+        // RIGHT = normalize(cross(GRAVITY, FORWARD))
+        // ВАЖНО: baseline вече е gravity вектор (посока ДОЛУ), НЕ го обръщаме!
+        rightVector = floatArrayOf(
+            baseline[1] * forward[2] - baseline[2] * forward[1],
+            baseline[2] * forward[0] - baseline[0] * forward[2],
+            baseline[0] * forward[1] - baseline[1] * forward[0]
+        )
+        val rightMag = kotlin.math.sqrt(rightVector[0]*rightVector[0] + rightVector[1]*rightVector[1] + rightVector[2]*rightVector[2])
+        if (rightMag > 0.01f) {
+            rightVector[0] /= rightMag
+            rightVector[1] /= rightMag
+            rightVector[2] /= rightMag
+        }
+        
+        // MAX вибрация е MAX от 3-те оси
+        maxVibrationBaseline = maxOf(maxVibrX, maxVibrY, maxVibrZ).coerceAtLeast(0.8f)
+        // Записваме по-осовите вибрации за WEIGHTED threshold
+        maxVibrXUniversal = maxVibrX
+        maxVibrYUniversal = maxVibrY
+        maxVibrZUniversal = maxVibrZ
+        isUniversalCalibrated = true
+        universalCalibrationTime = landscapeCalibrationTime
+        
+        // Backward compatibility - ако няма portrait, landscape става default
+        if (!isPortraitCalibrated) {
+            forwardAxis = forward.clone()
+            lateralAxis = lateral.clone()
+            isCalibrated = true
+            calibrationTime = landscapeCalibrationTime
+        }
+        
+        saveToPrefs(saveProfileId)
+        
+        Log.d("DragCalibration", "✅ LANDSCAPE оси заключени и запазени!")
+        Log.d("DragCalibration", "Forward: (${String.format("%.3f", forward[0])}, ${String.format("%.3f", forward[1])}, ${String.format("%.3f", forward[2])})")
+        Log.d("DragCalibration", "Baseline: (${String.format("%.3f", baseline[0])}, ${String.format("%.3f", baseline[1])}, ${String.format("%.3f", baseline[2])})")
+        Log.d("DragCalibration", "Max vibrations per axis: X=${String.format("%.3f", maxVibrX)}, Y=${String.format("%.3f", maxVibrY)}, Z=${String.format("%.3f", maxVibrZ)} m/s²")
+        Log.d("DragCalibration", "Calibration confidence: ${String.format("%.1f", calibrationConfidenceLandscape)}%")
+        Log.d("DragCalibration", "Lateral: (${String.format("%.3f", lateral[0])}, ${String.format("%.3f", lateral[1])}, ${String.format("%.3f", lateral[2])})")
+        Log.d("DragCalibration", "🌐 UNIVERSAL калибрация: isUniversalCalibrated=true, maxVibrationBaseline=${String.format("%.2f", maxVibrationBaseline)} m/s²")
+    }
+    
+    /**
+     * Връща осите за дадена ориентация (null ако не е калибрирана)
+     */
+    fun getBaselineForOrientation(isLandscape: Boolean): FloatArray? {
+        return if (isLandscape) {
+            if (isLandscapeCalibrated) baselineLandscape.clone() else null
+        } else {
+            if (isPortraitCalibrated) baselinePortrait.clone() else null
+        }
+    }
+    
+    /**
+     * Връща максималните вибрации по всяка ос за дадена ориентация
+     * @return FloatArray(3) - [maxX, maxY, maxZ] или null ако не е калибрирана
+     */
+    fun getMaxVibrationsPerAxis(isLandscape: Boolean): FloatArray? {
+        return if (isLandscape) {
+            if (isLandscapeCalibrated) {
+                floatArrayOf(maxVibrXLandscape, maxVibrYLandscape, maxVibrZLandscape)
+            } else null
+        } else {
+            if (isPortraitCalibrated) {
+                floatArrayOf(maxVibrXPortrait, maxVibrYPortrait, maxVibrZPortrait)
+            } else null
+        }
+    }
+    
+    /**
+     * Проверява дали има калибрация за дадена ориентация
+     */
+    fun hasCalibrationFor(isLandscape: Boolean): Boolean {
+        return if (isLandscape) isLandscapeCalibrated else isPortraitCalibrated
+    }
+    
+    /**
+     * Проверява дали има ПОНЕ 1 калибрация
+     */
+    fun hasAnyCalibration(): Boolean {
+        return isUniversalCalibrated || isPortraitCalibrated || isLandscapeCalibrated
+    }
+
+    /**
+     * Activates orientation-specific calibration as current runtime universal vectors.
+     * This does not persist anything; it only updates in-memory vectors used by live processing.
+     *
+     * @return true if the requested orientation has calibration and was applied.
+     */
+    fun activateOrientationRuntime(isLandscape: Boolean): Boolean {
+        val hasOrientation = if (isLandscape) isLandscapeCalibrated else isPortraitCalibrated
+        if (!hasOrientation) {
+            return false
+        }
+
+        val forward = if (isLandscape) forwardAxisLandscape else forwardAxisPortrait
+        val baseline = if (isLandscape) baselineLandscape else baselinePortrait
+        val lateral = if (isLandscape) lateralAxisLandscape else lateralAxisPortrait
+        val maxVibrX = if (isLandscape) maxVibrXLandscape else maxVibrXPortrait
+        val maxVibrY = if (isLandscape) maxVibrYLandscape else maxVibrYPortrait
+        val maxVibrZ = if (isLandscape) maxVibrZLandscape else maxVibrZPortrait
+
+        gravityVector = baseline.clone()
+
+        val forwardMag = kotlin.math.sqrt(
+            forward[0] * forward[0] +
+                forward[1] * forward[1] +
+                forward[2] * forward[2]
+        ).coerceAtLeast(0.0001f)
+        forwardVector = floatArrayOf(
+            forward[0] / forwardMag,
+            forward[1] / forwardMag,
+            forward[2] / forwardMag
+        )
+
+        // RIGHT = normalize(cross(GRAVITY, FORWARD)) — същата формула като при lock*Axes.
+        // lateralAxis е dummy [0,1,0] от calibration; не го ползваме за lean.
+        rightVector = floatArrayOf(
+            baseline[1] * forwardVector[2] - baseline[2] * forwardVector[1],
+            baseline[2] * forwardVector[0] - baseline[0] * forwardVector[2],
+            baseline[0] * forwardVector[1] - baseline[1] * forwardVector[0]
+        )
+        val rightMag = kotlin.math.sqrt(
+            rightVector[0] * rightVector[0] +
+                rightVector[1] * rightVector[1] +
+                rightVector[2] * rightVector[2]
+        )
+        if (rightMag > 0.01f) {
+            rightVector[0] /= rightMag
+            rightVector[1] /= rightMag
+            rightVector[2] /= rightMag
+        }
+
+        maxVibrXUniversal = maxVibrX
+        maxVibrYUniversal = maxVibrY
+        maxVibrZUniversal = maxVibrZ
+        maxVibrationBaseline = maxOf(maxVibrX, maxVibrY, maxVibrZ).coerceAtLeast(0.8f)
+        isUniversalCalibrated = true
+        forwardAxis = forward.clone()
+        lateralAxis = lateral.clone()
+        isCalibrated = true
+        calibrationTime = if (isLandscape) landscapeCalibrationTime else portraitCalibrationTime
+        if (calibrationTime > 0L) {
+            universalCalibrationTime = calibrationTime
+        }
+        return true
+    }
+    
+    /**
+     * Изчислява linear acceleration (премахва gravity от RAW accelerometer)
+     * ИЗПОЛЗВА ПРАВИЛНАТА КАЛИБРАЦИЯ СПОРЕД ОРИЕНТАЦИЯТА!
+     */
+    fun getLinearAcceleration(rawAccel: FloatArray, isLandscape: Boolean): FloatArray {
+        val baseline = if (isLandscape) baselineLandscape else baselinePortrait
+        return floatArrayOf(
+            rawAccel[0] - baseline[0],
+            rawAccel[1] - baseline[1],
+            rawAccel[2] - baseline[2]
+        )
+    }
+    
+    /**
+     * Изчислява forward acceleration (проекция на FORWARD вектор)
+     * ИЗПОЛЗВА ПРАВИЛНАТА КАЛИБРАЦИЯ СПОРЕД ОРИЕНТАЦИЯТА!
+     */
+    fun getForwardAcceleration(rawAccel: FloatArray, isLandscape: Boolean): Float {
+        val linearAccel = getLinearAcceleration(rawAccel, isLandscape)
+        val forward = if (isLandscape) forwardAxisLandscape else forwardAxisPortrait
+        return linearAccel[0] * forward[0] +
+               linearAccel[1] * forward[1] +
+               linearAccel[2] * forward[2]
+    }
+    
+    /**
+     * Изчислява lateral (странично) ускорение - перпендикулярно на forward посоката.
+     * Това е МАГНИТУДЪТ на компонента който НЕ Е в посоката напред.
+     * 
+     * Използва се за филтриране на вибрации:
+     * - Вибрации: forward ≈ lateral (хаотични посоки)
+     * - Реално ускорение напред: forward >> lateral (доминираща посока)
+     */
+    fun getLateralAcceleration(rawAccel: FloatArray, isLandscape: Boolean): Float {
+        val linearAccel = getLinearAcceleration(rawAccel, isLandscape)
+        val forward = if (isLandscape) forwardAxisLandscape else forwardAxisPortrait
+        
+        // Forward компонент (проекция върху forward vector)
+        val forwardComponent = linearAccel[0] * forward[0] +
+                               linearAccel[1] * forward[1] +
+                               linearAccel[2] * forward[2]
+        
+        // Forward вектор scaled с forward компонента
+        val forwardProjection = floatArrayOf(
+            forward[0] * forwardComponent,
+            forward[1] * forwardComponent,
+            forward[2] * forwardComponent
+        )
+        
+        // Lateral = linear accel МИНУС forward projection
+        val lateral = floatArrayOf(
+            linearAccel[0] - forwardProjection[0],
+            linearAccel[1] - forwardProjection[1],
+            linearAccel[2] - forwardProjection[2]
+        )
+        
+        // Magnitude на lateral компонента
+        return kotlin.math.sqrt(
+            lateral[0] * lateral[0] +
+            lateral[1] * lateral[1] +
+            lateral[2] * lateral[2]
+        )
+    }
+    
+    /**
+     * Изчислява signed lateral acceleration (right/left) използвайки universal калибрация.
+     * Положителна стойност = надясно, отрицателна = наляво.
+     * Работи независимо от ориентацията на телефона.
+     * 
+     * @param rawAccel Raw accelerometer data [x, y, z]
+     * @param liveGravity Live gravity vector (filtered from accelerometer) [x, y, z]
+     * @return Lateral acceleration в m/s² (positive = right, negative = left)
+     */
+    fun getSignedLateralAcceleration(rawAccel: FloatArray, liveGravity: FloatArray): Float {
+        if (!isUniversalCalibrated) return 0f
+        
+        // Изчисляваме linear acceleration (премахваме live gravity, не калибрираната!)
+        val linearAccel = floatArrayOf(
+            rawAccel[0] - liveGravity[0],
+            rawAccel[1] - liveGravity[1],
+            rawAccel[2] - liveGravity[2]
+        )
+        
+        // Проекция върху rightVector (dot product)
+        // Положителна = надясно, отрицателна = наляво
+        return linearAccel[0] * rightVector[0] +
+               linearAccel[1] * rightVector[1] +
+               linearAccel[2] * rightVector[2]
+    }
+    
+    /**
+     * Изчислява signed forward acceleration (forward/backward) използвайки universal калибрация.
+     * Положителна стойност = напред (ускорение), отрицателна = назад (спиране).
+     * Работи независимо от ориентацията на телефона.
+     * 
+     * @param rawAccel Raw accelerometer data [x, y, z]
+     * @param liveGravity Live gravity vector (filtered from accelerometer) [x, y, z]
+     * @return Forward acceleration в m/s² (positive = forward, negative = backward)
+     */
+    fun getSignedForwardAcceleration(rawAccel: FloatArray, liveGravity: FloatArray): Float {
+        if (!isUniversalCalibrated) return 0f
+        
+        // Изчисляваме linear acceleration (премахваме live gravity, не калибрираната!)
+        val linearAccel = floatArrayOf(
+            rawAccel[0] - liveGravity[0],
+            rawAccel[1] - liveGravity[1],
+            rawAccel[2] - liveGravity[2]
+        )
+        
+        // Проекция върху forwardVector (dot product)
+        // Положителна = напред, отрицателна = назад
+        return linearAccel[0] * forwardVector[0] +
+               linearAccel[1] * forwardVector[1] +
+               linearAccel[2] * forwardVector[2]
+    }
+
+    fun getSignedForwardAccelerationFromLinear(linearAccel: FloatArray): Float {
+        if (!isUniversalCalibrated) return 0f
+
+        return linearAccel[0] * forwardVector[0] +
+               linearAccel[1] * forwardVector[1] +
+               linearAccel[2] * forwardVector[2]
+    }
+
+    fun getSignedLateralAccelerationFromLinear(linearAccel: FloatArray): Float {
+        if (!isUniversalCalibrated) return 0f
+
+        return linearAccel[0] * rightVector[0] +
+               linearAccel[1] * rightVector[1] +
+               linearAccel[2] * rightVector[2]
+    }
+
+    /**
+     * Lean mount offset from a still baseline projected onto the active bike RIGHT axis.
+     * Positive = baseline leans toward bike-right (same sign convention as Track lean).
+     * Requires [rightVector] to already match the active orientation (via lock*Axes / activateOrientationRuntime).
+     */
+    fun computeLeanOffsetDegFromBaseline(baseline: FloatArray): Float {
+        val mag = kotlin.math.sqrt(
+            baseline[0] * baseline[0] +
+                baseline[1] * baseline[1] +
+                baseline[2] * baseline[2]
+        ).coerceAtLeast(0.0001f)
+        val rightComponent = (
+            baseline[0] * rightVector[0] +
+                baseline[1] * rightVector[1] +
+                baseline[2] * rightVector[2]
+            ) / mag
+        return Math.toDegrees(
+            kotlin.math.asin(rightComponent.coerceIn(-1f, 1f).toDouble())
+        ).toFloat().coerceIn(-89f, 89f)
+    }
+    
+    /**
+     * DEPRECATED: Използвай getLinearAcceleration(rawAccel, isLandscape) вместо това!
+     */
+    @Deprecated("Use getLinearAcceleration(rawAccel, isLandscape)")
+    fun getLinearAcceleration(rawAccel: FloatArray): FloatArray {
+        return floatArrayOf(
+            rawAccel[0] - gravityVector[0],
+            rawAccel[1] - gravityVector[1],
+            rawAccel[2] - gravityVector[2]
+        )
+    }
+    
+    /**
+     * DEPRECATED: Използвай getForwardAcceleration(rawAccel, isLandscape) вместо това!
+     */
+    @Deprecated("Use getForwardAcceleration(rawAccel, isLandscape)")
+    fun getForwardAcceleration(rawAccel: FloatArray): Float {
+        val linearAccel = getLinearAcceleration(rawAccel)
+        return linearAccel[0] * forwardVector[0] +
+               linearAccel[1] * forwardVector[1] +
+               linearAccel[2] * forwardVector[2]
+    }
+    
+    /**
+     * Връща динамичния праг (1.5× MAX вибрация от калибрацията)
+     * @deprecated Използвайте getWeightedDynamicThreshold() за по-точна детекция
+     */
+    fun getWeightedDynamicThreshold(linearAccel: FloatArray, isLandscape: Boolean): Float {
+        val mag = kotlin.math.sqrt(
+            linearAccel[0] * linearAccel[0] +
+            linearAccel[1] * linearAccel[1] +
+            linearAccel[2] * linearAccel[2]
+        )
+        
+        val (maxVibrX, maxVibrY, maxVibrZ) = if (isLandscape) {
+            Triple(maxVibrXLandscape, maxVibrYLandscape, maxVibrZLandscape)
+        } else {
+            Triple(maxVibrXPortrait, maxVibrYPortrait, maxVibrZPortrait)
+        }
+        
+        val maxVibr = maxOf(maxVibrX, maxVibrY, maxVibrZ).coerceAtLeast(0.8f)
+        
+        if (mag < 0.001f) return maxVibr * 1.5f // Fallback само ако mag = 0
+        
+        // Weighted threshold: (|X|/mag * maxVibrX + |Y|/mag * maxVibrY + |Z|/mag * maxVibrZ) + 0.05
+        return (kotlin.math.abs(linearAccel[0]) / mag * maxVibrX +
+                kotlin.math.abs(linearAccel[1]) / mag * maxVibrY +
+                kotlin.math.abs(linearAccel[2]) / mag * maxVibrZ) + 0.05f
+    }
+
+    /**
+     * Weighted threshold helper за calibration phase.
+     * Използва същата формула като runtime, но с подадени baseline вибрации от текущата calibration сесия.
+     */
+    fun getCalibrationWeightedThreshold(
+        linearAccel: FloatArray,
+        maxVibrX: Float,
+        maxVibrY: Float,
+        maxVibrZ: Float,
+        minFloor: Float = 0.6f
+    ): Float {
+        val mag = kotlin.math.sqrt(
+            linearAccel[0] * linearAccel[0] +
+                linearAccel[1] * linearAccel[1] +
+                linearAccel[2] * linearAccel[2]
+        )
+
+        val floor = minFloor.coerceAtLeast(0f)
+        val vibrX = maxVibrX.coerceAtLeast(0f)
+        val vibrY = maxVibrY.coerceAtLeast(0f)
+        val vibrZ = maxVibrZ.coerceAtLeast(0f)
+        val maxVibr = maxOf(vibrX, vibrY, vibrZ).coerceAtLeast(floor)
+
+        if (mag < 0.001f) return maxVibr * 1.5f
+
+        return ((kotlin.math.abs(linearAccel[0]) / mag) * vibrX +
+            (kotlin.math.abs(linearAccel[1]) / mag) * vibrY +
+            (kotlin.math.abs(linearAccel[2]) / mag) * vibrZ + 0.05f).coerceAtLeast(floor)
+    }
+    
+    /**
+     * DEPRECATED: Използвай getWeightedDynamicThreshold(linearAccel, isLandscape) вместо това!
+     */
+    @Deprecated("Use getWeightedDynamicThreshold(linearAccel, isLandscape)")
+    fun getWeightedDynamicThreshold(linearAccel: FloatArray): Float {
+        val mag = kotlin.math.sqrt(
+            linearAccel[0] * linearAccel[0] +
+            linearAccel[1] * linearAccel[1] +
+            linearAccel[2] * linearAccel[2]
+        )
+        
+        if (mag < 0.001f) return maxVibrationBaseline * 1.5f // Fallback само ако mag = 0
+        
+        // Weighted threshold: (|X|/mag * maxVibrX + |Y|/mag * maxVibrY + |Z|/mag * maxVibrZ) + 0.05
+        // ВАЖНО: НЕ слагаме coerceAtLeast! Weighted threshold трябва да е ПО-НИСЪК от fixed!
+        return (kotlin.math.abs(linearAccel[0]) / mag * maxVibrXUniversal +
+                kotlin.math.abs(linearAccel[1]) / mag * maxVibrYUniversal +
+                kotlin.math.abs(linearAccel[2]) / mag * maxVibrZUniversal) + 0.05f
+    }
+    
+    /**
+     * Изчиства калибрацията за дадена ориентация
+     */
+    fun clearOrientation(isLandscape: Boolean) {
+        if (isLandscape) {
+            isLandscapeCalibrated = false
+            landscapeCalibrationTime = 0L
+            forwardAxisLandscape = floatArrayOf(1f, 0f, 0f)
+            lateralAxisLandscape = floatArrayOf(0f, 1f, 0f)
+            baselineLandscape = floatArrayOf(0f, 0f, 0f)
+            maxVibrXLandscape = 0f
+            maxVibrYLandscape = 0f
+            maxVibrZLandscape = 0f
+            calibrationConfidenceLandscape = 0f
+        } else {
+            isPortraitCalibrated = false
+            portraitCalibrationTime = 0L
+            forwardAxisPortrait = floatArrayOf(1f, 0f, 0f)
+            lateralAxisPortrait = floatArrayOf(0f, 1f, 0f)
+            baselinePortrait = floatArrayOf(0f, 0f, 0f)
+            maxVibrXPortrait = 0f
+            maxVibrYPortrait = 0f
+            maxVibrZPortrait = 0f
+            calibrationConfidencePortrait = 0f
+        }
+        
+        syncLegacyCompatibilityFromOrientationData()
+
+        // Keep universal vectors aligned with the remaining orientation when possible.
+        when {
+            isLandscapeCalibrated -> activateOrientationRuntime(true)
+            isPortraitCalibrated -> activateOrientationRuntime(false)
+            else -> {
+                isUniversalCalibrated = false
+                universalCalibrationTime = 0L
+            }
+        }
+        
+        saveToPrefs()
+        Log.d("DragCalibration", "🗑️ ${if (isLandscape) "LANDSCAPE" else "PORTRAIT"} калибрация изчистена")
+    }
+}
+

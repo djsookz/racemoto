@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/layout/sheet_report_bottom.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1776187695589,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1776187695589,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"wrap_content\"\r\n    android:background=\"@android:color/white\"\r\n    android:orientation=\"vertical\"\r\n    android:paddingStart=\"16dp\"\r\n    android:paddingTop=\"14dp\"\r\n    android:paddingEnd=\"16dp\"\r\n    android:paddingBottom=\"16dp\">\r\n\r\n    <TextView\r\n        android:id=\"@+id/tvReportSheetTitle\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"Докладвай на картата\"\r\n        android:textColor=\"@android:color/black\"\r\n        android:textSize=\"18sp\"\r\n        android:textStyle=\"bold\" />\r\n\r\n    <TextView\r\n        android:id=\"@+id/tvReportSheetSubtitle\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:layout_marginTop=\"6dp\"\r\n        android:textColor=\"#5F6368\"\r\n        android:textSize=\"14sp\"\r\n        android:visibility=\"gone\" />\r\n\r\n    <androidx.core.widget.NestedScrollView\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:layout_marginTop=\"12dp\"\r\n        android:fillViewport=\"true\"\r\n        android:overScrollMode=\"ifContentScrolls\">\r\n\r\n        <LinearLayout\r\n            android:id=\"@+id/llReportSheetActions\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:orientation=\"vertical\" />\r\n    </androidx.core.widget.NestedScrollView>\r\n\r\n    <com.google.android.material.button.MaterialButton\r\n        android:id=\"@+id/btnReportSheetCancel\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:layout_marginTop=\"14dp\"\r\n        android:minHeight=\"52dp\"\r\n        android:text=\"ОТКАЗ\"\r\n        android:textAllCaps=\"true\"\r\n        android:textColor=\"@android:color/white\"\r\n        android:textSize=\"14sp\"\r\n        android:textStyle=\"bold\"\r\n        app:backgroundTint=\"#1C1C1E\"\r\n        app:cornerRadius=\"14dp\"\r\n        xmlns:app=\"http://schemas.android.com/apk/res-auto\" />\r\n\r\n</LinearLayout>"
+        }
+    ]
+}

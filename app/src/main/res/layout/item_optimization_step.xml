@@ -5,7 +5,6 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="16dp"
-    app:cardBackgroundColor="@color/dark_surface"
     app:cardElevation="4dp"
     app:cardCornerRadius="12dp"
     app:strokeWidth="2dp"
@@ -15,6 +14,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:background="@drawable/bg_track_metric_speed"
         android:padding="20dp">
 
         <!-- Header Row -->
@@ -43,7 +43,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Battery Optimization"
+                android:text="@string/optimization_battery_title"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:textColor="@color/white"
@@ -65,7 +65,7 @@
             android:id="@+id/tvStepDescription"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Disable battery optimization for accurate GPS tracking"
+            android:text="@string/optimization_battery_desc"
             android:textSize="14sp"
             android:textColor="@color/text_secondary_light"
             android:layout_marginBottom="16dp" />
@@ -75,7 +75,7 @@
             android:id="@+id/btnStepOpenSettings"
             android:layout_width="match_parent"
             android:layout_height="48dp"
-            android:text="Open Settings"
+            android:text="@string/optimization_open_settings"
             android:textColor="@color/white"
             android:textSize="15sp"
             android:textStyle="bold"

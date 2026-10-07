@@ -10,21 +10,17 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="64dp"
-        android:background="#161B22"
+        android:background="@color/background_primary"
         android:elevation="4dp"
         android:paddingStart="8dp"
         android:paddingEnd="8dp">
 
-        <ImageView
+        <include
             android:id="@+id/btnBack"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:padding="12dp"
-            android:src="@drawable/ic_arrow_back"
+            layout="@layout/widget_back_button"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:tint="#FFFFFF" />
+            app:layout_constraintTop_toTopOf="parent" />
 
         <TextView
             android:id="@+id/tvSessionsTitle"
@@ -77,25 +73,29 @@
 
     </LinearLayout>
 
-    <!-- RecyclerView за сесиите -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvRaces"
+    <!-- List area: FrameLayout so RecyclerView always gets a real height inside ViewPager2 -->
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:padding="8dp"
-        android:clipToPadding="false" />
+        android:layout_weight="1">
 
-    <!-- Empty view -->
-    <TextView
-        android:id="@+id/tvEmptyView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:text="@string/session_header"
-        android:textColor="@android:color/darker_gray"
-        android:textSize="18sp"
-        android:visibility="gone" />
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvRaces"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="8dp"
+            android:clipToPadding="false" />
+
+        <TextView
+            android:id="@+id/tvEmptyView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="@string/session_header"
+            android:textColor="@android:color/darker_gray"
+            android:textSize="18sp"
+            android:visibility="gone" />
+    </FrameLayout>
 
     <!-- Бутон за изтриване на избраните (показва се само в режим на избор) -->
     <com.google.android.material.button.MaterialButton

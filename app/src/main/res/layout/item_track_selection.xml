@@ -5,19 +5,19 @@
     android:layout_height="wrap_content"
     android:layout_margin="8dp"
     app:cardCornerRadius="12dp"
-
     app:cardElevation="4dp"
-    app:cardBackgroundColor="@color/card_background">
+    app:cardBackgroundColor="@android:color/transparent">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="16dp"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:background="@drawable/bg_track_metric_speed">
 
-        <!-- Track Icon -->
         <TextView
+            android:id="@+id/tvTrackIcon"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:text="🏁"
@@ -26,7 +26,6 @@
             android:background="@drawable/bg_rounded_button"
             android:layout_marginEnd="16dp" />
 
-        <!-- Track Info -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -56,14 +55,13 @@
                 android:id="@+id/tvTrackDescription"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Професионална писта за мотоциклети и автомобили с 4 timing точки за прецизни измервания."
                 android:textSize="12sp"
                 android:textColor="#888888"
-                android:lineSpacingMultiplier="1.2" />
+                android:lineSpacingMultiplier="1.2"
+                android:visibility="gone" />
 
         </LinearLayout>
 
-        <!-- Action Buttons -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -83,27 +81,39 @@
                 android:layout_marginEnd="8dp"
                 android:visibility="gone" />
 
-            <!-- Delete Button (only for custom tracks) -->
             <ImageButton
                 android:id="@+id/btnDelete"
                 android:layout_width="42dp"
                 android:layout_height="42dp"
                 android:background="@drawable/bg_icon_button_danger"
                 android:src="@drawable/ic_delete"
+                app:tint="@color/red"
                 android:padding="10dp"
                 android:scaleType="centerInside"
                 android:contentDescription="Изтрий писта"
                 android:layout_marginEnd="8dp"
                 android:visibility="gone" />
 
-            <!-- Chevron -->
+            <ImageButton
+                android:id="@+id/btnTrackInfo"
+                android:layout_width="42dp"
+                android:layout_height="42dp"
+                android:background="@drawable/bg_icon_button"
+                android:src="@drawable/ic_info"
+                app:tint="#FFFFFF"
+                android:padding="10dp"
+                android:scaleType="centerInside"
+                android:contentDescription="@string/track_map_info_button"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/tvChevron"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="▼"
                 android:textSize="16sp"
-                android:textColor="#888888" />
+                android:textColor="#888888"
+                android:visibility="gone" />
 
         </LinearLayout>
 

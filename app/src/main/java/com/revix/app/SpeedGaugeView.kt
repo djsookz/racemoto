@@ -1,0 +1,314 @@
+package com.revix.app
+
+import android.content.Context
+import android.graphics.*
+import android.util.AttributeSet
+import android.view.View
+import kotlin.math.*
+
+class SpeedGaugeView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0
+) : View(context, attrs, defStyleAttr) {
+
+    private val arcPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    private var centerX = 0f
+    private var centerY = 0f
+    private var radius = 0f
+
+    private var currentSpeed = 0f
+    private var maxSpeed = 280f
+
+    var gForceX: Float = 0f
+        set(value) {
+            field = value
+            updateCarTelemetryState()
+            invalidate()
+        }
+
+    var gForceY: Float = 0f
+        set(value) {
+            field = value
+            updateCarTelemetryState()
+            invalidate()
+        }
+
+    private var currentLapTime = 0f
+    private var targetLapTime = 0f
+    private var lockedGapSign: Int? = null
+
+    private var leanAngle = 0f
+    private var maxLeanLeft = 0f
+    private var maxLeanRight = 0f
+    private var isMotorcycle = false
+
+    private val gTrail = ArrayDeque<PointF>()
+    private val maxTrailPoints = 28
+    private var peakBrakeG = 0f
+    private var peakAccelG = 0f
+    private var peakLatLeftG = 0f
+    private var peakLatRightG = 0f
+    private var peakTotalG = 0f
+    private val latChartMaxG = 1.6f
+    private val minLongChartMaxG = 0.4f
+    private val maxLongChartMaxG = 3.2f
+    private val longScaleHeadroom = 1.0f
+
+    init {
+        setupPaints()
+        isClickable = false
+    }
+
+    private fun setupPaints() {
+        arcPaint.style = Paint.Style.STROKE
+        arcPaint.strokeCap = Paint.Cap.ROUND
+
+        textPaint.color = Color.WHITE
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+
+        fillPaint.style = Paint.Style.FILL
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        centerX = w / 2f
+        centerY = h * 0.42f
+        radius = min(w * 0.40f, h * 0.45f)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+
+        drawPanelSurface(canvas)
+        drawCarTelemetry(canvas)
+    }
+
+    private fun drawPanelSurface(canvas: Canvas) {
+        val inset = dp(4f)
+        val rect = RectF(inset, inset, width - inset, height - inset)
+        val corner = dp(18f)
+
+        fillPaint.shader = LinearGradient(
+            0f,
+            rect.top,
+            0f,
+            rect.bottom,
+            Color.parseColor("#1C2128"),
+            Color.parseColor("#1C2128"),
+            Shader.TileMode.CLAMP
+        )
+        canvas.drawRoundRect(rect, corner, corner, fillPaint)
+        fillPaint.shader = null
+    }
+
+    private fun drawCarTelemetry(canvas: Canvas) {
+        val graphCenterX = centerX
+        val graphCenterY = height * 0.80f
+        val graphRadius = dp(45f)
+        val longChartMaxG = resolveDynamicLongitudinalChartMaxG()
+
+        arcPaint.style = Paint.Style.STROKE
+        arcPaint.strokeCap = Paint.Cap.ROUND
+        arcPaint.strokeWidth = dp(1.4f)
+        arcPaint.color = Color.parseColor("#5D6473")
+
+        canvas.drawCircle(graphCenterX, graphCenterY, graphRadius, arcPaint)
+        canvas.drawCircle(graphCenterX, graphCenterY, graphRadius * 0.5f, arcPaint)
+
+        canvas.drawLine(
+            graphCenterX - graphRadius,
+            graphCenterY,
+            graphCenterX + graphRadius,
+            graphCenterY,
+            arcPaint
+        )
+        canvas.drawLine(
+            graphCenterX,
+            graphCenterY - graphRadius,
+            graphCenterX,
+            graphCenterY + graphRadius,
+            arcPaint
+        )
+
+        if (gTrail.isNotEmpty()) {
+            gTrail.forEachIndexed { index, point ->
+                val progress = (index + 1).toFloat() / gTrail.size.toFloat()
+                val normalizedX = (point.x / latChartMaxG).coerceIn(-1f, 1f)
+                val normalizedY = (point.y / longChartMaxG).coerceIn(-1f, 1f)
+                val trailX = graphCenterX - normalizedX * graphRadius
+                val trailY = graphCenterY - normalizedY * graphRadius
+                fillPaint.color = Color.argb((30 + progress * 150f).roundToInt(), 255, 96, 32)
+                canvas.drawCircle(trailX, trailY, dp(1.6f + progress * 2.6f), fillPaint)
+            }
+        }
+
+        val normalizedX = (gForceX / latChartMaxG).coerceIn(-1f, 1f)
+        val normalizedY = (gForceY / longChartMaxG).coerceIn(-1f, 1f)
+        val dotX = graphCenterX - normalizedX * graphRadius
+        val dotY = graphCenterY - normalizedY * graphRadius
+
+        fillPaint.color = Color.parseColor("#FF6020")
+        canvas.drawCircle(dotX, dotY, dp(5.4f), fillPaint)
+
+        val peakVectorNorm = (peakTotalG / max(latChartMaxG, longChartMaxG)).coerceIn(0f, 1f)
+        arcPaint.strokeWidth = dp(3f)
+        arcPaint.color = Color.parseColor("#FF8B5B")
+        canvas.drawArc(
+            RectF(
+                graphCenterX - graphRadius * peakVectorNorm,
+                graphCenterY - graphRadius * peakVectorNorm,
+                graphCenterX + graphRadius * peakVectorNorm,
+                graphCenterY + graphRadius * peakVectorNorm
+            ),
+            -90f,
+            360f,
+            false,
+            arcPaint
+        )
+
+        val totalG = sqrt(gForceX * gForceX + gForceY * gForceY)
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textPaint.textSize = dp(12f)
+        textPaint.color = Color.parseColor("#F2F5FA")
+        canvas.drawText(String.format("%.2f G", totalG), graphCenterX, graphCenterY - graphRadius - dp(10f), textPaint)
+
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        textPaint.textSize = dp(9f)
+        textPaint.color = Color.parseColor("#A8B2C5")
+        canvas.drawText("Peak ${String.format("%.2f", peakTotalG)} G", graphCenterX, graphCenterY + graphRadius + dp(14f), textPaint)
+
+        val metricsY = height * 0.90f
+        drawCarMetric(canvas, width * 0.16f, metricsY, max(0f, gForceY), peakBrakeG, "Brake", longChartMaxG)
+        drawCarMetric(canvas, width * 0.39f, metricsY, max(0f, -gForceY), peakAccelG, "Accel", longChartMaxG)
+        drawCarMetric(canvas, width * 0.62f, metricsY, max(0f, gForceX), peakLatLeftG, "Lat L", latChartMaxG)
+        drawCarMetric(canvas, width * 0.85f, metricsY, max(0f, -gForceX), peakLatRightG, "Lat R", latChartMaxG)
+    }
+
+    private fun drawCarMetric(
+        canvas: Canvas,
+        x: Float,
+        y: Float,
+        value: Float,
+        peak: Float,
+        label: String,
+        maxScaleG: Float
+    ) {
+        textPaint.textAlign = Paint.Align.CENTER
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textPaint.textSize = dp(14f)
+        textPaint.color = Color.parseColor("#F2F5FA")
+        canvas.drawText(String.format("%.1f G", value), x, y, textPaint)
+
+        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        textPaint.textSize = dp(9f)
+        textPaint.color = Color.parseColor("#D3DAE7")
+        canvas.drawText(label, x, y + dp(12f), textPaint)
+
+        textPaint.textSize = dp(8f)
+        textPaint.color = Color.parseColor("#9AA4B7")
+        canvas.drawText("Pk ${String.format("%.1f", peak)}", x, y + dp(23f), textPaint)
+
+        drawMiniBar(canvas, x, y + dp(29f), value, maxScaleG)
+    }
+
+    private fun drawMiniBar(canvas: Canvas, x: Float, y: Float, value: Float, maxScaleG: Float) {
+        val widthBar = dp(58f)
+        val heightBar = dp(4.5f)
+        val safeScale = max(maxScaleG, 0.01f)
+        val normalized = (value / safeScale).coerceIn(0f, 1f)
+        val left = x - widthBar / 2f
+        val right = x + widthBar / 2f
+
+        fillPaint.color = Color.parseColor("#4A5060")
+        canvas.drawRoundRect(RectF(left, y, right, y + heightBar), dp(3f), dp(3f), fillPaint)
+
+        fillPaint.color = Color.parseColor("#FF6020")
+        canvas.drawRoundRect(
+            RectF(left, y, left + widthBar * normalized, y + heightBar),
+            dp(3f),
+            dp(3f),
+            fillPaint
+        )
+    }
+
+    private fun resolveDynamicLongitudinalChartMaxG(): Float {
+        val longPeak = max(peakBrakeG, peakAccelG)
+        val liveLong = abs(gForceY)
+        val scaled = max(longPeak, liveLong) * longScaleHeadroom
+        return scaled.coerceIn(minLongChartMaxG, maxLongChartMaxG)
+    }
+
+    private fun updateCarTelemetryState() {
+        val brake = max(0f, gForceY)
+        val accel = max(0f, -gForceY)
+        val latLeft = max(0f, gForceX)
+        val latRight = max(0f, -gForceX)
+
+        peakBrakeG = max(peakBrakeG, brake)
+        peakAccelG = max(peakAccelG, accel)
+        peakLatLeftG = max(peakLatLeftG, latLeft)
+        peakLatRightG = max(peakLatRightG, latRight)
+        peakTotalG = max(peakTotalG, sqrt(gForceX * gForceX + gForceY * gForceY))
+
+        gTrail.addLast(PointF(gForceX, gForceY))
+        while (gTrail.size > maxTrailPoints) {
+            gTrail.removeFirst()
+        }
+    }
+
+    private fun dp(value: Float): Float = value * resources.displayMetrics.density
+
+    private fun Canvas.drawText(text: String, x: Float, y: Float, paint: Paint = textPaint) {
+        drawText(text, x, y, paint)
+    }
+
+    // Public methods
+    fun setSpeed(speed: Float) {
+        currentSpeed = speed.coerceIn(0f, maxSpeed)
+        invalidate()
+    }
+
+    fun setPredictiveGap(currentLap: Float, targetLap: Float) {
+        currentLapTime = currentLap
+        targetLapTime = targetLap
+        invalidate()
+    }
+
+    fun lockPredictiveColor(isSlower: Boolean) {
+        lockedGapSign = if (isSlower) 1 else -1
+        invalidate()
+    }
+
+    fun unlockPredictiveColor() {
+        lockedGapSign = null
+        invalidate()
+    }
+
+    fun setLeanAngle(angle: Float) {
+        leanAngle = angle.coerceIn(-90f, 90f)
+        if (leanAngle < 0f) {
+            maxLeanLeft = max(maxLeanLeft, abs(leanAngle))
+        } else {
+            maxLeanRight = max(maxLeanRight, leanAngle)
+        }
+        invalidate()
+    }
+
+    fun resetGForceHistory() {
+        maxLeanLeft = 0f
+        maxLeanRight = 0f
+        gTrail.clear()
+        peakBrakeG = 0f
+        peakAccelG = 0f
+        peakLatLeftG = 0f
+        peakLatRightG = 0f
+        peakTotalG = 0f
+        invalidate()
+    }
+}

@@ -4,7 +4,7 @@
     android:id="@+id/rootFrame"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0D1117"
+    android:background="@color/background_primary"
     android:fitsSystemWindows="true">
 
     <LinearLayout
@@ -21,17 +21,15 @@
             android:layout_height="64dp"
             android:background="#161B22"
             android:elevation="4dp">
-            <ImageView
+            <include
                 android:id="@+id/btnBack"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                layout="@layout/widget_back_button"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:layout_marginStart="8dp"
-                android:padding="12dp"
-                android:src="@drawable/ic_arrow_back"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:tint="#FFFFFF" />
+                app:layout_constraintTop_toTopOf="parent" />
             <ImageView
                 android:id="@+id/btnPreviousLap"
                 android:layout_width="40dp"
@@ -53,7 +51,7 @@
                 android:fontFamily="sans-serif-black"
                 android:gravity="center"
                 android:singleLine="true"
-                android:text="Session"
+                android:text="@string/races_session_fallback_name"
                 android:textColor="#FFFFFF"
                 android:textSize="18sp"
                 app:layout_constraintBottom_toBottomOf="parent"
@@ -209,6 +207,228 @@
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cardLapSessionStatistics"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="#161B22"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="6dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/track_stats_header"
+                            android:textColor="#FFFFFF"
+                            android:textSize="24sp"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="14dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/track_lap_time"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvLapTimeValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="00:00.00"
+                                android:textColor="#FFFFFF"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/track_max_speed"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvLapMaxSpeedValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0 km/h"
+                                android:textColor="#FFB020"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/track_min_speed"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvLapMinSpeedValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0 km/h"
+                                android:textColor="#FFB020"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/track_avg_speed"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvLapAvgSpeedValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0 km/h"
+                                android:textColor="#FFB020"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="8dp"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/track_max_acceleration"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvLapMaxAcceleration"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0.00 G"
+                                android:textColor="#A4D648"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/track_max_braking"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvLapMaxBraking"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0.00 G"
+                                android:textColor="#A4D648"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:id="@+id/tvLapBottomMetricLeftLabel"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/track_max_lean_left"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvLapMaxLeanLeft"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0°"
+                                android:textColor="#5AB8FF"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/tvLapBottomMetricRightLabel"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/track_max_lean_right"
+                                android:textColor="#9E9E9E"
+                                android:textSize="14sp" />
+
+                            <TextView
+                                android:id="@+id/tvLapMaxLeanRight"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0°"
+                                android:textColor="#5AB8FF"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </androidx.cardview.widget.CardView>
+
                 <!-- Statistics Grid Section -->
                 <TextView
                     android:id="@+id/tvStatisticsHeader"
@@ -217,7 +437,7 @@
                     android:layout_marginStart="4dp"
                     android:layout_marginBottom="12dp"
                     android:fontFamily="sans-serif-black"
-                    android:text="STATISTICS"
+                    android:text="@string/map_statistics_header"
                     android:textAllCaps="true"
                     android:letterSpacing="0.1"
                     android:textColor="#8B949E"
@@ -240,7 +460,7 @@
                         android:background="@drawable/bg_stat_item"
                         android:orientation="vertical"
                         android:padding="16dp">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="TOP SPEED" android:textColor="#8B949E" android:textSize="10sp" android:fontFamily="sans-serif-medium" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/stat_top_speed" android:textColor="#8B949E" android:textSize="10sp" android:fontFamily="sans-serif-medium" />
                         <TextView android:id="@+id/tvMaxSpeedInfo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="#FFFFFF" android:textSize="18sp" android:fontFamily="sans-serif-black" />
                     </LinearLayout>
 
@@ -253,7 +473,7 @@
                         android:background="@drawable/bg_stat_item"
                         android:orientation="vertical"
                         android:padding="16dp">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="AVG SPEED" android:textColor="#8B949E" android:textSize="10sp" android:fontFamily="sans-serif-medium" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/stat_avg_speed" android:textColor="#8B949E" android:textSize="10sp" android:fontFamily="sans-serif-medium" />
                         <TextView android:id="@+id/tvAvgSpeedInfo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="#FFFFFF" android:textSize="18sp" android:fontFamily="sans-serif-black" />
                     </LinearLayout>
 
@@ -266,7 +486,7 @@
                         android:background="@drawable/bg_stat_item"
                         android:orientation="vertical"
                         android:padding="16dp">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DURATION" android:textColor="#8B949E" android:textSize="10sp" android:fontFamily="sans-serif-medium" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/stat_duration_upper" android:textColor="#8B949E" android:textSize="10sp" android:fontFamily="sans-serif-medium" />
                         <TextView android:id="@+id/tvTotalTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="#FFFFFF" android:textSize="18sp" android:fontFamily="sans-serif-black" />
                     </LinearLayout>
 
@@ -279,7 +499,7 @@
                         android:background="@drawable/bg_stat_item"
                         android:orientation="vertical"
                         android:padding="16dp">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DISTANCE" android:textColor="#8B949E" android:textSize="10sp" android:fontFamily="sans-serif-medium" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/stat_distance_upper" android:textColor="#8B949E" android:textSize="10sp" android:fontFamily="sans-serif-medium" />
                         <TextView android:id="@+id/tvDistanceCar" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="#FFFFFF" android:textSize="18sp" android:fontFamily="sans-serif-black" />
                         <TextView android:id="@+id/tvDistanceMoto" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="#FFFFFF" android:textSize="18sp" android:fontFamily="sans-serif-black" android:visibility="gone" />
                     </LinearLayout>
@@ -294,7 +514,7 @@
                         android:background="@drawable/bg_stat_item"
                         android:orientation="vertical"
                         android:padding="16dp">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="LEAN LEFT" android:textColor="#8B949E" android:textSize="10sp" android:fontFamily="sans-serif-medium" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/stat_lean_left" android:textColor="#8B949E" android:textSize="10sp" android:fontFamily="sans-serif-medium" />
                         <TextView android:id="@+id/tvMaxLeftInfo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="#35E6CE" android:textSize="18sp" android:fontFamily="sans-serif-black" />
                     </LinearLayout>
 
@@ -308,7 +528,7 @@
                         android:background="@drawable/bg_stat_item"
                         android:orientation="vertical"
                         android:padding="16dp">
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="LEAN RIGHT" android:textColor="#8B949E" android:textSize="10sp" android:fontFamily="sans-serif-medium" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/stat_lean_right" android:textColor="#8B949E" android:textSize="10sp" android:fontFamily="sans-serif-medium" />
                         <TextView android:id="@+id/tvMaxRightInfo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:textColor="#35E6CE" android:textSize="18sp" android:fontFamily="sans-serif-black" />
                     </LinearLayout>
                 </GridLayout>
@@ -343,7 +563,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="8dp"
-                            android:text="DESCRIPTION"
+                            android:text="@string/garage_document_entry_description_section"
                             android:textColor="#FF6020"
                             android:textSize="11sp"
                             android:fontFamily="sans-serif-medium"
@@ -379,7 +599,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginBottom="12dp"
-                            android:text="PHOTOS"
+                            android:text="@string/map_photos_section"
                             android:textColor="#FF6020"
                             android:textSize="11sp"
                             android:fontFamily="sans-serif-medium"
@@ -389,6 +609,39 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal" />
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- Fuel Stops Section -->
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/fuelStopsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:visibility="gone"
+                    app:cardBackgroundColor="#161B22"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="4dp">
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="12dp"
+                            android:text="@string/session_fuel_stops_section"
+                            android:textColor="#FF6020"
+                            android:textSize="11sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:letterSpacing="0.05" />
+                        <LinearLayout
+                            android:id="@+id/llSessionFuelStops"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
                     </LinearLayout>
                 </androidx.cardview.widget.CardView>
 
@@ -414,7 +667,7 @@
             android:layout_height="match_parent"
             android:background="@android:color/transparent"
             android:fontFamily="sans-serif-black"
-            android:text="NEW ROUTE"
+            android:text="@string/new_session_button"
             android:textAllCaps="true"
             android:textColor="@android:color/white"
             android:textSize="16sp" />

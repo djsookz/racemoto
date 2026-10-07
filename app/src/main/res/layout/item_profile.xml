@@ -43,26 +43,43 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:orientation="vertical"
-            android:layout_marginStart="16dp">
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="6dp">
 
             <TextView
                 android:id="@+id/tvProfileName"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/garage_my_profile"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
-                android:fontFamily="sans-serif-medium" />
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/tvProfilePlate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:ellipsize="end"
+                android:letterSpacing="0.06"
+                android:maxLines="1"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/tvVehicleType"
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
                 android:text="@string/garage_vehicle_car"
-                android:textSize="13sp"
                 android:textColor="@color/text_tertiary"
-                android:layout_marginTop="2dp" />
+                android:textSize="13sp" />
 
             <TextView
                 android:id="@+id/tvSessionCount"
@@ -84,40 +101,38 @@
 
         </LinearLayout>
 
+        <!-- Действия: активирай + меню на един ред -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <ImageButton
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnDetails"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:src="@drawable/ic_info"
-                android:background="@drawable/bg_icon_button"
-                app:tint="@android:color/white"
-                android:padding="10dp" />
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="@string/garage_activate_action"
+                android:textAllCaps="false"
+                android:textSize="11sp"
+                app:cornerRadius="16dp" />
 
             <ImageButton
-                android:id="@+id/btnEdit"
+                android:id="@+id/btnProfileMenu"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:layout_marginStart="8dp"
-                android:src="@drawable/ic_edit"
+                android:layout_marginStart="6dp"
                 android:background="@drawable/bg_icon_button"
-                app:tint="@android:color/white"
-                android:padding="10dp" />
-
-            <ImageButton
-                android:id="@+id/btnDelete"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_marginStart="8dp"
-                android:src="@drawable/ic_delete"
-                android:background="@drawable/bg_icon_button_danger"
-                app:tint="#FF6B6B"
-                android:padding="10dp" />
+                android:contentDescription="@string/garage_profile_menu_content_description"
+                android:padding="10dp"
+                android:src="@drawable/ic_more_vert"
+                app:tint="@android:color/white" />
 
         </LinearLayout>
 

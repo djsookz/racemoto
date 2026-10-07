@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/drawable/bg_drag_session_all_shell.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1774019860017,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1774019860017,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<shape xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:shape=\"rectangle\">\r\n    <gradient\r\n        android:angle=\"0\"\r\n        android:startColor=\"#0D121A\"\r\n        android:endColor=\"#111824\" />\r\n    <stroke\r\n        android:width=\"1dp\"\r\n        android:color=\"#2A3A4D\" />\r\n    <corners android:radius=\"16dp\" />\r\n</shape>\r\n"
+        }
+    ]
+}

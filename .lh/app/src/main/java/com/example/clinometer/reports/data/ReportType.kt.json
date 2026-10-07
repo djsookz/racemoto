@@ -1,0 +1,22 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/reports/data/ReportType.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 1,
+            "patches": [
+                {
+                    "date": 1774607054375,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1774618826939,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -2,18 +2,48 @@\n \r\n /**\r\n  * Типове доклади за съобщаване на карта\r\n  */\r\n-enum class ReportType(val displayName: String, val icon: String) {\r\n-    POLICE(\"Полиция\", \"🚔\"),\r\n-    CAMERA(\"Камера\", \"📹\"),\r\n-    ACCIDENT(\"Инцидент\", \"⚠️\"),\r\n-    HAZARD(\"Опасност\", \"⚡\"),\r\n-    TRAFFIC(\"Трафик\", \"🚦\"),\r\n-    ROADWORK(\"Ремонт\", \"🚧\");\r\n+enum class ReportType(\r\n+    val displayName: String, \r\n+    val icon: String,\r\n+    val visibilityRadiusKm: Double, // Радиус на видимост в км\r\n+    val baseLifetimeMinutes: Int // Базово време на живот в минути\r\n+) {\r\n+    POLICE(\"Полиция\", \"🚔\", 100.0, 45),      // Критично за магистрали\r\n+    CAMERA(\"Камера\", \"📹\", 100.0, 60),        // Фиксирана позиция, дълго време\r\n+    ACCIDENT(\"Инцидент\", \"⚠️\", 30.0, 30),    // Локален, краткосрочен\r\n+    HAZARD(\"Опасност\", \"⚡\", 50.0, 45),       // Средна важност\r\n+    TRAFFIC(\"Трафик\", \"🚦\", 50.0, 30),        // Градски проблем\r\n+    ROADWORK(\"Ремонт\", \"🚧\", 50.0, 90);       // Дълготраен\r\n     \r\n+    /**\r\n+     * Изчислява бонус време според score\r\n+     */\r\n+    fun getScoreBonus(score: Int): Int {\r\n+        return when {\r\n+            score >= 11 -> 45  // Много надежден\r\n+            score >= 6 -> 30   // Надежден\r\n+            score >= 3 -> 15   // Потвърден\r\n+            else -> 0          // Нов или спорен\r\n+        }\r\n+    }\r\n+    \r\n+    /**\r\n+     * Изчислява общо време на живот (базово + score bonus)\r\n+     * @param score Текущ score на репорта\r\n+     * @param maxLifetimeMinutes Максимално допустимо време (default 120 мин)\r\n+     */\r\n+    fun getTotalLifetime(score: Int, maxLifetimeMinutes: Int = 120): Int {\r\n+        val total = baseLifetimeMinutes + getScoreBonus(score)\r\n+        return total.coerceAtMost(maxLifetimeMinutes)\r\n+    }\r\n+    \r\n     companion object {\r\n         fun fromString(value: String): ReportType? {\r\n             return entries.find { it.name == value }\r\n         }\r\n+        \r\n+        const val UPVOTE_REFRESH_MINUTES = 10 // Всеки upvote удължава с 10 мин\r\n+        const val MAX_LIFETIME_MINUTES = 120  // Максимум 2 часа жизнен цикъл\r\n     }\r\n }\r\n"
+                }
+            ],
+            "date": 1774607054375,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.reports.data\r\n\r\n/**\r\n * Типове доклади за съобщаване на карта\r\n */\r\nenum class ReportType(val displayName: String, val icon: String) {\r\n    POLICE(\"Полиция\", \"🚔\"),\r\n    CAMERA(\"Камера\", \"📹\"),\r\n    ACCIDENT(\"Инцидент\", \"⚠️\"),\r\n    HAZARD(\"Опасност\", \"⚡\"),\r\n    TRAFFIC(\"Трафик\", \"🚦\"),\r\n    ROADWORK(\"Ремонт\", \"🚧\");\r\n    \r\n    companion object {\r\n        fun fromString(value: String): ReportType? {\r\n            return entries.find { it.name == value }\r\n        }\r\n    }\r\n}\r\n"
+        }
+    ]
+}

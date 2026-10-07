@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/drawable/ic_tab_document.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1774871167050,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1774871167050,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<vector xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:width=\"20dp\"\r\n    android:height=\"20dp\"\r\n    android:viewportWidth=\"24\"\r\n    android:viewportHeight=\"24\">\r\n    <path\r\n        android:fillColor=\"#FFFFFFFF\"\r\n        android:pathData=\"M14,2H6C4.9,2 4,2.9 4,4v16c0,1.1 0.9,2 2,2h12c1.1,0 2,-0.9 2,-2V8L14,2zM18,20H6V4h7v5h5V20zM8,12h8v2H8v-2zM8,16h8v2H8v-2z\" />\r\n</vector>\r\n"
+        }
+    ]
+}

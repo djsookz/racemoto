@@ -358,7 +358,7 @@
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-medium"/>
 
-                <com.example.clinometer.LinearGaugeView
+                <com.revix.app.LinearGaugeView
                     android:id="@+id/linearGaugeView"
                     android:layout_width="@dimen/hud_angle_gauge_width_portrait"
                     android:layout_height="16dp"
@@ -423,7 +423,7 @@
                 app:tint="#2E3950" />
 
     <!-- Gauge View -->
-    <com.example.clinometer.GaugeView
+    <com.revix.app.GaugeView
         android:id="@+id/gaugeView"
         android:layout_width="236dp"
         android:layout_height="250dp"

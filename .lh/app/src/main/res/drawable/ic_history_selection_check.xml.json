@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/drawable/ic_history_selection_check.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1775056398279,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1775056398279,
+            "name": "Commit-0",
+            "content": "<vector xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:width=\"16dp\"\r\n    android:height=\"16dp\"\r\n    android:viewportWidth=\"24\"\r\n    android:viewportHeight=\"24\">\r\n    <path\r\n        android:fillColor=\"#FFFFFFFF\"\r\n        android:pathData=\"M9,16.17L4.83,12l-1.42,1.41L9,19L21,7l-1.41,-1.41z\" />\r\n</vector>"
+        }
+    ]
+}

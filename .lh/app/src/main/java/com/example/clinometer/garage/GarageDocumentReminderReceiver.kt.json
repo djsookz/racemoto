@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/garage/GarageDocumentReminderReceiver.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1775148113640,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1775148113640,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.garage\r\n\r\nimport android.content.BroadcastReceiver\r\nimport android.content.Context\r\nimport android.content.Intent\r\n\r\nclass GarageDocumentReminderReceiver : BroadcastReceiver() {\r\n    override fun onReceive(context: Context, intent: Intent) {\r\n        val profileId = intent.getLongExtra(\"document_reminder_profile_id\", -1L)\r\n        val entryId = intent.getLongExtra(\"document_reminder_entry_id\", -1L)\r\n        if (profileId == -1L || entryId == -1L) {\r\n            return\r\n        }\r\n\r\n        GarageDocumentReminderManager.handleReminderAlarm(context, profileId, entryId)\r\n    }\r\n}"
+        }
+    ]
+}

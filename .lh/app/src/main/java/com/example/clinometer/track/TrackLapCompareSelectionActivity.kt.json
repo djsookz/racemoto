@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1772455931581,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1776466844998,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -22,10 +22,9 @@\n     private data class TrackLapCandidate(\r\n         val sessionId: String,\r\n         val outingNumber: Int,\r\n         val lapNumber: Int,\r\n-        val lapTimeText: String,\r\n-        val lapTimeMs: Long\r\n+        val lapTimeText: String\r\n     )\r\n \r\n     private data class SessionGroup(\r\n         val key: String,\r\n@@ -128,10 +127,9 @@\n                         TrackLapCandidate(\r\n                             sessionId = sessionId,\r\n                             outingNumber = outing,\r\n                             lapNumber = lap,\r\n-                            lapTimeText = lapTime,\r\n-                            lapTimeMs = parseLapTimeMs(lapTime)\r\n+                            lapTimeText = lapTime\r\n                         )\r\n                     )\r\n                 }\r\n \r\n@@ -195,27 +193,8 @@\n         val match = Regex(\"^(\\\\d+)_\").find(sessionId) ?: return null\r\n         return match.groupValues.getOrNull(1)?.toLongOrNull()\r\n     }\r\n \r\n-    private fun parseLapTimeMs(lapTimeText: String): Long {\r\n-        val mainParts = lapTimeText.trim().split(\":\")\r\n-        if (mainParts.size != 2) return Long.MAX_VALUE\r\n-\r\n-        val minutes = mainParts[0].toLongOrNull() ?: return Long.MAX_VALUE\r\n-        val secParts = mainParts[1].split(\".\")\r\n-        val seconds = secParts.getOrNull(0)?.toLongOrNull() ?: return Long.MAX_VALUE\r\n-        val fractionRaw = secParts.getOrNull(1).orEmpty()\r\n-\r\n-        val millis = when (fractionRaw.length) {\r\n-            0 -> 0L\r\n-            1 -> (fractionRaw.toLongOrNull() ?: return Long.MAX_VALUE) * 100L\r\n-            2 -> (fractionRaw.toLongOrNull() ?: return Long.MAX_VALUE) * 10L\r\n-            else -> fractionRaw.take(3).toLongOrNull() ?: return Long.MAX_VALUE\r\n-        }\r\n-\r\n-        return minutes * 60_000L + seconds * 1_000L + millis\r\n-    }\r\n-\r\n     private fun parseDateTimeToEpoch(date: String, time: String): Long {\r\n         val dateTime = \"${date.trim()} ${time.trim()}\".trim()\r\n         if (dateTime.isBlank()) return 0L\r\n \r\n"
                 }
             ],
             "date": 1772455931581,

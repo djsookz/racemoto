@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/res/drawable/ic_humidity_drop.xml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1773507407420,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1773507407420,
+            "name": "Commit-0",
+            "content": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<vector xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    android:width=\"14dp\"\r\n    android:height=\"14dp\"\r\n    android:viewportWidth=\"24\"\r\n    android:viewportHeight=\"24\">\r\n    <path\r\n        android:fillColor=\"#9CA3AF\"\r\n        android:pathData=\"M12,2.7L6.34,8.36a8,8 0,1 0,11.32 0L12,2.7zM12,19a5,5 0,0 1,-3.54 -8.54L12,6.92l3.54,3.54A5,5 0,0 1,12 19z\" />\r\n</vector>\r\n"
+        }
+    ]
+}

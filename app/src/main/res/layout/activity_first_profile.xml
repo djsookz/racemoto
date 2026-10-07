@@ -3,216 +3,222 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/dark_background"
-    android:fitsSystemWindows="true">
+    android:background="@color/dark_background">
 
-    <!-- Full Screen Background Image -->
     <ImageView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:src="@drawable/start_background"
-        android:scaleType="centerCrop" />
+        android:scaleType="centerCrop"
+        android:src="@drawable/start_background" />
 
-    <!-- Dark Overlay -->
     <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#80000000" />
 
-    <!-- Top Title -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:orientation="vertical"
-        android:gravity="center"
-        android:padding="40dp"
-        android:layout_marginTop="80dp">
+        android:paddingStart="16dp"
+        android:paddingTop="24dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="16dp">
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="DRAGME PRO"
-            android:textAllCaps="true"
-            android:textSize="36sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.2"
-            android:textColor="@color/white"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="16dp"
             android:fontFamily="sans-serif-light"
+            android:gravity="center"
+            android:letterSpacing="0.2"
             android:shadowColor="@color/shadow_color"
             android:shadowDx="0"
             android:shadowDy="3"
-            android:shadowRadius="6" />
-    </LinearLayout>
-
-    <!-- Bottom Content -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_gravity="bottom"
-        android:background="@drawable/bottom_content_background"
-        android:padding="32dp"
-        android:layout_margin="16dp">
-
-        <!-- Vehicle Type Selection -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginBottom="24dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Vehicle Type"
-                android:textColor="@color/text_primary_light"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="16dp"
-                android:fontFamily="sans-serif-medium" />
-
-            <!-- Car Option -->
-            <LinearLayout
-                android:id="@+id/carCard"
-                android:layout_width="match_parent"
-                android:layout_height="80dp"
-                android:layout_marginBottom="12dp"
-                android:background="@drawable/vehicle_option_background"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="24dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🚗"
-                    android:textSize="32sp"
-                    android:layout_marginEnd="16dp"
-                    android:gravity="center" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Car"
-                    android:textColor="@color/text_primary_light"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:gravity="center_vertical"
-                    android:layout_marginTop="4dp" />
-            </LinearLayout>
-
-            <!-- Motorcycle Option -->
-            <LinearLayout
-                android:id="@+id/motorcycleCard"
-                android:layout_width="match_parent"
-                android:layout_height="80dp"
-                android:background="@drawable/vehicle_option_background"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="24dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="🏍️"
-                    android:textSize="32sp"
-                    android:layout_marginEnd="16dp"
-                    android:gravity="center" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Motorcycle"
-                    android:textColor="@color/text_primary_light"
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:gravity="center_vertical"
-                    android:layout_marginTop="4dp" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Vehicle Brand Selection -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/brandInput"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:hint="Select Brand"
-            android:textColorHint="@color/white"
-            app:boxStrokeColor="@color/primary_color"
-            app:boxStrokeWidth="1dp"
-            app:boxStrokeWidthFocused="2dp"
-            app:endIconTint="@color/primary_color"
-            app:boxBackgroundMode="outline"
-            app:boxBackgroundColor="@color/dark_surface"
-            app:startIconDrawable="@drawable/ic_car"
-            app:startIconTint="@color/primary_color">
-
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/brandDropdown"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="none"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:background="@null"
-                android:popupBackground="@color/white"
-                android:dropDownSelector="@color/primary_color"
-                android:dropDownVerticalOffset="8dp"
-                android:dropDownWidth="match_parent" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Vehicle Model Selection -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/modelInput"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="20dp"
-            android:hint="Select Model"
-            android:textColorHint="@color/white"
-            app:boxStrokeColor="@color/primary_color"
-            app:boxStrokeWidth="1dp"
-            app:boxStrokeWidthFocused="2dp"
-            app:endIconTint="@color/primary_color"
-            app:boxBackgroundMode="outline"
-            app:boxBackgroundColor="@color/dark_surface"
-            app:startIconDrawable="@drawable/ic_motorcycle"
-            app:startIconTint="@color/primary_color">
-
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/modelDropdown"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="none"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:background="@null"
-                android:popupBackground="@color/white"
-                android:dropDownSelector="@color/primary_color"
-                android:dropDownVerticalOffset="8dp"
-                android:dropDownWidth="match_parent" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Create Profile Button -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnCreateProfile"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:text="@string/create_profile_button"
+            android:shadowRadius="6"
+            android:text="@string/app_name"
+            android:textAllCaps="true"
             android:textColor="@color/white"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            app:backgroundTint="@color/primary_color"
-            app:cornerRadius="28dp"
-            app:icon="@drawable/ic_add"
-            app:iconGravity="textStart"
-            app:iconPadding="8dp"
-            app:iconTint="@color/white"
-            android:paddingStart="24dp"
-            android:paddingEnd="24dp" />
+            android:textSize="32sp"
+            android:textStyle="bold" />
+
+        <androidx.core.widget.NestedScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:fillViewport="true"
+            android:overScrollMode="ifContentScrolls">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:background="@drawable/bg_track_metric_speed"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="@string/first_profile_vehicle_type"
+                    android:textColor="@color/text_primary_light"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:id="@+id/carCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:background="@drawable/vehicle_option_background"
+                    android:gravity="center_vertical"
+                    android:minHeight="64dp"
+                    android:orientation="horizontal"
+                    android:paddingStart="20dp"
+                    android:paddingTop="16dp"
+                    android:paddingEnd="20dp"
+                    android:paddingBottom="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="16dp"
+                        android:gravity="center"
+                        android:text="🚗"
+                        android:textSize="28sp" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/garage_vehicle_car_plain"
+                        android:textColor="@color/text_primary_light"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/motorcycleCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="20dp"
+                    android:background="@drawable/vehicle_option_background"
+                    android:gravity="center_vertical"
+                    android:minHeight="64dp"
+                    android:orientation="horizontal"
+                    android:paddingStart="20dp"
+                    android:paddingTop="16dp"
+                    android:paddingEnd="20dp"
+                    android:paddingBottom="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="16dp"
+                        android:gravity="center"
+                        android:text="🏍️"
+                        android:textSize="28sp" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/garage_vehicle_motorcycle_plain"
+                        android:textColor="@color/text_primary_light"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/brandInput"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="16dp"
+                    android:hint="@string/garage_brand_placeholder"
+                    android:textColorHint="@color/white"
+                    app:boxBackgroundColor="@color/dark_surface"
+                    app:boxBackgroundMode="outline"
+                    app:boxStrokeColor="@color/primary_color"
+                    app:boxStrokeWidth="1dp"
+                    app:boxStrokeWidthFocused="2dp"
+                    app:endIconTint="@color/primary_color"
+                    app:startIconDrawable="@drawable/ic_car"
+                    app:startIconTint="@color/primary_color">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/brandDropdown"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@null"
+                        android:dropDownSelector="@color/primary_color"
+                        android:dropDownVerticalOffset="8dp"
+                        android:dropDownWidth="match_parent"
+                        android:completionThreshold="1"
+                        android:imeOptions="actionNext"
+                        android:inputType="textCapWords"
+                        android:popupBackground="@color/white"
+                        android:textColor="@color/white"
+                        android:textSize="16sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/modelInput"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="20dp"
+                    android:hint="@string/garage_model_placeholder"
+                    android:textColorHint="@color/white"
+                    app:boxBackgroundColor="@color/dark_surface"
+                    app:boxBackgroundMode="outline"
+                    app:boxStrokeColor="@color/primary_color"
+                    app:boxStrokeWidth="1dp"
+                    app:boxStrokeWidthFocused="2dp"
+                    app:endIconTint="@color/primary_color"
+                    app:startIconDrawable="@drawable/ic_motorcycle"
+                    app:startIconTint="@color/primary_color">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/modelDropdown"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@null"
+                        android:dropDownSelector="@color/primary_color"
+                        android:dropDownVerticalOffset="8dp"
+                        android:dropDownWidth="match_parent"
+                        android:completionThreshold="1"
+                        android:imeOptions="actionDone"
+                        android:inputType="textCapWords"
+                        android:popupBackground="@color/white"
+                        android:textColor="@color/white"
+                        android:textSize="16sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCreateProfile"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minHeight="56dp"
+                    android:paddingStart="24dp"
+                    android:paddingEnd="24dp"
+                    android:text="@string/create_profile_button"
+                    android:textColor="@color/white"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    app:backgroundTint="@color/primary_color"
+                    app:cornerRadius="28dp"
+                    app:icon="@drawable/ic_add"
+                    app:iconGravity="textStart"
+                    app:iconPadding="8dp"
+                    app:iconTint="@color/white" />
+            </LinearLayout>
+        </androidx.core.widget.NestedScrollView>
     </LinearLayout>
 </FrameLayout>

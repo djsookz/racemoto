@@ -87,7 +87,7 @@
                         android:id="@+id/tvManeuverDistance"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="500 m"
+                        android:text="@string/map_maneuver_distance_placeholder"
                         android:textColor="#FF6020"
                         android:textSize="24sp"
                         android:textStyle="bold"
@@ -97,7 +97,7 @@
                         android:id="@+id/tvManeuverPrimary"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Continue"
+                        android:text="@string/map_continue"
                         android:textColor="#FFFFFF"
                         android:textSize="16sp"
                         android:maxLines="2"
@@ -159,7 +159,7 @@
                 android:layout_height="40dp"
                 android:layout_marginTop="6dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Overview"
+                android:contentDescription="@string/map_overview"
                 android:src="@drawable/ic_route"
                 android:padding="6dp"
                 android:visibility="gone"
@@ -171,7 +171,7 @@
                 android:layout_height="40dp"
                 android:layout_marginTop="6dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Recenter"
+                android:contentDescription="@string/map_recenter"
                 android:src="@drawable/ic_navigation"
                 android:padding="6dp"
                 android:visibility="gone"
@@ -213,7 +213,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="km"
+                    android:text="@string/map_km"
                     android:textColor="#E0E0E0"
                     android:textSize="12sp" />
             </LinearLayout>
@@ -244,7 +244,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="time"
+                    android:text="@string/map_time"
                     android:textColor="#E0E0E0"
                     android:textSize="12sp" />
             </LinearLayout>
@@ -326,7 +326,7 @@
                     android:textStyle="bold"
                     android:fontFamily="sans-serif-medium"/>
 
-                <com.example.clinometer.LinearGaugeView
+                <com.revix.app.LinearGaugeView
                     android:id="@+id/linearGaugeViewLandscape"
                     android:layout_width="@dimen/hud_angle_gauge_width_landscape"
                     android:layout_height="16dp"
@@ -376,7 +376,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="center"
-                        android:text="ETA"
+                        android:text="@string/map_eta"
                         android:textColor="#E0E0E0"
                         android:textSize="@dimen/hud_trip_label_text_size_landscape" />
                 </LinearLayout>
@@ -410,7 +410,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="center"
-                        android:text="time"
+                        android:text="@string/map_time"
                         android:textColor="#E0E0E0"
                         android:textSize="@dimen/hud_trip_label_text_size_landscape" />
                 </LinearLayout>
@@ -444,7 +444,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="center"
-                        android:text="km"
+                        android:text="@string/map_km"
                         android:textColor="#E0E0E0"
                         android:textSize="@dimen/hud_trip_label_text_size_landscape" />
                 </LinearLayout>

@@ -1,0 +1,18 @@
+{
+    "sourceFile": "app/src/main/java/com/example/clinometer/utils/WeatherIconMapper.kt",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1776466844710,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1776466844710,
+            "name": "Commit-0",
+            "content": "package com.example.clinometer.utils\r\n\r\nimport com.example.clinometer.R\r\n\r\nobject WeatherIconMapper {\r\n    \r\n    /**\r\n     * Maps WeatherAPI.com condition codes to drawable resources\r\n     * Based on: https://www.weatherapi.com/docs/weather_conditions.json\r\n     */\r\n    fun getWeatherApiIcon(conditionCode: Int, cloudCover: Int, isDay: Boolean = true): Int {\r\n        return when {\r\n            // Sunny/Clear (1000)\r\n            conditionCode == 1000 -> {\r\n                if (cloudCover <= 25) {\r\n                    if (isDay) R.drawable.ic_weather_sunny else R.drawable.ic_weather_clear_night\r\n                } else if (cloudCover <= 75) {\r\n                    if (isDay) R.drawable.ic_weather_partly_cloudy else R.drawable.ic_weather_partly_cloudy_night\r\n                } else {\r\n                    R.drawable.ic_weather_cloudy\r\n                }\r\n            }\r\n            \r\n            // Partly cloudy (1003)\r\n            conditionCode == 1003 -> {\r\n                if (cloudCover <= 50) {\r\n                    if (isDay) R.drawable.ic_weather_partly_cloudy else R.drawable.ic_weather_partly_cloudy_night\r\n                } else {\r\n                    R.drawable.ic_weather_cloudy\r\n                }\r\n            }\r\n            \r\n            // Cloudy/Overcast (1006, 1009)\r\n            conditionCode in 1006..1009 -> R.drawable.ic_weather_cloudy\r\n            \r\n            // Mist/Fog (1030, 1135, 1147)\r\n            conditionCode in listOf(1030, 1135, 1147) -> R.drawable.ic_weather_cloudy\r\n            \r\n            // Rain (1063, 1150, 1153, 1180-1201, 1240-1246)\r\n            conditionCode in listOf(1063, 1150, 1153) -> R.drawable.ic_weather_rainy\r\n            conditionCode in 1180..1201 -> R.drawable.ic_weather_rainy\r\n            conditionCode in 1240..1246 -> R.drawable.ic_weather_rainy\r\n            \r\n            // Snow (1066, 1114, 1210-1237, 1249-1264)\r\n            conditionCode in listOf(1066, 1114) -> R.drawable.ic_weather_snowy\r\n            conditionCode in 1210..1237 -> R.drawable.ic_weather_snowy\r\n            conditionCode in 1249..1264 -> R.drawable.ic_weather_snowy\r\n            \r\n            // Thunderstorm (1087, 1273-1282)\r\n            conditionCode == 1087 -> R.drawable.ic_weather_rainy\r\n            conditionCode in 1273..1282 -> R.drawable.ic_weather_rainy\r\n            \r\n            // Default\r\n            else -> R.drawable.ic_thermometer\r\n        }\r\n    }\r\n}\r\n\r\n"
+        }
+    ]
+}

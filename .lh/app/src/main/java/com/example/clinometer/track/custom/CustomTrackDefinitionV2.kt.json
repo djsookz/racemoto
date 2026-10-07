@@ -3,11 +3,19 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 2,
             "patches": [
                 {
                     "date": 1772458279116,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1774284341893,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -0,0 +1,25 @@\n+package com.example.clinometer.tracking\r\n+\r\n+import com.example.clinometer.GeoPoint\r\n+\r\n+enum class CustomTrackMode {\r\n+    CIRCUIT,\r\n+    POINT_TO_POINT\r\n+}\r\n+\r\n+data class GateLine(\r\n+    val start: GeoPoint,\r\n+    val end: GeoPoint\r\n+)\r\n+\r\n+data class CustomTrackDefinitionV2(\r\n+    val id: String,\r\n+    val name: String,\r\n+    val mode: CustomTrackMode,\r\n+    val createdAt: Long = System.currentTimeMillis(),\r\n+    val startGate: GateLine? = null,\r\n+    val finishGate: GateLine? = null,\r\n+    val sectorGates: List<GateLine> = emptyList(),\r\n+    val referencePath: List<GeoPoint> = emptyList(),\r\n+    val measuredDistanceMeters: Float? = null\r\n+)\r\n"
+                },
+                {
+                    "date": 1774350544639,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -6,8 +6,13 @@\n     CIRCUIT,\r\n     POINT_TO_POINT\r\n }\r\n \r\n+enum class CustomTrackCreationMode {\r\n+    PHONE,\r\n+    DRIVING\r\n+}\r\n+\r\n data class GateLine(\r\n     val start: GeoPoint,\r\n     val end: GeoPoint\r\n )\r\n@@ -15,35 +20,12 @@\n data class CustomTrackDefinitionV2(\r\n     val id: String,\r\n     val name: String,\r\n     val mode: CustomTrackMode,\r\n+    val creationMode: CustomTrackCreationMode? = null,\r\n     val createdAt: Long = System.currentTimeMillis(),\r\n     val startGate: GateLine? = null,\r\n     val finishGate: GateLine? = null,\r\n     val sectorGates: List<GateLine> = emptyList(),\r\n     val referencePath: List<GeoPoint> = emptyList(),\r\n     val measuredDistanceMeters: Float? = null\r\n )\r\n-package com.example.clinometer.tracking\r\n-\r\n-import com.example.clinometer.GeoPoint\r\n-\r\n-enum class CustomTrackMode {\r\n-    CIRCUIT,\r\n-    POINT_TO_POINT\r\n-}\r\n-\r\n-data class GateLine(\r\n-    val start: GeoPoint,\r\n-    val end: GeoPoint\r\n-)\r\n-\r\n-data class CustomTrackDefinitionV2(\r\n-    val id: String,\r\n-    val name: String,\r\n-    val mode: CustomTrackMode,\r\n-    val createdAt: Long = System.currentTimeMillis(),\r\n-    val startGate: GateLine? = null,\r\n-    val finishGate: GateLine? = null,\r\n-    val sectorGates: List<GateLine> = emptyList(),\r\n-    val referencePath: List<GeoPoint> = emptyList()\r\n-)\r\n"
                 }
             ],
             "date": 1772458279116,

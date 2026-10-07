@@ -1,0 +1,68 @@
+package com.example.clinometer.track
+
+import android.content.Context
+import com.example.clinometer.GeoPoint
+import com.example.clinometer.TrackManager
+import com.example.clinometer.track.catalog.TrackMode
+import com.example.clinometer.tracking.CustomTrackMode
+import com.example.clinometer.tracking.CustomTrackStorage
+
+object TrackReferencePathLoader {
+    fun load(
+        context: Context,
+        trackId: String,
+        isPointToPoint: Boolean = false
+    ): TrackReferenceRoute? {
+        val normalizedTrackId = trackId.trim()
+        if (normalizedTrackId.isBlank()) return null
+
+        val isCircuit = !isPointToPoint
+        resolveOfficialTemplate(context, normalizedTrackId, isCircuit)?.let { return it }
+        resolveCustomTemplate(context, normalizedTrackId, isCircuit)?.let { return it }
+        return null
+    }
+
+    private fun resolveOfficialTemplate(
+        context: Context,
+        trackId: String,
+        isCircuit: Boolean
+    ): TrackReferenceRoute? {
+        val trackData = TrackManager(context).loadTrackData(trackId) ?: return null
+        val points = trackData.trackPoints.map { it.geoPoint }
+        if (points.size < 2) return null
+        return TrackReferenceRoute.fromPoints(
+            points = points,
+            closeLoop = isCircuit,
+            startFinishAnchor = points.first()
+        )
+    }
+
+    private fun resolveCustomTemplate(
+        context: Context,
+        trackId: String,
+        isCircuit: Boolean
+    ): TrackReferenceRoute? {
+        val customTrack = CustomTrackStorage.loadCustomTrackV2(context, trackId) ?: return null
+        if (customTrack.referencePath.size < 2) return null
+
+        val closeLoop = isCircuit && customTrack.mode == CustomTrackMode.CIRCUIT
+        val startFinishAnchor = customTrack.startGate?.let { gate ->
+            GeoPoint(
+                latitude = (gate.start.latitude + gate.end.latitude) / 2.0,
+                longitude = (gate.start.longitude + gate.end.longitude) / 2.0
+            )
+        }
+
+        return TrackReferenceRoute.fromPoints(
+            points = customTrack.referencePath,
+            closeLoop = closeLoop,
+            startFinishAnchor = startFinishAnchor
+        )
+    }
+
+    fun isOfficialCircuit(context: Context, trackId: String): Boolean {
+        return com.example.clinometer.track.catalog.OfficialTrackCatalog.tracks.any {
+            it.id == trackId && it.mode == TrackMode.CIRCUIT
+        }
+    }
+}

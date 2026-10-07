@@ -3,14 +3,16 @@
 # Publishes to branch `racebox-aiding`:
 #   https://raw.githubusercontent.com/djsookz/racemoto/racebox-aiding/aiding.ubx
 #
-# Schedule: every 2 hours. Also runnable manually from Actions tab.
+# Schedule: once a day. BRDC is a 01D (daily) file — every 2 hours still
+# burns private-repo Actions minutes even with a 5-minute timeout.
+# Also runnable manually from Actions tab.
 # A failed run does not publish, so the last successful aiding.ubx stays.
 
 name: RaceBox aiding (RINEX)
 
 on:
   schedule:
-    - cron: "20 */2 * * *"
+    - cron: "20 4 * * *"
   workflow_dispatch:
 
 permissions:

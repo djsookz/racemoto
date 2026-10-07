@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1771575193359,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1776466844839,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -179,11 +179,8 @@\n             handleRouteClick(clickPoint)\r\n             true\r\n         }\r\n         \r\n-        // Setup start navigation button (will be set up in setupMotorwayOptions to close options)\r\n-        val btnStartNavigation = findViewById<Button>(R.id.btnStartNavigation)\r\n-        \r\n         // Display destination name\r\n         val tvDestinationName = findViewById<TextView>(R.id.tvDestinationName)\r\n         tvDestinationName.text = destinationName\r\n         \r\n@@ -455,30 +452,8 @@\n             }\r\n         }\r\n     }\r\n     \r\n-    private fun hasMotorway(route: DirectionsRoute): Boolean {\r\n-        // Simple check: look for A1, A2, A3, A4, A5, A6, A7 anywhere in step names\r\n-        // Use simple contains check for flexibility\r\n-        for (leg in route.legs) {\r\n-            for (step in leg.steps) {\r\n-                val stepName = step.name ?: \"\"\r\n-                \r\n-                // Check for A1, A2, A3, A4, A5, A6, A7 (case insensitive)\r\n-                val upperName = stepName.uppercase()\r\n-                if (upperName.contains(\"A1\") || upperName.contains(\"A2\") || upperName.contains(\"A3\") ||\r\n-                    upperName.contains(\"A4\") || upperName.contains(\"A5\") || upperName.contains(\"A6\") ||\r\n-                    upperName.contains(\"A7\")) {\r\n-                    Log.d(\"RoutePreview\", \"✓ FOUND MOTORWAY: $stepName\")\r\n-                    return true\r\n-                }\r\n-            }\r\n-        }\r\n-        \r\n-        Log.d(\"RoutePreview\", \"✗ NO MOTORWAY found\")\r\n-        return false\r\n-    }\r\n-    \r\n     private fun selectRoute(index: Int) {\r\n         if (index >= allRoutes.size) return\r\n         \r\n         selectedRouteIndex = index\r\n@@ -504,9 +479,8 @@\n             \r\n             // All routes use the same orange color - like Google Maps\r\n             val routeColor = \"#FF6020\"       // App primary color\r\n             val casingColor = \"#CC4D1A\"      // Darker casing\r\n-            val altDashColor = \"#994015\"     // Slightly darker for dashed alternative segments\r\n             \r\n             // First pass: Draw ALL routes with same orange color (this makes overlapping parts solid orange)\r\n             for (i in allRoutes.indices) {\r\n                 val route = allRoutes[i]\r\n"
                 }
             ],
             "date": 1771575193359,

@@ -30,9 +30,13 @@
 
         <TextView
             android:id="@+id/tvNavDrag"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:ellipsize="none"
             android:text="@string/nav_drag_label"
             android:textColor="@color/nav_text_inactive"
             android:textSize="12sp"/>
@@ -59,9 +63,13 @@
 
         <TextView
             android:id="@+id/tvNavTrack"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:ellipsize="none"
             android:text="@string/nav_track_label"
             android:textColor="@color/nav_text_inactive"
             android:textSize="12sp"/>
@@ -88,18 +96,16 @@
 
         <TextView
             android:id="@+id/tvNavMap"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:minWidth="40dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:ellipsize="none"
             android:text="@string/nav_map_label"
             android:textColor="@color/nav_text_inactive"
-            android:textSize="12sp"
-            android:singleLine="true"
-            android:ellipsize="none"
-            android:maxLines="1"
-            android:gravity="center"
-            android:includeFontPadding="false"/>
+            android:textSize="12sp"/>
     </LinearLayout>
 
     <!-- Навигационен елемент 4 - Гараж -->
@@ -123,9 +129,13 @@
 
         <TextView
             android:id="@+id/tvNavGarage"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:ellipsize="none"
             android:text="@string/nav_garage_label"
             android:textColor="@color/nav_text_inactive"
             android:textSize="12sp"/>
@@ -143,18 +153,40 @@
         android:focusable="true"
         android:background="?android:attr/selectableItemBackground">
 
-        <ImageView
-            android:id="@+id/ivNavOptions"
+        <FrameLayout
             android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:src="@drawable/ic_settings"
-            app:tint="@color/nav_icon_inactive"/>
+            android:layout_height="24dp">
+
+            <ImageView
+                android:id="@+id/ivNavOptions"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:src="@drawable/ic_settings"
+                app:tint="@color/nav_icon_inactive"/>
+
+            <TextView
+                android:id="@+id/tvNavOptionsBadge"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_gravity="top|end"
+                android:background="@drawable/bg_settings_alert_badge"
+                android:gravity="center"
+                android:text="!"
+                android:textColor="@android:color/white"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </FrameLayout>
 
         <TextView
             android:id="@+id/tvNavOptions"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:ellipsize="none"
             android:text="@string/nav_options_label"
             android:textColor="@color/nav_text_inactive"
             android:textSize="12sp"/>
